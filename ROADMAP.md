@@ -137,51 +137,144 @@ Unresolved, and worth a deliberate answer rather than a default.
 
 ## Backlog
 
-Everything noticed and not yet done, grouped so it can be triaged. Add to it as
-things are found — an idea, a gap, or something spotted while fixing something
-else all belong here.
+Everything found or proposed, grouped so it can be skimmed and approved a few
+items at a time. **Every session adds here as it goes** — a bug noticed in
+passing, an idea while doing something else, a change a design pass implies.
+Nothing waits for a tidy moment. Tick an item to approve it for building; the
+detail behind the factory entries is in
+[CCgame late game progression](https://claude.ai/code/artifact/261951ca-ed94-49d6-aee9-3fc4e49346ca).
 
 ### Bugs
 
-- Placing a piece writes the whole island to `localStorage` synchronously, so
-  every click while dragging out a belt line serialises the entire world. It
-  costs ~2.6 ms at 550 belts and grows with the base. It should be debounced to
-  the existing 8-second save timer instead.
-- Removing a belt or machine scans `world.belts` / `world.machines` linearly to
-  find it, although `world.grid` already resolves the tile. Cheap today, the
-  same shape as the tick bug that was already fixed.
-- The baked island canvas is `MAP_SIZE` square — 3072×3072, about 38 MB of
-  backing store. On a phone that is enough to push the canvas into software
-  rendering, which is exactly where frame time hurts.
-- The core loop has not been playtested by a human yet. Day length (3 min),
-  night length (1 min), gather rates and belt speed are all unvalidated guesses.
-- Touch controls are implemented but have never been tested on real hardware.
+- [ ] Ore never depletes. `shared/sim/ore.ts` says in a comment that a finite
+      patch is what pushes a player outward, but the grid stores only a kind
+      index and `stepMiner` never decrements it. One miner supplies an island
+      forever. (The design question is under Open questions; the code
+      contradicting its own comment is the bug.)
+- [ ] Coal is mined but nothing consumes it. No row in `recipes.ts` takes it as
+      an input, so a third of the island's ore is dead weight.
+- [ ] Chests are write-only. `outputSlots: 0` and no player take-out, so
+      anything belted into a chest can never come back out. Storage is a bin,
+      not a buffer.
 
-### Changes
-
-- Ore is baked into the island canvas on the assumption that `world.ore` never
-  changes after generation. If patches ever deplete (see open questions), the
-  island has to be re-baked on change or ore has to move back to a live layer.
-- Blitting the baked island is the largest remaining per-frame cost when the
-  canvas is not GPU-accelerated: about 3.6 ms of a 5–8 ms frame, because the
-  static image is resampled to the camera zoom every frame. On an accelerated
-  canvas it is close to free. Caching a pre-scaled screen-sized tile would fix
-  it, at the cost of a rebuild whenever the camera pans past the margin.
-- `resize()` caps `devicePixelRatio` at 2, so a retina display rasterises four
-  times the pixels every frame. Worth revisiting if lag is reported on one.
-- The render loop allocates an object and a closure per visible entity each
-  frame to feed the depth sort. Pooling them would cut the GC churn.
+- [ ] Placing a single piece rewrites the whole island to `localStorage`
+      synchronously, so dragging out a belt line serialises the world on every
+      click. About 2.6 ms at 550 belts and it grows with the base; it should
+      debounce onto the existing 8-second save timer.
+- [ ] `removeAt` scans `world.belts` and `world.machines` linearly to find the
+      piece, although `world.grid` already resolves the tile. Cheap today, the
+      same shape as the tick bug that was already fixed.
+- [ ] The baked island canvas is `MAP_SIZE` square — 3072×3072, about 38 MB of
+      backing store. On a phone that is enough to push the canvas into software
+      rendering, which is exactly where frame time hurts.
 
 ### New features
 
-- No audio.
-- No production statistics, so bottlenecks currently have to be found by eye.
-- A frame-time overlay behind a debug flag, so performance regressions show up
-  while playing rather than only under a profiler.
+- [ ] **Splitter** — one input, two outputs, alternating, with an optional
+      filter per side. Best value per line of code in the factory layer: until
+      it exists a belt feeds exactly one machine.
+- [ ] **Inserter and long inserter** — move items between a belt and a machine
+      or chest it does not directly face. Also the fix for write-only chests.
+- [ ] **Lab and a `TECHS` table** — research consumed as a belt-fed item flow
+      rather than bought from a shop, so every unlock is a throughput problem.
+- [ ] **Tech gating on the build palette** — start with miner, furnace and
+      belt; everything else is earned. Today all four machines are available at
+      minute one.
+- [ ] **Fuel slots** — tier-2 furnaces and assemblers burn coal off a belt.
+      Every furnace bank then needs two input belts, which roughly doubles the
+      interest of a layout.
+- [ ] **Generator and power radius** — tier-3 machines draw power instead of
+      fuel; a brown-out slows machines proportionally rather than stopping them.
+- [ ] **Machine tiers 2 and 3** — steel furnace, assembler Mk2, electric miner,
+      electric furnace, industrial assembler. `MachineDef.speed` already exists
+      and is `1` everywhere, so the multipliers are free.
+- [ ] **Modules** — a slotted item for +speed, +output or −power in a tier-3
+      machine. A sink that never saturates.
+- [ ] **Steel and 8–10 new recipes** — gives research something worth gating.
+- [ ] **Belt tiers Mk2 and Mk3** (3.2 and 6.4 tiles/s), pending the open
+      question on whether belts get tiers at all.
+- [ ] **Underground belts** — a placed pair passing items beneath up to 6
+      tiles. What makes a large factory readable.
+- [ ] **Long-haul transport** — a bound pair of ports, items entering one
+      arriving at the other after a delay. Matches the tier-6 drone decision
+      and costs a fraction of rails.
+- [ ] **Belt-fed turrets** — ammo becomes a production line and the factory
+      starts defending itself. The cleanest way to make the two halves of the
+      game touch.
+- [ ] **Production ledger** — items per minute per item, with a graph and a
+      personal best. Already listed as a Phase 4 need; this is the concrete
+      shape of it.
+- [ ] **The Beacon megaproject** — five stages at camp, each a sustained
+      delivery rate, the tower visibly growing. A progress bar standing in the
+      world.
+- [ ] **Second island via a bridge** — a new generated region with its own ore
+      tier and tech branch. Multiplies content instead of ending it.
+- [ ] **Audio** — there is none.
+
+- [ ] A frame-time overlay behind a debug flag, so performance regressions show
+      up while playing rather than only under a profiler.
+
+### Changes
+
+- [ ] Lab consumption should grant XP to every player on the island. `grantXp`
+      fires only from gathering and mob kills today, which means automating
+      your island *slows your character down*. This also gives peaceful worlds
+      a levelling curve, which they currently lack.
+- [ ] Scale `waveBudget` off the highest research tier completed rather than
+      the night index alone. Researching is a choice, so difficulty stays
+      opt-in and building freely never punishes you.
+- [ ] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
+      for belt tiers, and it touches the save format.
+- [ ] Grow `UPGRADES` from 9 stat entries and 4 weapons to 40–60 entries with
+      rarity tiers. Once labs feed XP continuously a player sees hundreds of
+      level-ups, and three cards drawn from the same nine is thin within an
+      hour.
+- [ ] Measure late-game goals as a rate held over time, never a total
+      delivered. A total is farmed by leaving the game open; a rate can only be
+      met by a factory that is genuinely good.
+
+- [ ] Ore is baked into the island canvas on the assumption that `world.ore`
+      never changes after generation. **This blocks depleting ore** (first item
+      under Bugs): if patches start depleting, the island has to be re-baked on
+      change or ore has to move back to a live per-frame layer.
+- [ ] Blitting the baked island is the largest remaining per-frame cost when the
+      canvas is not GPU-accelerated: about 3.6 ms of a 5–8 ms frame, because the
+      static image is resampled to the camera zoom every frame. On an
+      accelerated canvas it is close to free. Caching a pre-scaled screen-sized
+      tile would fix it, at the cost of a rebuild whenever the camera pans past
+      the margin.
+- [ ] `resize()` caps `devicePixelRatio` at 2, so a retina display rasterises
+      four times the pixels every frame. Worth revisiting if lag is reported on
+      one.
+- [ ] The render loop allocates an object and a closure per visible entity each
+      frame to feed the depth sort. Pooling them would cut the GC churn.
 
 ### Ideas
 
-- Canvas 2D records draw calls and flushes them lazily, so `performance.now()`
-  around a drawing call measures recording, not rasterising, and time lands in
-  whatever call triggers the flush. Measure the render path by removing work and
-  comparing, not by timing segments — the segment timings say the wrong thing.
+- [ ] Peaceful worlds need a fishing-only route to the top research tier, since
+      `essence` also drops from wisps at night. Otherwise peaceful is locked
+      out of the endgame it suits best.
+- [ ] Research shared per world rather than per player once multiplayer lands —
+      it is what makes another player arriving unambiguously good.
+- [ ] Grandfather existing saves as fully unlocked when the palette becomes
+      tech-gated. "Nothing is lost" is a stated pillar.
+- [ ] Trains as a later flourish on top of port logistics, for the spectacle
+      rather than the function.
+- [ ] Fluids — oil, pipes, refineries. Deliberately deferred: a second belt
+      system with its own network solving, for less return than anything above.
+      Worth revisiting only after the second island exists.
+- [ ] Blueprints — enormous tedium removed, but also the learning that early
+      tedium teaches. Timing is the whole question.
+
+- [ ] Canvas 2D records draw calls and flushes them lazily, so
+      `performance.now()` around a drawing call measures recording, not
+      rasterising, and the time lands in whatever call triggers the flush.
+      Measure the render path by removing work and comparing, not by timing
+      segments — the segment timings say the wrong thing.
+
+### Needs testing
+
+- [ ] The core loop has never been playtested by a human. Day length (3 min),
+      night length (1 min), gather rates and belt speed are all unvalidated
+      guesses.
+- [ ] Touch controls are implemented but have never been run on real hardware.

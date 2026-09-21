@@ -151,3 +151,9 @@ regardless, so a private repo would buy nothing while blocking free hosting.
 - Do not create a PR unless asked.
 - Keep [ROADMAP.md](ROADMAP.md) current when a phase moves, and record any
   decision that changes architecture in its decision log.
+- **Add to the ROADMAP backlog as you go.** A bug noticed in passing, an idea
+  had while doing something else, a change some other work implies — it goes
+  into the backlog under Bugs, New features, Changes, Ideas or Needs testing
+  in the same session it came up, as one short line. Do not save it for a tidy
+  moment and do not wait to be asked: an idea that only lives in a session
+  transcript is lost. Items are unticked until the owner approves them.
