@@ -12,12 +12,13 @@ import {
 } from '../factory';
 import { tileKey } from '../grid';
 import { addItem, countItem } from '../inventory';
+import { countIn, totalIn } from '../slots';
 import { oreAt } from '../ore';
 import { EMPTY_INPUT, step } from '../step';
 import { pushOntoBelt } from '../systems/factory';
 import type { Belt, Direction, ItemId, Machine, Player, World } from '../types';
 import { addPlayer, createWorld } from '../world';
-import { advance, at, bench, plantOre, put } from './bench';
+import { advance, at, bench, contents, fill, plantOre, put } from './bench';
 
 function run(world: World, seconds: number): void {
   const ticks = Math.round(seconds / TICK_DT);
@@ -151,7 +152,7 @@ describe('placement', () => {
     const { world, player } = setup();
     const ore = findOre(world, 'ironOre');
     const miner = placeMachine(world, player, 'miner', ore.tx, ore.ty, 0)!;
-    miner.output.push({ id: 'ironOre', count: 7 });
+    fill(miner.output, 'ironOre', 7);
 
     const before = countItem(player, 'ironOre');
     removeAt(world, player, ore.tx, ore.ty);
@@ -241,8 +242,8 @@ describe('miners', () => {
     const miner = placeMachine(world, player, 'miner', ore.tx, ore.ty, 0)!;
 
     run(world, 4);
-    expect(miner.output.reduce((n, s) => n + s.count, 0)).toBeGreaterThan(0);
-    expect(miner.output[0].id).toBe('ironOre');
+    expect(totalIn(miner.output)).toBeGreaterThan(0);
+    expect(contents(miner.output)).toEqual(['ironOre']);
   });
 
   it('feeds a belt placed at its output', () => {
@@ -261,7 +262,7 @@ describe('miners', () => {
     const { world, player } = setup();
     const ore = findOre(world, 'ironOre');
     const miner = placeMachine(world, player, 'miner', ore.tx, ore.ty, 0)!;
-    miner.output.push({ id: 'ironOre', count: MACHINES.miner.slotSize });
+    fill(miner.output, 'ironOre', MACHINES.miner.slotSize, MACHINES.miner.slotSize);
 
     run(world, 2);
     expect(miner.stalled).toBe(true);
@@ -275,10 +276,10 @@ describe('crafting machines', () => {
     const furnace = placeMachine(world, player, 'furnace', tx, ty, 0)!;
 
     setRecipe(world, furnace.id, 'ironPlate');
-    furnace.input.push({ id: 'ironOre', count: 10 });
+    fill(furnace.input, 'ironOre', 10);
 
     run(world, 5);
-    expect(furnace.output.some((s) => s.id === 'ironPlate' && s.count > 0)).toBe(true);
+    expect(countIn(furnace.output, 'ironPlate')).toBeGreaterThan(0);
   });
 
   it('consumes exactly the recipe inputs per craft', () => {
@@ -288,11 +289,11 @@ describe('crafting machines', () => {
 
     setRecipe(world, assembler.id, 'gear');
     // Exactly one craft's worth: 1 gear costs 2 plates and takes 1.5s.
-    assembler.input.push({ id: 'ironPlate', count: 2 });
+    fill(assembler.input, 'ironPlate', 2);
 
     run(world, 1.7);
-    expect(assembler.output.find((s) => s.id === 'gear')?.count ?? 0).toBe(1);
-    expect(assembler.input.find((s) => s.id === 'ironPlate')?.count ?? 0).toBe(0);
+    expect(countIn(assembler.output, 'gear')).toBe(1);
+    expect(countIn(assembler.input, 'ironPlate')).toBe(0);
   });
 
   it('starts the next craft immediately while inputs remain', () => {
@@ -301,12 +302,12 @@ describe('crafting machines', () => {
     const assembler = placeMachine(world, player, 'assembler', tx, ty, 0)!;
 
     setRecipe(world, assembler.id, 'gear');
-    assembler.input.push({ id: 'ironPlate', count: 6 });
+    fill(assembler.input, 'ironPlate', 6);
 
     // Three crafts at 1.5s each; machines do not idle between them.
     run(world, 4.8);
-    expect(assembler.output.find((s) => s.id === 'gear')?.count ?? 0).toBe(3);
-    expect(assembler.input.find((s) => s.id === 'ironPlate')?.count ?? 0).toBe(0);
+    expect(countIn(assembler.output, 'gear')).toBe(3);
+    expect(countIn(assembler.input, 'ironPlate')).toBe(0);
   });
 
   it('stalls without inputs', () => {
@@ -317,7 +318,7 @@ describe('crafting machines', () => {
 
     run(world, 1);
     expect(furnace.stalled).toBe(true);
-    expect(furnace.output.length).toBe(0);
+    expect(totalIn(furnace.output)).toBe(0);
   });
 
   it('only accepts items its recipe uses', () => {
@@ -329,7 +330,7 @@ describe('crafting machines', () => {
     pushOntoBelt(belt, 'copperOre');
     advance(b.world, 3);
     // Copper is not part of the iron recipe, so it must stay on the belt.
-    expect(furnace.input.some((stack) => stack.id === 'copperOre')).toBe(false);
+    expect(countIn(furnace.input, 'copperOre')).toBe(0);
     expect(belt.items.length).toBe(1);
   });
 

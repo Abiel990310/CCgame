@@ -3,10 +3,21 @@ import { TICK_DT } from '../constants';
 import { placeBelt, placeMachine, setRecipe } from '../factory';
 import { tileKey } from '../grid';
 import { addItem } from '../inventory';
+import { addToSlots, countIn, stacksIn, totalIn } from '../slots';
 import { ORE_ORDER } from '../ore';
 import { EMPTY_INPUT, step } from '../step';
 import { TERRAIN_ORDER } from '../terrain';
-import type { Belt, Direction, ItemId, Machine, MachineId, OreKind, Player, World } from '../types';
+import type {
+  Belt,
+  Direction,
+  ItemId,
+  Machine,
+  MachineId,
+  OreKind,
+  Player,
+  Slot,
+  World,
+} from '../types';
 import { addPlayer, createWorld } from '../world';
 
 /**
@@ -93,11 +104,21 @@ export function lay(
 
 /** How many of one item a machine is holding on its input side. */
 export function held(machine: Machine, item: ItemId): number {
-  return machine.input.find((s) => s.id === item)?.count ?? 0;
+  return countIn(machine.input, item);
 }
 
 export function totalHeld(machine: Machine): number {
-  return machine.input.reduce((n, s) => n + s.count, 0);
+  return totalIn(machine.input);
+}
+
+/** The distinct items in a machine's storage, ignoring which slot they sit in. */
+export function contents(slots: Slot[]): ItemId[] {
+  return stacksIn(slots).map((s) => s.id);
+}
+
+/** Put items straight into a machine's grid, the way a belt would. */
+export function fill(slots: Slot[], item: ItemId, count: number, max = Infinity): void {
+  expect(addToSlots(slots, item, count, max)).toBe(count);
 }
 
 export function itemsOnBelts(world: World): number {

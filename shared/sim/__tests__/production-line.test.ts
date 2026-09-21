@@ -3,9 +3,21 @@ import { BELT_SPEED, MACHINES } from '../../data/machines';
 import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
 import { beltAt, machineAt } from '../factory';
 import { pushOntoBelt } from '../systems/factory';
+import { totalIn } from '../slots';
 import type { Belt, Machine } from '../types';
 import type { Bench } from './bench';
-import { advance, at, bench, held, itemsOnBelts, lay, plantOre, put, totalHeld } from './bench';
+import {
+  advance,
+  at,
+  bench,
+  contents,
+  held,
+  itemsOnBelts,
+  lay,
+  plantOre,
+  put,
+  totalHeld,
+} from './bench';
 
 /**
  * End-to-end coverage for production lines: a miner on an ore patch feeding a
@@ -61,7 +73,7 @@ describe('a miner → belt → furnace → belt → chest line', () => {
     advance(b.world, 30);
 
     // Raw ore must be consumed by the furnace, never carried through to storage.
-    expect(chest.input.map((s) => s.id)).toEqual(['ironPlate']);
+    expect(contents(chest.input)).toEqual(['ironPlate']);
   });
 
   it('delivers at the furnace’s rate, which is the line’s bottleneck', () => {
@@ -170,7 +182,7 @@ describe('a line’s throughput', () => {
     // Nothing left stranded anywhere along the way.
     expect(itemsOnBelts(b.world)).toBe(0);
     expect(totalHeld(furnace)).toBe(0);
-    expect(furnace.output.length).toBe(0);
+    expect(totalIn(furnace.output)).toBe(0);
   });
 
   it('carries a two-stage line through to assembled gears', () => {
@@ -196,7 +208,7 @@ describe('a line’s throughput', () => {
     const gears = held(chest, 'gear');
     expect(gears).toBeGreaterThan(0);
     expect(gears).toBeLessThanOrEqual(Math.floor(seconds / (SMELT * 2)));
-    expect(chest.input.map((s) => s.id)).toEqual(['gear']);
+    expect(contents(chest.input)).toEqual(['gear']);
   });
 });
 
@@ -230,8 +242,8 @@ describe('two lines side by side', () => {
     const copperChest = copper[4] as Machine;
     expect(held(ironChest, 'ironPlate')).toBeGreaterThan(0);
     expect(held(copperChest, 'copperPlate')).toBeGreaterThan(0);
-    expect(ironChest.input.map((s) => s.id)).toEqual(['ironPlate']);
-    expect(copperChest.input.map((s) => s.id)).toEqual(['copperPlate']);
+    expect(contents(ironChest.input)).toEqual(['ironPlate']);
+    expect(contents(copperChest.input)).toEqual(['copperPlate']);
   });
 });
 

@@ -1,6 +1,7 @@
 import { BELT_COST, MACHINES } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { giveOrDrop, payAll, hasAll } from './inventory';
+import { makeSlots } from './slots';
 import { inBounds, step1, tileKey } from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
@@ -85,8 +86,8 @@ export function placeMachine(
     // A miner's "recipe" is whatever it is standing on; everything else is chosen.
     recipe: type === 'miner' ? null : defaultRecipe(type),
     progress: 0,
-    input: [],
-    output: [],
+    input: makeSlots(def.inputSlots),
+    output: makeSlots(def.outputSlots),
     stalled: false,
   };
   world.machines.push(machine);
@@ -121,7 +122,7 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
     world.grid.delete(key);
     refund(world, player, MACHINES[machine.type].cost);
     for (const stack of [...machine.input, ...machine.output]) {
-      giveOrDrop(world, player, stack.id, stack.count);
+      if (stack) giveOrDrop(world, player, stack.id, stack.count);
     }
     return true;
   }

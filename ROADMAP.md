@@ -53,6 +53,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Ore | Discrete patches, not noise | A patch is a thing a player can point at, and outgrowing one is what drives expansion. |
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
+| Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
@@ -153,9 +154,6 @@ detail behind the factory entries is in
       contradicting its own comment is the bug.)
 - [ ] Coal is mined but nothing consumes it. No row in `recipes.ts` takes it as
       an input, so a third of the island's ore is dead weight.
-- [ ] Chests are write-only. `outputSlots: 0` and no player take-out, so
-      anything belted into a chest can never come back out. Storage is a bin,
-      not a buffer.
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
       right-click only, so on a phone a misplaced belt is permanent.
 - [ ] Tapping the canvas in build mode places nothing. The `pointerdown`
@@ -167,6 +165,11 @@ detail behind the factory entries is in
 - [ ] Islands built before scenery blocked placement can still have a living
       tree standing inside a belt. It clears itself the first time it is
       chopped, but until then it is in the way.
+- [ ] A chest still cannot feed a belt. The player can take items out by hand
+      now, but nothing automated can, so a chest is a buffer only in one
+      direction. The inserter under New features is the other half.
+- [ ] The page requests `/favicon.ico` and 404s on every load. Harmless, but it
+      is the one request the bundle makes that is not the bundle.
 
 - [ ] Placing a single piece rewrites the whole island to `localStorage`
       synchronously, so dragging out a belt line serialises the world on every
@@ -188,7 +191,9 @@ detail behind the factory entries is in
       filter per side. Best value per line of code in the factory layer: until
       it exists a belt feeds exactly one machine.
 - [ ] **Inserter and long inserter** — move items between a belt and a machine
-      or chest it does not directly face. Also the fix for write-only chests.
+      or chest it does not directly face. Also what lets a chest feed a line
+      rather than only receive from one; the player can now take items out of a
+      chest by hand, but nothing automated can.
 - [ ] **Lab and a `TECHS` table** — research consumed as a belt-fed item flow
       rather than bought from a shop, so every unlock is a throughput problem.
 - [ ] **Tech gating on the build palette** — start with miner, furnace and
@@ -224,6 +229,12 @@ detail behind the factory entries is in
 - [ ] **Second island via a bridge** — a new generated region with its own ore
       tier and tech branch. Multiplies content instead of ending it.
 - [ ] **Audio** — there is none.
+- [ ] **A hotbar** — now that the bag is a real slot grid, a row of quick slots
+      that selects what build mode places is a small addition with a large
+      effect on how it feels to play.
+- [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
+      A crafted satchel is an obvious early sink and a reason to build a
+      workbench.
 
 - [ ] **A real inventory screen.** The bag and the chest inspector are both
       plain text lists — no grid, no dragging a stack, no way to move anything
@@ -251,6 +262,9 @@ detail behind the factory entries is in
 - [ ] Measure late-game goals as a rate held over time, never a total
       delivered. A total is farmed by leaving the game open; a rate can only be
       met by a factory that is genuinely good.
+- [ ] The inventory screen leaves the world running behind it, which is right
+      for watching a furnace but means a night can start while you sort a
+      chest. Worth deciding deliberately rather than by default.
 - [ ] A wall chipped to 1 hit point refunds its full cost, so taking it down
       and putting it back is a free repair. Walls want a repair action, or a
       refund that scales with the damage taken.
@@ -292,6 +306,11 @@ detail behind the factory entries is in
       Worth revisiting only after the second island exists.
 - [ ] Blueprints — enormous tedium removed, but also the learning that early
       tedium teaches. Timing is the whole question.
+- [ ] A sort button on a container, and a click that gathers every loose stack
+      of one item into full ones. Cheap, and the first thing anyone asks for
+      once a chest has eight slots.
+- [ ] Item icons are CSS shapes in the UI and flat discs in the world. Drawing
+      both from one shape table would make an item look like itself everywhere.
 
 - [ ] **Measure the render path by frame rate, never by timing draw calls.**
       Canvas 2D records draw calls and rasterises them later, so
@@ -316,6 +335,9 @@ detail behind the factory entries is in
       Driven on an emulated iPhone: the page loads, the canvas sizes correctly
       in both orientations, and the movement stick works; placing, rotating and
       removing do not (see Bugs).
+- [ ] Dragging items on a touchscreen. The inventory screen is built on pointer
+      events so a tap-then-tap should work, but it has only been driven with a
+      mouse.
 - [ ] Clearing land is now permanent: build on a chopped node and it never
       returns. Whether an island can be stripped bare over hundreds of hours,
       and whether that matters, has not been played out.

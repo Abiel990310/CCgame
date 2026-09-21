@@ -70,26 +70,46 @@
         </div>
       </div>
 
-      <!-- Machine inspector -->
-      <div class="modal hidden" id="machine">
-        <div class="modal-inner">
-          <p class="eyebrow">Machine</p>
-          <h2 id="machine-title">Furnace</h2>
-          <p class="blurb" id="machine-kind"></p>
-          <div class="machine-io" id="machine-io"></div>
-          <div class="offers" id="machine-recipes"></div>
-          <button class="ghost-btn" id="machine-close">Close</button>
-        </div>
-      </div>
+      <!-- Inventory: the bag on its own, or the bag beside a container -->
+      <div class="modal hidden" id="inv">
+        <div class="modal-inner inv-inner">
+          <p class="eyebrow" id="inv-eyebrow">Carrying</p>
+          <h2 id="inv-title">Your bag</h2>
+          <p class="blurb hidden" id="inv-blurb"></p>
 
-      <!-- Full inventory -->
-      <div class="modal hidden" id="bag">
-        <div class="modal-inner">
-          <p class="eyebrow">Carrying</p>
-          <h2>Your bag</h2>
-          <div class="grid" id="bag-grid"></div>
-          <button class="ghost-btn" id="bag-close">Close</button>
+          <section class="inv-panel hidden" id="inv-container">
+            <div class="inv-block">
+              <div class="inv-head">
+                <b id="inv-input-label">Stored</b>
+                <button class="mini-btn" id="inv-take-all">Take all</button>
+              </div>
+              <div class="slots" id="inv-input-grid"></div>
+            </div>
+            <div class="craft-bar hidden" id="inv-progress">
+              <div class="craft-fill" id="inv-progress-fill"></div>
+            </div>
+            <div class="inv-block hidden" id="inv-output">
+              <div class="inv-head"><b>Out</b><span>Made here</span></div>
+              <div class="slots out" id="inv-output-grid"></div>
+            </div>
+          </section>
+
+          <div class="offers" id="inv-recipes"></div>
+
+          <section class="inv-panel">
+            <div class="inv-block">
+              <div class="inv-head"><b>Your bag</b><span id="inv-bag-note"></span></div>
+              <div class="slots" id="inv-bag-grid"></div>
+            </div>
+          </section>
+
+          <p class="inv-hint">
+            Drag a stack to move it &middot; <kbd>right-click</kbd> splits &middot;
+            <kbd>shift</kbd>-click sends it across
+          </p>
+          <button class="ghost-btn" id="inv-close">Close</button>
         </div>
+        <div class="carried hidden" id="inv-carried"></div>
       </div>
 
       <div class="toasts" id="toasts"></div>

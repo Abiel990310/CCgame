@@ -1,56 +1,36 @@
-import { ITEMS } from '../data/items';
-import type { ItemId, ItemStack, Player, World } from './types';
+import { addToSlots, countIn, makeSlots, roomFor, takeFromSlots } from './slots';
+import type { ItemId, ItemStack, Player, Slot, World } from './types';
 
 export const INVENTORY_SLOTS = 24;
 
+export function newInventory(): Slot[] {
+  return makeSlots(INVENTORY_SLOTS);
+}
+
 export function countItem(player: Player, id: ItemId): number {
-  let total = 0;
-  for (const stack of player.inventory) if (stack.id === id) total += stack.count;
-  return total;
+  return countIn(player.inventory, id);
 }
 
 /** Returns how many were actually stored — the inventory can be full. */
 export function addItem(player: Player, id: ItemId, count: number): number {
-  const max = ITEMS[id].stack;
-  let remaining = count;
+  return addToSlots(player.inventory, id, count);
+}
 
-  for (const stack of player.inventory) {
-    if (stack.id !== id || stack.count >= max) continue;
-    const room = max - stack.count;
-    const moved = Math.min(room, remaining);
-    stack.count += moved;
-    remaining -= moved;
-    if (remaining === 0) return count;
-  }
-
-  while (remaining > 0 && player.inventory.length < INVENTORY_SLOTS) {
-    const moved = Math.min(max, remaining);
-    player.inventory.push({ id, count: moved });
-    remaining -= moved;
-  }
-
-  return count - remaining;
+export function roomForItem(player: Player, id: ItemId): number {
+  return roomFor(player.inventory, id);
 }
 
 export function removeItem(player: Player, id: ItemId, count: number): boolean {
   if (countItem(player, id) < count) return false;
-  let remaining = count;
-  for (let i = player.inventory.length - 1; i >= 0 && remaining > 0; i--) {
-    const stack = player.inventory[i];
-    if (stack.id !== id) continue;
-    const taken = Math.min(stack.count, remaining);
-    stack.count -= taken;
-    remaining -= taken;
-    if (stack.count === 0) player.inventory.splice(i, 1);
-  }
+  takeFromSlots(player.inventory, id, count);
   return true;
 }
 
-export function hasAll(player: Player, cost: ItemStack[]): boolean {
+export function hasAll(player: Player, cost: readonly ItemStack[]): boolean {
   return cost.every((c) => countItem(player, c.id) >= c.count);
 }
 
-export function payAll(player: Player, cost: ItemStack[]): boolean {
+export function payAll(player: Player, cost: readonly ItemStack[]): boolean {
   if (!hasAll(player, cost)) return false;
   for (const c of cost) removeItem(player, c.id, c.count);
   return true;

@@ -2,7 +2,8 @@ import { BELT_CAPACITY, BELT_ITEM_GAP, BELT_SPEED, MACHINES } from '../../data/m
 import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
 import { beltAt, machineAt, outputTile } from '../factory';
 import { oreAt } from '../ore';
-import type { Belt, ItemId, ItemStack, Machine, World } from '../types';
+import { addToSlots, countIn, roomFor, takeFromSlots } from '../slots';
+import type { Belt, ItemId, ItemStack, Machine, Slot, World } from '../types';
 
 /**
  * Belts advance items toward their output end. Items are kept ordered
@@ -67,16 +68,7 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
     if (!recipe || !recipe.inputs.some((i) => i.id === item)) return false;
   }
 
-  const existing = machine.input.find((s) => s.id === item);
-  if (existing) {
-    if (existing.count >= def.slotSize) return false;
-    existing.count += 1;
-    return true;
-  }
-
-  if (machine.input.length >= def.inputSlots) return false;
-  machine.input.push({ id: item, count: 1 });
-  return true;
+  return addToSlots(machine.input, item, 1, def.slotSize) === 1;
 }
 
 export function stepMachines(world: World, dt: number): void {
@@ -108,8 +100,7 @@ function stepMiner(world: World, machine: Machine, dt: number): void {
   }
 
   const def = MACHINES.miner;
-  const held = machine.output.find((s) => s.id === ore);
-  if (held && held.count >= def.slotSize) {
+  if (roomFor(machine.output, ore, def.slotSize) < 1) {
     machine.stalled = true;
     return;
   }
@@ -119,7 +110,7 @@ function stepMiner(world: World, machine: Machine, dt: number): void {
   if (machine.progress < MINE_TIME) return;
 
   machine.progress -= MINE_TIME;
-  addStack(machine.output, ore, 1);
+  addToSlots(machine.output, ore, 1, def.slotSize);
 }
 
 function stepCrafter(machine: Machine, dt: number): void {
@@ -146,29 +137,28 @@ function stepCrafter(machine: Machine, dt: number): void {
   if (machine.progress < duration) return;
 
   machine.progress = 0;
-  for (const out of recipe.outputs) addStack(machine.output, out.id, out.count);
+  for (const out of recipe.outputs) addToSlots(machine.output, out.id, out.count, def.slotSize);
 }
 
 function outputFull(machine: Machine, slotSize: number): boolean {
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   if (!recipe) return true;
-  const def = MACHINES[machine.type];
 
-  for (const out of recipe.outputs) {
-    const held = machine.output.find((s) => s.id === out.id);
-    if (held) {
-      if (held.count + out.count > slotSize) return true;
-    } else if (machine.output.length >= def.outputSlots) {
-      return true;
-    }
-  }
-  return false;
+  // A craft is all-or-nothing, so every output has to have somewhere to land
+  // before the inputs are consumed.
+  return recipe.outputs.some((out) => roomFor(machine.output, out.id, slotSize) < out.count);
 }
 
 /** Feed finished goods onto the belt or machine the output side faces. */
 function pushMachineOutput(world: World, machine: Machine): void {
-  const first = machine.output[0];
-  if (!first || first.count <= 0) return;
+  let first: ItemStack | null = null;
+  for (const slot of machine.output) {
+    if (slot && slot.count > 0) {
+      first = slot;
+      break;
+    }
+  }
+  if (!first) return;
 
   const { tx, ty } = outputTile(machine);
 
@@ -184,20 +174,13 @@ function pushMachineOutput(world: World, machine: Machine): void {
   }
 }
 
-export function hasInputs(have: ItemStack[], need: ItemStack[]): boolean {
-  return need.every((n) => (have.find((s) => s.id === n.id)?.count ?? 0) >= n.count);
+export function hasInputs(have: Slot[], need: ItemStack[]): boolean {
+  return need.every((n) => countIn(have, n.id) >= n.count);
 }
 
-export function addStack(stacks: ItemStack[], id: ItemId, count: number): void {
-  const existing = stacks.find((s) => s.id === id);
-  if (existing) existing.count += count;
-  else stacks.push({ id, count });
-}
-
-export function takeStack(stacks: ItemStack[], id: ItemId, count: number): boolean {
-  const index = stacks.findIndex((s) => s.id === id);
-  if (index < 0 || stacks[index].count < count) return false;
-  stacks[index].count -= count;
-  if (stacks[index].count <= 0) stacks.splice(index, 1);
+/** Take a whole amount, or nothing at all. */
+export function takeStack(slots: Slot[], id: ItemId, count: number): boolean {
+  if (countIn(slots, id) < count) return false;
+  takeFromSlots(slots, id, count);
   return true;
 }
