@@ -2,7 +2,7 @@ import { BUILDINGS } from '@shared/data/buildings';
 import { BELT_COST, MACHINES } from '@shared/data/machines';
 import { ITEMS } from '@shared/data/items';
 import { TICK_DT } from '@shared/sim/constants';
-import { placeBuilding, placementError } from '@shared/sim/building';
+import { placeBuilding, placementError, removeBuildingAt } from '@shared/sim/building';
 import {
   factoryPlacementError,
   machineAt,
@@ -269,6 +269,7 @@ export class Game {
       occupied: 'Something is already there',
       terrain: "Can't build on water",
       ore: 'A miner has to sit on an ore patch',
+      scenery: "Clear what's growing there first",
       cost: this.costMessage(cost),
     };
     this.hud.toast(messages[error], 'warn');
@@ -279,11 +280,27 @@ export class Game {
   }
 
   private removeUnderCursor(): void {
-    const { tx, ty } = toTile(this.cursorWorld);
+    const pos = this.cursorWorld;
+    const { tx, ty } = toTile(pos);
     if (removeAt(this.world, this.self, tx, ty)) {
       this.hud.toast('Removed', 'good');
       this.persist();
+      return;
     }
+
+    // Camp pieces are not on the factory grid, so they need their own pass.
+    const result = removeBuildingAt(this.world, this.self, pos);
+    if (result === 'removed') {
+      this.hud.toast('Removed', 'good');
+      this.persist();
+      return;
+    }
+    if (result === 'campfire') {
+      this.hud.toast('The campfire stays — the camp is built around it', 'warn');
+      return;
+    }
+    // Silence here reads as a broken key, so say plainly that nothing was hit.
+    this.hud.toast('Nothing to remove there', 'warn');
   }
 
   private inspectUnderCursor(): void {
