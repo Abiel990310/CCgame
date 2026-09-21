@@ -221,10 +221,12 @@ export interface World {
   belts: Belt[];
   machines: Machine[];
   /**
-   * Tile lookup for belts and machines, keyed by tileKey(tx, ty). Rebuilt on
-   * load rather than saved, since it is derived state.
+   * Tile lookup for belts and machines, keyed by tileKey(tx, ty). Holds the
+   * entity itself: belts hand off every tick, so this has to be O(1) rather
+   * than a scan of every belt and machine on the island. Rebuilt on load
+   * rather than saved, since it is derived state.
    */
-  grid: Map<number, number>;
+  grid: Map<number, Belt | Machine>;
   /** When true this world has no night raids; the factory is the whole game. */
   peaceful: boolean;
   /** Spawn budget left to release during the current night. */

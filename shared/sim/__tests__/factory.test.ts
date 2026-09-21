@@ -98,7 +98,7 @@ describe('placement', () => {
 
     const belt = placeBelt(world, player, tx, ty, 0);
     expect(belt).not.toBe(null);
-    expect(world.grid.get(tileKey(tx, ty))).toBe(belt!.id);
+    expect(world.grid.get(tileKey(tx, ty))).toBe(belt);
     expect(beltAt(world, tx, ty)).toBe(belt);
   });
 
