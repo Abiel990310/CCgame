@@ -98,8 +98,12 @@ on purpose and should stay true as tiers are added.
 - **Rendering**: entities are Y-sorted (painter's algorithm) for the 3/4 view.
   Anything new that sits in the world needs to join that sort or it will draw in
   front of things it should be behind.
-- Factory pieces snap to the tile grid and carry a `Direction`. Camp decoration
-  is placed freely at a world position. Both cases flow through `GhostPreview`.
+- Everything placed in build mode snaps to the tile grid; factory pieces also
+  carry a `Direction`. Both cases flow through `GhostPreview`, which is also
+  what tells the renderer to draw the grid.
+- **Saves must stay backward compatible.** `loadWorld` accepts any version up
+  to the current one and defaults the fields that version did not have. Raising
+  `VERSION` without that is how you silently delete someone's island.
 
 ## Verifying changes
 

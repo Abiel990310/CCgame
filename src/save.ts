@@ -66,7 +66,11 @@ export function loadWorld(): World | null {
 
   try {
     const file = JSON.parse(raw) as SaveFile;
-    if (file.version !== VERSION) return null;
+    // Older saves are read, not thrown away: every field the factory added is
+    // optional below, so a version 1 island loads with an empty factory rather
+    // than dropping someone's world on the floor. A save from a future version
+    // is the only one we refuse, since we cannot know what it means.
+    if (!(file.version >= 1 && file.version <= VERSION)) return null;
 
     // Terrain is regenerated from the seed rather than stored — it is large,
     // and it is a pure function of the seed anyway.
@@ -100,8 +104,8 @@ export function loadWorld(): World | null {
 
 function rebuildGrid(world: World): void {
   world.grid.clear();
-  for (const belt of world.belts) world.grid.set(tileKey(belt.tx, belt.ty), belt.id);
-  for (const machine of world.machines) world.grid.set(tileKey(machine.tx, machine.ty), machine.id);
+  for (const belt of world.belts) world.grid.set(tileKey(belt.tx, belt.ty), belt);
+  for (const machine of world.machines) world.grid.set(tileKey(machine.tx, machine.ty), machine);
 }
 
 export function clearSave(): void {

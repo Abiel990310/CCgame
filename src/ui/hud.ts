@@ -208,7 +208,7 @@ export class Hud {
               (s) =>
                 `<span class="io-stack"><i class="dot" style="background:${
                   ITEMS[s.id].color
-                }"></i>${s.count}</span>`,
+                }"></i>${ITEMS[s.id].name} ${s.count}</span>`,
             )
             .join('')
         : '<span class="io-empty">empty</span>';

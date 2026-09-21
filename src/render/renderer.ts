@@ -1,6 +1,6 @@
 import { BUILDINGS } from '@shared/data/buildings';
 import { RESOURCES } from '@shared/data/items';
-import { CAMP, CYCLE, MAP_SIZE, TILE } from '@shared/sim/constants';
+import { CAMP, CYCLE, MAP_SIZE, MAP_TILES, TILE } from '@shared/sim/constants';
 import { clamp } from '@shared/sim/math';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
 import type { BuildingId, Direction, MachineId, Vec2, World } from '@shared/sim/types';
@@ -92,6 +92,8 @@ export class Renderer {
       if (visible(tileCenter(belt.tx, belt.ty), 40)) drawBelt(ctx, belt, time);
     }
     drawCampRing(ctx, world, CAMP.buildRadius);
+    // Build mode snaps to tiles, so the tiles have to be visible while it is on.
+    if (ghost) this.drawBuildGrid(view);
 
     const layers: Drawable[] = [];
 
@@ -216,6 +218,36 @@ export class Renderer {
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
     ctx.arc(node.pos.x, node.pos.y, RESOURCES[node.kind].radius + 8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
+   * The tile lattice, drawn only in build mode. Placement has always snapped
+   * to it, but with nothing on screen to line a belt run up against it read
+   * as though it did not.
+   */
+  private drawBuildGrid(view: { minX: number; minY: number; maxX: number; maxY: number }): void {
+    const ctx = this.ctx;
+    const x0 = Math.max(0, Math.floor(view.minX / TILE));
+    const x1 = Math.min(MAP_TILES, Math.ceil(view.maxX / TILE));
+    const y0 = Math.max(0, Math.floor(view.minY / TILE));
+    const y1 = Math.min(MAP_TILES, Math.ceil(view.maxY / TILE));
+    if (x1 <= x0 || y1 <= y0) return;
+
+    ctx.save();
+    ctx.strokeStyle = rgba(UI.ink, 0.13);
+    // A hairline whatever the zoom, so the grid never fights the art.
+    ctx.lineWidth = 1 / this.camera.zoom;
+    ctx.beginPath();
+    for (let tx = x0; tx <= x1; tx++) {
+      ctx.moveTo(tx * TILE, y0 * TILE);
+      ctx.lineTo(tx * TILE, y1 * TILE);
+    }
+    for (let ty = y0; ty <= y1; ty++) {
+      ctx.moveTo(x0 * TILE, ty * TILE);
+      ctx.lineTo(x1 * TILE, ty * TILE);
+    }
     ctx.stroke();
     ctx.restore();
   }

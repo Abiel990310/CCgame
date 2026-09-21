@@ -9,11 +9,7 @@ import type { Belt, Direction, ItemId, Machine, MachineId, Player, World } from 
 export type FactoryError = 'occupied' | 'terrain' | 'ore' | 'cost' | 'bounds' | null;
 
 export function entityAt(world: World, tx: number, ty: number): Belt | Machine | null {
-  const id = world.grid.get(tileKey(tx, ty));
-  if (id === undefined) return null;
-  return (
-    world.belts.find((b) => b.id === id) ?? world.machines.find((m) => m.id === id) ?? null
-  );
+  return world.grid.get(tileKey(tx, ty)) ?? null;
 }
 
 export function machineAt(world: World, tx: number, ty: number): Machine | null {
@@ -59,7 +55,7 @@ export function placeBelt(
 
   const belt: Belt = { id: world.nextId++, tx, ty, dir, items: [] };
   world.belts.push(belt);
-  world.grid.set(tileKey(tx, ty), belt.id);
+  world.grid.set(tileKey(tx, ty), belt);
   return belt;
 }
 
@@ -90,7 +86,7 @@ export function placeMachine(
     stalled: false,
   };
   world.machines.push(machine);
-  world.grid.set(tileKey(tx, ty), machine.id);
+  world.grid.set(tileKey(tx, ty), machine);
   return machine;
 }
 
@@ -101,10 +97,10 @@ function defaultRecipe(type: MachineId): string | null {
 
 export function removeAt(world: World, player: Player, tx: number, ty: number): boolean {
   const key = tileKey(tx, ty);
-  const id = world.grid.get(key);
-  if (id === undefined) return false;
+  const entity = world.grid.get(key);
+  if (entity === undefined) return false;
 
-  const beltIndex = world.belts.findIndex((b) => b.id === id);
+  const beltIndex = world.belts.findIndex((b) => b.id === entity.id);
   if (beltIndex >= 0) {
     const [belt] = world.belts.splice(beltIndex, 1);
     world.grid.delete(key);
@@ -114,7 +110,7 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
     return true;
   }
 
-  const machineIndex = world.machines.findIndex((m) => m.id === id);
+  const machineIndex = world.machines.findIndex((m) => m.id === entity.id);
   if (machineIndex >= 0) {
     const [machine] = world.machines.splice(machineIndex, 1);
     world.grid.delete(key);
