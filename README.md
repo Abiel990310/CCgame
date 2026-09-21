@@ -18,7 +18,7 @@ themselves and you reposition and dash. Or start a **peaceful** world, where the
 factory is the whole game. Either way the island keeps everything you build.
 
 Designed so it is fully enjoyable alone, with drop-in multiplayer layered on
-later. See [DESIGN.md](DESIGN.md) for the full design and roadmap.
+later. See [DESIGN.md](DESIGN.md) for the full design.
 
 ## Playing
 
@@ -94,4 +94,11 @@ tiers: ore, miners, belts, furnaces, assemblers, chests, and a per-world
 peaceful mode.
 
 Next: power and deeper chains, then the multiplayer server and hostable worlds.
-Roadmap in [DESIGN.md](DESIGN.md).
+
+## Documentation
+
+| File | What it holds |
+| --- | --- |
+| [DESIGN.md](DESIGN.md) | What the game is: pillars, loop, systems, architecture |
+| [ROADMAP.md](ROADMAP.md) | Phase status, tier ladder, decision log, open questions |
+| [CLAUDE.md](CLAUDE.md) | How to work on it: conventions, invariants, verification |

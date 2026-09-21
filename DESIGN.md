@@ -165,28 +165,5 @@ Fallback if it does not read well in motion: hand-made pixel art.
 
 ## Build order
 
-1. **Phase 1 — Solo prototype, no server.** ✅ Movement, island, gathering,
-   day/night cycle, auto-attack combat, dash, XP and level-up picks, inventory,
-   a camp you can build.
-2. **Phase 2 — Persistence.** ✅ Save and load, in `localStorage`.
-3. **Phase 3 — Factory, tiers 1–3.** ✅ Ore patches, miners, belts, furnaces,
-   assemblers, chests, the recipe graph, grid placement, per-world peaceful mode.
-4. **Phase 4 — Factory, tiers 4–5.** Power, steel and resin, deeper chains, a
-   tech tree unlocked by *producing* things rather than by killing them.
-5. **Phase 5 — Multiplayer.** Authoritative server against the shared sim.
-   Official public world, player-hosted public worlds, private friend worlds.
-   Prediction and interpolation.
-6. **Phase 6 — The long game.** Island logistics, the megaproject, blueprints,
-   production statistics, and the content depth that makes hundreds of hours
-   real.
-
-## Open questions
-
-- Do ore patches deplete, or are they infinite? Depletion forces expansion but
-  can feel punishing; Satisfactory chose infinite, Factorio chose finite.
-- How is the tech tree gated — by producing science items, or by total output?
-- Do belts get tiers (faster belts), or does throughput scale only by adding
-  lines?
-- How are private worlds' invite lists managed — accounts, or share codes?
-- Blueprints: how early? They remove enormous tedium but also remove the
-  learning that early tedium teaches.
+Phase status, the tier ladder, the decision log and the open questions live in
+[ROADMAP.md](ROADMAP.md). Agent-facing working notes are in [CLAUDE.md](CLAUDE.md).
