@@ -51,7 +51,9 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Logistics | Real belts now, drones and rail at tier 6 | Belts are where the spatial puzzle lives. Drones remove late tedium without replacing the puzzle. |
 | Offline production | None | Every hour of progress is an hour someone played; the economy never has to be balanced around absence. |
 | Ore | Discrete patches, not noise | A patch is a thing a player can point at, and outgrowing one is what drives expansion. |
-| Placement | Factory snaps to a tile grid | Belts cannot align without it. Camp decoration stays freeform. |
+| Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
+| Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
+| Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
