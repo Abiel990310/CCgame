@@ -158,6 +158,12 @@ detail behind the factory entries is in
       not a buffer.
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
       right-click only, so on a phone a misplaced belt is permanent.
+- [ ] Tapping the canvas in build mode places nothing. The `pointerdown`
+      handler in `src/input.ts` returns early for `pointerType === 'touch'`, so
+      `takeClick()` never fires and a phone cannot build or inspect a machine.
+- [ ] Touch has no rotate, so every belt placed on a phone would face one way.
+- [ ] The phase bar and the vitals panel overlap on a phone. At 390px wide the
+      vitals card covers the Day/Night readout entirely.
 - [ ] Islands built before scenery blocked placement can still have a living
       tree standing inside a belt. It clears itself the first time it is
       chopped, but until then it is in the way.
@@ -307,6 +313,9 @@ detail behind the factory entries is in
       night length (1 min), gather rates and belt speed are all unvalidated
       guesses.
 - [ ] Touch controls are implemented but have never been run on real hardware.
+      Driven on an emulated iPhone: the page loads, the canvas sizes correctly
+      in both orientations, and the movement stick works; placing, rotating and
+      removing do not (see Bugs).
 - [ ] Clearing land is now permanent: build on a chopped node and it never
       returns. Whether an island can be stripped bare over hundreds of hours,
       and whether that matters, has not been played out.
