@@ -1,12 +1,13 @@
 import { BELT_COST, MACHINES } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
-import { addItem, payAll, hasAll } from './inventory';
+import { giveOrDrop, payAll, hasAll } from './inventory';
 import { inBounds, step1, tileKey } from './grid';
+import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
 import { isWalkable, terrainAtIndex } from './terrain';
-import type { Belt, Direction, ItemId, Machine, MachineId, Player, World } from './types';
+import type { Belt, Direction, ItemStack, Machine, MachineId, Player, World } from './types';
 
-export type FactoryError = 'occupied' | 'terrain' | 'ore' | 'cost' | 'bounds' | null;
+export type FactoryError = 'occupied' | 'terrain' | 'ore' | 'cost' | 'bounds' | 'scenery' | null;
 
 export function entityAt(world: World, tx: number, ty: number): Belt | Machine | null {
   return world.grid.get(tileKey(tx, ty)) ?? null;
@@ -33,6 +34,8 @@ export function factoryPlacementError(
   if (!inBounds(tx, ty)) return 'bounds';
   if (world.grid.has(tileKey(tx, ty))) return 'occupied';
   if (!isWalkable(terrainAtIndex(world.terrain, tx, ty))) return 'terrain';
+  // A tree buried under a belt keeps standing and keeps regrowing; clear it first.
+  if (nodeOnTile(world, tx, ty) !== null) return 'scenery';
 
   if (what === 'belt') {
     return hasAll(player, BELT_COST) ? null : 'cost';
@@ -56,6 +59,7 @@ export function placeBelt(
   const belt: Belt = { id: world.nextId++, tx, ty, dir, items: [] };
   world.belts.push(belt);
   world.grid.set(tileKey(tx, ty), belt);
+  clearFelledNodes(world);
   return belt;
 }
 
@@ -87,6 +91,7 @@ export function placeMachine(
   };
   world.machines.push(machine);
   world.grid.set(tileKey(tx, ty), machine);
+  clearFelledNodes(world);
   return machine;
 }
 
@@ -104,9 +109,9 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
   if (beltIndex >= 0) {
     const [belt] = world.belts.splice(beltIndex, 1);
     world.grid.delete(key);
-    refund(world, player, BELT_COST.map((c) => ({ ...c })));
+    refund(world, player, BELT_COST);
     // Items riding the removed belt go back to the player rather than vanishing.
-    for (const riding of belt.items) giveItem(world, player, riding.item, 1);
+    for (const riding of belt.items) giveOrDrop(world, player, riding.item, 1);
     return true;
   }
 
@@ -114,9 +119,9 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
   if (machineIndex >= 0) {
     const [machine] = world.machines.splice(machineIndex, 1);
     world.grid.delete(key);
-    refund(world, player, MACHINES[machine.type].cost.map((c) => ({ ...c })));
+    refund(world, player, MACHINES[machine.type].cost);
     for (const stack of [...machine.input, ...machine.output]) {
-      giveItem(world, player, stack.id, stack.count);
+      giveOrDrop(world, player, stack.id, stack.count);
     }
     return true;
   }
@@ -124,23 +129,8 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
   return false;
 }
 
-function refund(world: World, player: Player, cost: Array<{ id: ItemId; count: number }>): void {
-  for (const entry of cost) giveItem(world, player, entry.id, entry.count);
-}
-
-function giveItem(world: World, player: Player, item: ItemId, count: number): void {
-  // Anything that will not fit is dropped at the player's feet, never destroyed.
-  const stored = addItem(player, item, count);
-  if (stored >= count) return;
-  world.pickups.push({
-    id: world.nextId++,
-    pos: { ...player.pos },
-    vel: { x: 0, y: 0 },
-    item,
-    count: count - stored,
-    xp: 0,
-    settle: 0.3,
-  });
+function refund(world: World, player: Player, cost: readonly ItemStack[]): void {
+  for (const entry of cost) giveOrDrop(world, player, entry.id, entry.count);
 }
 
 export function setRecipe(world: World, machineId: number, recipeId: string): boolean {
