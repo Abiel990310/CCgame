@@ -61,12 +61,32 @@ Equipment slots. Storage chests at camp for overflow.
 - Mobs are *easy* by default. Difficulty scales with player count and camp tier,
   never to the point of stress.
 
-### Multiplayer
-- One persistent shared world. Instant join, no lobby.
-- Other players appear and disappear as they come and go.
-- More players → more mobs, but more hands. Always net-positive to have company.
-- **Villager bots** wander and help a little when the island is quiet, so it
-  never reads as dead.
+### Multiplayer — worlds, not lobbies
+Modelled on Minecraft servers rather than matchmaking. There is no lobby and no
+queue; you pick a world and you are in it.
+
+- **Official public world** — always running, always joinable, the default
+  front door for a brand new player.
+- **Player-hosted public worlds** — anyone can spin one up and list it publicly.
+- **Private worlds** — invite-only, for a friend group. Whoever is on the invite
+  list can join.
+- Worlds **boot when their owner (or an invited player) joins** and hibernate
+  when empty, so hosting cost scales with actual use rather than world count.
+- Within a world: instant join, no lobby. Other players appear and disappear as
+  they come and go. More players → more mobs, but more hands; company is always
+  net-positive.
+- **Villager bots** wander and help a little when a world is quiet, so it never
+  reads as dead.
+
+## Art direction
+
+**Low-poly inspired flat vector**, drawn procedurally to canvas: angular
+polygonal silhouettes, flat shading with a single implied light direction, soft
+gradients for ground and water, generous rounded UI. No sprite sheets, no image
+assets, no generated art — every shape is code, so it stays consistent and
+re-themeable.
+
+Fallback if it does not read well in motion: hand-made pixel art.
 
 ## Technical architecture
 
@@ -99,7 +119,7 @@ Equipment slots. Storage chests at camp for overflow.
 
 ## Open questions
 
-- Art style: simple geometric shapes, pixel art, or emoji-as-sprites for speed?
 - Island: one fixed hand-made map, or procedurally generated?
 - Camp: freeform placement, or slot-based upgrade tiers?
-- Does anything happen while you are offline (automation, idle gathering)?
+- Does a world keep producing while its players are offline (idle gathering)?
+- How are private worlds' invite lists managed — accounts, or share codes?
