@@ -24,7 +24,8 @@ export interface HudCallbacks {
   onSelect: (selection: BuildSelection) => void;
   onToggleBag: () => void;
   onDash: () => void;
-  onStart: (fresh: boolean, peaceful: boolean) => void;
+  onTogglePause: () => void;
+  onQuitToMenu: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
 }
 
@@ -55,10 +56,10 @@ export class Hud {
     machineIo: $('machine-io'),
     machineRecipes: $('machine-recipes'),
     machineClose: $<HTMLButtonElement>('machine-close'),
-    peaceful: $<HTMLInputElement>('opt-peaceful'),
     btnBuild: $<HTMLButtonElement>('btn-build'),
     btnBag: $<HTMLButtonElement>('btn-bag'),
     btnDash: $<HTMLButtonElement>('btn-dash'),
+    btnMenu: $<HTMLButtonElement>('btn-menu'),
     dashCd: $('dash-cd'),
     levelup: $('levelup'),
     levelupTitle: $('levelup-title'),
@@ -66,9 +67,11 @@ export class Hud {
     bag: $('bag'),
     bagGrid: $('bag-grid'),
     bagClose: $<HTMLButtonElement>('bag-close'),
-    start: $('start'),
-    btnContinue: $<HTMLButtonElement>('btn-continue'),
-    btnNew: $<HTMLButtonElement>('btn-new'),
+    pause: $('pause'),
+    pauseName: $('pause-name'),
+    pauseSub: $('pause-sub'),
+    pauseResume: $<HTMLButtonElement>('pause-resume'),
+    pauseQuit: $<HTMLButtonElement>('pause-quit'),
     toasts: $('toasts'),
   };
 
@@ -77,6 +80,7 @@ export class Hud {
   private inspecting: Machine | null = null;
   private buildMode = false;
   private bagOpen = false;
+  private pauseOpen = false;
   /** Signature of the last rendered offer set, to avoid rebuilding every frame. */
   private offerKey = '';
   private pouchKey = '';
@@ -86,22 +90,26 @@ export class Hud {
     this.els.btnBag.addEventListener('click', () => this.callbacks.onToggleBag());
     this.els.btnDash.addEventListener('click', () => this.callbacks.onDash());
     this.els.bagClose.addEventListener('click', () => this.callbacks.onToggleBag());
-    this.els.btnContinue.addEventListener('click', () => this.dismissStart(false));
-    this.els.btnNew.addEventListener('click', () => this.dismissStart(true));
+    this.els.btnMenu.addEventListener('click', () => this.callbacks.onTogglePause());
+    this.els.pauseResume.addEventListener('click', () => this.callbacks.onTogglePause());
+    this.els.pauseQuit.addEventListener('click', () => this.callbacks.onQuitToMenu());
     this.els.machineClose.addEventListener('click', () => this.closeMachine());
     this.buildTabs();
     this.buildPalette();
   }
 
-  private dismissStart(fresh: boolean): void {
-    this.els.start.classList.add('hidden');
-    this.callbacks.onStart(fresh, this.els.peaceful.checked);
+  /** The pause overlay doubles as the way back to the main menu. */
+  setPauseOpen(open: boolean, slotName = '', subtitle = ''): void {
+    this.pauseOpen = open;
+    this.els.pause.classList.toggle('hidden', !open);
+    this.els.btnMenu.classList.toggle('on', open);
+    if (!open) return;
+    this.els.pauseName.textContent = slotName;
+    this.els.pauseSub.textContent = subtitle;
   }
 
-  showStart(canContinue: boolean): void {
-    this.els.btnContinue.textContent = canContinue ? 'Continue' : 'Begin';
-    this.els.btnNew.classList.toggle('hidden', !canContinue);
-    this.els.start.classList.remove('hidden');
+  get isPauseOpen(): boolean {
+    return this.pauseOpen;
   }
 
   setBuildMode(on: boolean): void {
@@ -118,6 +126,14 @@ export class Hud {
 
   get isBuildMode(): boolean {
     return this.buildMode;
+  }
+
+  get isBagOpen(): boolean {
+    return this.bagOpen;
+  }
+
+  get isMachineOpen(): boolean {
+    return this.inspecting !== null;
   }
 
   get selected(): BuildSelection {

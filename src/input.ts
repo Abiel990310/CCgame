@@ -41,6 +41,8 @@ export class InputManager {
   private bind(): void {
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
+      // Typing a save name is not a move order.
+      if (e.target instanceof HTMLInputElement) return;
       // Let the browser keep its own shortcuts; only claim game keys.
       const claimed = ['Space', 'KeyE', 'KeyB', 'KeyR', 'KeyX', 'Tab', 'Escape'];
       if (e.code in MOVE_KEYS || claimed.includes(e.code)) e.preventDefault();

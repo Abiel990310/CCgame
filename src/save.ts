@@ -1,8 +1,8 @@
 import { createWorld } from '@shared/sim/world';
 import { tileKey } from '@shared/sim/grid';
 import type { Player, World } from '@shared/sim/types';
+import { slotKey } from './saves';
 
-const KEY = 'ccgame.save.v1';
 const VERSION = 2;
 
 interface SaveFile {
@@ -25,11 +25,12 @@ interface SaveFile {
 }
 
 /**
- * Phase 2 persistence: the whole island in localStorage. Deliberately stores
- * only durable state — mobs, projectiles and loose pickups are transient and
- * are regenerated on load, which also stops a save from resurrecting a night.
+ * Phase 2 persistence: the whole island in localStorage, one entry per save
+ * slot. Deliberately stores only durable state — mobs, projectiles and loose
+ * pickups are transient and are regenerated on load, which also stops a save
+ * from resurrecting a night.
  */
-export function saveWorld(world: World): void {
+export function saveWorld(world: World, slot: string): boolean {
   const file: SaveFile = {
     version: VERSION,
     savedAt: Date.now(),
@@ -49,16 +50,18 @@ export function saveWorld(world: World): void {
     peaceful: world.peaceful,
   };
   try {
-    localStorage.setItem(KEY, JSON.stringify(file));
+    localStorage.setItem(slotKey(slot), JSON.stringify(file));
+    return true;
   } catch {
     // A full or blocked storage quota must never take the game down.
+    return false;
   }
 }
 
-export function loadWorld(): World | null {
+export function loadWorld(slot: string): World | null {
   let raw: string | null = null;
   try {
-    raw = localStorage.getItem(KEY);
+    raw = localStorage.getItem(slotKey(slot));
   } catch {
     return null;
   }
@@ -106,20 +109,4 @@ function rebuildGrid(world: World): void {
   world.grid.clear();
   for (const belt of world.belts) world.grid.set(tileKey(belt.tx, belt.ty), belt);
   for (const machine of world.machines) world.grid.set(tileKey(machine.tx, machine.ty), machine);
-}
-
-export function clearSave(): void {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {
-    // Nothing to do — a failed clear just leaves the old save in place.
-  }
-}
-
-export function hasSave(): boolean {
-  try {
-    return localStorage.getItem(KEY) !== null;
-  } catch {
-    return false;
-  }
 }
