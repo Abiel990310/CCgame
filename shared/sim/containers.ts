@@ -1,6 +1,6 @@
 import { MACHINES } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
-import { giveItem } from './factory';
+import { giveOrDrop } from './inventory';
 import { addToSlots, slotCap, takeFromSlots } from './slots';
 import type { ItemId, Machine, Player, Slot, World } from './types';
 
@@ -218,7 +218,7 @@ export function stowCursor(world: World, player: Player): void {
   const held = player.cursor;
   if (!held) return;
   player.cursor = null;
-  giveItem(world, player, held.id, held.count);
+  giveOrDrop(world, player, held.id, held.count);
 }
 
 /** Take a whole item type out of a container. Used by tests and tooling. */

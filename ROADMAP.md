@@ -154,12 +154,14 @@ detail behind the factory entries is in
       contradicting its own comment is the bug.)
 - [ ] Coal is mined but nothing consumes it. No row in `recipes.ts` takes it as
       an input, so a third of the island's ore is dead weight.
-- [ ] Camp pieces cannot be removed. `removeAt` only looks at the factory grid,
-      so <kbd>X</kbd> and right-click do nothing to a campfire, wall, workbench
-      or camp chest — once placed, it is there forever.
-- [ ] Resource nodes regrow where a base was built. A depleted node allows
-      building over it, then `stepRegrow` restores its charges 45 seconds later
-      and a tree reappears inside the factory.
+- [ ] Touch has no way to remove anything. Removal is the `X` key and
+      right-click only, so on a phone a misplaced belt is permanent.
+- [ ] Islands built before scenery blocked placement can still have a living
+      tree standing inside a belt. It clears itself the first time it is
+      chopped, but until then it is in the way.
+- [ ] A chest still cannot feed a belt. The player can take items out by hand
+      now, but nothing automated can, so a chest is a buffer only in one
+      direction. The inserter under New features is the other half.
 - [ ] The page requests `/favicon.ico` and 404s on every load. Harmless, but it
       is the one request the bundle makes that is not the bundle.
 
@@ -249,6 +251,15 @@ detail behind the factory entries is in
 - [ ] The inventory screen leaves the world running behind it, which is right
       for watching a furnace but means a night can start while you sort a
       chest. Worth deciding deliberately rather than by default.
+- [ ] A wall chipped to 1 hit point refunds its full cost, so taking it down
+      and putting it back is a free repair. Walls want a repair action, or a
+      refund that scales with the damage taken.
+- [ ] Build mode gives no hover highlight for what `X` or right-click will
+      take, so removal is aimed blind at whatever the cursor happens to cover.
+- [ ] The camp `Chest` and the factory `Storage Chest` are different things
+      with nearly the same name, in the same palette, two tabs apart.
+- [ ] Camp placement keeps scenery away with a fixed 14px clearance while
+      regrowth uses each node's real radius. Two numbers for one question.
 
 - [ ] Ore is baked into the island canvas on the assumption that `world.ore`
       never changes after generation. **This blocks depleting ore** (first item
@@ -303,3 +314,6 @@ detail behind the factory entries is in
 - [ ] Dragging items on a touchscreen. The inventory screen is built on pointer
       events so a tap-then-tap should work, but it has only been driven with a
       mouse.
+- [ ] Clearing land is now permanent: build on a chopped node and it never
+      returns. Whether an island can be stripped bare over hundreds of hours,
+      and whether that matters, has not been played out.

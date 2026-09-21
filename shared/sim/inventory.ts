@@ -1,5 +1,5 @@
 import { addToSlots, countIn, makeSlots, roomFor, takeFromSlots } from './slots';
-import type { ItemId, ItemStack, Player, Slot } from './types';
+import type { ItemId, ItemStack, Player, Slot, World } from './types';
 
 export const INVENTORY_SLOTS = 24;
 
@@ -26,12 +26,27 @@ export function removeItem(player: Player, id: ItemId, count: number): boolean {
   return true;
 }
 
-export function hasAll(player: Player, cost: ItemStack[]): boolean {
+export function hasAll(player: Player, cost: readonly ItemStack[]): boolean {
   return cost.every((c) => countItem(player, c.id) >= c.count);
 }
 
-export function payAll(player: Player, cost: ItemStack[]): boolean {
+export function payAll(player: Player, cost: readonly ItemStack[]): boolean {
   if (!hasAll(player, cost)) return false;
   for (const c of cost) removeItem(player, c.id, c.count);
   return true;
+}
+
+/** Hand items over, dropping anything that will not fit at the player's feet. */
+export function giveOrDrop(world: World, player: Player, id: ItemId, count: number): void {
+  const stored = addItem(player, id, count);
+  if (stored >= count) return;
+  world.pickups.push({
+    id: world.nextId++,
+    pos: { ...player.pos },
+    vel: { x: 0, y: 0 },
+    item: id,
+    count: count - stored,
+    xp: 0,
+    settle: 0.3,
+  });
 }
