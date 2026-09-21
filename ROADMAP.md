@@ -135,10 +135,53 @@ Unresolved, and worth a deliberate answer rather than a default.
 - **How are private world invite lists managed** — accounts, or share codes?
 - **Does the camp stay freeform** or move to slot-based upgrade tiers?
 
-## Known gaps
+## Backlog
 
+Everything noticed and not yet done, grouped so it can be triaged. Add to it as
+things are found — an idea, a gap, or something spotted while fixing something
+else all belong here.
+
+### Bugs
+
+- Placing a piece writes the whole island to `localStorage` synchronously, so
+  every click while dragging out a belt line serialises the entire world. It
+  costs ~2.6 ms at 550 belts and grows with the base. It should be debounced to
+  the existing 8-second save timer instead.
+- Removing a belt or machine scans `world.belts` / `world.machines` linearly to
+  find it, although `world.grid` already resolves the tile. Cheap today, the
+  same shape as the tick bug that was already fixed.
+- The baked island canvas is `MAP_SIZE` square — 3072×3072, about 38 MB of
+  backing store. On a phone that is enough to push the canvas into software
+  rendering, which is exactly where frame time hurts.
 - The core loop has not been playtested by a human yet. Day length (3 min),
   night length (1 min), gather rates and belt speed are all unvalidated guesses.
 - Touch controls are implemented but have never been tested on real hardware.
+
+### Changes
+
+- Ore is baked into the island canvas on the assumption that `world.ore` never
+  changes after generation. If patches ever deplete (see open questions), the
+  island has to be re-baked on change or ore has to move back to a live layer.
+- Blitting the baked island is the largest remaining per-frame cost when the
+  canvas is not GPU-accelerated: about 3.6 ms of a 5–8 ms frame, because the
+  static image is resampled to the camera zoom every frame. On an accelerated
+  canvas it is close to free. Caching a pre-scaled screen-sized tile would fix
+  it, at the cost of a rebuild whenever the camera pans past the margin.
+- `resize()` caps `devicePixelRatio` at 2, so a retina display rasterises four
+  times the pixels every frame. Worth revisiting if lag is reported on one.
+- The render loop allocates an object and a closure per visible entity each
+  frame to feed the depth sort. Pooling them would cut the GC churn.
+
+### New features
+
 - No audio.
 - No production statistics, so bottlenecks currently have to be found by eye.
+- A frame-time overlay behind a debug flag, so performance regressions show up
+  while playing rather than only under a profiler.
+
+### Ideas
+
+- Canvas 2D records draw calls and flushes them lazily, so `performance.now()`
+  around a drawing call measures recording, not rasterising, and time lands in
+  whatever call triggers the flush. Measure the render path by removing work and
+  comparing, not by timing segments — the segment timings say the wrong thing.

@@ -3,8 +3,7 @@ import { BELT_SPEED, MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TILE } from '@shared/sim/constants';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
-import { ORE_ORDER } from '@shared/sim/ore';
-import type { Belt, Machine, OreKind, World } from '@shared/sim/types';
+import type { Belt, Machine, OreKind } from '@shared/sim/types';
 import { UI, rgba, shift } from './palette';
 import { meter, polygon, shadow } from './shapes';
 
@@ -68,18 +67,20 @@ export function drawBelt(ctx: CanvasRenderingContext2D, belt: Belt, time: number
   ctx.fill();
 
   // Scrolling treads: the clearest possible signal of which way a belt runs.
+  // All four go into one path — a stroke apiece is four draw calls per belt,
+  // and a base is thousands of belts.
   ctx.strokeStyle = '#59616d';
   ctx.lineWidth = 2;
   const spacing = TILE / 4;
   const scroll = (time * BELT_SPEED * TILE) % spacing;
+  ctx.beginPath();
   for (let i = -TILE / 2 - spacing; i < TILE / 2 + spacing; i += spacing) {
     const lx = i + scroll;
     if (lx < -TILE / 2 || lx > TILE / 2) continue;
-    ctx.beginPath();
     ctx.moveTo(lx, -TILE * 0.3);
     ctx.lineTo(lx, TILE * 0.3);
-    ctx.stroke();
   }
+  ctx.stroke();
 
   ctx.fillStyle = '#6d7683';
   ctx.beginPath();
@@ -248,24 +249,4 @@ function drawProgress(
   if (duration <= 0 || machine.progress <= 0) return;
 
   meter(ctx, x, y + TILE * 0.4, TILE * 0.8, 3, machine.progress / duration, UI.xp);
-}
-
-/** Ore tiles visible in the current view, so we never scan the whole island. */
-export function forEachVisibleOre(
-  world: World,
-  view: { minX: number; minY: number; maxX: number; maxY: number },
-  fn: (tx: number, ty: number, kind: OreKind) => void,
-): void {
-  const tiles = Math.sqrt(world.ore.length);
-  const tx0 = Math.max(0, Math.floor(view.minX / TILE));
-  const ty0 = Math.max(0, Math.floor(view.minY / TILE));
-  const tx1 = Math.min(tiles - 1, Math.ceil(view.maxX / TILE));
-  const ty1 = Math.min(tiles - 1, Math.ceil(view.maxY / TILE));
-
-  for (let ty = ty0; ty <= ty1; ty++) {
-    for (let tx = tx0; tx <= tx1; tx++) {
-      const kind = ORE_ORDER[world.ore[ty * tiles + tx]];
-      if (kind) fn(tx, ty, kind);
-    }
-  }
 }
