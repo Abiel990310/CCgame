@@ -1,7 +1,9 @@
 import { MAP_SIZE, MAP_TILES, TILE } from '@shared/sim/constants';
+import { oreAt } from '@shared/sim/ore';
 import { hash2 } from '@shared/sim/rng';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
 import type { Terrain } from '@shared/sim/types';
+import { drawOreTile } from './factory';
 import { TERRAIN_COLORS, shift } from './palette';
 
 /**
@@ -9,8 +11,16 @@ import { TERRAIN_COLORS, shift } from './palette';
  * Jittering the shared vertex grid (rather than each triangle separately) keeps
  * the surface watertight, which is what makes it read as low-poly rather than
  * as noise.
+ *
+ * Ore is baked in too. A patch is sixteen filled paths per tile and none of it
+ * ever changes, so redrawing the visible ones every frame was paying that cost
+ * sixty times a second for a picture that is identical each time.
  */
-export function bakeTerrain(terrain: Uint8Array, seed: number): HTMLCanvasElement {
+export function bakeTerrain(
+  terrain: Uint8Array,
+  ore: Uint8Array,
+  seed: number,
+): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = MAP_SIZE;
   canvas.height = MAP_SIZE;
@@ -40,7 +50,18 @@ export function bakeTerrain(terrain: Uint8Array, seed: number): HTMLCanvasElemen
   }
 
   drawShoreFoam(ctx, terrain, seed);
+  bakeOre(ctx, ore);
   return canvas;
+}
+
+/** Ore sits on the ground, over the mesh and under everything placed on it. */
+function bakeOre(ctx: CanvasRenderingContext2D, ore: Uint8Array): void {
+  for (let ty = 0; ty < MAP_TILES; ty++) {
+    for (let tx = 0; tx < MAP_TILES; tx++) {
+      const kind = oreAt(ore, tx, ty);
+      if (kind) drawOreTile(ctx, tx, ty, kind);
+    }
+  }
 }
 
 function buildVertexGrid(seed: number): Float32Array {

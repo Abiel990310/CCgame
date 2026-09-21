@@ -157,6 +157,17 @@ detail behind the factory entries is in
       anything belted into a chest can never come back out. Storage is a bin,
       not a buffer.
 
+- [ ] Placing a single piece rewrites the whole island to `localStorage`
+      synchronously, so dragging out a belt line serialises the world on every
+      click. About 2.6 ms at 550 belts and it grows with the base; it should
+      debounce onto the existing 8-second save timer.
+- [ ] `removeAt` scans `world.belts` and `world.machines` linearly to find the
+      piece, although `world.grid` already resolves the tile. Cheap today, the
+      same shape as the tick bug that was already fixed.
+- [ ] The baked island canvas is `MAP_SIZE` square — 3072×3072, about 38 MB of
+      backing store. On a phone that is enough to push the canvas into software
+      rendering, which is exactly where frame time hurts.
+
 ### New features
 
 - [ ] **Splitter** — one input, two outputs, alternating, with an optional
@@ -200,6 +211,9 @@ detail behind the factory entries is in
       tier and tech branch. Multiplies content instead of ending it.
 - [ ] **Audio** — there is none.
 
+- [ ] A frame-time overlay behind a debug flag, so performance regressions show
+      up while playing rather than only under a profiler.
+
 ### Changes
 
 - [ ] Lab consumption should grant XP to every player on the island. `grantXp`
@@ -219,6 +233,22 @@ detail behind the factory entries is in
       delivered. A total is farmed by leaving the game open; a rate can only be
       met by a factory that is genuinely good.
 
+- [ ] Ore is baked into the island canvas on the assumption that `world.ore`
+      never changes after generation. **This blocks depleting ore** (first item
+      under Bugs): if patches start depleting, the island has to be re-baked on
+      change or ore has to move back to a live per-frame layer.
+- [ ] Blitting the baked island is the largest remaining per-frame cost when the
+      canvas is not GPU-accelerated: about 3.6 ms of a 5–8 ms frame, because the
+      static image is resampled to the camera zoom every frame. On an
+      accelerated canvas it is close to free. Caching a pre-scaled screen-sized
+      tile would fix it, at the cost of a rebuild whenever the camera pans past
+      the margin.
+- [ ] `resize()` caps `devicePixelRatio` at 2, so a retina display rasterises
+      four times the pixels every frame. Worth revisiting if lag is reported on
+      one.
+- [ ] The render loop allocates an object and a closure per visible entity each
+      frame to feed the depth sort. Pooling them would cut the GC churn.
+
 ### Ideas
 
 - [ ] Peaceful worlds need a fishing-only route to the top research tier, since
@@ -235,6 +265,12 @@ detail behind the factory entries is in
       Worth revisiting only after the second island exists.
 - [ ] Blueprints — enormous tedium removed, but also the learning that early
       tedium teaches. Timing is the whole question.
+
+- [ ] Canvas 2D records draw calls and flushes them lazily, so
+      `performance.now()` around a drawing call measures recording, not
+      rasterising, and the time lands in whatever call triggers the flush.
+      Measure the render path by removing work and comparing, not by timing
+      segments — the segment timings say the wrong thing.
 
 ### Needs testing
 

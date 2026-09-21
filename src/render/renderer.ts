@@ -3,7 +3,7 @@ import { RESOURCES } from '@shared/data/items';
 import { CAMP, CYCLE, MAP_SIZE, MAP_TILES, TILE } from '@shared/sim/constants';
 import { clamp } from '@shared/sim/math';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
-import type { BuildingId, Direction, MachineId, Vec2, World } from '@shared/sim/types';
+import type { Belt, BuildingId, Direction, Machine, MachineId, Vec2, World } from '@shared/sim/types';
 import { Camera } from './camera';
 import { Effects } from './effects';
 import {
@@ -19,14 +19,8 @@ import {
 import { UI, rgba } from './palette';
 import { bakeTerrain } from './terrain';
 import { polygon } from './shapes';
-import {
-  drawBelt,
-  drawBeltItems,
-  drawMachine,
-  drawOreTile,
-  forEachVisibleOre,
-} from './factory';
-import { dirAngle, tileCenter } from '@shared/sim/grid';
+import { drawBelt, drawBeltItems, drawMachine } from './factory';
+import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
 
 /** Anything that needs depth sorting, collected once per frame. */
 interface Drawable {
@@ -40,6 +34,9 @@ export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private baked: HTMLCanvasElement | null = null;
   private bakedSeed = -1;
+  /** Factory pieces on screen, gathered once a frame and reused across passes. */
+  private visibleBelts: Belt[] = [];
+  private visibleMachines: Machine[] = [];
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -66,7 +63,7 @@ export class Renderer {
    */
   render(world: World, selfId: number, time: number, ghost: GhostPreview | null): void {
     if (this.bakedSeed !== world.seed) {
-      this.baked = bakeTerrain(world.terrain, world.seed);
+      this.baked = bakeTerrain(world.terrain, world.ore, world.seed);
       this.bakedSeed = world.seed;
     }
 
@@ -85,21 +82,20 @@ export class Renderer {
     const visible = (p: Vec2, pad = 0): boolean =>
       p.x >= view.minX - pad && p.x <= view.maxX + pad && p.y >= view.minY - pad && p.y <= view.maxY + pad;
 
+    this.collectFactory(world, view);
+
+    // Ore is part of the baked island now, so this one blit is the ground.
     if (this.baked) ctx.drawImage(this.baked, 0, 0);
     this.drawWaterShimmer(world, time, view);
-    forEachVisibleOre(world, view, (tx, ty, kind) => drawOreTile(ctx, tx, ty, kind));
-    for (const belt of world.belts) {
-      if (visible(tileCenter(belt.tx, belt.ty), 40)) drawBelt(ctx, belt, time);
-    }
+    for (const belt of this.visibleBelts) drawBelt(ctx, belt, time);
     drawCampRing(ctx, world, CAMP.buildRadius);
     // Build mode snaps to tiles, so the tiles have to be visible while it is on.
     if (ghost) this.drawBuildGrid(view);
 
     const layers: Drawable[] = [];
 
-    for (const machine of world.machines) {
+    for (const machine of this.visibleMachines) {
       const pos = tileCenter(machine.tx, machine.ty);
-      if (!visible(pos, 60)) continue;
       layers.push({ y: pos.y, draw: () => drawMachine(ctx, machine, time) });
     }
 
@@ -124,9 +120,7 @@ export class Renderer {
     layers.sort((a, b) => a.y - b.y);
     for (const layer of layers) layer.draw();
 
-    for (const belt of world.belts) {
-      if (visible(tileCenter(belt.tx, belt.ty), 40)) drawBeltItems(ctx, belt);
-    }
+    for (const belt of this.visibleBelts) drawBeltItems(ctx, belt);
 
     for (const pickup of world.pickups) {
       if (visible(pickup.pos, 30)) drawPickup(ctx, pickup, time);
@@ -145,6 +139,38 @@ export class Renderer {
     this.drawLighting(world, selfId, time);
   }
 
+  /**
+   * Belts and machines on screen, read out of the occupancy grid rather than by
+   * scanning the factory. Walking the world's arrays costs what has ever been
+   * built; walking the visible tiles costs what fits on the screen, which is
+   * what stops a big base from being slower to look at than a small one.
+   */
+  private collectFactory(
+    world: World,
+    view: { minX: number; minY: number; maxX: number; maxY: number },
+  ): void {
+    const belts = this.visibleBelts;
+    const machines = this.visibleMachines;
+    belts.length = 0;
+    machines.length = 0;
+    if (world.grid.size === 0) return;
+
+    // A tile's art can overhang its own bounds, so take a tile of margin.
+    const tx0 = Math.max(0, Math.floor(view.minX / TILE) - 1);
+    const ty0 = Math.max(0, Math.floor(view.minY / TILE) - 1);
+    const tx1 = Math.min(MAP_TILES - 1, Math.floor(view.maxX / TILE) + 1);
+    const ty1 = Math.min(MAP_TILES - 1, Math.floor(view.maxY / TILE) + 1);
+
+    for (let ty = ty0; ty <= ty1; ty++) {
+      for (let tx = tx0; tx <= tx1; tx++) {
+        const entity = world.grid.get(tileKey(tx, ty));
+        if (entity === undefined) continue;
+        if ('items' in entity) belts.push(entity);
+        else machines.push(entity);
+      }
+    }
+  }
+
   /** Animated highlights over baked water, so the sea is not a flat plate. */
   private drawWaterShimmer(
     world: World,
@@ -161,6 +187,10 @@ export class Renderer {
     ctx.globalAlpha = 0.14;
     ctx.strokeStyle = '#cfeaf7';
     ctx.lineWidth = 2;
+    // Every highlight is the same colour and width, so they are one path and
+    // one stroke. Stroking each separately was the single most expensive thing
+    // the renderer did, on an empty island as much as on a built one.
+    ctx.beginPath();
     for (let ty = ty0; ty <= ty1; ty += 2) {
       for (let tx = tx0; tx <= tx1; tx += 2) {
         const kind = TERRAIN_ORDER[world.terrain[ty * (MAP_SIZE / TILE) + tx]];
@@ -169,12 +199,11 @@ export class Renderer {
         if (phase < 0.3) continue;
         const x = tx * TILE + TILE * 0.5;
         const y = ty * TILE + TILE * 0.5;
-        ctx.beginPath();
         ctx.moveTo(x - 8, y);
         ctx.lineTo(x + 8, y);
-        ctx.stroke();
       }
     }
+    ctx.stroke();
     ctx.restore();
   }
 
