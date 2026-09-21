@@ -165,8 +165,11 @@ detail behind the factory entries is in
       piece, although `world.grid` already resolves the tile. Cheap today, the
       same shape as the tick bug that was already fixed.
 - [ ] The baked island canvas is `MAP_SIZE` square — 3072×3072, about 38 MB of
-      backing store. On a phone that is enough to push the canvas into software
-      rendering, which is exactly where frame time hurts.
+      backing store, and the pre-scaled ground cache adds roughly 11 MB more at
+      `devicePixelRatio` 1 and 29 MB at 2. On a phone that total is enough to
+      push the canvas into software rendering, which is exactly where frame
+      time hurts. Drawing the ground cache straight from the terrain data would
+      let the 38 MB one go.
 
 ### New features
 
@@ -237,12 +240,11 @@ detail behind the factory entries is in
       never changes after generation. **This blocks depleting ore** (first item
       under Bugs): if patches start depleting, the island has to be re-baked on
       change or ore has to move back to a live per-frame layer.
-- [ ] Blitting the baked island is the largest remaining per-frame cost when the
-      canvas is not GPU-accelerated: about 3.6 ms of a 5–8 ms frame, because the
-      static image is resampled to the camera zoom every frame. On an
-      accelerated canvas it is close to free. Caching a pre-scaled screen-sized
-      tile would fix it, at the cost of a rebuild whenever the camera pans past
-      the margin.
+- [ ] The camera now snaps to whole device pixels, which is what lets the
+      ground cache blit without resampling. Walking advances it in 4- and
+      5-pixel steps where it used to be a continuous 4.29, so motion is
+      quantised by well under a pixel. If it ever reads as judder on a
+      high-refresh screen, this is the reason.
 - [ ] `resize()` caps `devicePixelRatio` at 2, so a retina display rasterises
       four times the pixels every frame. Worth revisiting if lag is reported on
       one.
@@ -266,11 +268,19 @@ detail behind the factory entries is in
 - [ ] Blueprints — enormous tedium removed, but also the learning that early
       tedium teaches. Timing is the whole question.
 
-- [ ] Canvas 2D records draw calls and flushes them lazily, so
-      `performance.now()` around a drawing call measures recording, not
-      rasterising, and the time lands in whatever call triggers the flush.
-      Measure the render path by removing work and comparing, not by timing
-      segments — the segment timings say the wrong thing.
+- [ ] **Measure the render path by frame rate, never by timing draw calls.**
+      Canvas 2D records draw calls and rasterises them later, so
+      `performance.now()` around drawing measures recording only. On a full
+      base the recorded time read 7ms while the game actually ran at 30fps.
+      Count frames over a wall clock, with a layer removed, and compare.
+- [ ] `ctx.clip()` is the expensive canvas call, not the number of draw calls.
+      One clip per tree was the whole difference between 30 and 60fps on a full
+      island. Where a shape needs clipping to a simple outline, work the clipped
+      polygon out in code instead.
+- [ ] Batching many small shapes into one big path is *slower*, not faster. One
+      path holding every belt on screen measured 7.4ms against 17.1ms — the
+      rasteriser works over the whole path's bounding box, so a path spanning
+      the screen costs the screen. Batch within one object, never across them.
 
 ### Needs testing
 
