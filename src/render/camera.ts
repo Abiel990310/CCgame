@@ -19,12 +19,6 @@ export class Camera {
     if (halfH * 2 < MAP_SIZE) this.pos.y = clamp(this.pos.y, halfH, MAP_SIZE - halfH);
   }
 
-  apply(ctx: CanvasRenderingContext2D, shakeX = 0, shakeY = 0): void {
-    ctx.translate(this.width / 2 + shakeX, this.height / 2 + shakeY);
-    ctx.scale(this.zoom, this.zoom);
-    ctx.translate(-this.pos.x, -this.pos.y);
-  }
-
   screenToWorld(sx: number, sy: number): Vec2 {
     return {
       x: (sx - this.width / 2) / this.zoom + this.pos.x,

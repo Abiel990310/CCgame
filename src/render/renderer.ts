@@ -22,6 +22,9 @@ import { polygon } from './shapes';
 import { drawBelt, drawBeltItems, drawMachine } from './factory';
 import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
 
+/** How far past the viewport the pre-scaled ground reaches, in device pixels. */
+const GROUND_MARGIN = 320;
+
 /** Anything that needs depth sorting, collected once per frame. */
 interface Drawable {
   y: number;
@@ -34,6 +37,18 @@ export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private baked: HTMLCanvasElement | null = null;
   private bakedSeed = -1;
+  private dpr = 1;
+  /**
+   * The island, pre-scaled to the zoom it is actually shown at, covering the
+   * viewport plus a margin. Redrawn only when the camera walks off the edge of
+   * it, so the common frame blits it one-to-one instead of resampling the whole
+   * 3072-square island every time.
+   */
+  private ground: HTMLCanvasElement | null = null;
+  private groundCtx: CanvasRenderingContext2D | null = null;
+  private groundX = 0;
+  private groundY = 0;
+  private groundScale = 0;
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
   private visibleBelts: Belt[] = [];
   private visibleMachines: Machine[] = [];
@@ -52,6 +67,7 @@ export class Renderer {
     this.canvas.height = Math.round(h * dpr);
     this.camera.width = w;
     this.camera.height = h;
+    this.dpr = dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // Zoom with viewport so a phone shows a sensible slice of the island.
     this.camera.zoom = clamp(Math.min(w, h) / 560, 1.15, 2.4);
@@ -76,7 +92,25 @@ export class Renderer {
 
     const shakeX = (Math.random() - 0.5) * this.effects.shake;
     const shakeY = (Math.random() - 0.5) * this.effects.shake;
-    this.camera.apply(ctx, shakeX, shakeY);
+
+    // The camera transform is built here rather than by `camera.apply` so the
+    // translation can be snapped to a whole device pixel. A fractional offset
+    // makes every blit resample; snapping the whole scene together keeps the
+    // ground and the things standing on it locked to each other.
+    const scale = this.camera.zoom * this.dpr;
+    const originX = Math.round((width / 2 + shakeX) * this.dpr - this.camera.pos.x * scale);
+    const originY = Math.round((height / 2 + shakeY) * this.dpr - this.camera.pos.y * scale);
+
+    this.ensureGround();
+    if (this.ground) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(
+        this.ground,
+        originX + this.groundX * this.groundScale,
+        originY + this.groundY * this.groundScale,
+      );
+    }
+    ctx.setTransform(scale, 0, 0, scale, originX, originY);
 
     const view = this.camera.bounds();
     const visible = (p: Vec2, pad = 0): boolean =>
@@ -84,8 +118,6 @@ export class Renderer {
 
     this.collectFactory(world, view);
 
-    // Ore is part of the baked island now, so this one blit is the ground.
-    if (this.baked) ctx.drawImage(this.baked, 0, 0);
     this.drawWaterShimmer(world, time, view);
     for (const belt of this.visibleBelts) drawBelt(ctx, belt, time);
     drawCampRing(ctx, world, CAMP.buildRadius);
@@ -137,6 +169,56 @@ export class Renderer {
     ctx.restore();
 
     this.drawLighting(world, selfId, time);
+  }
+
+  /**
+   * Keep the pre-scaled ground covering the view. Rebuilding costs one scaled
+   * blit of the island, which is what every frame used to pay; with a margin
+   * this wide it happens about once a second while walking instead.
+   */
+  private ensureGround(): void {
+    if (!this.baked) return;
+
+    const scale = this.camera.zoom * this.dpr;
+    const w = Math.ceil(this.camera.width * this.dpr) + GROUND_MARGIN * 2;
+    const h = Math.ceil(this.camera.height * this.dpr) + GROUND_MARGIN * 2;
+
+    if (!this.ground || this.ground.width !== w || this.ground.height !== h) {
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      this.ground = canvas;
+      this.groundCtx = canvas.getContext('2d', { alpha: false });
+      this.groundScale = 0;
+    }
+    const ctx = this.groundCtx;
+    if (!ctx) return;
+
+    const coverW = w / scale;
+    const coverH = h / scale;
+    const halfW = this.camera.width / 2 / this.camera.zoom;
+    const halfH = this.camera.height / 2 / this.camera.zoom;
+    if (
+      this.groundScale === scale &&
+      this.camera.pos.x - halfW >= this.groundX &&
+      this.camera.pos.x + halfW <= this.groundX + coverW &&
+      this.camera.pos.y - halfH >= this.groundY &&
+      this.camera.pos.y + halfH <= this.groundY + coverH
+    ) {
+      return;
+    }
+
+    // Land the cache's own origin on a whole device pixel, so blitting it is a
+    // straight copy rather than a resample.
+    this.groundX = Math.round((this.camera.pos.x - coverW / 2) * scale) / scale;
+    this.groundY = Math.round((this.camera.pos.y - coverH / 2) * scale) / scale;
+    this.groundScale = scale;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#12232e';
+    ctx.fillRect(0, 0, w, h);
+    ctx.setTransform(scale, 0, 0, scale, -this.groundX * scale, -this.groundY * scale);
+    ctx.drawImage(this.baked, 0, 0);
   }
 
   /**
