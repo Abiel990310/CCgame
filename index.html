@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#12232e" />
+    <title>CCgame — Island</title>
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+
+    <div id="ui">
+      <!-- Top: what phase we are in and how long it lasts -->
+      <header class="topbar">
+        <div class="phase" id="phase">
+          <span class="phase-icon" id="phase-icon">☀</span>
+          <div class="phase-text">
+            <strong id="phase-name">Day</strong>
+            <span id="phase-sub">Night 1 approaching</span>
+          </div>
+        </div>
+        <div class="phase-track"><div class="phase-fill" id="phase-fill"></div></div>
+      </header>
+
+      <!-- Left: the player's own vitals -->
+      <section class="vitals">
+        <div class="level" id="level">1</div>
+        <div class="bars">
+          <div class="bar hp"><div class="fill" id="hp-fill"></div><span id="hp-text">100 / 100</span></div>
+          <div class="bar xp"><div class="fill" id="xp-fill"></div><span id="xp-text">0 / 8</span></div>
+        </div>
+      </section>
+
+      <!-- Bottom left: carried resources at a glance -->
+      <section class="pouch" id="pouch"></section>
+
+      <!-- Bottom right: controls -->
+      <section class="actions">
+        <button class="action" id="btn-build" title="Build (B)">
+          <span>🔨</span><small>Build</small>
+        </button>
+        <button class="action" id="btn-bag" title="Bag (Tab)">
+          <span>🎒</span><small>Bag</small>
+        </button>
+        <button class="action dash" id="btn-dash" title="Dash (Space)">
+          <span>💨</span><small>Dash</small>
+          <div class="cd" id="dash-cd"></div>
+        </button>
+      </section>
+
+      <!-- Build mode palette -->
+      <section class="buildbar hidden" id="buildbar"></section>
+
+      <!-- Level-up draft -->
+      <div class="modal hidden" id="levelup">
+        <div class="modal-inner">
+          <p class="eyebrow">Level up</p>
+          <h2 id="levelup-title">Choose an upgrade</h2>
+          <div class="offers" id="offers"></div>
+        </div>
+      </div>
+
+      <!-- Full inventory -->
+      <div class="modal hidden" id="bag">
+        <div class="modal-inner">
+          <p class="eyebrow">Carrying</p>
+          <h2>Your bag</h2>
+          <div class="grid" id="bag-grid"></div>
+          <button class="ghost-btn" id="bag-close">Close</button>
+        </div>
+      </div>
+
+      <div class="toasts" id="toasts"></div>
+
+      <!-- First-run overlay -->
+      <div class="modal" id="start">
+        <div class="modal-inner">
+          <p class="eyebrow">CCgame</p>
+          <h2>The Island</h2>
+          <p class="blurb">
+            Gather by day. Survive the night. The island keeps everything you build.
+          </p>
+          <div class="keys">
+            <span><kbd>WASD</kbd> move</span>
+            <span><kbd>Space</kbd> dash</span>
+            <span><kbd>E</kbd> / hold click to gather</span>
+            <span><kbd>B</kbd> build</span>
+            <span><kbd>Tab</kbd> bag</span>
+          </div>
+          <div class="start-row">
+            <button class="primary-btn" id="btn-continue">Continue</button>
+            <button class="ghost-btn" id="btn-new">New island</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
