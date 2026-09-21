@@ -156,6 +156,11 @@ detail behind the factory entries is in
 - [ ] Chests are write-only. `outputSlots: 0` and no player take-out, so
       anything belted into a chest can never come back out. Storage is a bin,
       not a buffer.
+- [ ] Touch has no way to remove anything. Removal is the `X` key and
+      right-click only, so on a phone a misplaced belt is permanent.
+- [ ] Islands built before scenery blocked placement can still have a living
+      tree standing inside a belt. It clears itself the first time it is
+      chopped, but until then it is in the way.
 
 - [ ] Placing a single piece rewrites the whole island to `localStorage`
       synchronously, so dragging out a belt line serialises the world on every
@@ -232,6 +237,15 @@ detail behind the factory entries is in
 - [ ] Measure late-game goals as a rate held over time, never a total
       delivered. A total is farmed by leaving the game open; a rate can only be
       met by a factory that is genuinely good.
+- [ ] A wall chipped to 1 hit point refunds its full cost, so taking it down
+      and putting it back is a free repair. Walls want a repair action, or a
+      refund that scales with the damage taken.
+- [ ] Build mode gives no hover highlight for what `X` or right-click will
+      take, so removal is aimed blind at whatever the cursor happens to cover.
+- [ ] The camp `Chest` and the factory `Storage Chest` are different things
+      with nearly the same name, in the same palette, two tabs apart.
+- [ ] Camp placement keeps scenery away with a fixed 14px clearance while
+      regrowth uses each node's real radius. Two numbers for one question.
 
 - [ ] Ore is baked into the island canvas on the assumption that `world.ore`
       never changes after generation. **This blocks depleting ore** (first item
@@ -278,3 +292,6 @@ detail behind the factory entries is in
       night length (1 min), gather rates and belt speed are all unvalidated
       guesses.
 - [ ] Touch controls are implemented but have never been run on real hardware.
+- [ ] Clearing land is now permanent: build on a chopped node and it never
+      returns. Whether an island can be stripped bare over hundreds of hours,
+      and whether that matters, has not been played out.

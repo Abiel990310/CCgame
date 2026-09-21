@@ -1,6 +1,7 @@
 import { RESOURCES } from '../../data/items';
 import { GATHER, PLAYER } from '../constants';
 import { distanceSq } from '../math';
+import { nodeSpotTaken } from '../nodes';
 import { nextFloat } from '../progression';
 import type { ItemId, Player, PlayerInput, ResourceNode, World } from '../types';
 
@@ -81,9 +82,19 @@ export function stepGathering(
 }
 
 export function stepNodeRegrowth(world: World, dt: number): void {
-  for (const node of world.nodes) {
+  for (let i = world.nodes.length - 1; i >= 0; i--) {
+    const node = world.nodes[i];
     if (node.charges > 0) continue;
+
     node.regrow -= dt;
-    if (node.regrow <= 0) node.charges = node.maxCharges;
+    if (node.regrow > 0) continue;
+
+    // Nothing grows back through a base. A stump the player has built over is
+    // land they cleared, so it goes for good instead of sprouting in the way.
+    if (nodeSpotTaken(world, node)) {
+      world.nodes.splice(i, 1);
+      continue;
+    }
+    node.charges = node.maxCharges;
   }
 }
