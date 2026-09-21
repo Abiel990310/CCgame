@@ -25,7 +25,8 @@ body {
   overflow: hidden;
   background: #0d1218;
   color: var(--ink);
-  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  /* System stack only: the game makes no external requests of any kind. */
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   user-select: none;
 }
 
