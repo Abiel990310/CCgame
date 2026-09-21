@@ -10,3 +10,6 @@ export * from './progression';
 export * from './building';
 export { findNearestNode } from './systems/gathering';
 export { nightBudget } from './systems/mobs';
+export * from './grid';
+export * from './ore';
+export * from './factory';

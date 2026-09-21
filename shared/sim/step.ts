@@ -6,6 +6,7 @@ import { stepProjectiles, stepWeapons } from './systems/combat';
 import { stepMobs, stepWaves } from './systems/mobs';
 import { stepPlayerMovement } from './systems/movement';
 import { stepPickups } from './systems/pickups';
+import { stepBelts, stepMachines } from './systems/factory';
 
 export const EMPTY_INPUT: PlayerInput = {
   move: { x: 0, y: 0 },
@@ -32,6 +33,10 @@ export function step(world: World, inputs: Map<number, PlayerInput>, dt = TICK_D
     stepGathering(world, player, input, dt);
     stepWeapons(world, player, dt);
   }
+
+  // The factory runs every tick, day or night — it is the constant of the game.
+  stepMachines(world, dt);
+  stepBelts(world, dt);
 
   stepWaves(world, dt);
   stepMobs(world, dt);

@@ -1,9 +1,20 @@
 import { BUILDINGS } from '@shared/data/buildings';
+import { BELT_COST, MACHINES } from '@shared/data/machines';
+import { ITEMS } from '@shared/data/items';
 import { TICK_DT } from '@shared/sim/constants';
 import { placeBuilding, placementError } from '@shared/sim/building';
+import {
+  factoryPlacementError,
+  machineAt,
+  placeBelt,
+  placeMachine,
+  removeAt,
+  setRecipe,
+} from '@shared/sim/factory';
+import { rotate, toTile } from '@shared/sim/grid';
 import { chooseUpgrade } from '@shared/sim/progression';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
-import type { BuildingId, Player, PlayerInput, World } from '@shared/sim/types';
+import type { Direction, ItemStack, Player, PlayerInput, World } from '@shared/sim/types';
 import { addPlayer, createWorld } from '@shared/sim/world';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview } from './render/renderer';
@@ -26,6 +37,8 @@ export class Game {
   private saveTimer = SAVE_INTERVAL;
   private running = false;
   private lastPhase: World['phase'] = 'day';
+  /** Facing applied to the next belt or machine placed. */
+  private buildDir: Direction = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas);
@@ -33,10 +46,13 @@ export class Game {
     this.hud = new Hud({
       onChooseUpgrade: (id) => this.chooseUpgrade(id),
       onToggleBuild: () => this.toggleBuild(),
-      onSelectBuilding: () => this.hud.setBuildMode(true),
+      onSelect: () => this.hud.setBuildMode(true),
+      onSetRecipe: (machineId, recipeId) => {
+        if (setRecipe(this.world, machineId, recipeId)) this.persist();
+      },
       onToggleBag: () => this.toggleBag(),
       onDash: () => this.input.triggerDash(),
-      onStart: (fresh) => this.start(fresh),
+      onStart: (fresh, peaceful) => this.start(fresh, peaceful),
     });
 
     this.world = createWorld(Date.now() & 0xffff);
@@ -49,11 +65,14 @@ export class Game {
     this.renderer.resize();
     this.hud.showStart(hasSave());
 
-    // Debug handle: lets tooling (and you, in the console) inspect live state.
-    (window as unknown as { __ccgame: Game }).__ccgame = this;
+    // Debug handles: let tooling (and you, in the console) inspect live state
+    // and drive the factory through the same API the UI uses.
+    const debug = window as unknown as { __ccgame: Game; __ccfactory: unknown };
+    debug.__ccgame = this;
+    debug.__ccfactory = { placeBelt, placeMachine, removeAt, setRecipe, machineAt };
   }
 
-  private start(fresh: boolean): void {
+  private start(fresh: boolean, peaceful = false): void {
     if (fresh) clearSave();
 
     const loaded = fresh ? null : loadWorld();
@@ -63,9 +82,12 @@ export class Game {
       this.selfId = first?.id ?? addPlayer(this.world, 'You').id;
       this.hud.toast(`Welcome back — night ${this.world.nightIndex} survived`, 'good');
     } else {
-      this.world = createWorld(Date.now() & 0xffff);
+      this.world = createWorld(Date.now() & 0xffff, peaceful);
       this.selfId = addPlayer(this.world, 'You').id;
-      this.hud.toast('A new island. Go gather.', 'good');
+      this.hud.toast(
+        peaceful ? 'A peaceful island. Build freely.' : 'A new island. Go gather.',
+        'good',
+      );
     }
 
     this.lastPhase = this.world.phase;
@@ -116,24 +138,52 @@ export class Game {
     for (const action of this.input.drainActions()) {
       if (action === 'build') this.toggleBuild();
       if (action === 'inventory') this.toggleBag();
+      if (action === 'rotate') this.buildDir = rotate(this.buildDir);
+      if (action === 'remove') this.removeUnderCursor();
       if (action === 'cancel') {
         this.hud.setBuildMode(false);
         this.hud.setBagOpen(false);
+        this.hud.closeMachine();
       }
     }
   }
 
-  /** Where a building would land right now, and whether it is legal there. */
+  private get cursorWorld(): { x: number; y: number } {
+    return this.renderer.camera.screenToWorld(this.input.pointer.x, this.input.pointer.y);
+  }
+
+  /** Where the selected piece would land, and whether it is legal there. */
   private ghost(): GhostPreview | null {
     if (!this.hud.isBuildMode) return null;
-    const type: BuildingId = this.hud.building;
-    const pos = this.renderer.camera.screenToWorld(this.input.pointer.x, this.input.pointer.y);
-    return { type, pos, valid: placementError(this.world, this.self, type, pos) === null };
+
+    const selection = this.hud.selected;
+    const pos = this.cursorWorld;
+
+    if (selection.kind === 'building') {
+      const valid = placementError(this.world, this.self, selection.id, pos) === null;
+      return { kind: 'building', type: selection.id, pos, valid };
+    }
+
+    const { tx, ty } = toTile(pos);
+    const what = selection.kind === 'belt' ? 'belt' : selection.id;
+    const valid = factoryPlacementError(this.world, this.self, what, tx, ty) === null;
+    return { kind: 'grid', what, tx, ty, dir: this.buildDir, valid };
   }
 
   private tryPlace(ghost: GhostPreview | null): void {
-    if (!this.input.takeClick() || !ghost) return;
+    if (!this.input.takeClick()) return;
 
+    // A click outside build mode inspects whatever machine is under the cursor.
+    if (!ghost) {
+      this.inspectUnderCursor();
+      return;
+    }
+
+    if (ghost.kind === 'building') this.placeCampBuilding(ghost);
+    else this.placeFactory(ghost);
+  }
+
+  private placeCampBuilding(ghost: Extract<GhostPreview, { kind: 'building' }>): void {
     const error = placementError(this.world, this.self, ghost.type, ghost.pos);
     if (error === null) {
       placeBuilding(this.world, this.self, ghost.type, ghost.pos);
@@ -145,9 +195,49 @@ export class Game {
       range: 'Too far from camp',
       terrain: "Can't build there",
       overlap: 'Something is in the way',
-      cost: `Need ${BUILDINGS[ghost.type].cost.map((c) => `${c.count} ${c.id}`).join(', ')}`,
+      cost: this.costMessage(BUILDINGS[ghost.type].cost),
     };
     this.hud.toast(messages[error], 'warn');
+  }
+
+  private placeFactory(ghost: Extract<GhostPreview, { kind: 'grid' }>): void {
+    const { what, tx, ty } = ghost;
+    const error = factoryPlacementError(this.world, this.self, what, tx, ty);
+
+    if (error === null) {
+      if (what === 'belt') placeBelt(this.world, this.self, tx, ty, this.buildDir);
+      else placeMachine(this.world, this.self, what, tx, ty, this.buildDir);
+      this.persist();
+      return;
+    }
+
+    const cost = what === 'belt' ? BELT_COST : MACHINES[what].cost;
+    const messages: Record<NonNullable<typeof error>, string> = {
+      bounds: 'Off the edge of the island',
+      occupied: 'Something is already there',
+      terrain: "Can't build on water",
+      ore: 'A miner has to sit on an ore patch',
+      cost: this.costMessage(cost),
+    };
+    this.hud.toast(messages[error], 'warn');
+  }
+
+  private costMessage(cost: ItemStack[]): string {
+    return `Need ${cost.map((c) => `${c.count} ${ITEMS[c.id].name}`).join(', ')}`;
+  }
+
+  private removeUnderCursor(): void {
+    const { tx, ty } = toTile(this.cursorWorld);
+    if (removeAt(this.world, this.self, tx, ty)) {
+      this.hud.toast('Removed', 'good');
+      this.persist();
+    }
+  }
+
+  private inspectUnderCursor(): void {
+    const { tx, ty } = toTile(this.cursorWorld);
+    const machine = machineAt(this.world, tx, ty);
+    if (machine) this.hud.openMachine(machine);
   }
 
   private frame(now: number): void {
@@ -159,6 +249,8 @@ export class Game {
     this.handleActions();
 
     const paused = this.self.pendingUpgrades > 0;
+    // Inspecting a machine should not also swing the pickaxe at it.
+    if (this.hud.isInspecting) this.input.takeClick();
     const ghost = this.ghost();
     this.tryPlace(ghost);
 

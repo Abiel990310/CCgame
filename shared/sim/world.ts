@@ -2,6 +2,7 @@ import { RESOURCES } from '../data/items';
 import { CYCLE, MAP_CENTER, MAP_TILES, PLAYER, TILE } from './constants';
 import { makeRng } from './rng';
 import { isShore, isWalkable, terrainAtIndex, generateTerrain } from './terrain';
+import { generateOre, oreAt } from './ore';
 import type { Player, ResourceKind, Vec2, World } from './types';
 import { xpForLevel } from './progression';
 
@@ -42,7 +43,7 @@ export function createPlayer(id: number, name: string, pos: Vec2): Player {
   };
 }
 
-export function createWorld(seed = 12345): World {
+export function createWorld(seed = 12345, peaceful = false): World {
   const terrain = generateTerrain(seed);
   const camp: Vec2 = { x: MAP_CENTER, y: MAP_CENTER };
 
@@ -62,6 +63,11 @@ export function createWorld(seed = 12345): World {
     nodes: [],
     buildings: [],
     camp,
+    ore: generateOre(terrain, seed),
+    belts: [],
+    machines: [],
+    grid: new Map(),
+    peaceful,
     waveBudget: 0,
     wavePulse: 0,
     nextId: 1,
@@ -90,6 +96,8 @@ function populateNodes(world: World): void {
     };
     // Keep the camp clearing free of clutter so building has room.
     if (Math.hypot(pos.x - world.camp.x, pos.y - world.camp.y) < 120) return;
+    // Never bury an ore tile under scenery — miners need the tile itself.
+    if (oreAt(world.ore, tx, ty) !== null) return;
     world.nodes.push({
       id: world.nextId++,
       kind,

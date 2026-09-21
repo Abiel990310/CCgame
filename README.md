@@ -2,16 +2,20 @@
 
 A cozy, persistent island survival game that runs in the browser.
 
-Gather by day. Survive the night. The island keeps everything you build.
+Automate an island. Gather by hand, then stop doing it by hand.
 
 ![day](docs/day.png)
 
 ## What it is
 
-You wash up on a procedurally generated island. By day you fish, mine, chop and
-forage in peace. At night, easy creatures wander in from the dark — your weapons
-fire themselves while you reposition and dash. You level up, draft an upgrade,
-build up the camp, and the island remembers all of it.
+You wash up on a procedurally generated island. You gather by hand at first,
+then you automate it: miners on ore patches, belts carrying ore to furnaces,
+furnaces feeding assemblers. The factory grows, and throughput becomes the
+puzzle — not "do I have enough iron" but "can I make enough iron per minute".
+
+At night, easy creatures wander in from the dark while your weapons fire
+themselves and you reposition and dash. Or start a **peaceful** world, where the
+factory is the whole game. Either way the island keeps everything you build.
 
 Designed so it is fully enjoyable alone, with drop-in multiplayer layered on
 later. See [DESIGN.md](DESIGN.md) for the full design and roadmap.
@@ -24,6 +28,9 @@ later. See [DESIGN.md](DESIGN.md) for the full design and roadmap.
 | Dash | `Space` |
 | Gather | `E`, or hold the mouse button |
 | Build mode | `B` |
+| Rotate the piece you are placing | `R` |
+| Remove what is under the cursor | `X` or right-click |
+| Inspect a machine | Click it outside build mode |
 | Bag | `Tab` |
 | Close panel | `Esc` |
 
@@ -71,10 +78,20 @@ arrives, with the client predicting locally against it.
 `step(world, inputs, dt)` is the whole simulation. Same world plus same inputs
 always produces the same result.
 
+## The factory
+
+Place a **miner** on an ore patch, run a **belt** from it to a **furnace**, and
+point the furnace at a **chest**. That is the whole idea; everything later is
+the same idea with more steps.
+
+Adding depth means adding rows to `shared/data/recipes.ts` — machines are driven
+generically by that table, so new content needs no new systems.
+
 ## Status
 
-**Phase 1 (solo prototype) and Phase 2 (persistence) are done.** The game is
-playable start to finish and saves to `localStorage`.
+**Phases 1–3 are done.** Solo play, persistence, and the first three factory
+tiers: ore, miners, belts, furnaces, assemblers, chests, and a per-world
+peaceful mode.
 
-Still to come: the multiplayer server, worlds you can host and invite friends
-to, crafting, and more content. Roadmap in [DESIGN.md](DESIGN.md).
+Next: power and deeper chains, then the multiplayer server and hostable worlds.
+Roadmap in [DESIGN.md](DESIGN.md).

@@ -12,7 +12,8 @@ export function stepCycle(world: World, dt: number): void {
     world.phase = 'night';
     world.nightIndex += 1;
     world.phaseTime = CYCLE.nightSeconds;
-    world.waveBudget = nightBudget(world);
+    // A peaceful world still has nights; they are just quiet ones.
+    world.waveBudget = world.peaceful ? 0 : nightBudget(world);
     world.wavePulse = 0.5;
   } else {
     world.phase = 'day';

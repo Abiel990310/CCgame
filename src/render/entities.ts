@@ -302,15 +302,21 @@ export function drawPickup(ctx: CanvasRenderingContext2D, pickup: Pickup, time: 
  */
 export function drawPlayerSilhouette(ctx: CanvasRenderingContext2D, player: Player): void {
   ctx.save();
-  ctx.globalAlpha = 0.5;
+
+  // An outline, not a fill: a solid disc hides the character it is meant to
+  // locate, which is worse than the occlusion it exists to solve.
+  ctx.globalAlpha = 0.28;
   ctx.fillStyle = '#cfe2ff';
   ctx.beginPath();
-  ctx.arc(player.pos.x, player.pos.y - 8, PLAYER.radius * 0.95, 0, Math.PI * 2);
+  ctx.arc(player.pos.x, player.pos.y - 6, PLAYER.radius * 1.1, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = 0.85;
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1.5;
+
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = '#eaf3ff';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
   ctx.stroke();
+
   ctx.restore();
 }
 

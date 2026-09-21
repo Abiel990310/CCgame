@@ -1,8 +1,16 @@
-import { BUILDINGS, BUILD_ORDER } from '@shared/data/buildings';
 import { ITEMS } from '@shared/data/items';
+import { MACHINES } from '@shared/data/machines';
+import { recipesFor } from '@shared/data/recipes';
 import { CYCLE } from '@shared/sim/constants';
 import { hasAll } from '@shared/sim/inventory';
-import type { BuildingId, Player, World } from '@shared/sim/types';
+import type { Machine, Player, World } from '@shared/sim/types';
+import {
+  TABS,
+  entriesFor,
+  selectionKey,
+  type BuildSelection,
+  type PaletteTab,
+} from './palette';
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -13,10 +21,11 @@ const $ = <T extends HTMLElement>(id: string): T => {
 export interface HudCallbacks {
   onChooseUpgrade: (id: string) => void;
   onToggleBuild: () => void;
-  onSelectBuilding: (id: BuildingId) => void;
+  onSelect: (selection: BuildSelection) => void;
   onToggleBag: () => void;
   onDash: () => void;
-  onStart: (fresh: boolean) => void;
+  onStart: (fresh: boolean, peaceful: boolean) => void;
+  onSetRecipe: (machineId: number, recipeId: string) => void;
 }
 
 /**
@@ -38,6 +47,15 @@ export class Hud {
     xpText: $('xp-text'),
     pouch: $('pouch'),
     buildbar: $('buildbar'),
+    buildTabs: $('buildbar-tabs'),
+    buildItems: $('buildbar-items'),
+    machine: $('machine'),
+    machineKind: $('machine-kind'),
+    machineTitle: $('machine-title'),
+    machineIo: $('machine-io'),
+    machineRecipes: $('machine-recipes'),
+    machineClose: $<HTMLButtonElement>('machine-close'),
+    peaceful: $<HTMLInputElement>('opt-peaceful'),
     btnBuild: $<HTMLButtonElement>('btn-build'),
     btnBag: $<HTMLButtonElement>('btn-bag'),
     btnDash: $<HTMLButtonElement>('btn-dash'),
@@ -54,7 +72,9 @@ export class Hud {
     toasts: $('toasts'),
   };
 
-  private selectedBuilding: BuildingId = BUILD_ORDER[0];
+  private selection: BuildSelection = { kind: 'belt' };
+  private tab: PaletteTab = 'factory';
+  private inspecting: Machine | null = null;
   private buildMode = false;
   private bagOpen = false;
   /** Signature of the last rendered offer set, to avoid rebuilding every frame. */
@@ -68,12 +88,14 @@ export class Hud {
     this.els.bagClose.addEventListener('click', () => this.callbacks.onToggleBag());
     this.els.btnContinue.addEventListener('click', () => this.dismissStart(false));
     this.els.btnNew.addEventListener('click', () => this.dismissStart(true));
-    this.buildBuildBar();
+    this.els.machineClose.addEventListener('click', () => this.closeMachine());
+    this.buildTabs();
+    this.buildPalette();
   }
 
   private dismissStart(fresh: boolean): void {
     this.els.start.classList.add('hidden');
-    this.callbacks.onStart(fresh);
+    this.callbacks.onStart(fresh, this.els.peaceful.checked);
   }
 
   showStart(canContinue: boolean): void {
@@ -98,26 +120,106 @@ export class Hud {
     return this.buildMode;
   }
 
-  get building(): BuildingId {
-    return this.selectedBuilding;
+  get selected(): BuildSelection {
+    return this.selection;
   }
 
-  private buildBuildBar(): void {
-    this.els.buildbar.innerHTML = '';
-    for (const id of BUILD_ORDER) {
-      const def = BUILDINGS[id];
+  get isInspecting(): boolean {
+    return this.inspecting !== null;
+  }
+
+  private buildTabs(): void {
+    this.els.buildTabs.innerHTML = '';
+    for (const tab of TABS) {
+      const button = document.createElement('button');
+      button.className = `tab${tab.id === this.tab ? ' on' : ''}`;
+      button.textContent = tab.label;
+      button.addEventListener('click', () => {
+        this.tab = tab.id;
+        this.buildTabs();
+        this.buildPalette();
+        // Switching tabs selects that tab's first entry, so the ghost is valid.
+        const first = entriesFor(this.tab)[0];
+        if (first) this.select(first.selection);
+      });
+      this.els.buildTabs.appendChild(button);
+    }
+  }
+
+  private buildPalette(): void {
+    this.els.buildItems.innerHTML = '';
+    for (const entry of entriesFor(this.tab)) {
       const button = document.createElement('button');
       button.className = 'build-option';
-      button.dataset.id = id;
-      button.innerHTML = `<b>${def.name}</b><em>${def.cost
+      button.dataset.key = selectionKey(entry.selection);
+      button.title = entry.description;
+      button.innerHTML = `<b>${entry.name}</b><em>${entry.cost
         .map((c) => `${c.count} ${ITEMS[c.id].name}`)
         .join(' · ')}</em>`;
-      button.addEventListener('click', () => {
-        this.selectedBuilding = id;
-        this.callbacks.onSelectBuilding(id);
-      });
-      this.els.buildbar.appendChild(button);
+      button.addEventListener('click', () => this.select(entry.selection));
+      this.els.buildItems.appendChild(button);
     }
+  }
+
+  private select(selection: BuildSelection): void {
+    this.selection = selection;
+    this.callbacks.onSelect(selection);
+  }
+
+  openMachine(machine: Machine): void {
+    this.inspecting = machine;
+    const def = MACHINES[machine.type];
+    this.els.machineTitle.textContent = def.name;
+    this.els.machineKind.textContent = def.description;
+    this.els.machine.classList.remove('hidden');
+    this.renderMachineRecipes(machine);
+    this.renderMachineIo(machine);
+  }
+
+  closeMachine(): void {
+    this.inspecting = null;
+    this.els.machine.classList.add('hidden');
+  }
+
+  private renderMachineRecipes(machine: Machine): void {
+    this.els.machineRecipes.innerHTML = '';
+    if (!MACHINES[machine.type].choosesRecipe) return;
+
+    for (const recipe of recipesFor(machine.type)) {
+      const button = document.createElement('button');
+      button.className = 'offer';
+      const inputs = recipe.inputs.map((i) => `${i.count} ${ITEMS[i.id].name}`).join(' + ');
+      const outputs = recipe.outputs.map((o) => `${o.count} ${ITEMS[o.id].name}`).join(' + ');
+      button.innerHTML = `<b>${recipe.name}</b><span>${inputs} → ${outputs}<br>${recipe.time}s</span>`;
+      if (machine.recipe === recipe.id) button.style.borderColor = 'var(--gold)';
+      button.addEventListener('click', () => {
+        this.callbacks.onSetRecipe(machine.id, recipe.id);
+        this.renderMachineRecipes(machine);
+      });
+      this.els.machineRecipes.appendChild(button);
+    }
+  }
+
+  private renderMachineIo(machine: Machine): void {
+    const group = (label: string, stacks: typeof machine.input): string => {
+      const body = stacks.length
+        ? stacks
+            .map(
+              (s) =>
+                `<span class="io-stack"><i class="dot" style="background:${
+                  ITEMS[s.id].color
+                }"></i>${s.count}</span>`,
+            )
+            .join('')
+        : '<span class="io-empty">empty</span>';
+      return `<div class="io-group"><b>${label}</b><div class="io-stacks">${body}</div></div>`;
+    };
+
+    const def = MACHINES[machine.type];
+    const parts: string[] = [];
+    if (def.inputSlots > 0) parts.push(group('In', machine.input));
+    if (def.outputSlots > 0) parts.push(group('Out', machine.output));
+    this.els.machineIo.innerHTML = parts.join('');
   }
 
   toast(message: string, tone: 'info' | 'warn' | 'good' = 'info'): void {
@@ -140,6 +242,8 @@ export class Hud {
     this.updateOffers(player);
     if (this.bagOpen) this.updateBag(player);
     if (this.buildMode) this.updateBuildAffordability(player);
+    // The inspector shows live contents, so refresh it while it is open.
+    if (this.inspecting) this.renderMachineIo(this.inspecting);
   }
 
   private updatePhase(world: World): void {
@@ -151,7 +255,9 @@ export class Hud {
     this.els.phaseIcon.textContent = night ? '🌙' : '☀';
     this.els.phaseName.textContent = night ? `Night ${world.nightIndex}` : 'Day';
     this.els.phaseSub.textContent = night
-      ? `${seconds}s until dawn · ${world.mobs.length} out there`
+      ? world.peaceful
+        ? `${seconds}s until dawn · all quiet`
+        : `${seconds}s until dawn · ${world.mobs.length} out there`
       : `Night ${world.nightIndex + 1} in ${seconds}s`;
     this.els.phaseFill.style.width = `${(world.phaseTime / total) * 100}%`;
   }
@@ -236,10 +342,14 @@ export class Hud {
   }
 
   private updateBuildAffordability(player: Player): void {
-    for (const button of Array.from(this.els.buildbar.children) as HTMLElement[]) {
-      const id = button.dataset.id as BuildingId;
-      button.classList.toggle('on', id === this.selectedBuilding);
-      button.classList.toggle('poor', !hasAll(player, BUILDINGS[id].cost));
+    const current = selectionKey(this.selection);
+    const entries = entriesFor(this.tab);
+
+    for (const button of Array.from(this.els.buildItems.children) as HTMLElement[]) {
+      const key = button.dataset.key ?? '';
+      const entry = entries.find((e) => selectionKey(e.selection) === key);
+      button.classList.toggle('on', key === current);
+      button.classList.toggle('poor', entry ? !hasAll(player, entry.cost) : false);
     }
   }
 }

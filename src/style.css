@@ -566,3 +566,128 @@ kbd {
     padding: 20px;
   }
 }
+
+/* ---------- Factory build palette ---------- */
+
+.buildbar {
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  overflow: visible;
+  width: min(620px, calc(100vw - 28px));
+}
+
+.buildbar-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.tab {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  color: var(--ink-dim);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.tab.on {
+  background: rgba(232, 182, 76, 0.16);
+  border-color: var(--gold);
+  color: var(--ink);
+}
+
+.buildbar-items {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.buildbar-hint {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  font-size: 10.5px;
+  color: var(--ink-dim);
+}
+
+.buildbar-hint kbd {
+  font-size: 10px;
+  padding: 1px 5px;
+}
+
+/* ---------- Machine inspector ---------- */
+
+.machine-io {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.io-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
+
+.io-group b {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.io-stacks {
+  display: flex;
+  gap: 5px;
+  min-height: 24px;
+  align-items: center;
+}
+
+.io-stack {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 5px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.io-empty {
+  font-size: 11px;
+  color: var(--ink-dim);
+  opacity: 0.6;
+}
+
+/* ---------- Peaceful toggle ---------- */
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
