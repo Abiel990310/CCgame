@@ -43,7 +43,7 @@ src/               Browser client
   render/          Canvas renderer: terrain mesh, entities, factory, lighting,
                    effects, palette, shapes, camera
   ui/              DOM overlay: HUD, build palette, modals
-.github/workflows/ Pages deployment
+.github/workflows/ CI and Pages deployment
 ```
 
 ## The one rule that matters
@@ -124,6 +124,14 @@ expose live state and the placement API for driving the game.
 
 Report what you actually verified, and say plainly when you could not verify
 something.
+
+Simulation behaviour that is not visual belongs in tests, and a production line
+is the case to get right: `shared/sim/__tests__/production-line.test.ts` builds
+miner → belt → furnace → chest lines through the placement API and asserts on
+what reaches the chest. Build on the bench in `__tests__/bench.ts` rather than
+searching generated terrain for a spot that fits — a test that gives up when
+the seed does not cooperate passes without asserting anything, which is how a
+deleted recipe filter once left the whole suite green.
 
 ## Deployment
 

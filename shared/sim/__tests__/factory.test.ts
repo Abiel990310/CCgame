@@ -15,8 +15,9 @@ import { addItem, countItem } from '../inventory';
 import { oreAt } from '../ore';
 import { EMPTY_INPUT, step } from '../step';
 import { pushOntoBelt } from '../systems/factory';
-import type { Direction, ItemId, Player, World } from '../types';
+import type { Belt, Direction, ItemId, Machine, Player, World } from '../types';
 import { addPlayer, createWorld } from '../world';
+import { advance, at, bench, plantOre, put } from './bench';
 
 function run(world: World, seconds: number): void {
   const ticks = Math.round(seconds / TICK_DT);
@@ -245,15 +246,15 @@ describe('miners', () => {
   });
 
   it('feeds a belt placed at its output', () => {
-    const { world, player } = setup();
-    const ore = findOre(world, 'ironOre');
-    const miner = placeMachine(world, player, 'miner', ore.tx, ore.ty, 0)!;
-    const belt = placeBelt(world, player, ore.tx + 1, ore.ty, 0);
-    if (!belt) return; // Neighbouring tile was not buildable on this seed.
+    const b = bench();
+    const { tx, ty } = at(2, 1);
+    plantOre(b.world, 'ironOre', tx, ty);
+    put(b, 'miner', tx, ty, 0);
+    const belt = put(b, 'belt', tx + 1, ty, 0) as Belt;
 
-    run(world, 4);
-    const moved = belt.items.length > 0 || miner.output.length === 0;
-    expect(moved).toBe(true);
+    advance(b.world, 4);
+    expect(belt.items.length).toBeGreaterThan(0);
+    expect(belt.items[0].item).toBe('ironOre');
   });
 
   it('stalls once its buffer is full', () => {
@@ -320,18 +321,15 @@ describe('crafting machines', () => {
   });
 
   it('only accepts items its recipe uses', () => {
-    const { world, player } = setup();
-    const { tx, ty } = findFree(world, player);
-    const furnace = placeMachine(world, player, 'furnace', tx, ty, 0)!;
-    setRecipe(world, furnace.id, 'ironPlate');
-
-    const belt = placeBelt(world, player, tx - 1, ty, 0);
-    if (!belt) return;
+    const b = bench();
+    const { tx, ty } = at(2, 1);
+    const belt = put(b, 'belt', tx, ty, 0) as Belt;
+    const furnace = put(b, ['furnace', 'ironPlate'], tx + 1, ty, 0) as Machine;
 
     pushOntoBelt(belt, 'copperOre');
-    run(world, 3);
+    advance(b.world, 3);
     // Copper is not part of the iron recipe, so it must stay on the belt.
-    expect(furnace.input.some((s) => s.id === 'copperOre')).toBe(false);
+    expect(furnace.input.some((stack) => stack.id === 'copperOre')).toBe(false);
     expect(belt.items.length).toBe(1);
   });
 
@@ -341,31 +339,6 @@ describe('crafting machines', () => {
     const furnace = placeMachine(world, player, 'furnace', tx, ty, 0)!;
     expect(setRecipe(world, furnace.id, 'gear')).toBe(false);
     expect(setRecipe(world, furnace.id, 'copperPlate')).toBe(true);
-  });
-});
-
-describe('a full production chain', () => {
-  it('runs miner → belt → furnace → chest end to end', () => {
-    const { world, player } = setup(31337);
-    const ore = findOre(world, 'ironOre');
-
-    // Build the line to the right of the miner; skip the seed if it will not fit.
-    const cells = [1, 2, 3].map((dx) => ({ tx: ore.tx + dx, ty: ore.ty }));
-    const buildable = cells.every(
-      (c) => factoryPlacementError(world, player, 'belt', c.tx, c.ty) === null,
-    );
-    if (!buildable) return;
-
-    placeMachine(world, player, 'miner', ore.tx, ore.ty, 0);
-    placeBelt(world, player, cells[0].tx, cells[0].ty, 0);
-    const furnace = placeMachine(world, player, 'furnace', cells[1].tx, cells[1].ty, 0)!;
-    setRecipe(world, furnace.id, 'ironPlate');
-    const chest = placeMachine(world, player, 'chest', cells[2].tx, cells[2].ty, 0)!;
-
-    run(world, 30);
-
-    const plates = chest.input.find((s) => s.id === 'ironPlate')?.count ?? 0;
-    expect(plates).toBeGreaterThan(0);
   });
 });
 
