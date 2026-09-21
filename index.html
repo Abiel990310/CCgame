@@ -49,7 +49,14 @@
       </section>
 
       <!-- Build mode palette -->
-      <section class="buildbar hidden" id="buildbar"></section>
+      <section class="buildbar hidden" id="buildbar">
+        <div class="buildbar-tabs" id="buildbar-tabs"></div>
+        <div class="buildbar-items" id="buildbar-items"></div>
+        <div class="buildbar-hint">
+          <span><kbd>R</kbd> rotate</span>
+          <span><kbd>X</kbd> / right-click removes</span>
+        </div>
+      </section>
 
       <!-- Level-up draft -->
       <div class="modal hidden" id="levelup">
@@ -57,6 +64,18 @@
           <p class="eyebrow">Level up</p>
           <h2 id="levelup-title">Choose an upgrade</h2>
           <div class="offers" id="offers"></div>
+        </div>
+      </div>
+
+      <!-- Machine inspector -->
+      <div class="modal hidden" id="machine">
+        <div class="modal-inner">
+          <p class="eyebrow">Machine</p>
+          <h2 id="machine-title">Furnace</h2>
+          <p class="blurb" id="machine-kind"></p>
+          <div class="machine-io" id="machine-io"></div>
+          <div class="offers" id="machine-recipes"></div>
+          <button class="ghost-btn" id="machine-close">Close</button>
         </div>
       </div>
 
@@ -85,8 +104,13 @@
             <span><kbd>Space</kbd> dash</span>
             <span><kbd>E</kbd> / hold click to gather</span>
             <span><kbd>B</kbd> build</span>
+            <span><kbd>R</kbd> rotate</span>
             <span><kbd>Tab</kbd> bag</span>
           </div>
+          <label class="toggle">
+            <input type="checkbox" id="opt-peaceful" />
+            <span>Peaceful — no night raids, just the factory</span>
+          </label>
           <div class="start-row">
             <button class="primary-btn" id="btn-continue">Continue</button>
             <button class="ghost-btn" id="btn-new">New island</button>

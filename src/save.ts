@@ -1,8 +1,9 @@
 import { createWorld } from '@shared/sim/world';
+import { tileKey } from '@shared/sim/grid';
 import type { Player, World } from '@shared/sim/types';
 
 const KEY = 'ccgame.save.v1';
-const VERSION = 1;
+const VERSION = 2;
 
 interface SaveFile {
   version: number;
@@ -18,6 +19,9 @@ interface SaveFile {
   players: Player[];
   nodes: World['nodes'];
   buildings: World['buildings'];
+  belts: World['belts'];
+  machines: World['machines'];
+  peaceful: boolean;
 }
 
 /**
@@ -40,6 +44,9 @@ export function saveWorld(world: World): void {
     players: [...world.players.values()],
     nodes: world.nodes,
     buildings: world.buildings,
+    belts: world.belts,
+    machines: world.machines,
+    peaceful: world.peaceful,
   };
   try {
     localStorage.setItem(KEY, JSON.stringify(file));
@@ -59,11 +66,15 @@ export function loadWorld(): World | null {
 
   try {
     const file = JSON.parse(raw) as SaveFile;
-    if (file.version !== VERSION) return null;
+    // Older saves are read, not thrown away: every field the factory added is
+    // optional below, so a version 1 island loads with an empty factory rather
+    // than dropping someone's world on the floor. A save from a future version
+    // is the only one we refuse, since we cannot know what it means.
+    if (!(file.version >= 1 && file.version <= VERSION)) return null;
 
     // Terrain is regenerated from the seed rather than stored — it is large,
     // and it is a pure function of the seed anyway.
-    const world = createWorld(file.seed);
+    const world = createWorld(file.seed, file.peaceful ?? false);
     world.tick = file.tick;
     world.time = file.time;
     // Always wake up in daylight, however the session ended.
@@ -74,6 +85,10 @@ export function loadWorld(): World | null {
     world.rngState = file.rngState;
     world.nodes = file.nodes;
     world.buildings = file.buildings;
+    world.belts = file.belts ?? [];
+    world.machines = file.machines ?? [];
+    // The tile index is derived state, so rebuild it rather than storing it.
+    rebuildGrid(world);
     world.players = new Map(file.players.map((p) => [p.id, p]));
     for (const player of world.players.values()) {
       player.downed = 0;
@@ -85,6 +100,12 @@ export function loadWorld(): World | null {
   } catch {
     return null;
   }
+}
+
+function rebuildGrid(world: World): void {
+  world.grid.clear();
+  for (const belt of world.belts) world.grid.set(tileKey(belt.tx, belt.ty), belt);
+  for (const machine of world.machines) world.grid.set(tileKey(machine.tx, machine.ty), machine);
 }
 
 export function clearSave(): void {

@@ -4,13 +4,20 @@
 
 ## Pitch
 
-You wash up on a shared island. By day you fish, mine, chop and forage in peace.
-By night, easy creatures wander in from the dark and your weapons fire themselves
-while you reposition and dash. You level up, upgrade your camp, and the island
-keeps everything you build — forever.
+You wash up on a shared island. You gather by hand at first, then you stop doing
+it by hand: miners on ore patches, belts carrying ore to furnaces, furnaces
+feeding assemblers. The factory grows, and so does what it demands of you.
+
+By night, easy creatures wander in from the dark and your weapons fire
+themselves while you reposition and dash — or you play a peaceful world, where
+the factory is the whole game. The island keeps everything you build, forever.
 
 Other players can drop in at any second and help. If nobody ever does, it is
 still a complete game.
+
+**The long game is a factory game.** Throughput is the puzzle: not "do I have
+enough iron" but "can I make enough iron per minute, and where is my
+bottleneck". That single shift is what turns five hours of play into hundreds.
 
 **Inspirations:** Brotato (waves, auto-attack, upgrade picks), Satisfactory
 (persistent base, self-set goals, no fail state), How to Fish (chill gathering,
@@ -26,6 +33,10 @@ collection ladder).
    into a world already running. Other humans are a bonus layered on top.
 4. **Nothing is lost.** No death penalty worth fearing, no wiped saves. The
    island only ever grows.
+5. **The engine is small, the content is data.** Machines, belts and recipes are
+   written once and driven generically by tables. Adding depth means adding rows
+   to `shared/data/recipes.ts`, not writing new systems. This is the only way a
+   two-person project reaches hundreds of hours of content.
 
 ## Core loop
 
@@ -45,17 +56,64 @@ collection ladder).
 - **Level up:** pick 1 of 3 upgrades (Brotato-style draft).
 - Camp visibly grows: campfire → tents → walls → workshops → automation.
 
+## The factory
+
+The spine of the long game.
+
+### Tier ladder
+
+| Tier | Unlocks | The new problem it creates |
+| --- | --- | --- |
+| 0 | Hand gathering | — |
+| 1 | Miner, belt, chest | Things move without you |
+| 2 | Furnace, plates | Ratios: several miners feed one furnace |
+| 3 | Assembler: gears, wire, circuits | Multi-input recipes, sub-factories |
+| 4 | Power (coal → steam) | Everything stops when power dies |
+| 5 | Steel, resin, advanced circuits | Chains six or more steps deep |
+| 6 | Island logistics: drones, rail | Remote outposts on distant ore |
+| 7 | The Megaproject | An endgame sink with unbounded appetite |
+
+Tiers 0–3 are built. Everything above is content on top of the same engine.
+
+### Why a megaproject
+
+Late game needs a reason to keep scaling. A tech tree ends; a structure that
+always wants more throughput does not. Without one, players finish the recipes
+and stop. With one, every hour of factory growth still has somewhere to go.
+
+### Belts
+
+Items ride belt tiles as an ordered front-to-back list, each one clamped behind
+the item ahead of it. That keeps a belt O(items) rather than O(items²), which
+matters because a mature factory has tens of thousands of items in motion.
+Drones and rail arrive at tier 6 to remove the tedium of very long hauls — not
+to replace belts, which stay the heart of the puzzle.
+
+### Ore
+
+Ore is placed as discrete patches, not smooth noise. A patch is the unit a
+player reasons about — "that iron patch over there" — and a patch that runs low
+is what eventually pushes expansion outward, which is the long game working.
+
 ## Systems
 
 ### Progression — fully persistent
-Everything saves: island, camp, buildings, inventory, gear, levels, collections.
+Everything saves: island, camp, factory, inventory, gear, levels, collections.
 You log out, come back tomorrow, it is all exactly where you left it.
+
+The factory does **not** run while you are away. Every hour of progress is an
+hour someone actually played, and the economy never has to be balanced around
+absence.
 
 ### Inventory
 Real grid inventory. Stackable resources. Tools and weapons with tiers.
 Equipment slots. Storage chests at camp for overflow.
 
-### Combat
+### Combat — optional per world
+Each world is created either **peaceful** (no raids; the factory is the whole
+game) or with **night raids**. The choice is made once, when the world is
+created, and is saved with it.
+
 - Weapons auto-target and auto-fire on their own cooldowns.
 - One manual ability (dash) with its own cooldown.
 - Mobs are *easy* by default. Difficulty scales with player count and camp tier,
@@ -107,19 +165,5 @@ Fallback if it does not read well in motion: hand-made pixel art.
 
 ## Build order
 
-1. **Phase 1 — Solo prototype, no server.** Movement, island, gathering, day/night
-   cycle, auto-attack combat, dash, XP and level-up picks, inventory, a camp you
-   can build. Runs entirely in the browser. *This is the game — it has to be fun
-   here, before any netcode exists.*
-2. **Phase 2 — Persistence.** Save/load. Locally first, then server-side.
-3. **Phase 3 — Multiplayer.** Stand up the authoritative server against the
-   shared sim. Other players appear. Prediction and interpolation.
-4. **Phase 4 — Depth.** More fish, ores, mobs, recipes, camp tiers, villager
-   bots, collection log, automation.
-
-## Open questions
-
-- Island: one fixed hand-made map, or procedurally generated?
-- Camp: freeform placement, or slot-based upgrade tiers?
-- Does a world keep producing while its players are offline (idle gathering)?
-- How are private worlds' invite lists managed — accounts, or share codes?
+Phase status, the tier ladder, the decision log and the open questions live in
+[ROADMAP.md](ROADMAP.md). Agent-facing working notes are in [CLAUDE.md](CLAUDE.md).

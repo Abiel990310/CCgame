@@ -5,6 +5,7 @@ export type Terrain = 'deep' | 'water' | 'sand' | 'grass' | 'forest' | 'rock';
 export type ResourceKind = 'tree' | 'rock' | 'bush' | 'fish';
 
 export type ItemId =
+  // Hand-gathered
   | 'wood'
   | 'stone'
   | 'fiber'
@@ -12,7 +13,18 @@ export type ItemId =
   | 'fish'
   | 'iron'
   | 'gold'
-  | 'essence';
+  | 'essence'
+  // Mined by machines
+  | 'ironOre'
+  | 'copperOre'
+  | 'coal'
+  // Smelted
+  | 'ironPlate'
+  | 'copperPlate'
+  // Assembled
+  | 'gear'
+  | 'wire'
+  | 'circuit';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -148,6 +160,45 @@ export interface PlayerInput {
   interact: boolean;
 }
 
+/** Grid-aligned facing. Belts flow this way; machines output this way. */
+export type Direction = 0 | 1 | 2 | 3;
+
+export type OreKind = 'ironOre' | 'copperOre' | 'coal';
+
+export type MachineId = 'miner' | 'furnace' | 'assembler' | 'chest';
+
+/** One item riding a belt tile, positioned 0..1 along its length. */
+export interface BeltItem {
+  item: ItemId;
+  /** Distance travelled along this tile, 0 at the back, 1 at the front. */
+  offset: number;
+}
+
+export interface Belt {
+  id: number;
+  tx: number;
+  ty: number;
+  dir: Direction;
+  /** Ordered front-to-back; index 0 is closest to the output end. */
+  items: BeltItem[];
+}
+
+export interface Machine {
+  id: number;
+  type: MachineId;
+  tx: number;
+  ty: number;
+  dir: Direction;
+  /** Chosen recipe, or null for machines that have no choice to make. */
+  recipe: string | null;
+  /** Seconds of crafting accumulated toward the current recipe. */
+  progress: number;
+  input: ItemStack[];
+  output: ItemStack[];
+  /** True when the machine could not run last tick, for the renderer. */
+  stalled: boolean;
+}
+
 export interface World {
   tick: number;
   time: number;
@@ -165,6 +216,19 @@ export interface World {
   nodes: ResourceNode[];
   buildings: Building[];
   camp: Vec2;
+  /** Row-major ore grid; 0 means no ore. Parallel to `terrain`. */
+  ore: Uint8Array;
+  belts: Belt[];
+  machines: Machine[];
+  /**
+   * Tile lookup for belts and machines, keyed by tileKey(tx, ty). Holds the
+   * entity itself: belts hand off every tick, so this has to be O(1) rather
+   * than a scan of every belt and machine on the island. Rebuilt on load
+   * rather than saved, since it is derived state.
+   */
+  grid: Map<number, Belt | Machine>;
+  /** When true this world has no night raids; the factory is the whole game. */
+  peaceful: boolean;
   /** Spawn budget left to release during the current night. */
   waveBudget: number;
   wavePulse: number;

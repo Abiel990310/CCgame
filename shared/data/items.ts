@@ -17,6 +17,17 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   iron: { id: 'iron', name: 'Iron', color: '#c3ccd6', stack: 999 },
   gold: { id: 'gold', name: 'Gold', color: '#e8b64c', stack: 999 },
   essence: { id: 'essence', name: 'Essence', color: '#b58cf0', stack: 999 },
+
+  ironOre: { id: 'ironOre', name: 'Iron Ore', color: '#9c8378', stack: 999 },
+  copperOre: { id: 'copperOre', name: 'Copper Ore', color: '#c28356', stack: 999 },
+  coal: { id: 'coal', name: 'Coal', color: '#4a4a52', stack: 999 },
+
+  ironPlate: { id: 'ironPlate', name: 'Iron Plate', color: '#c3ccd6', stack: 999 },
+  copperPlate: { id: 'copperPlate', name: 'Copper Plate', color: '#e08a4c', stack: 999 },
+
+  gear: { id: 'gear', name: 'Gear', color: '#9aa4ae', stack: 999 },
+  wire: { id: 'wire', name: 'Wire', color: '#e8a860', stack: 999 },
+  circuit: { id: 'circuit', name: 'Circuit', color: '#6fc98a', stack: 999 },
 };
 
 export interface ResourceDef {

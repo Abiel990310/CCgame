@@ -1,9 +1,9 @@
 import { BUILDINGS } from '@shared/data/buildings';
 import { RESOURCES } from '@shared/data/items';
-import { CAMP, CYCLE, MAP_SIZE, TILE } from '@shared/sim/constants';
+import { CAMP, CYCLE, MAP_SIZE, MAP_TILES, TILE } from '@shared/sim/constants';
 import { clamp } from '@shared/sim/math';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
-import type { BuildingId, Vec2, World } from '@shared/sim/types';
+import type { BuildingId, Direction, MachineId, Vec2, World } from '@shared/sim/types';
 import { Camera } from './camera';
 import { Effects } from './effects';
 import {
@@ -19,6 +19,14 @@ import {
 import { UI, rgba } from './palette';
 import { bakeTerrain } from './terrain';
 import { polygon } from './shapes';
+import {
+  drawBelt,
+  drawBeltItems,
+  drawMachine,
+  drawOreTile,
+  forEachVisibleOre,
+} from './factory';
+import { dirAngle, tileCenter } from '@shared/sim/grid';
 
 /** Anything that needs depth sorting, collected once per frame. */
 interface Drawable {
@@ -79,9 +87,21 @@ export class Renderer {
 
     if (this.baked) ctx.drawImage(this.baked, 0, 0);
     this.drawWaterShimmer(world, time, view);
+    forEachVisibleOre(world, view, (tx, ty, kind) => drawOreTile(ctx, tx, ty, kind));
+    for (const belt of world.belts) {
+      if (visible(tileCenter(belt.tx, belt.ty), 40)) drawBelt(ctx, belt, time);
+    }
     drawCampRing(ctx, world, CAMP.buildRadius);
+    // Build mode snaps to tiles, so the tiles have to be visible while it is on.
+    if (ghost) this.drawBuildGrid(view);
 
     const layers: Drawable[] = [];
+
+    for (const machine of world.machines) {
+      const pos = tileCenter(machine.tx, machine.ty);
+      if (!visible(pos, 60)) continue;
+      layers.push({ y: pos.y, draw: () => drawMachine(ctx, machine, time) });
+    }
 
     for (const node of world.nodes) {
       if (!visible(node.pos, 60)) continue;
@@ -103,6 +123,10 @@ export class Renderer {
     // Painter's algorithm on Y — the whole reason the scene reads as 3/4 view.
     layers.sort((a, b) => a.y - b.y);
     for (const layer of layers) layer.draw();
+
+    for (const belt of world.belts) {
+      if (visible(tileCenter(belt.tx, belt.ty), 40)) drawBeltItems(ctx, belt);
+    }
 
     for (const pickup of world.pickups) {
       if (visible(pickup.pos, 30)) drawPickup(ctx, pickup, time);
@@ -198,21 +222,73 @@ export class Renderer {
     ctx.restore();
   }
 
-  private drawGhost(world: World, ghost: GhostPreview): void {
+  /**
+   * The tile lattice, drawn only in build mode. Placement has always snapped
+   * to it, but with nothing on screen to line a belt run up against it read
+   * as though it did not.
+   */
+  private drawBuildGrid(view: { minX: number; minY: number; maxX: number; maxY: number }): void {
     const ctx = this.ctx;
-    const def = BUILDINGS[ghost.type];
+    const x0 = Math.max(0, Math.floor(view.minX / TILE));
+    const x1 = Math.min(MAP_TILES, Math.ceil(view.maxX / TILE));
+    const y0 = Math.max(0, Math.floor(view.minY / TILE));
+    const y1 = Math.min(MAP_TILES, Math.ceil(view.maxY / TILE));
+    if (x1 <= x0 || y1 <= y0) return;
+
     ctx.save();
-    ctx.globalAlpha = 0.55;
-    polygon(ctx, ghost.pos.x, ghost.pos.y, def.radius, 6, 5, 0.1);
-    ctx.fillStyle = ghost.valid ? rgba(UI.good, 0.45) : rgba(UI.danger, 0.45);
-    ctx.fill();
-    ctx.strokeStyle = ghost.valid ? UI.good : UI.danger;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = rgba(UI.ink, 0.13);
+    // A hairline whatever the zoom, so the grid never fights the art.
+    ctx.lineWidth = 1 / this.camera.zoom;
+    ctx.beginPath();
+    for (let tx = x0; tx <= x1; tx++) {
+      ctx.moveTo(tx * TILE, y0 * TILE);
+      ctx.lineTo(tx * TILE, y1 * TILE);
+    }
+    for (let ty = y0; ty <= y1; ty++) {
+      ctx.moveTo(x0 * TILE, ty * TILE);
+      ctx.lineTo(x1 * TILE, ty * TILE);
+    }
     ctx.stroke();
     ctx.restore();
+  }
 
-    // Show the build radius only while actually placing something.
-    drawCampRing(ctx, world, CAMP.buildRadius);
+  private drawGhost(world: World, ghost: GhostPreview): void {
+    const ctx = this.ctx;
+    const tint = ghost.valid ? UI.good : UI.danger;
+
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = rgba(tint, 0.42);
+    ctx.strokeStyle = tint;
+    ctx.lineWidth = 2;
+
+    if (ghost.kind === 'building') {
+      polygon(ctx, ghost.pos.x, ghost.pos.y, BUILDINGS[ghost.type].radius, 6, 5, 0.1);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      // The build radius only matters for camp pieces, so only show it then.
+      drawCampRing(ctx, world, CAMP.buildRadius);
+      return;
+    }
+
+    const { x, y } = tileCenter(ghost.tx, ghost.ty);
+    ctx.beginPath();
+    ctx.roundRect(x - TILE / 2 + 2, y - TILE / 2 + 2, TILE - 4, TILE - 4, 4);
+    ctx.fill();
+    ctx.stroke();
+
+    // An arrow on the ghost so facing is obvious before anything is committed.
+    ctx.translate(x, y);
+    ctx.rotate(dirAngle(ghost.dir));
+    ctx.fillStyle = tint;
+    ctx.beginPath();
+    ctx.moveTo(TILE * 0.3, 0);
+    ctx.lineTo(TILE * 0.06, -TILE * 0.17);
+    ctx.lineTo(TILE * 0.06, TILE * 0.17);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   /**
@@ -256,11 +332,20 @@ export class Renderer {
   }
 }
 
-export interface GhostPreview {
-  type: BuildingId;
-  pos: Vec2;
-  valid: boolean;
-}
+/**
+ * Camp decoration is placed freely at a world position; factory pieces snap to
+ * a tile and carry a facing, so the preview has to describe both cases.
+ */
+export type GhostPreview =
+  | { kind: 'building'; type: BuildingId; pos: Vec2; valid: boolean }
+  | {
+      kind: 'grid';
+      what: MachineId | 'belt';
+      tx: number;
+      ty: number;
+      dir: Direction;
+      valid: boolean;
+    };
 
 /** 0 at full day, 1 at deep night, eased across the twilight windows. */
 export function nightDarkness(world: World): number {

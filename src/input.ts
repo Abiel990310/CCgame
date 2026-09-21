@@ -11,7 +11,7 @@ const MOVE_KEYS: Record<string, Vec2> = {
   ArrowRight: { x: 1, y: 0 },
 };
 
-export type ActionKey = 'build' | 'inventory' | 'cancel';
+export type ActionKey = 'build' | 'inventory' | 'cancel' | 'rotate' | 'remove';
 
 /**
  * Collects keyboard, pointer and touch into one frame-stable input snapshot.
@@ -42,11 +42,13 @@ export class InputManager {
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
       // Let the browser keep its own shortcuts; only claim game keys.
-      if (e.code in MOVE_KEYS || ['Space', 'KeyE', 'KeyB', 'Tab', 'Escape'].includes(e.code)) {
-        e.preventDefault();
-      }
+      const claimed = ['Space', 'KeyE', 'KeyB', 'KeyR', 'KeyX', 'Tab', 'Escape'];
+      if (e.code in MOVE_KEYS || claimed.includes(e.code)) e.preventDefault();
+
       this.keys.add(e.code);
       if (e.code === 'KeyB') this.pending.push('build');
+      if (e.code === 'KeyR') this.pending.push('rotate');
+      if (e.code === 'KeyX') this.pending.push('remove');
       if (e.code === 'Tab') this.pending.push('inventory');
       if (e.code === 'Escape') this.pending.push('cancel');
     });
@@ -57,8 +59,15 @@ export class InputManager {
       const rect = this.target.getBoundingClientRect();
       this.pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     });
+    // Right-click removes, so the browser menu must not fight it.
+    this.target.addEventListener('contextmenu', (e) => e.preventDefault());
+
     this.target.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'touch') return;
+      if (e.button === 2) {
+        this.pending.push('remove');
+        return;
+      }
       this.pointerDown = true;
       this.clicked = true;
     });
