@@ -1,9 +1,12 @@
 import { createWorld } from '@shared/sim/world';
+import { MACHINES } from '@shared/data/machines';
 import { tileKey } from '@shared/sim/grid';
-import type { Player, World } from '@shared/sim/types';
+import { INVENTORY_SLOTS } from '@shared/sim/inventory';
+import { asStack, normalizeSlots } from '@shared/sim/slots';
+import type { Machine, Player, World } from '@shared/sim/types';
 import { slotKey } from './saves';
 
-const VERSION = 2;
+const VERSION = 3;
 
 interface SaveFile {
   version: number;
@@ -89,7 +92,9 @@ export function loadWorld(slot: string): World | null {
     world.nodes = file.nodes;
     world.buildings = file.buildings;
     world.belts = file.belts ?? [];
-    world.machines = file.machines ?? [];
+    // A machine whose type no longer exists is dropped rather than taken as a
+    // reason to refuse the whole island.
+    world.machines = (file.machines ?? []).filter((m) => m.type in MACHINES).map(loadMachine);
     // The tile index is derived state, so rebuild it rather than storing it.
     rebuildGrid(world);
     world.players = new Map(file.players.map((p) => [p.id, p]));
@@ -98,11 +103,25 @@ export function loadWorld(slot: string): World | null {
       player.hp = Math.max(player.hp, player.maxHp * 0.5);
       player.gatherNodeId = null;
       player.gatherProgress = 0;
+      // Version 3 turned the bag into a fixed grid. Saves before it stored a
+      // compacted list, which reads back as the first N slots of the grid.
+      player.inventory = normalizeSlots(player.inventory, INVENTORY_SLOTS);
+      player.cursor = asStack(player.cursor);
     }
     return world;
   } catch {
     return null;
   }
+}
+
+/** Machine storage is a fixed grid too, sized by the machine's own definition. */
+function loadMachine(machine: Machine): Machine {
+  const def = MACHINES[machine.type];
+  return {
+    ...machine,
+    input: normalizeSlots(machine.input, def.inputSlots, def.slotSize),
+    output: normalizeSlots(machine.output, def.outputSlots, def.slotSize),
+  };
 }
 
 function rebuildGrid(world: World): void {

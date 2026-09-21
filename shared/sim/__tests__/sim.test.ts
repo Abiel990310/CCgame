@@ -93,7 +93,8 @@ describe('inventory', () => {
     addItem(player, 'wood', 5);
     addItem(player, 'wood', 3);
     expect(countItem(player, 'wood')).toBe(8);
-    expect(player.inventory.length).toBe(1);
+    // Eight wood is one stack in one slot; the rest of the grid stays empty.
+    expect(player.inventory.filter((slot) => slot !== null)).toHaveLength(1);
 
     expect(removeItem(player, 'wood', 6)).toBe(true);
     expect(countItem(player, 'wood')).toBe(2);

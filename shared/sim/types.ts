@@ -35,6 +35,9 @@ export interface ItemStack {
   count: number;
 }
 
+/** One cell of a bag, chest or machine grid. Empty cells stay put as `null`. */
+export type Slot = ItemStack | null;
+
 export interface ResourceNode {
   id: number;
   kind: ResourceKind;
@@ -125,7 +128,10 @@ export interface Player {
   /** Queued level-ups waiting for the player to pick an upgrade. */
   pendingUpgrades: number;
   offers: UpgradeOffer[];
-  inventory: ItemStack[];
+  /** Fixed grid of `INVENTORY_SLOTS` cells, arranged by the player. */
+  inventory: Slot[];
+  /** The stack held on the pointer while rearranging. Saved, so it is never lost. */
+  cursor: Slot;
   weapons: WeaponState[];
   stats: PlayerStats;
   dashCd: number;
@@ -193,8 +199,9 @@ export interface Machine {
   recipe: string | null;
   /** Seconds of crafting accumulated toward the current recipe. */
   progress: number;
-  input: ItemStack[];
-  output: ItemStack[];
+  /** Fixed grids, sized by the machine's `inputSlots` and `outputSlots`. */
+  input: Slot[];
+  output: Slot[];
   /** True when the machine could not run last tick, for the renderer. */
   stalled: boolean;
 }

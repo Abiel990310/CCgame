@@ -5,6 +5,7 @@ import { isShore, isWalkable, terrainAtIndex, generateTerrain } from './terrain'
 import { generateOre, oreAt } from './ore';
 import type { Player, ResourceKind, Vec2, World } from './types';
 import { xpForLevel } from './progression';
+import { newInventory } from './inventory';
 
 export function createPlayer(id: number, name: string, pos: Vec2): Player {
   return {
@@ -20,7 +21,8 @@ export function createPlayer(id: number, name: string, pos: Vec2): Player {
     xpToNext: xpForLevel(1),
     pendingUpgrades: 0,
     offers: [],
-    inventory: [],
+    inventory: newInventory(),
+    cursor: null,
     weapons: [{ id: 'sling', level: 1, cooldown: 0 }],
     stats: {
       damage: 1,

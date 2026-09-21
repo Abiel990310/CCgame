@@ -35,14 +35,14 @@ updating.
 shared/            Deterministic simulation — no DOM, no rendering
   data/            Tuning tables: items, mobs, weapons, buildings, machines,
                    recipes. Content lives here.
-  sim/             World state, terrain, ore, grid, and the tick
+  sim/             World state, terrain, ore, grid, item slots, and the tick
     systems/       One file per system: movement, gathering, combat, mobs,
                    pickups, cycle, factory
     __tests__/     Simulation tests
 src/               Browser client
   render/          Canvas renderer: terrain mesh, entities, factory, lighting,
                    effects, palette, shapes, camera
-  ui/              DOM overlay: HUD, build palette, modals
+  ui/              DOM overlay: HUD, build palette, inventory screen, modals
 .github/workflows/ CI and Pages deployment
 ```
 
@@ -101,6 +101,13 @@ on purpose and should stay true as tiers are added.
 - Everything placed in build mode snaps to the tile grid; factory pieces also
   carry a `Direction`. Both cases flow through `GhostPreview`, which is also
   what tells the renderer to draw the grid.
+- **Item storage is a fixed slot grid.** `player.inventory` and a machine's
+  `input` and `output` are sparse arrays — an empty slot is `null` and stays
+  where it is, because the player arranges them by hand. Their lengths come
+  from `INVENTORY_SLOTS` and the machine definition, so go through
+  `shared/sim/slots.ts` rather than pushing onto them, and remember `loadWorld`
+  resizes an old save's grids to whatever the tables now say. What the player
+  may move where lives in `shared/sim/containers.ts`, not in the UI.
 - **Saves must stay backward compatible.** `loadWorld` accepts any version up
   to the current one and defaults the fields that version did not have. Raising
   `VERSION` without that is how you silently delete someone's island.

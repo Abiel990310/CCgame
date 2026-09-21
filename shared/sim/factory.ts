@@ -1,6 +1,7 @@
 import { BELT_COST, MACHINES } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { addItem, payAll, hasAll } from './inventory';
+import { makeSlots } from './slots';
 import { inBounds, step1, tileKey } from './grid';
 import { oreAt } from './ore';
 import { isWalkable, terrainAtIndex } from './terrain';
@@ -81,8 +82,8 @@ export function placeMachine(
     // A miner's "recipe" is whatever it is standing on; everything else is chosen.
     recipe: type === 'miner' ? null : defaultRecipe(type),
     progress: 0,
-    input: [],
-    output: [],
+    input: makeSlots(def.inputSlots),
+    output: makeSlots(def.outputSlots),
     stalled: false,
   };
   world.machines.push(machine);
@@ -116,7 +117,7 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
     world.grid.delete(key);
     refund(world, player, MACHINES[machine.type].cost.map((c) => ({ ...c })));
     for (const stack of [...machine.input, ...machine.output]) {
-      giveItem(world, player, stack.id, stack.count);
+      if (stack) giveItem(world, player, stack.id, stack.count);
     }
     return true;
   }
@@ -128,7 +129,8 @@ function refund(world: World, player: Player, cost: Array<{ id: ItemId; count: n
   for (const entry of cost) giveItem(world, player, entry.id, entry.count);
 }
 
-function giveItem(world: World, player: Player, item: ItemId, count: number): void {
+/** Hand items to a player, dropping the overflow rather than destroying it. */
+export function giveItem(world: World, player: Player, item: ItemId, count: number): void {
   // Anything that will not fit is dropped at the player's feet, never destroyed.
   const stored = addItem(player, item, count);
   if (stored >= count) return;

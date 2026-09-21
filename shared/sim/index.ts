@@ -6,6 +6,8 @@ export * from './terrain';
 export * from './world';
 export * from './step';
 export * from './inventory';
+export * from './slots';
+export * from './containers';
 export * from './progression';
 export * from './building';
 export { findNearestNode } from './systems/gathering';

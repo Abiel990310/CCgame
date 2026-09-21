@@ -4,6 +4,14 @@ import { ITEMS } from '@shared/data/items';
 import { TICK_DT } from '@shared/sim/constants';
 import { placeBuilding, placementError } from '@shared/sim/building';
 import {
+  clickSlot,
+  quickMove,
+  stowCursor,
+  takeAll,
+  type ClickButton,
+  type SlotRef,
+} from '@shared/sim/containers';
+import {
   factoryPlacementError,
   machineAt,
   placeBelt,
@@ -14,7 +22,15 @@ import {
 import { rotate, tileCenter, toTile } from '@shared/sim/grid';
 import { chooseUpgrade } from '@shared/sim/progression';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
-import type { Direction, ItemStack, Player, PlayerInput, World } from '@shared/sim/types';
+import { addItem } from '@shared/sim/inventory';
+import type {
+  Direction,
+  ItemStack,
+  Machine,
+  Player,
+  PlayerInput,
+  World,
+} from '@shared/sim/types';
 import { addPlayer, createWorld } from '@shared/sim/world';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview } from './render/renderer';
@@ -62,6 +78,9 @@ export class Game {
       onDash: () => this.input.triggerDash(),
       onTogglePause: () => this.togglePause(),
       onQuitToMenu: () => this.quitToMenu(),
+      onSlotAction: (ref, button, quick) => this.moveItems(ref, button, quick),
+      onTakeAll: (machineId) => this.takeEverything(machineId),
+      onCloseInventory: () => this.closeInventory(),
     });
 
     this.world = createWorld(Date.now() & 0xffff);
@@ -77,7 +96,18 @@ export class Game {
     // and drive the factory through the same API the UI uses.
     const debug = window as unknown as { __ccgame: Game; __ccfactory: unknown };
     debug.__ccgame = this;
-    debug.__ccfactory = { placeBelt, placeMachine, removeAt, setRecipe, machineAt };
+    debug.__ccfactory = {
+      placeBelt,
+      placeMachine,
+      removeAt,
+      setRecipe,
+      machineAt,
+      clickSlot,
+      quickMove,
+      takeAll,
+      addItem,
+      openInventory: (machine: Machine | null) => this.hud.openInventory(machine),
+    };
   }
 
   /** Open a save slot: load its island, or generate one the first time. */
@@ -103,8 +133,7 @@ export class Game {
     this.input.drainActions();
     this.hud.setPauseOpen(false);
     this.hud.setBuildMode(false);
-    this.hud.setBagOpen(false);
-    this.hud.closeMachine();
+    this.hud.closeInventory();
     this.lastPhase = this.world.phase;
     this.renderer.camera.pos = { ...this.self.pos };
     this.lastFrame = performance.now();
@@ -119,10 +148,9 @@ export class Game {
     if (!this.slot) return;
     const open = !this.hud.isPauseOpen;
     if (open) {
+      this.closeInventory();
       this.persist();
       this.hud.setBuildMode(false);
-      this.hud.setBagOpen(false);
-      this.hud.closeMachine();
       this.hud.setPauseOpen(true, this.slot.name, `Night ${this.world.nightIndex} · saved just now`);
     } else {
       // Coming back from a pause must not fast-forward the missed seconds.
@@ -157,11 +185,31 @@ export class Game {
   private toggleBuild(): void {
     const on = !this.hud.isBuildMode;
     this.hud.setBuildMode(on);
-    if (on) this.hud.setBagOpen(false);
+    if (on) this.closeInventory();
   }
 
   private toggleBag(): void {
-    this.hud.setBagOpen(!this.hud.isBagOpen);
+    if (this.hud.isInventoryOpen) this.closeInventory();
+    else this.hud.openInventory(null);
+  }
+
+  /** Closing always puts the held stack away, so a drag can never lose items. */
+  private closeInventory(): void {
+    if (!this.hud.isInventoryOpen) return;
+    stowCursor(this.world, this.self);
+    this.hud.closeInventory();
+    this.persist();
+  }
+
+  private moveItems(ref: SlotRef, button: ClickButton, quick: boolean): void {
+    const machineId = this.hud.inspecting?.id ?? null;
+    if (quick) quickMove(this.world, this.self, machineId, ref);
+    else clickSlot(this.world, this.self, machineId, ref, button);
+  }
+
+  private takeEverything(machineId: number): void {
+    const moved = takeAll(this.world, this.self, machineId);
+    if (moved === 0) this.hud.toast('No room in your bag', 'warn');
   }
 
   private chooseUpgrade(id: string): void {
@@ -179,18 +227,21 @@ export class Game {
   }
 
   private handleActions(): void {
+    // Build keys must not reach the world through an open screen: pressing X
+    // while sorting a chest should not also demolish whatever is behind it.
+    const blocked = this.hud.isInventoryOpen || this.hud.isPauseOpen;
+
     for (const action of this.input.drainActions()) {
-      if (action === 'build') this.toggleBuild();
+      if (action === 'build' && !blocked) this.toggleBuild();
       if (action === 'inventory') this.toggleBag();
-      if (action === 'rotate') this.buildDir = rotate(this.buildDir);
-      if (action === 'remove') this.removeUnderCursor();
+      if (action === 'rotate' && !blocked) this.buildDir = rotate(this.buildDir);
+      if (action === 'remove' && !blocked) this.removeUnderCursor();
       if (action === 'cancel') {
         // Esc backs out of whatever is open, and opens the menu when nothing is.
         if (this.hud.isPauseOpen) this.togglePause();
-        else if (this.hud.isBuildMode || this.hud.isBagOpen || this.hud.isMachineOpen) {
+        else if (this.hud.isBuildMode || this.hud.isInventoryOpen) {
           this.hud.setBuildMode(false);
-          this.hud.setBagOpen(false);
-          this.hud.closeMachine();
+          this.closeInventory();
         } else this.togglePause();
       }
     }
@@ -289,7 +340,7 @@ export class Game {
   private inspectUnderCursor(): void {
     const { tx, ty } = toTile(this.cursorWorld);
     const machine = machineAt(this.world, tx, ty);
-    if (machine) this.hud.openMachine(machine);
+    if (machine) this.hud.openInventory(machine);
   }
 
   private frame(now: number): void {
@@ -303,7 +354,7 @@ export class Game {
 
     const paused = this.self.pendingUpgrades > 0 || this.hud.isPauseOpen;
     // Inspecting a machine should not also swing the pickaxe at it.
-    if (this.hud.isInspecting) this.input.takeClick();
+    if (this.hud.isInventoryOpen) this.input.takeClick();
     const ghost = this.ghost();
     this.tryPlace(ghost);
 
@@ -312,9 +363,13 @@ export class Game {
       this.accumulator += elapsed;
       const raw = this.input.sample();
       // Building mode repurposes the click, so suppress gathering while placing.
-      const playerInput: PlayerInput = this.hud.isBuildMode
-        ? { ...raw, interact: false }
-        : raw;
+      // An open inventory stops the player entirely: sorting a chest should not
+      // also walk you off it. The world keeps ticking behind it either way.
+      const playerInput: PlayerInput = this.hud.isInventoryOpen
+        ? { move: { x: 0, y: 0 }, dash: false, interact: false }
+        : this.hud.isBuildMode
+          ? { ...raw, interact: false }
+          : raw;
 
       const inputs = new Map<number, PlayerInput>([[this.selfId, playerInput]]);
       for (const id of this.world.players.keys()) {

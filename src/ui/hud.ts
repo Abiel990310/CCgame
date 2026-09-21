@@ -1,9 +1,9 @@
 import { ITEMS } from '@shared/data/items';
-import { MACHINES } from '@shared/data/machines';
-import { recipesFor } from '@shared/data/recipes';
 import { CYCLE } from '@shared/sim/constants';
 import { hasAll } from '@shared/sim/inventory';
+import type { ClickButton, SlotRef } from '@shared/sim/containers';
 import type { Machine, Player, World } from '@shared/sim/types';
+import { InventoryScreen } from './inventory';
 import {
   TABS,
   entriesFor,
@@ -27,6 +27,9 @@ export interface HudCallbacks {
   onTogglePause: () => void;
   onQuitToMenu: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
+  onSlotAction: (ref: SlotRef, button: ClickButton, quick: boolean) => void;
+  onTakeAll: (machineId: number) => void;
+  onCloseInventory: () => void;
 }
 
 /**
@@ -50,12 +53,6 @@ export class Hud {
     buildbar: $('buildbar'),
     buildTabs: $('buildbar-tabs'),
     buildItems: $('buildbar-items'),
-    machine: $('machine'),
-    machineKind: $('machine-kind'),
-    machineTitle: $('machine-title'),
-    machineIo: $('machine-io'),
-    machineRecipes: $('machine-recipes'),
-    machineClose: $<HTMLButtonElement>('machine-close'),
     btnBuild: $<HTMLButtonElement>('btn-build'),
     btnBag: $<HTMLButtonElement>('btn-bag'),
     btnDash: $<HTMLButtonElement>('btn-dash'),
@@ -64,9 +61,6 @@ export class Hud {
     levelup: $('levelup'),
     levelupTitle: $('levelup-title'),
     offers: $('offers'),
-    bag: $('bag'),
-    bagGrid: $('bag-grid'),
-    bagClose: $<HTMLButtonElement>('bag-close'),
     pause: $('pause'),
     pauseName: $('pause-name'),
     pauseSub: $('pause-sub'),
@@ -75,11 +69,10 @@ export class Hud {
     toasts: $('toasts'),
   };
 
+  private inventory: InventoryScreen;
   private selection: BuildSelection = { kind: 'belt' };
   private tab: PaletteTab = 'factory';
-  private inspecting: Machine | null = null;
   private buildMode = false;
-  private bagOpen = false;
   private pauseOpen = false;
   /** Signature of the last rendered offer set, to avoid rebuilding every frame. */
   private offerKey = '';
@@ -89,11 +82,20 @@ export class Hud {
     this.els.btnBuild.addEventListener('click', () => this.callbacks.onToggleBuild());
     this.els.btnBag.addEventListener('click', () => this.callbacks.onToggleBag());
     this.els.btnDash.addEventListener('click', () => this.callbacks.onDash());
-    this.els.bagClose.addEventListener('click', () => this.callbacks.onToggleBag());
     this.els.btnMenu.addEventListener('click', () => this.callbacks.onTogglePause());
     this.els.pauseResume.addEventListener('click', () => this.callbacks.onTogglePause());
     this.els.pauseQuit.addEventListener('click', () => this.callbacks.onQuitToMenu());
-    this.els.machineClose.addEventListener('click', () => this.closeMachine());
+
+    this.inventory = new InventoryScreen({
+      onSlotAction: (ref, button, quick) => this.callbacks.onSlotAction(ref, button, quick),
+      onTakeAll: () => {
+        const machine = this.inventory.inspecting;
+        if (machine) this.callbacks.onTakeAll(machine.id);
+      },
+      onSetRecipe: (machineId, recipeId) => this.callbacks.onSetRecipe(machineId, recipeId),
+      onClose: () => this.callbacks.onCloseInventory(),
+    });
+
     this.buildTabs();
     this.buildPalette();
   }
@@ -118,30 +120,32 @@ export class Hud {
     this.els.btnBuild.classList.toggle('on', on);
   }
 
-  setBagOpen(open: boolean): void {
-    this.bagOpen = open;
-    this.els.bag.classList.toggle('hidden', !open);
-    this.els.btnBag.classList.toggle('on', open);
+  /** Open the inventory screen, on its own or beside a container. */
+  openInventory(machine: Machine | null): void {
+    this.inventory.show(machine);
+    this.els.btnBag.classList.toggle('on', machine === null);
+  }
+
+  closeInventory(): void {
+    this.inventory.hide();
+    this.els.btnBag.classList.remove('on');
   }
 
   get isBuildMode(): boolean {
     return this.buildMode;
   }
 
-  get isBagOpen(): boolean {
-    return this.bagOpen;
-  }
-
-  get isMachineOpen(): boolean {
-    return this.inspecting !== null;
+  get isInventoryOpen(): boolean {
+    return this.inventory.isOpen;
   }
 
   get selected(): BuildSelection {
     return this.selection;
   }
 
-  get isInspecting(): boolean {
-    return this.inspecting !== null;
+  /** The machine whose screen is open, if any. Suppresses world clicks. */
+  get inspecting(): Machine | null {
+    return this.inventory.inspecting;
   }
 
   private buildTabs(): void {
@@ -182,62 +186,6 @@ export class Hud {
     this.callbacks.onSelect(selection);
   }
 
-  openMachine(machine: Machine): void {
-    this.inspecting = machine;
-    const def = MACHINES[machine.type];
-    this.els.machineTitle.textContent = def.name;
-    this.els.machineKind.textContent = def.description;
-    this.els.machine.classList.remove('hidden');
-    this.renderMachineRecipes(machine);
-    this.renderMachineIo(machine);
-  }
-
-  closeMachine(): void {
-    this.inspecting = null;
-    this.els.machine.classList.add('hidden');
-  }
-
-  private renderMachineRecipes(machine: Machine): void {
-    this.els.machineRecipes.innerHTML = '';
-    if (!MACHINES[machine.type].choosesRecipe) return;
-
-    for (const recipe of recipesFor(machine.type)) {
-      const button = document.createElement('button');
-      button.className = 'offer';
-      const inputs = recipe.inputs.map((i) => `${i.count} ${ITEMS[i.id].name}`).join(' + ');
-      const outputs = recipe.outputs.map((o) => `${o.count} ${ITEMS[o.id].name}`).join(' + ');
-      button.innerHTML = `<b>${recipe.name}</b><span>${inputs} → ${outputs}<br>${recipe.time}s</span>`;
-      if (machine.recipe === recipe.id) button.style.borderColor = 'var(--gold)';
-      button.addEventListener('click', () => {
-        this.callbacks.onSetRecipe(machine.id, recipe.id);
-        this.renderMachineRecipes(machine);
-      });
-      this.els.machineRecipes.appendChild(button);
-    }
-  }
-
-  private renderMachineIo(machine: Machine): void {
-    const group = (label: string, stacks: typeof machine.input): string => {
-      const body = stacks.length
-        ? stacks
-            .map(
-              (s) =>
-                `<span class="io-stack"><i class="dot" style="background:${
-                  ITEMS[s.id].color
-                }"></i>${ITEMS[s.id].name} ${s.count}</span>`,
-            )
-            .join('')
-        : '<span class="io-empty">empty</span>';
-      return `<div class="io-group"><b>${label}</b><div class="io-stacks">${body}</div></div>`;
-    };
-
-    const def = MACHINES[machine.type];
-    const parts: string[] = [];
-    if (def.inputSlots > 0) parts.push(group('In', machine.input));
-    if (def.outputSlots > 0) parts.push(group('Out', machine.output));
-    this.els.machineIo.innerHTML = parts.join('');
-  }
-
   toast(message: string, tone: 'info' | 'warn' | 'good' = 'info'): void {
     const el = document.createElement('div');
     el.className = `toast ${tone === 'info' ? '' : tone}`.trim();
@@ -256,10 +204,15 @@ export class Hud {
     this.updatePouch(player);
     this.updateDash(player);
     this.updateOffers(player);
-    if (this.bagOpen) this.updateBag(player);
+    this.inventory.update(player, this.liveMachine(world));
     if (this.buildMode) this.updateBuildAffordability(player);
-    // The inspector shows live contents, so refresh it while it is open.
-    if (this.inspecting) this.renderMachineIo(this.inspecting);
+  }
+
+  /** Re-resolve the open machine each frame, so removing it closes the screen. */
+  private liveMachine(world: World): Machine | null {
+    const open = this.inventory.inspecting;
+    if (!open) return null;
+    return world.machines.find((m) => m.id === open.id) ?? null;
   }
 
   private updatePhase(world: World): void {
@@ -290,7 +243,7 @@ export class Hud {
   private updatePouch(player: Player): void {
     const totals = new Map<string, number>();
     for (const stack of player.inventory) {
-      totals.set(stack.id, (totals.get(stack.id) ?? 0) + stack.count);
+      if (stack) totals.set(stack.id, (totals.get(stack.id) ?? 0) + stack.count);
     }
     const key = [...totals].map(([id, n]) => `${id}:${n}`).join(',');
     if (key === this.pouchKey) return;
@@ -336,24 +289,6 @@ export class Hud {
       button.innerHTML = `<b>${offer.title}</b><span>${offer.description}</span>`;
       button.addEventListener('click', () => this.callbacks.onChooseUpgrade(offer.id));
       this.els.offers.appendChild(button);
-    }
-  }
-
-  private updateBag(player: Player): void {
-    this.els.bagGrid.innerHTML = '';
-    for (const stack of player.inventory) {
-      const def = ITEMS[stack.id];
-      const slot = document.createElement('div');
-      slot.className = 'slot';
-      slot.innerHTML = `<i class="dot" style="background:${def.color}"></i><b>${stack.count}</b>${def.name}`;
-      this.els.bagGrid.appendChild(slot);
-    }
-    if (player.inventory.length === 0) {
-      const empty = document.createElement('p');
-      empty.className = 'blurb';
-      empty.style.gridColumn = '1 / -1';
-      empty.textContent = 'Nothing yet. Go chop something.';
-      this.els.bagGrid.appendChild(empty);
     }
   }
 
