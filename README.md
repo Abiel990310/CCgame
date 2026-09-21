@@ -22,6 +22,13 @@ later. See [DESIGN.md](DESIGN.md) for the full design.
 
 ## Playing
 
+The game opens on a main menu. **New game** starts a fresh island, and every
+island is its own save — start as many as you like, name them what you like,
+and pick up any of them from the menu. `Esc` (or the ☰ button) pauses and takes
+you back there; the island is saved on the way out.
+
+![main menu](docs/menu.png)
+
 | Action | Key |
 | --- | --- |
 | Move | `WASD` / arrow keys |
@@ -32,7 +39,7 @@ later. See [DESIGN.md](DESIGN.md) for the full design.
 | Remove what is under the cursor | `X` or right-click |
 | Inspect a machine | Click it outside build mode |
 | Bag | `Tab` |
-| Close panel | `Esc` |
+| Close panel, or open the menu | `Esc` |
 
 On touch devices: drag the left half of the screen to move, tap the right half
 to gather, and use the on-screen buttons.
@@ -66,7 +73,7 @@ shared/            Deterministic simulation — no DOM, no rendering
     __tests__/     Simulation tests
 src/               Browser client
   render/          Canvas renderer: terrain mesh, entities, lighting, effects
-  ui/              DOM overlay: HUD, modals, build bar
+  ui/              DOM overlay: main menu, HUD, modals, build bar
 ```
 
 The important boundary is `shared/` ⇄ `src/`. Everything in `shared/` is a pure
@@ -91,7 +98,9 @@ generically by that table, so new content needs no new systems.
 
 **Phases 1–3 are done.** Solo play, persistence, and the first three factory
 tiers: ore, miners, belts, furnaces, assemblers, chests, and a per-world
-peaceful mode.
+peaceful mode. Saves are per island: one localStorage entry each, plus a small
+index the menu reads. An island saved before the menu existed is adopted as
+your first slot, untouched.
 
 Next: power and deeper chains, then the multiplayer server and hostable worlds.
 

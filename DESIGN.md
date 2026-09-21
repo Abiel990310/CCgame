@@ -101,6 +101,10 @@ is what eventually pushes expansion outward, which is the long game working.
 Everything saves: island, camp, factory, inventory, gear, levels, collections.
 You log out, come back tomorrow, it is all exactly where you left it.
 
+Each island is its own save. The game opens on a main menu listing them, so
+starting a new island never costs you the one you were playing, and *Join a
+game* sits there as the seam multiplayer drops into.
+
 The factory does **not** run while you are away. Every hour of progress is an
 hour someone actually played, and the economy never has to be balanced around
 absence.

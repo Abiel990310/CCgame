@@ -18,16 +18,24 @@ import type { Direction, ItemStack, Player, PlayerInput, World } from '@shared/s
 import { addPlayer, createWorld } from '@shared/sim/world';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview } from './render/renderer';
-import { clearSave, hasSave, loadWorld, saveWorld } from './save';
+import { loadWorld, saveWorld } from './save';
+import { touchSlot, type SaveSlot } from './saves';
 import { Hud } from './ui/hud';
 
 const SAVE_INTERVAL = 8;
 /** Never simulate more than this much wall time in one frame after a stall. */
 const MAX_CATCHUP = 0.25;
 
+export interface GameCallbacks {
+  /** Hand control back to the main menu. */
+  onQuit: () => void;
+}
+
 export class Game {
   private world: World;
   private selfId = 0;
+  /** The save this session is playing into. Null while the menu is up. */
+  private slot: SaveSlot | null = null;
   private renderer: Renderer;
   private input: InputManager;
   private hud: Hud;
@@ -40,7 +48,7 @@ export class Game {
   /** Facing applied to the next belt or machine placed. */
   private buildDir: Direction = 0;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, private callbacks: GameCallbacks) {
     this.renderer = new Renderer(canvas);
     this.input = new InputManager(canvas);
     this.hud = new Hud({
@@ -52,7 +60,8 @@ export class Game {
       },
       onToggleBag: () => this.toggleBag(),
       onDash: () => this.input.triggerDash(),
-      onStart: (fresh, peaceful) => this.start(fresh, peaceful),
+      onTogglePause: () => this.togglePause(),
+      onQuitToMenu: () => this.quitToMenu(),
     });
 
     this.world = createWorld(Date.now() & 0xffff);
@@ -63,7 +72,6 @@ export class Game {
     });
 
     this.renderer.resize();
-    this.hud.showStart(hasSave());
 
     // Debug handles: let tooling (and you, in the console) inspect live state
     // and drive the factory through the same API the UI uses.
@@ -72,24 +80,31 @@ export class Game {
     debug.__ccfactory = { placeBelt, placeMachine, removeAt, setRecipe, machineAt };
   }
 
-  private start(fresh: boolean, peaceful = false): void {
-    if (fresh) clearSave();
+  /** Open a save slot: load its island, or generate one the first time. */
+  enter(slot: SaveSlot, peaceful = false): void {
+    this.slot = slot;
+    const loaded = loadWorld(slot.id);
 
-    const loaded = fresh ? null : loadWorld();
     if (loaded) {
       this.world = loaded;
       const first = this.world.players.values().next().value as Player | undefined;
       this.selfId = first?.id ?? addPlayer(this.world, 'You').id;
-      this.hud.toast(`Welcome back — night ${this.world.nightIndex} survived`, 'good');
+      this.hud.toast(`${slot.name} — night ${this.world.nightIndex} survived`, 'good');
     } else {
       this.world = createWorld(Date.now() & 0xffff, peaceful);
       this.selfId = addPlayer(this.world, 'You').id;
       this.hud.toast(
-        peaceful ? 'A peaceful island. Build freely.' : 'A new island. Go gather.',
+        peaceful ? `${slot.name}. A peaceful island — build freely.` : `${slot.name}. Go gather.`,
         'good',
       );
     }
 
+    // Whatever was pressed on the menu is not a move order.
+    this.input.drainActions();
+    this.hud.setPauseOpen(false);
+    this.hud.setBuildMode(false);
+    this.hud.setBagOpen(false);
+    this.hud.closeMachine();
     this.lastPhase = this.world.phase;
     this.renderer.camera.pos = { ...this.self.pos };
     this.lastFrame = performance.now();
@@ -98,6 +113,30 @@ export class Game {
       this.running = true;
       requestAnimationFrame((t) => this.frame(t));
     }
+  }
+
+  private togglePause(): void {
+    if (!this.slot) return;
+    const open = !this.hud.isPauseOpen;
+    if (open) {
+      this.persist();
+      this.hud.setBuildMode(false);
+      this.hud.setBagOpen(false);
+      this.hud.closeMachine();
+      this.hud.setPauseOpen(true, this.slot.name, `Night ${this.world.nightIndex} · saved just now`);
+    } else {
+      // Coming back from a pause must not fast-forward the missed seconds.
+      this.lastFrame = performance.now();
+      this.hud.setPauseOpen(false);
+    }
+  }
+
+  private quitToMenu(): void {
+    this.persist();
+    this.running = false;
+    this.slot = null;
+    this.hud.setPauseOpen(false);
+    this.callbacks.onQuit();
   }
 
   /** Read-only access for the debug handle above. */
@@ -122,8 +161,7 @@ export class Game {
   }
 
   private toggleBag(): void {
-    const open = !document.getElementById('bag')?.classList.contains('hidden');
-    this.hud.setBagOpen(!open);
+    this.hud.setBagOpen(!this.hud.isBagOpen);
   }
 
   private chooseUpgrade(id: string): void {
@@ -131,7 +169,13 @@ export class Game {
   }
 
   private persist(): void {
-    if (this.running) saveWorld(this.world);
+    if (!this.running || !this.slot) return;
+    if (!saveWorld(this.world, this.slot.id)) return;
+    touchSlot(this.slot.id, {
+      night: this.world.nightIndex,
+      level: this.self.level,
+      playSeconds: Math.round(this.world.tick * TICK_DT),
+    });
   }
 
   private handleActions(): void {
@@ -141,9 +185,13 @@ export class Game {
       if (action === 'rotate') this.buildDir = rotate(this.buildDir);
       if (action === 'remove') this.removeUnderCursor();
       if (action === 'cancel') {
-        this.hud.setBuildMode(false);
-        this.hud.setBagOpen(false);
-        this.hud.closeMachine();
+        // Esc backs out of whatever is open, and opens the menu when nothing is.
+        if (this.hud.isPauseOpen) this.togglePause();
+        else if (this.hud.isBuildMode || this.hud.isBagOpen || this.hud.isMachineOpen) {
+          this.hud.setBuildMode(false);
+          this.hud.setBagOpen(false);
+          this.hud.closeMachine();
+        } else this.togglePause();
       }
     }
   }
@@ -245,6 +293,7 @@ export class Game {
   }
 
   private frame(now: number): void {
+    if (!this.running) return;
     requestAnimationFrame((t) => this.frame(t));
 
     const elapsed = Math.min((now - this.lastFrame) / 1000, MAX_CATCHUP);
@@ -252,7 +301,7 @@ export class Game {
 
     this.handleActions();
 
-    const paused = this.self.pendingUpgrades > 0;
+    const paused = this.self.pendingUpgrades > 0 || this.hud.isPauseOpen;
     // Inspecting a machine should not also swing the pickaxe at it.
     if (this.hud.isInspecting) this.input.takeClick();
     const ghost = this.ghost();
