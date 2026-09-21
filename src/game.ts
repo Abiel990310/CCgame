@@ -11,7 +11,7 @@ import {
   removeAt,
   setRecipe,
 } from '@shared/sim/factory';
-import { rotate, toTile } from '@shared/sim/grid';
+import { rotate, tileCenter, toTile } from '@shared/sim/grid';
 import { chooseUpgrade } from '@shared/sim/progression';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
 import type { Direction, ItemStack, Player, PlayerInput, World } from '@shared/sim/types';
@@ -159,12 +159,16 @@ export class Game {
     const selection = this.hud.selected;
     const pos = this.cursorWorld;
 
+    const { tx, ty } = toTile(pos);
+
     if (selection.kind === 'building') {
-      const valid = placementError(this.world, this.self, selection.id, pos) === null;
-      return { kind: 'building', type: selection.id, pos, valid };
+      // Camp pieces snap to the same lattice the factory uses. A wall is meant
+      // to stack into a line, which free placement never quite let it do.
+      const snapped = tileCenter(tx, ty);
+      const valid = placementError(this.world, this.self, selection.id, snapped) === null;
+      return { kind: 'building', type: selection.id, pos: snapped, valid };
     }
 
-    const { tx, ty } = toTile(pos);
     const what = selection.kind === 'belt' ? 'belt' : selection.id;
     const valid = factoryPlacementError(this.world, this.self, what, tx, ty) === null;
     return { kind: 'grid', what, tx, ty, dir: this.buildDir, valid };
