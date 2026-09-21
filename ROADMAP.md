@@ -157,6 +157,17 @@ detail behind the factory entries is in
       anything belted into a chest can never come back out. Storage is a bin,
       not a buffer.
 
+- [ ] **Camp buildings can never be removed.** `removeAt` only consults
+      `world.grid`, which holds belts and machines; `world.buildings` is spliced
+      nowhere but `systems/mobs.ts` when a mob destroys one. A campfire, lamp,
+      wall or workbench put down in the wrong place is permanent.
+- [ ] **Cleared scenery grows back and re-blocks the spot.** `stepNodeRegrowth`
+      restores a node's charges 45s after it is emptied, and `placementError`
+      rejects any camp placement within reach of a node with `charges > 0`. The
+      clearing you chopped closes up again while you are still building in it.
+- [ ] Factory pieces ignore scenery: `factoryPlacementError` never looks at
+      `world.nodes`, so a belt lays straight through a standing tree, which then
+      draws on top of it. Camp pieces do check. The two should agree.
 - [ ] Placing a single piece rewrites the whole island to `localStorage`
       synchronously, so dragging out a belt line serialises the world on every
       click. About 2.6 ms at 550 belts and it grows with the base; it should
@@ -214,6 +225,11 @@ detail behind the factory entries is in
       tier and tech branch. Multiplies content instead of ending it.
 - [ ] **Audio** — there is none.
 
+- [ ] **A real inventory screen.** The bag and the chest inspector are both
+      plain text lists — no grid, no dragging a stack, no way to move anything
+      from a chest back into your bag. Pairs with the write-only chest bug
+      above: together they are why storage reads as a label rather than a place
+      to put things.
 - [ ] A frame-time overlay behind a debug flag, so performance regressions show
       up while playing rather than only under a profiler.
 
