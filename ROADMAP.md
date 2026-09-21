@@ -162,17 +162,6 @@ detail behind the factory entries is in
       tree standing inside a belt. It clears itself the first time it is
       chopped, but until then it is in the way.
 
-- [ ] **Camp buildings can never be removed.** `removeAt` only consults
-      `world.grid`, which holds belts and machines; `world.buildings` is spliced
-      nowhere but `systems/mobs.ts` when a mob destroys one. A campfire, lamp,
-      wall or workbench put down in the wrong place is permanent.
-- [ ] **Cleared scenery grows back and re-blocks the spot.** `stepNodeRegrowth`
-      restores a node's charges 45s after it is emptied, and `placementError`
-      rejects any camp placement within reach of a node with `charges > 0`. The
-      clearing you chopped closes up again while you are still building in it.
-- [ ] Factory pieces ignore scenery: `factoryPlacementError` never looks at
-      `world.nodes`, so a belt lays straight through a standing tree, which then
-      draws on top of it. Camp pieces do check. The two should agree.
 - [ ] Placing a single piece rewrites the whole island to `localStorage`
       synchronously, so dragging out a belt line serialises the world on every
       click. About 2.6 ms at 550 belts and it grows with the base; it should
