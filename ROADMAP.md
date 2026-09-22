@@ -229,12 +229,6 @@ detail behind the factory entries is in
 - [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
       A crafted satchel is an obvious early sink and a reason to build a
       workbench.
-
-- [ ] **A real inventory screen.** The bag and the chest inspector are both
-      plain text lists — no grid, no dragging a stack, no way to move anything
-      from a chest back into your bag. Pairs with the write-only chest bug
-      above: together they are why storage reads as a label rather than a place
-      to put things.
 - [ ] A frame-time overlay behind a debug flag, so performance regressions show
       up while playing rather than only under a profiler.
 
@@ -288,7 +282,6 @@ detail behind the factory entries is in
       with nearly the same name, in the same palette, two tabs apart.
 - [ ] Camp placement keeps scenery away with a fixed 14px clearance while
       regrowth uses each node's real radius. Two numbers for one question.
-
 - [ ] Ore is drawn from `world.ore` whenever the ground cache is painted, so
       depleting a patch no longer means re-baking the island — but the cache
       still has to be told. Whatever makes ore finite needs to invalidate the
@@ -331,7 +324,6 @@ detail behind the factory entries is in
       would let a chest keep its shape while still tidying around it.
 - [ ] Item icons are CSS shapes in the UI and flat discs in the world. Drawing
       both from one shape table would make an item look like itself everywhere.
-
 - [ ] **Measure the render path by frame rate, never by timing draw calls.**
       Canvas 2D records draw calls and rasterises them later, so
       `performance.now()` around drawing measures recording only. On a full
