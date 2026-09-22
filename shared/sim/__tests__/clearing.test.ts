@@ -3,7 +3,8 @@ import { BUILDINGS } from '../../data/buildings';
 import { RESOURCES } from '../../data/items';
 import { GATHER, TILE } from '../constants';
 import { buildingAt, placeBuilding, removeBuildingAt } from '../building';
-import { factoryPlacementError, placeBelt } from '../factory';
+import { factoryPlacementError, placeBelt, placeMachine } from '../factory';
+import { clearBuriedNodes, nodeOnTile } from '../nodes';
 import { countItem } from '../inventory';
 import type { ResourceKind, World } from '../types';
 import { advance, at, bench, type Bench } from './bench';
@@ -142,5 +143,58 @@ describe('removing camp buildings', () => {
     const b = bench();
     const empty = { x: b.world.camp.x + 200, y: b.world.camp.y + 200 };
     expect(removeBuildingAt(b.world, b.player, empty)).toBe('none');
+  });
+});
+
+describe('scenery left inside the factory by an older island', () => {
+  /** An island from before placement checked for scenery: belt first, tree on top. */
+  function buriedTree(b: Bench, dx: number, dy: number): number {
+    const { tx, ty } = at(dx, dy);
+    expect(placeBelt(b.world, b.player, tx, ty, 0)).not.toBe(null);
+    plant(b.world, 'tree', tx, ty);
+    return b.world.nodes[b.world.nodes.length - 1].id;
+  }
+
+  it('pulls a living tree out of a belt', () => {
+    const b = bench();
+    const id = buriedTree(b, 8, 2);
+
+    expect(clearBuriedNodes(b.world)).toBe(1);
+    expect(b.world.nodes.find((n) => n.id === id)).toBe(undefined);
+    expect(b.world.belts.length).toBe(1);
+  });
+
+  it('pulls one out of a machine too', () => {
+    const b = bench();
+    const { tx, ty } = at(9, 2);
+    expect(placeMachine(b.world, b.player, 'furnace', tx, ty, 0)).not.toBe(null);
+    plant(b.world, 'tree', tx, ty);
+
+    expect(clearBuriedNodes(b.world)).toBe(1);
+    expect(nodeOnTile(b.world, tx, ty)).toBe(null);
+  });
+
+  it('leaves scenery on open ground alone, belt or no belt', () => {
+    const b = bench();
+    const before = nodeCount(b);
+    buriedTree(b, 10, 2);
+    const { tx, ty } = at(10, 4);
+    plant(b.world, 'tree', tx, ty);
+
+    expect(clearBuriedNodes(b.world)).toBe(1);
+    // The buried one goes, the one standing on bare grass beside it stays.
+    expect(nodeCount(b)).toBe(before + 1);
+    expect(nodeOnTile(b.world, tx, ty)).not.toBe(null);
+  });
+
+  it('finds nothing to do on an island built the current way', () => {
+    const b = bench();
+    const { tx, ty } = at(11, 2);
+    plant(b.world, 'tree', tx, ty);
+    chop(b.world, b.world.nodes[b.world.nodes.length - 1].id);
+    expect(placeBelt(b.world, b.player, tx, ty, 0)).not.toBe(null);
+
+    // The stump was already swept by the placement itself.
+    expect(clearBuriedNodes(b.world)).toBe(0);
   });
 });

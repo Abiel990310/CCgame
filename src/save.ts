@@ -1,6 +1,7 @@
 import { createWorld } from '@shared/sim/world';
 import { MACHINES } from '@shared/data/machines';
 import { tileKey } from '@shared/sim/grid';
+import { clearBuriedNodes } from '@shared/sim/nodes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import { asStack, normalizeSlots } from '@shared/sim/slots';
 import type { Machine, Player, World } from '@shared/sim/types';
@@ -97,6 +98,9 @@ export function loadWorld(slot: string): World | null {
     world.machines = (file.machines ?? []).filter((m) => m.type in MACHINES).map(loadMachine);
     // The tile index is derived state, so rebuild it rather than storing it.
     rebuildGrid(world);
+    // Older islands were built before scenery blocked placement, so they can
+    // hold a tree standing inside a belt. The grid has to exist to spot them.
+    clearBuriedNodes(world);
     world.players = new Map(file.players.map((p) => [p.id, p]));
     for (const player of world.players.values()) {
       player.downed = 0;

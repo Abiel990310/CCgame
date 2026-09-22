@@ -172,16 +172,7 @@ detail behind the factory entries is in
       `world.buildings` by radius, not in `world.grid`, and
       `factoryPlacementError` only checks the grid — so a belt or a machine can
       be placed straight through a wall.
-- [ ] Islands built before scenery blocked placement can still have a living
-      tree standing inside a belt. It clears itself the first time it is
-      chopped, but until then it is in the way.
 
-- [ ] The baked island canvas is `MAP_SIZE` square — 3072×3072, about 38 MB of
-      backing store, and the pre-scaled ground cache adds roughly 11 MB more at
-      `devicePixelRatio` 1 and 29 MB at 2. On a phone that total is enough to
-      push the canvas into software rendering, which is exactly where frame
-      time hurts. Drawing the ground cache straight from the terrain data would
-      let the 38 MB one go.
 
 ### New features
 
@@ -298,10 +289,15 @@ detail behind the factory entries is in
 - [ ] Camp placement keeps scenery away with a fixed 14px clearance while
       regrowth uses each node's real radius. Two numbers for one question.
 
-- [ ] Ore is baked into the island canvas on the assumption that `world.ore`
-      never changes after generation. **This blocks depleting ore** (first item
-      under Bugs): if patches start depleting, the island has to be re-baked on
-      change or ore has to move back to a live per-frame layer.
+- [ ] Ore is drawn from `world.ore` whenever the ground cache is painted, so
+      depleting a patch no longer means re-baking the island — but the cache
+      still has to be told. Whatever makes ore finite needs to invalidate the
+      ground cache on the tiles that change (setting `groundScale = 0` repaints
+      it, and a tile-level version counter would be tidier).
+- [ ] The ground cache is still the biggest allocation in the client: 29 MB at
+      `devicePixelRatio` 2 on a 1280×800 viewport, set by `GROUND_MARGIN`. A
+      smaller margin shrinks it but makes the cache scroll more often; worth
+      tuning against a real phone rather than by guesswork.
 - [ ] The camera now snaps to whole device pixels, which is what lets the
       ground cache blit without resampling. Walking advances it in 4- and
       5-pixel steps where it used to be a continuous 4.29, so motion is
@@ -349,6 +345,14 @@ detail behind the factory entries is in
       path holding every belt on screen measured 7.4ms against 17.1ms — the
       rasteriser works over the whole path's bounding box, so a path spanning
       the screen costs the screen. Batch within one object, never across them.
+      **With one exception, found since:** shapes that tile the screen with no
+      gaps have nothing wasted in that bounding box, and there batching wins
+      outright. Grouping the ground mesh's triangles into one path per shade
+      took a full repaint from 112ms to 32ms. Sparse, no; solid, yes.
+- [ ] Stroking a path costs roughly three times filling it. The ground mesh
+      stroked each triangle in its own fill colour to close the hairline
+      between facets; growing the triangle about its centroid by 6% instead
+      draws the same picture for a third of the cost.
 
 ### Needs testing
 
@@ -367,6 +371,12 @@ detail behind the factory entries is in
       miner outruns steel demand several times over) have never been played.
 - [ ] Motor and advanced circuit are covered by simulation tests only; neither
       has been built as a line in a browser.
+- [ ] The ground cache now scrolls: on a rebuild it slides what is still in
+      view and paints only the strip that came in. Driven in headless Chromium,
+      where the rebuild frame went from ~43ms to ~28ms and the scrolled cache
+      matches a full repaint pixel for pixel bar faint facet-edge antialiasing.
+      Software rasterising exaggerates both numbers; it wants a look on real
+      hardware, and on a phone especially.
 - [ ] Clearing land is now permanent: build on a chopped node and it never
       returns. Whether an island can be stripped bare over hundreds of hours,
       and whether that matters, has not been played out.
