@@ -54,6 +54,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
+| Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
@@ -166,22 +167,17 @@ detail behind the factory entries is in
 - [ ] Touch has no rotate, so every belt placed on a phone would face one way.
 - [ ] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely.
+- [ ] Camp pieces are invisible to factory placement. Walls and turrets live in
+      `world.buildings` by radius, not in `world.grid`, and
+      `factoryPlacementError` only checks the grid — so a belt or a machine can
+      be placed straight through a wall.
 - [ ] Islands built before scenery blocked placement can still have a living
       tree standing inside a belt. It clears itself the first time it is
       chopped, but until then it is in the way.
 - [ ] A chest still cannot feed a belt. The player can take items out by hand
       now, but nothing automated can, so a chest is a buffer only in one
       direction. The inserter under New features is the other half.
-- [ ] The page requests `/favicon.ico` and 404s on every load. Harmless, but it
-      is the one request the bundle makes that is not the bundle.
 
-- [ ] Placing a single piece rewrites the whole island to `localStorage`
-      synchronously, so dragging out a belt line serialises the world on every
-      click. About 2.6 ms at 550 belts and it grows with the base; it should
-      debounce onto the existing 8-second save timer.
-- [ ] `removeAt` scans `world.belts` and `world.machines` linearly to find the
-      piece, although `world.grid` already resolves the tile. Cheap today, the
-      same shape as the tick bug that was already fixed.
 - [ ] The baked island canvas is `MAP_SIZE` square — 3072×3072, about 38 MB of
       backing store, and the pre-scaled ground cache adds roughly 11 MB more at
       `devicePixelRatio` 1 and 29 MB at 2. On a phone that total is enough to
@@ -254,6 +250,11 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [ ] Saving still serialises the whole island every 8 seconds — about 110 kB of
+      JSON on a barely-built one, most of it nodes and players, and it grows
+      with the base. Now that placements coalesce onto that timer it is the only
+      save cost left, so the next step is writing only what changed, or a
+      compact format.
 - [ ] Lab consumption should grant XP to every player on the island. `grantXp`
       fires only from gathering and mob kills today, which means automating
       your island *slows your character down*. This also gives peaceful worlds
