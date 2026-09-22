@@ -53,6 +53,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Ore | Discrete patches, not noise | A patch is a thing a player can point at, and outgrowing one is what drives expansion. |
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
+| Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
+| Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Quick slots | Bound in `localStorage`, not in the save | The bar says how one person likes their tools arranged, not what is true of an island. Keeping it out of the world means no save version, and one bar across every island — which is what someone who arranges it once expects. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
@@ -88,6 +90,11 @@ wants more throughput does not. Factorio has the rocket, Satisfactory has the
 space elevator. Without one, players finish the recipes and stop.
 
 ## Phase 4 — power and depth (next)
+
+Steel is in: the furnace takes two inputs and smelts 2 iron plate + 1 coal into
+a steel plate, and the assembler makes batteries from copper and coal, motors
+from steel and gears, and advanced circuits from circuits and batteries. That is
+the recipe half of this phase; power itself is still ahead.
 
 - Power as a network: generators, poles, consumption per machine. Machines stop
   when supply runs short, which makes power a system rather than a cost.
@@ -153,8 +160,6 @@ detail behind the factory entries is in
       index and `stepMiner` never decrements it. One miner supplies an island
       forever. (The design question is under Open questions; the code
       contradicting its own comment is the bug.)
-- [ ] Coal is mined but nothing consumes it. No row in `recipes.ts` takes it as
-      an input, so a third of the island's ore is dead weight.
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
       right-click only, so on a phone a misplaced belt is permanent.
 - [ ] Tapping the canvas in build mode places nothing. The `pointerdown`
@@ -163,25 +168,17 @@ detail behind the factory entries is in
 - [ ] Touch has no rotate, so every belt placed on a phone would face one way.
 - [ ] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely.
+- [ ] Camp pieces are invisible to factory placement. Walls and turrets live in
+      `world.buildings` by radius, not in `world.grid`, and
+      `factoryPlacementError` only checks the grid — so a belt or a machine can
+      be placed straight through a wall.
 - [ ] Islands built before scenery blocked placement can still have a living
       tree standing inside a belt. It clears itself the first time it is
       chopped, but until then it is in the way.
 - [ ] A chest still cannot feed a belt. The player can take items out by hand
       now, but nothing automated can, so a chest is a buffer only in one
       direction. The inserter under New features is the other half.
-- [ ] The page requests `/favicon.ico` and 404s on every load. Harmless, but it
-      is the one request the bundle makes that is not the bundle.
 
-- [ ] Placing a single piece rewrites the whole island to `localStorage`
-      synchronously, so dragging out a belt line serialises the world on every
-      click. About 2.6 ms at 550 belts and it grows with the base; it should
-      debounce onto the existing 8-second save timer.
-- [ ] Sorting a container and gathering a stack each write the whole island to
-      `localStorage` synchronously — two more callers for the debounce the
-      belt-placement entry above wants.
-- [ ] `removeAt` scans `world.belts` and `world.machines` linearly to find the
-      piece, although `world.grid` already resolves the tile. Cheap today, the
-      same shape as the tick bug that was already fixed.
 - [ ] The baked island canvas is `MAP_SIZE` square — 3072×3072, about 38 MB of
       backing store, and the pre-scaled ground cache adds roughly 11 MB more at
       `devicePixelRatio` 1 and 29 MB at 2. On a phone that total is enough to
@@ -233,6 +230,10 @@ detail behind the factory entries is in
 - [ ] **Second island via a bridge** — a new generated region with its own ore
       tier and tech branch. Multiplies content instead of ending it.
 - [ ] **Audio** — there is none.
+- [ ] **Something to spend steel, motors and advanced circuits on.** They are
+      made but nothing consumes them: every machine still costs wood, stone and
+      iron plate. Machine tiers, the lab or the megaproject are all candidates,
+      and until one lands the new chain is a collection rather than a sink.
 - [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
       A crafted satchel is an obvious early sink and a reason to build a
       workbench.
@@ -247,6 +248,11 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [ ] Saving still serialises the whole island every 8 seconds — about 110 kB of
+      JSON on a barely-built one, most of it nodes and players, and it grows
+      with the base. Now that placements coalesce onto that timer it is the only
+      save cost left, so the next step is writing only what changed, or a
+      compact format.
 - [ ] Lab consumption should grant XP to every player on the island. `grantXp`
       fires only from gathering and mob kills today, which means automating
       your island *slows your character down*. This also gives peaceful worlds
@@ -274,6 +280,11 @@ detail behind the factory entries is in
       or make removal a build-mode action.
 - [ ] A long name truncates in a quick slot (`Storag…`). A short display name on
       each machine and building would read better in an eight-wide bar.
+- [ ] Steel plate and iron plate are both grey discs on a belt, so a mixed line
+      cannot be read at a glance. Item shapes in the world would tell them apart.
+- [ ] The machine screen lists every recipe its machine can run, and the
+      assembler is already at six. It needs grouping or a filter before the
+      steel tier doubles it again.
 - [ ] The camp `Chest` and the factory `Storage Chest` are different things
       with nearly the same name, in the same palette, two tabs apart.
 - [ ] Camp placement keeps scenery away with a fixed 14px clearance while
@@ -343,6 +354,11 @@ detail behind the factory entries is in
 - [ ] Dragging items on a touchscreen. The inventory screen is built on pointer
       events so a tap-then-tap should work, but it has only been driven with a
       mouse.
+- [ ] Whether a coal patch now pulls its weight in a real base. The steel and
+      battery lines were built and run in a browser, but the ratios (a coal
+      miner outruns steel demand several times over) have never been played.
+- [ ] Motor and advanced circuit are covered by simulation tests only; neither
+      has been built as a line in a browser.
 - [ ] Clearing land is now permanent: build on a chopped node and it never
       returns. Whether an island can be stripped bare over hundreds of hours,
       and whether that matters, has not been played out.

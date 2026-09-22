@@ -48,6 +48,12 @@ import { touchSlot, type SaveSlot } from './saves';
 import { Hud } from './ui/hud';
 
 const SAVE_INTERVAL = 8;
+/**
+ * Serialising the island is proportional to its size, so an explicit action
+ * does not write on the spot: it pulls the periodic save this close instead,
+ * which coalesces a dragged-out belt line into one write.
+ */
+const SAVE_DEBOUNCE = 2;
 /** Never simulate more than this much wall time in one frame after a stall. */
 const MAX_CATCHUP = 0.25;
 
@@ -81,7 +87,7 @@ export class Game {
       onToggleBuild: () => this.toggleBuild(),
       onSelect: () => this.hud.setBuildMode(true),
       onSetRecipe: (machineId, recipeId) => {
-        if (setRecipe(this.world, machineId, recipeId)) this.persist();
+        if (setRecipe(this.world, machineId, recipeId)) this.requestSave();
       },
       onToggleBag: () => this.toggleBag(),
       onDash: () => this.input.triggerDash(),
@@ -211,7 +217,7 @@ export class Game {
     if (!this.hud.isInventoryOpen) return;
     stowCursor(this.world, this.self);
     this.hud.closeInventory();
-    this.persist();
+    this.requestSave();
   }
 
   private moveItems(ref: SlotRef, button: ClickButton, quick: boolean): void {
@@ -222,13 +228,13 @@ export class Game {
 
   private sortGrid(area: SlotArea): void {
     const machineId = this.hud.inspecting?.id ?? null;
-    if (sortArea(this.world, this.self, machineId, area)) this.persist();
+    if (sortArea(this.world, this.self, machineId, area)) this.requestSave();
     else this.hud.toast('Already tidy');
   }
 
   private gatherInto(ref: SlotRef): void {
     const machineId = this.hud.inspecting?.id ?? null;
-    if (gatherStacks(this.world, this.self, machineId, ref)) this.persist();
+    if (gatherStacks(this.world, this.self, machineId, ref)) this.requestSave();
   }
 
   private takeEverything(machineId: number): void {
@@ -237,7 +243,17 @@ export class Game {
   }
 
   private chooseUpgrade(id: string): void {
-    if (chooseUpgrade(this.world, this.self, id)) this.persist();
+    if (chooseUpgrade(this.world, this.self, id)) this.requestSave();
+  }
+
+  /**
+   * Note that an action worth keeping happened. The frame loop's save timer
+   * does the writing, so a burst of placements costs one serialisation rather
+   * than one each; anything that ends the session flushes with `persist`.
+   */
+  private requestSave(): void {
+    if (!this.running || !this.slot) return;
+    this.saveTimer = Math.min(this.saveTimer, SAVE_DEBOUNCE);
   }
 
   private persist(): void {
@@ -352,7 +368,7 @@ export class Game {
     const error = placementError(this.world, this.self, ghost.type, ghost.pos);
     if (error === null) {
       placeBuilding(this.world, this.self, ghost.type, ghost.pos);
-      this.persist();
+      this.requestSave();
       return;
     }
 
@@ -372,7 +388,7 @@ export class Game {
     if (error === null) {
       if (what === 'belt') placeBelt(this.world, this.self, tx, ty, this.buildDir);
       else placeMachine(this.world, this.self, what, tx, ty, this.buildDir);
-      this.persist();
+      this.requestSave();
       return;
     }
 
@@ -397,7 +413,7 @@ export class Game {
     const { tx, ty } = toTile(pos);
     if (removeAt(this.world, this.self, tx, ty)) {
       this.hud.toast('Removed', 'good');
-      this.persist();
+      this.requestSave();
       return;
     }
 
@@ -405,7 +421,7 @@ export class Game {
     const result = removeBuildingAt(this.world, this.self, pos);
     if (result === 'removed') {
       this.hud.toast('Removed', 'good');
-      this.persist();
+      this.requestSave();
       return;
     }
     if (result === 'campfire') {

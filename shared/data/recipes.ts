@@ -58,6 +58,50 @@ export const RECIPES: Recipe[] = [
     ],
     outputs: [{ id: 'circuit', count: 1 }],
   },
+  {
+    id: 'steelPlate',
+    name: 'Steel Plate',
+    machine: 'furnace',
+    time: 4,
+    inputs: [
+      { id: 'ironPlate', count: 2 },
+      { id: 'coal', count: 1 },
+    ],
+    outputs: [{ id: 'steelPlate', count: 1 }],
+  },
+  {
+    id: 'battery',
+    name: 'Battery',
+    machine: 'assembler',
+    time: 3,
+    inputs: [
+      { id: 'copperPlate', count: 1 },
+      { id: 'coal', count: 1 },
+    ],
+    outputs: [{ id: 'battery', count: 1 }],
+  },
+  {
+    id: 'motor',
+    name: 'Motor',
+    machine: 'assembler',
+    time: 4,
+    inputs: [
+      { id: 'steelPlate', count: 1 },
+      { id: 'gear', count: 2 },
+    ],
+    outputs: [{ id: 'motor', count: 1 }],
+  },
+  {
+    id: 'advancedCircuit',
+    name: 'Advanced Circuit',
+    machine: 'assembler',
+    time: 6,
+    inputs: [
+      { id: 'circuit', count: 2 },
+      { id: 'battery', count: 1 },
+    ],
+    outputs: [{ id: 'advancedCircuit', count: 1 }],
+  },
 ];
 
 export const RECIPE_BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
