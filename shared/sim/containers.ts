@@ -1,7 +1,7 @@
 import { MACHINES } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { giveOrDrop } from './inventory';
-import { addToSlots, slotCap, takeFromSlots } from './slots';
+import { addToSlots, slotCap, sortSlots, takeFromSlots } from './slots';
 import type { ItemId, Machine, Player, Slot, World } from './types';
 
 /**
@@ -207,6 +207,78 @@ export function takeAll(world: World, player: Player, machineId: number): number
     }
   }
   return moved;
+}
+
+/** The per-slot ceiling the whole of one area obeys. */
+function maxIn(machine: Machine | null, area: SlotArea): number {
+  if (area === 'bag' || !machine) return Infinity;
+  return MACHINES[machine.type].slotSize;
+}
+
+/**
+ * Tidy one grid: loose stacks merged into full ones, laid out in table order.
+ * A chest of eight part-used stacks is the state every storage game arrives at,
+ * and doing it by hand is a dozen drags.
+ */
+export function sortArea(
+  world: World,
+  player: Player,
+  machineId: number | null,
+  area: SlotArea,
+): boolean {
+  const machine = machineById(world, machineId);
+  const slots = slotsFor(player, machine, area);
+  if (!slots) return false;
+  return sortSlots(slots, maxIn(machine, area));
+}
+
+/**
+ * Gather every loose stack of one item in the same grid into the slot that was
+ * clicked, up to its ceiling. The double-click half of sorting: it tidies the
+ * one item the player is actually looking at without rearranging the grid
+ * around it.
+ *
+ * Smallest stacks are emptied first, so the loose ends disappear rather than a
+ * full stack being broken up to top up another.
+ */
+export function gatherStacks(
+  world: World,
+  player: Player,
+  machineId: number | null,
+  ref: SlotRef,
+): boolean {
+  // A held stack means the click was part of a drag, not a gather.
+  if (player.cursor) return false;
+
+  const machine = machineById(world, machineId);
+  const slots = slotsFor(player, machine, ref.area);
+  if (!slots) return false;
+
+  const target = slots[ref.index];
+  if (!target) return false;
+
+  let room = capIn(machine, ref.area, target.id) - target.count;
+  if (room <= 0) return false;
+
+  const loose = slots
+    .map((slot, index) => ({ slot, index }))
+    .filter((entry) => entry.index !== ref.index && entry.slot?.id === target.id)
+    .sort((a, b) => a.slot!.count - b.slot!.count);
+
+  let gathered = 0;
+  for (const { index } of loose) {
+    if (room <= 0) break;
+    const slot = slots[index]!;
+    const moved = Math.min(slot.count, room);
+    slot.count -= moved;
+    room -= moved;
+    gathered += moved;
+    if (slot.count <= 0) slots[index] = null;
+  }
+
+  if (gathered === 0) return false;
+  target.count += gathered;
+  return true;
 }
 
 /**

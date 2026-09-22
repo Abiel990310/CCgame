@@ -10,6 +10,10 @@ export interface InventoryCallbacks {
   /** A slot was clicked: pick up, put down, split, or send across. */
   onSlotAction: (ref: SlotRef, button: ClickButton, quick: boolean) => void;
   onTakeAll: () => void;
+  /** Tidy one grid: loose stacks merged, laid out in table order. */
+  onSort: (area: SlotArea) => void;
+  /** Double-click: pull every loose stack of this item into this slot. */
+  onGather: (ref: SlotRef) => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
   onClose: () => void;
 }
@@ -45,6 +49,8 @@ export class InventoryScreen {
     progress: HTMLElement;
     progressFill: HTMLElement;
     takeAll: HTMLButtonElement;
+    sortInput: HTMLButtonElement;
+    sortBag: HTMLButtonElement;
     recipes: HTMLElement;
     bagGrid: HTMLElement;
     bagNote: HTMLElement;
@@ -76,6 +82,8 @@ export class InventoryScreen {
       progress: must('inv-progress'),
       progressFill: must('inv-progress-fill'),
       takeAll: must<HTMLButtonElement>('inv-take-all'),
+      sortInput: must<HTMLButtonElement>('inv-sort-input'),
+      sortBag: must<HTMLButtonElement>('inv-sort-bag'),
       recipes: must('inv-recipes'),
       bagGrid: must('inv-bag-grid'),
       bagNote: must('inv-bag-note'),
@@ -92,11 +100,19 @@ export class InventoryScreen {
 
     this.els.close.addEventListener('click', () => this.callbacks.onClose());
     this.els.takeAll.addEventListener('click', () => this.callbacks.onTakeAll());
+    this.els.sortInput.addEventListener('click', () => this.callbacks.onSort('input'));
+    this.els.sortBag.addEventListener('click', () => this.callbacks.onSort('bag'));
     // Right-click is a split, not the browser's menu.
     this.root.addEventListener('contextmenu', (e) => e.preventDefault());
     this.root.addEventListener('pointerdown', (e) => this.onPointerDown(e));
     this.root.addEventListener('pointerup', (e) => this.onPointerUp(e));
     this.root.addEventListener('pointermove', (e) => this.moveCarried(e.clientX, e.clientY));
+    // Double-click gathers. The two clicks under it have already picked the
+    // stack up and put it back, so the slot is exactly as it was.
+    this.root.addEventListener('dblclick', (e) => {
+      const ref = refAt(e.target);
+      if (ref) this.callbacks.onGather(ref);
+    });
     // Clicking the backdrop closes, the way every other modal here behaves.
     this.root.addEventListener('click', (e) => {
       if (e.target === this.root) this.callbacks.onClose();
@@ -153,6 +169,8 @@ export class InventoryScreen {
     this.els.inputGrid.parentElement?.classList.toggle('hidden', def.inputSlots === 0);
     this.els.outputBlock.classList.toggle('hidden', def.outputSlots === 0);
     this.els.progress.classList.toggle('hidden', !def.choosesRecipe);
+
+    this.els.sortInput.classList.toggle('hidden', def.inputSlots < 2);
 
     this.buildGrid('input', def.inputSlots);
     this.buildGrid('output', def.outputSlots);

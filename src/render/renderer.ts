@@ -77,7 +77,13 @@ export class Renderer {
    * `alpha` is the fraction of a tick elapsed; entity positions are already
    * interpolated by the caller, so this only drives cosmetic animation.
    */
-  render(world: World, selfId: number, time: number, ghost: GhostPreview | null): void {
+  render(
+    world: World,
+    selfId: number,
+    time: number,
+    ghost: GhostPreview | null,
+    removal: RemovalPreview | null = null,
+  ): void {
     if (this.bakedSeed !== world.seed) {
       this.baked = bakeTerrain(world.terrain, world.ore, world.seed);
       this.bakedSeed = world.seed;
@@ -163,7 +169,15 @@ export class Renderer {
 
     this.drawOccludedSelf(world, selfId);
     this.drawGatherHint(world, selfId);
-    if (ghost) this.drawGhost(world, ghost);
+    // The ghost over an occupied tile is red because of the very thing the
+    // removal outline is showing, so only one of the two is drawn.
+    const covered =
+      removal?.kind === 'grid' &&
+      ghost?.kind === 'grid' &&
+      removal.tx === ghost.tx &&
+      removal.ty === ghost.ty;
+    if (ghost && !covered) this.drawGhost(world, ghost);
+    if (removal) this.drawRemoval(removal);
 
     this.effects.draw(ctx);
     ctx.restore();
@@ -403,6 +417,55 @@ export class Renderer {
   }
 
   /**
+   * What `X` or right-click is about to take. A dashed outline and a cross, in
+   * the danger tint — distinct from the ghost, which is a solid translucent fill
+   * and says where a new piece would land.
+   */
+  private drawRemoval(removal: RemovalPreview): void {
+    const ctx = this.ctx;
+    // A piece that cannot be taken down says so by being drawn in neither tint.
+    const tint = removal.fixed ? UI.inkDim : UI.danger;
+
+    ctx.save();
+    ctx.strokeStyle = tint;
+    ctx.fillStyle = rgba(tint, 0.14);
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+
+    let x: number;
+    let y: number;
+    if (removal.kind === 'grid') {
+      const center = tileCenter(removal.tx, removal.ty);
+      x = center.x;
+      y = center.y;
+      ctx.beginPath();
+      ctx.roundRect(x - TILE / 2 + 1, y - TILE / 2 + 1, TILE - 2, TILE - 2, 5);
+    } else {
+      x = removal.pos.x;
+      y = removal.pos.y;
+      ctx.beginPath();
+      ctx.arc(x, y, removal.radius + 5, 0, Math.PI * 2);
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    if (!removal.fixed) {
+      // A small cross above the piece, so the art underneath stays readable.
+      const reach = 4;
+      const top = removal.kind === 'grid' ? y - TILE / 2 - 5 : y - removal.radius - 10;
+      ctx.setLineDash([]);
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(x - reach, top - reach);
+      ctx.lineTo(x + reach, top + reach);
+      ctx.moveTo(x + reach, top - reach);
+      ctx.lineTo(x - reach, top + reach);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /**
    * Night is a dark multiply layer punched through by warm radial lights from
    * the campfire, lamps and each player — cheap, and it makes camp feel safe.
    */
@@ -457,6 +520,14 @@ export type GhostPreview =
       dir: Direction;
       valid: boolean;
     };
+
+/**
+ * What removal is pointing at. Factory pieces are a tile; camp pieces are a
+ * radius around a point, and the campfire is the one that will refuse.
+ */
+export type RemovalPreview =
+  | { kind: 'grid'; tx: number; ty: number; fixed: boolean }
+  | { kind: 'building'; pos: Vec2; radius: number; fixed: boolean };
 
 /** 0 at full day, 1 at deep night, eased across the twilight windows. */
 export function nightDarkness(world: World): number {

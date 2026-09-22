@@ -285,11 +285,87 @@ body {
   pointer-events: none;
 }
 
+/* ---------- Hotbar ---------- */
+
+/*
+ * The quick slots. Centred along the bottom between the pouch and the action
+ * buttons, and always visible: a number key is only quick if the player can see
+ * what it is bound to without opening anything.
+ */
+.hotbar {
+  position: absolute;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  padding: 5px;
+  border-radius: 14px;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  max-width: calc(100vw - 28px);
+}
+
+.quick {
+  position: relative;
+  width: 58px;
+  height: 44px;
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  color: var(--ink);
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.quick:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.quick.on {
+  border-color: var(--gold);
+  background: rgba(232, 182, 76, 0.18);
+}
+
+.quick.poor b {
+  opacity: 0.4;
+}
+
+.quick.empty b {
+  opacity: 0.3;
+}
+
+.quick kbd {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 9px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+}
+
+.quick b {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 12px;
+  max-width: 52px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-top: 5px;
+}
+
 /* ---------- Build bar ---------- */
 
 .buildbar {
   position: absolute;
-  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 76px);
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 62px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -529,6 +605,13 @@ kbd {
   .bars {
     width: 104px;
   }
+  .quick {
+    width: 44px;
+    height: 40px;
+  }
+  .quick b {
+    max-width: 38px;
+  }
   .pouch {
     max-width: 48vw;
   }
@@ -644,6 +727,12 @@ kbd {
   color: var(--ink-dim);
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
+}
+
+.inv-head-tail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .mini-btn {

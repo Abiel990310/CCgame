@@ -11,7 +11,24 @@ const MOVE_KEYS: Record<string, Vec2> = {
   ArrowRight: { x: 1, y: 0 },
 };
 
-export type ActionKey = 'build' | 'inventory' | 'cancel' | 'rotate' | 'remove';
+/** The quick slots, 1-indexed exactly as they are labelled on screen. */
+export type HotbarKey = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+export type ActionKey =
+  | 'build'
+  | 'inventory'
+  | 'cancel'
+  | 'rotate'
+  | 'remove'
+  | `hotbar${HotbarKey}`
+  | `bind${HotbarKey}`;
+
+/** Which quick slot a key code names, or 0 for anything else. */
+function hotbarDigit(code: string): number {
+  if (!code.startsWith('Digit')) return 0;
+  const digit = Number(code.slice(5));
+  return digit >= 1 && digit <= 8 ? digit : 0;
+}
 
 /**
  * Collects keyboard, pointer and touch into one frame-stable input snapshot.
@@ -46,6 +63,18 @@ export class InputManager {
       // Let the browser keep its own shortcuts; only claim game keys.
       const claimed = ['Space', 'KeyE', 'KeyB', 'KeyR', 'KeyX', 'Tab', 'Escape'];
       if (e.code in MOVE_KEYS || claimed.includes(e.code)) e.preventDefault();
+
+      // A number picks a quick slot; with shift it binds the selected piece to
+      // one. Modified digits belong to the browser (Ctrl+1 switches tabs).
+      const digit = hotbarDigit(e.code);
+      if (digit > 0) {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        e.preventDefault();
+        this.pending.push(
+          (e.shiftKey ? `bind${digit}` : `hotbar${digit}`) as ActionKey,
+        );
+        return;
+      }
 
       this.keys.add(e.code);
       if (e.code === 'KeyB') this.pending.push('build');
