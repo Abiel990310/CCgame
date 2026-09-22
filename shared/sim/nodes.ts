@@ -28,6 +28,24 @@ export function nodeSpotTaken(world: World, node: ResourceNode): boolean {
 }
 
 /**
+ * Scenery rooted inside a belt or a machine. Placement refuses to bury a
+ * standing tree now, but islands made before it did can still have one growing
+ * out of the middle of a belt run, so a load sweeps them out.
+ */
+export function clearBuriedNodes(world: World): number {
+  let removed = 0;
+  for (let i = world.nodes.length - 1; i >= 0; i--) {
+    const node = world.nodes[i];
+    const tx = Math.floor(node.pos.x / TILE);
+    const ty = Math.floor(node.pos.y / TILE);
+    if (!world.grid.has(tileKey(tx, ty))) continue;
+    world.nodes.splice(i, 1);
+    removed++;
+  }
+  return removed;
+}
+
+/**
  * Drop the stumps of nodes that have just been built over. Land you cleared and
  * built on is yours: nothing grows back through a belt or a wall.
  */

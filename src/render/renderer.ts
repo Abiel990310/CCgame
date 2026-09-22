@@ -17,7 +17,7 @@ import {
   drawProjectile,
 } from './entities';
 import { UI, rgba } from './palette';
-import { bakeTerrain } from './terrain';
+import { GroundMesh } from './terrain';
 import { polygon } from './shapes';
 import { drawBelt, drawBeltItems, drawMachine } from './factory';
 import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
@@ -35,14 +35,13 @@ export class Renderer {
   readonly camera = new Camera();
   readonly effects = new Effects();
   private ctx: CanvasRenderingContext2D;
-  private baked: HTMLCanvasElement | null = null;
-  private bakedSeed = -1;
+  private mesh: GroundMesh | null = null;
   private dpr = 1;
   /**
    * The island, pre-scaled to the zoom it is actually shown at, covering the
    * viewport plus a margin. Redrawn only when the camera walks off the edge of
-   * it, so the common frame blits it one-to-one instead of resampling the whole
-   * 3072-square island every time.
+   * it, so the common frame blits it one-to-one instead of painting the mesh
+   * every time.
    */
   private ground: HTMLCanvasElement | null = null;
   private groundCtx: CanvasRenderingContext2D | null = null;
@@ -84,11 +83,6 @@ export class Renderer {
     ghost: GhostPreview | null,
     removal: RemovalPreview | null = null,
   ): void {
-    if (this.bakedSeed !== world.seed) {
-      this.baked = bakeTerrain(world.terrain, world.ore, world.seed);
-      this.bakedSeed = world.seed;
-    }
-
     const ctx = this.ctx;
     const { width, height } = this.camera;
 
@@ -107,7 +101,7 @@ export class Renderer {
     const originX = Math.round((width / 2 + shakeX) * this.dpr - this.camera.pos.x * scale);
     const originY = Math.round((height / 2 + shakeY) * this.dpr - this.camera.pos.y * scale);
 
-    this.ensureGround();
+    this.ensureGround(world);
     if (this.ground) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(
@@ -186,12 +180,14 @@ export class Renderer {
   }
 
   /**
-   * Keep the pre-scaled ground covering the view. Rebuilding costs one scaled
-   * blit of the island, which is what every frame used to pay; with a margin
-   * this wide it happens about once a second while walking instead.
+   * Keep the pre-scaled ground covering the view. With a margin this wide the
+   * cache only runs out about once a second while walking, and when it does it
+   * scrolls and paints the strip that came in rather than the whole thing.
    */
-  private ensureGround(): void {
-    if (!this.baked) return;
+  private ensureGround(world: World): void {
+    if (this.mesh === null || this.mesh.seed !== world.seed) {
+      this.mesh = new GroundMesh(world.seed);
+    }
 
     const scale = this.camera.zoom * this.dpr;
     const w = Math.ceil(this.camera.width * this.dpr) + GROUND_MARGIN * 2;
@@ -222,17 +218,61 @@ export class Renderer {
       return;
     }
 
+    const prevX = this.groundX;
+    const prevY = this.groundY;
+    const sameScale = this.groundScale === scale;
+
     // Land the cache's own origin on a whole device pixel, so blitting it is a
     // straight copy rather than a resample.
     this.groundX = Math.round((this.camera.pos.x - coverW / 2) * scale) / scale;
     this.groundY = Math.round((this.camera.pos.y - coverH / 2) * scale) / scale;
     this.groundScale = scale;
 
+    const dx = Math.round((prevX - this.groundX) * scale);
+    const dy = Math.round((prevY - this.groundY) * scale);
+
+    // Walking shifts the cache by a fraction of its own size, so slide what is
+    // still good and paint only the edges that have come into view. Zooming
+    // changes every pixel of it, and that is the case that repaints the lot.
+    if (sameScale && Math.abs(dx) < w && Math.abs(dy) < h) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(ctx.canvas, dx, dy);
+      if (dx !== 0) this.paintGround(world, dx > 0 ? 0 : w + dx, 0, Math.abs(dx), h);
+      if (dy !== 0) {
+        this.paintGround(world, dx > 0 ? dx : 0, dy > 0 ? 0 : h + dy, w - Math.abs(dx), Math.abs(dy));
+      }
+      return;
+    }
+
+    this.paintGround(world, 0, 0, w, h);
+  }
+
+  /**
+   * Repaint one rectangle of the ground cache, given in its own device pixels.
+   * The clip is what makes a partial repaint safe: the mesh reaches a tile past
+   * whatever it is asked for, and shore foam and ore are drawn with alpha, so
+   * letting it spill onto cache that is already right would darken it twice.
+   */
+  private paintGround(world: World, x: number, y: number, w: number, h: number): void {
+    const ctx = this.groundCtx;
+    if (!ctx || !this.mesh || w <= 0 || h <= 0) return;
+    const scale = this.groundScale;
+
+    ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
     ctx.fillStyle = '#12232e';
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect(x, y, w, h);
     ctx.setTransform(scale, 0, 0, scale, -this.groundX * scale, -this.groundY * scale);
-    ctx.drawImage(this.baked, 0, 0);
+    this.mesh.paint(ctx, world.terrain, world.ore, {
+      x: this.groundX + x / scale,
+      y: this.groundY + y / scale,
+      w: w / scale,
+      h: h / scale,
+    });
+    ctx.restore();
   }
 
   /**
@@ -267,7 +307,7 @@ export class Renderer {
     }
   }
 
-  /** Animated highlights over baked water, so the sea is not a flat plate. */
+  /** Animated highlights over the painted water, so the sea is not a flat plate. */
   private drawWaterShimmer(
     world: World,
     time: number,
