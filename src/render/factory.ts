@@ -1,5 +1,5 @@
 import { ITEMS } from '@shared/data/items';
-import { BELT_SPEED, MACHINES } from '@shared/data/machines';
+import { BELT_SPEED, INSERTER_SWING, MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TILE } from '@shared/sim/constants';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
@@ -125,6 +125,11 @@ export function drawMachine(
   const def = MACHINES[machine.type];
   const { x, y } = tileCenter(machine.tx, machine.ty);
 
+  if (machine.type === 'inserter') {
+    drawInserter(ctx, machine, x, y);
+    return;
+  }
+
   shadow(ctx, x, y + TILE * 0.36, TILE * 0.44);
 
   ctx.fillStyle = def.color;
@@ -216,6 +221,75 @@ function drawMachineFace(
   }
 }
 
+/**
+ * An inserter is drawn as a slim post with one arm, because the arm is the
+ * only thing that says which way round it is. The hand slides along the
+ * facing axis rather than sweeping round a circle: a rotating arm spends half
+ * its cycle pointing at tiles the inserter has nothing to do with, and in a
+ * 3/4 view it swings into the ground. Sliding, it is always over either the
+ * tile it takes from or the tile it feeds.
+ *
+ * The post is deliberately darker and bluer than the island's rock, which it
+ * would otherwise be mistaken for wherever a line crosses stone.
+ */
+function drawInserter(
+  ctx: CanvasRenderingContext2D,
+  machine: Machine,
+  x: number,
+  y: number,
+): void {
+  const def = MACHINES.inserter;
+  const hand = machine.input[0];
+  // Empty-handed, the arm rests back over its source, waiting.
+  const swing = hand ? Math.min(machine.progress / INSERTER_SWING, 1) : 0;
+  const angle = dirAngle(machine.dir);
+  // -1 is fully back over the source tile, +1 fully forward over the target.
+  const along = (swing * 2 - 1) * TILE * 0.5;
+  const pivotY = y - TILE * 0.22;
+  const handX = x + Math.cos(angle) * along;
+  const handY = pivotY + Math.sin(angle) * along;
+
+  shadow(ctx, x, y + TILE * 0.2, TILE * 0.22);
+
+  ctx.strokeStyle = machine.stalled ? UI.danger : def.accent;
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, pivotY);
+  ctx.lineTo(handX, handY);
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+
+  ctx.fillStyle = def.color;
+  ctx.beginPath();
+  ctx.roundRect(x - TILE * 0.15, y - TILE * 0.26, TILE * 0.3, TILE * 0.5, 4);
+  ctx.fill();
+
+  ctx.fillStyle = shift(def.color, -22);
+  ctx.beginPath();
+  ctx.roundRect(x - TILE * 0.15, y + TILE * 0.08, TILE * 0.3, TILE * 0.16, 4);
+  ctx.fill();
+
+  // A lit cap on the pivot, so the post never reads as one more boulder.
+  ctx.fillStyle = machine.stalled ? UI.danger : def.accent;
+  ctx.beginPath();
+  ctx.arc(x, pivotY, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // The carried item goes on last: mid-swing the hand is over the post, and an
+  // item that blinks out of sight halfway across looks like a dropped one.
+  if (hand) {
+    ctx.fillStyle = 'rgba(10, 14, 20, 0.28)';
+    ctx.beginPath();
+    ctx.ellipse(handX, handY + TILE * 0.22, 4.5, 2.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    polygon(ctx, handX, handY, 4.8, 5, machine.id, 0.2);
+    ctx.fillStyle = ITEMS[hand.id].color;
+    ctx.fill();
+  }
+}
+
 /** A small tab on the output side, so rotation is readable before you commit. */
 function drawOutputNub(
   ctx: CanvasRenderingContext2D,
@@ -241,7 +315,8 @@ function drawProgress(
   x: number,
   y: number,
 ): void {
-  if (machine.type === 'chest') return;
+  // A chest has no cycle, and an inserter's arm already is its progress bar.
+  if (machine.type === 'chest' || machine.type === 'inserter') return;
 
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   const duration =

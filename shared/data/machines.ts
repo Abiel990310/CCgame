@@ -75,7 +75,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   chest: {
     id: 'chest',
     name: 'Storage Chest',
-    description: 'Accepts anything from a belt. Somewhere for it all to go.',
+    description: 'Accepts anything from a belt. An inserter is how it comes back out.',
     cost: [{ id: 'wood', count: 12 }],
     color: '#a4713d',
     accent: '#e8b64c',
@@ -86,9 +86,33 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: false,
   },
+  inserter: {
+    id: 'inserter',
+    name: 'Inserter',
+    description: 'Reaches behind itself and loads what it finds into the tile ahead.',
+    cost: [
+      { id: 'wood', count: 4 },
+      { id: 'ironPlate', count: 2 },
+    ],
+    color: '#3c4557',
+    accent: '#7fd4ff',
+    // The single input slot is the inserter's hand: one item, in transit.
+    inputSlots: 1,
+    outputSlots: 0,
+    slotSize: 1,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+  },
 };
 
-export const MACHINE_ORDER: MachineId[] = ['miner', 'furnace', 'assembler', 'chest'];
+export const MACHINE_ORDER: MachineId[] = [
+  'miner',
+  'furnace',
+  'assembler',
+  'chest',
+  'inserter',
+];
 
 export const BELT_COST: ItemStack[] = [
   { id: 'wood', count: 1 },
@@ -103,3 +127,6 @@ export const BELT_CAPACITY = 4;
 
 /** Minimum gap between items on a belt, as a fraction of a tile. */
 export const BELT_ITEM_GAP = 1 / BELT_CAPACITY;
+
+/** Seconds an inserter takes to swing one item from behind it to in front. */
+export const INSERTER_SWING = 0.6;
