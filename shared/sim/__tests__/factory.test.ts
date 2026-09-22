@@ -18,7 +18,7 @@ import { EMPTY_INPUT, step } from '../step';
 import { pushOntoBelt } from '../systems/factory';
 import type { Belt, Direction, ItemId, Machine, Player, World } from '../types';
 import { addPlayer, createWorld } from '../world';
-import { advance, at, bench, contents, fill, plantOre, put } from './bench';
+import { advance, at, BENCH, bench, contents, fill, plantOre, put } from './bench';
 
 function run(world: World, seconds: number): void {
   const ticks = Math.round(seconds / TICK_DT);
@@ -146,6 +146,21 @@ describe('placement', () => {
     expect(countItem(player, 'wood')).toBe(before);
     expect(world.grid.has(tileKey(tx, ty))).toBe(false);
     expect(world.belts.length).toBe(0);
+  });
+
+  it('removes the piece on the tile and leaves the other list alone', () => {
+    const { world, player } = bench();
+    const belts = [0, 1, 2].map((i) => placeBelt(world, player, BENCH.tx + i, BENCH.ty, 0)!);
+    const chest = placeMachine(world, player, 'chest', BENCH.tx, BENCH.ty + 1, 0)!;
+
+    expect(removeAt(world, player, chest.tx, chest.ty)).toBe(true);
+    expect(world.machines).toEqual([]);
+    expect(world.belts).toEqual(belts);
+
+    expect(removeAt(world, player, belts[1].tx, belts[1].ty)).toBe(true);
+    expect(world.belts).toEqual([belts[0], belts[2]]);
+    expect(world.grid.get(tileKey(belts[0].tx, belts[0].ty))).toBe(belts[0]);
+    expect(world.grid.get(tileKey(belts[2].tx, belts[2].ty))).toBe(belts[2]);
   });
 
   it('returns a machine’s contents when removed', () => {
