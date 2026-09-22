@@ -54,6 +54,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
+| Quick slots | Bound in `localStorage`, not in the save | The bar says how one person likes their tools arranged, not what is true of an island. Keeping it out of the world means no save version, and one bar across every island — which is what someone who arranges it once expects. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
@@ -175,6 +176,9 @@ detail behind the factory entries is in
       synchronously, so dragging out a belt line serialises the world on every
       click. About 2.6 ms at 550 belts and it grows with the base; it should
       debounce onto the existing 8-second save timer.
+- [ ] Sorting a container and gathering a stack each write the whole island to
+      `localStorage` synchronously — two more callers for the debounce the
+      belt-placement entry above wants.
 - [ ] `removeAt` scans `world.belts` and `world.machines` linearly to find the
       piece, although `world.grid` already resolves the tile. Cheap today, the
       same shape as the tick bug that was already fixed.
@@ -229,9 +233,6 @@ detail behind the factory entries is in
 - [ ] **Second island via a bridge** — a new generated region with its own ore
       tier and tech branch. Multiplies content instead of ending it.
 - [ ] **Audio** — there is none.
-- [ ] **A hotbar** — now that the bag is a real slot grid, a row of quick slots
-      that selects what build mode places is a small addition with a large
-      effect on how it feels to play.
 - [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
       A crafted satchel is an obvious early sink and a reason to build a
       workbench.
@@ -268,8 +269,11 @@ detail behind the factory entries is in
 - [ ] A wall chipped to 1 hit point refunds its full cost, so taking it down
       and putting it back is a free repair. Walls want a repair action, or a
       refund that scales with the damage taken.
-- [ ] Build mode gives no hover highlight for what `X` or right-click will
-      take, so removal is aimed blind at whatever the cursor happens to cover.
+- [ ] The removal highlight only shows in build mode, so a right-click on the
+      open island is still aimed blind. Either highlight outside build mode too,
+      or make removal a build-mode action.
+- [ ] A long name truncates in a quick slot (`Storag…`). A short display name on
+      each machine and building would read better in an eight-wide bar.
 - [ ] The camp `Chest` and the factory `Storage Chest` are different things
       with nearly the same name, in the same palette, two tabs apart.
 - [ ] Camp placement keeps scenery away with a fixed 14px clearance while
@@ -306,9 +310,10 @@ detail behind the factory entries is in
       Worth revisiting only after the second island exists.
 - [ ] Blueprints — enormous tedium removed, but also the learning that early
       tedium teaches. Timing is the whole question.
-- [ ] A sort button on a container, and a click that gathers every loose stack
-      of one item into full ones. Cheap, and the first thing anyone asks for
-      once a chest has eight slots.
+- [ ] Quick slots that can hold an item as well as a build piece, once there is
+      something worth using from the bag.
+- [ ] Sorting discards the arrangement a player chose. A pinned or filtered slot
+      would let a chest keep its shape while still tidying around it.
 - [ ] Item icons are CSS shapes in the UI and flat discs in the world. Drawing
       both from one shape table would make an item look like itself everywhere.
 

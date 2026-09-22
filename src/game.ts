@@ -2,16 +2,25 @@ import { BUILDINGS } from '@shared/data/buildings';
 import { BELT_COST, MACHINES } from '@shared/data/machines';
 import { ITEMS } from '@shared/data/items';
 import { TICK_DT } from '@shared/sim/constants';
-import { placeBuilding, placementError, removeBuildingAt } from '@shared/sim/building';
+import {
+  buildingAt,
+  placeBuilding,
+  placementError,
+  removeBuildingAt,
+} from '@shared/sim/building';
 import {
   clickSlot,
+  gatherStacks,
   quickMove,
+  sortArea,
   stowCursor,
   takeAll,
   type ClickButton,
+  type SlotArea,
   type SlotRef,
 } from '@shared/sim/containers';
 import {
+  entityAt,
   factoryPlacementError,
   machineAt,
   placeBelt,
@@ -33,7 +42,7 @@ import type {
 } from '@shared/sim/types';
 import { addPlayer, createWorld } from '@shared/sim/world';
 import { InputManager } from './input';
-import { Renderer, type GhostPreview } from './render/renderer';
+import { Renderer, type GhostPreview, type RemovalPreview } from './render/renderer';
 import { loadWorld, saveWorld } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { Hud } from './ui/hud';
@@ -80,6 +89,8 @@ export class Game {
       onQuitToMenu: () => this.quitToMenu(),
       onSlotAction: (ref, button, quick) => this.moveItems(ref, button, quick),
       onTakeAll: (machineId) => this.takeEverything(machineId),
+      onSort: (area) => this.sortGrid(area),
+      onGather: (ref) => this.gatherInto(ref),
       onCloseInventory: () => this.closeInventory(),
     });
 
@@ -105,6 +116,8 @@ export class Game {
       clickSlot,
       quickMove,
       takeAll,
+      sortArea,
+      gatherStacks,
       addItem,
       openInventory: (machine: Machine | null) => this.hud.openInventory(machine),
     };
@@ -207,6 +220,17 @@ export class Game {
     else clickSlot(this.world, this.self, machineId, ref, button);
   }
 
+  private sortGrid(area: SlotArea): void {
+    const machineId = this.hud.inspecting?.id ?? null;
+    if (sortArea(this.world, this.self, machineId, area)) this.persist();
+    else this.hud.toast('Already tidy');
+  }
+
+  private gatherInto(ref: SlotRef): void {
+    const machineId = this.hud.inspecting?.id ?? null;
+    if (gatherStacks(this.world, this.self, machineId, ref)) this.persist();
+  }
+
   private takeEverything(machineId: number): void {
     const moved = takeAll(this.world, this.self, machineId);
     if (moved === 0) this.hud.toast('No room in your bag', 'warn');
@@ -232,6 +256,17 @@ export class Game {
     const blocked = this.hud.isInventoryOpen || this.hud.isPauseOpen;
 
     for (const action of this.input.drainActions()) {
+      // A quick slot picks what to place, so it also turns build mode on; the
+      // keys stay dead behind an open screen, like every other build key.
+      if (action.startsWith('hotbar') && !blocked) {
+        this.hud.useHotbar(Number(action.slice(6)) - 1);
+        continue;
+      }
+      if (action.startsWith('bind') && !blocked) {
+        this.hud.bindHotbar(Number(action.slice(4)) - 1);
+        continue;
+      }
+
       if (action === 'build' && !blocked) this.toggleBuild();
       if (action === 'inventory') this.toggleBag();
       if (action === 'rotate' && !blocked) this.buildDir = rotate(this.buildDir);
@@ -271,6 +306,33 @@ export class Game {
     const what = selection.kind === 'belt' ? 'belt' : selection.id;
     const valid = factoryPlacementError(this.world, this.self, what, tx, ty) === null;
     return { kind: 'grid', what, tx, ty, dir: this.buildDir, valid };
+  }
+
+  /**
+   * What `X` or right-click would take, so removal is aimed at something rather
+   * than at wherever the cursor happens to be. Only shown in build mode: a red
+   * outline around every machine walked past would fight the gather hint.
+   */
+  private removalTarget(): RemovalPreview | null {
+    if (!this.hud.isBuildMode) return null;
+
+    const pos = this.cursorWorld;
+    const { tx, ty } = toTile(pos);
+
+    const entity = entityAt(this.world, tx, ty);
+    if (entity) return { kind: 'grid', tx, ty, fixed: false };
+
+    const building = buildingAt(this.world, pos);
+    if (building) {
+      return {
+        kind: 'building',
+        pos: building.pos,
+        radius: BUILDINGS[building.type].radius,
+        // The campfire is the one piece that does not come back down.
+        fixed: building.type === 'campfire',
+      };
+    }
+    return null;
   }
 
   private tryPlace(ghost: GhostPreview | null): void {
@@ -373,6 +435,7 @@ export class Game {
     // Inspecting a machine should not also swing the pickaxe at it.
     if (this.hud.isInventoryOpen) this.input.takeClick();
     const ghost = this.ghost();
+    const removal = this.removalTarget();
     this.tryPlace(ghost);
 
     // A pending level-up freezes the world, so the draft is never a panic.
@@ -410,7 +473,7 @@ export class Game {
 
     this.renderer.effects.update(elapsed);
     this.renderer.camera.follow(this.self.pos, elapsed);
-    this.renderer.render(this.world, this.selfId, this.world.time, ghost);
+    this.renderer.render(this.world, this.selfId, this.world.time, ghost, removal);
     this.hud.update(this.world, this.self);
   }
 

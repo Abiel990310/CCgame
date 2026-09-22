@@ -51,6 +51,9 @@
         </button>
       </section>
 
+      <!-- Quick slots: what a number key places -->
+      <section class="hotbar" id="hotbar"></section>
+
       <!-- Build mode palette -->
       <section class="buildbar hidden" id="buildbar">
         <div class="buildbar-tabs" id="buildbar-tabs"></div>
@@ -58,6 +61,8 @@
         <div class="buildbar-hint">
           <span><kbd>R</kbd> rotate</span>
           <span><kbd>X</kbd> / right-click removes</span>
+          <span><kbd>1</kbd>&ndash;<kbd>8</kbd> quick slots</span>
+          <span><kbd>shift</kbd>+<kbd>1</kbd>&ndash;<kbd>8</kbd> binds the selected piece</span>
         </div>
       </section>
 
@@ -81,7 +86,10 @@
             <div class="inv-block">
               <div class="inv-head">
                 <b id="inv-input-label">Stored</b>
-                <button class="mini-btn" id="inv-take-all">Take all</button>
+                <span class="inv-head-tail">
+                  <button class="mini-btn" id="inv-sort-input">Sort</button>
+                  <button class="mini-btn" id="inv-take-all">Take all</button>
+                </span>
               </div>
               <div class="slots" id="inv-input-grid"></div>
             </div>
@@ -98,14 +106,21 @@
 
           <section class="inv-panel">
             <div class="inv-block">
-              <div class="inv-head"><b>Your bag</b><span id="inv-bag-note"></span></div>
+              <div class="inv-head">
+                <b>Your bag</b>
+                <span class="inv-head-tail">
+                  <span id="inv-bag-note"></span>
+                  <button class="mini-btn" id="inv-sort-bag">Sort</button>
+                </span>
+              </div>
               <div class="slots" id="inv-bag-grid"></div>
             </div>
           </section>
 
           <p class="inv-hint">
             Drag a stack to move it &middot; <kbd>right-click</kbd> splits &middot;
-            <kbd>shift</kbd>-click sends it across
+            <kbd>shift</kbd>-click sends it across &middot; <kbd>double-click</kbd> gathers
+            every loose stack of it
           </p>
           <button class="ghost-btn" id="inv-close">Close</button>
         </div>
@@ -165,6 +180,7 @@
           <span><kbd>Space</kbd> dash</span>
           <span><kbd>E</kbd> / hold click to gather</span>
           <span><kbd>B</kbd> build</span>
+          <span><kbd>1</kbd>&ndash;<kbd>8</kbd> quick slots</span>
           <span><kbd>R</kbd> rotate</span>
           <span><kbd>Tab</kbd> bag</span>
           <span><kbd>Esc</kbd> menu</span>

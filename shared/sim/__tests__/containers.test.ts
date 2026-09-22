@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { MACHINES } from '../../data/machines';
-import { clickSlot, quickMove, stowCursor, takeAll, withdraw } from '../containers';
+import {
+  clickSlot,
+  gatherStacks,
+  quickMove,
+  sortArea,
+  stowCursor,
+  takeAll,
+  withdraw,
+} from '../containers';
 import { addItem, countItem, INVENTORY_SLOTS } from '../inventory';
-import { addToSlots, countIn, normalizeSlots, stacksIn, totalIn } from '../slots';
+import { addToSlots, countIn, normalizeSlots, sortSlots, stacksIn, totalIn } from '../slots';
 import { pushOntoBelt } from '../systems/factory';
 import type { Belt, Machine, Player, World } from '../types';
 import { advance, at, bench, contents, lay, plantOre, put } from './bench';
@@ -272,6 +280,134 @@ describe('a chest at the end of a line', () => {
     advance(b.world, 3);
 
     expect(contents(chest.input)).toEqual(['gear']);
+  });
+});
+
+describe('tidying a grid', () => {
+  it('merges loose stacks of one item into full ones', () => {
+    const { world, player, chest } = chestWith();
+    const cap = MACHINES.chest.slotSize;
+    // Eight part-used stacks: what a chest looks like after a line has run and
+    // the player has taken handfuls out of the middle of it.
+    for (let i = 0; i < 4; i++) chest.input[i * 2] = { id: 'coal', count: 80 };
+
+    expect(sortArea(world, player, chest.id, 'input')).toBe(true);
+
+    expect(stacksIn(chest.input)).toEqual([{ id: 'coal', count: 320 }]);
+    expect(chest.input[0]).toEqual({ id: 'coal', count: cap });
+    expect(chest.input[1]).toEqual({ id: 'coal', count: 320 - cap });
+    expect(chest.input[2]).toBe(null);
+  });
+
+  it('lays items out in table order and leaves nothing behind', () => {
+    const { world, player, chest } = chestWith();
+    chest.input[5] = { id: 'circuit', count: 3 };
+    chest.input[2] = { id: 'wood', count: 4 };
+    chest.input[7] = { id: 'coal', count: 9 };
+
+    sortArea(world, player, chest.id, 'input');
+
+    expect(contents(chest.input)).toEqual(['wood', 'coal', 'circuit']);
+    expect(totalIn(chest.input)).toBe(16);
+  });
+
+  it('respects the container ceiling rather than the item stack size', () => {
+    const { world, player, chest } = chestWith([['coal', 500]]);
+
+    sortArea(world, player, chest.id, 'input');
+
+    for (const slot of chest.input) {
+      if (slot) expect(slot.count).toBeLessThanOrEqual(MACHINES.chest.slotSize);
+    }
+    expect(totalIn(chest.input)).toBe(500);
+  });
+
+  it('sorts the bag without touching the container', () => {
+    const { world, player, chest } = chestWith([['coal', 20]]);
+    player.inventory[9] = { id: 'stone', count: 2 };
+    player.inventory[3] = { id: 'wood', count: 7 };
+
+    expect(sortArea(world, player, null, 'bag')).toBe(true);
+
+    expect(contents(player.inventory)).toEqual(['wood', 'stone']);
+    expect(stacksIn(chest.input)).toEqual([{ id: 'coal', count: 20 }]);
+  });
+
+  it('reports a grid that is already tidy as unchanged', () => {
+    const { world, player, chest } = chestWith();
+    chest.input[4] = { id: 'coal', count: 20 };
+
+    expect(sortArea(world, player, chest.id, 'input')).toBe(true);
+    expect(sortArea(world, player, chest.id, 'input')).toBe(false);
+  });
+
+  it('leaves a grid alone rather than dropping what will not fit', () => {
+    // Two slots holding more than two full stacks can only happen to a save
+    // written before a ceiling changed; sorting must not be how it is lost.
+    const slots = [
+      { id: 'coal' as const, count: 40 },
+      { id: 'coal' as const, count: 40 },
+    ];
+
+    expect(sortSlots(slots, 30)).toBe(false);
+    expect(totalIn(slots)).toBe(80);
+  });
+});
+
+describe('gathering one item into the slot that was clicked', () => {
+  it('pulls the loose stacks in, smallest first', () => {
+    const { world, player, chest } = chestWith();
+    chest.input[0] = { id: 'coal', count: 100 };
+    chest.input[3] = { id: 'coal', count: 40 };
+    chest.input[5] = { id: 'coal', count: 10 };
+    chest.input[6] = { id: 'wood', count: 5 };
+
+    expect(gatherStacks(world, player, chest.id, { area: 'input', index: 0 })).toBe(true);
+
+    expect(chest.input[0]).toEqual({ id: 'coal', count: 150 });
+    expect(chest.input[3]).toBe(null);
+    expect(chest.input[5]).toBe(null);
+    // Anything else stays exactly where the player put it.
+    expect(chest.input[6]).toEqual({ id: 'wood', count: 5 });
+  });
+
+  it('stops at the slot ceiling and empties the smallest stacks first', () => {
+    const { world, player, chest } = chestWith();
+    const cap = MACHINES.chest.slotSize;
+    chest.input[0] = { id: 'coal', count: cap - 15 };
+    chest.input[1] = { id: 'coal', count: 60 };
+    chest.input[2] = { id: 'coal', count: 5 };
+
+    gatherStacks(world, player, chest.id, { area: 'input', index: 0 });
+
+    expect(chest.input[0]).toEqual({ id: 'coal', count: cap });
+    expect(chest.input[2]).toBe(null);
+    expect(chest.input[1]).toEqual({ id: 'coal', count: 50 });
+  });
+
+  it('does nothing on a full slot, an empty one, or while a stack is held', () => {
+    const { world, player, chest } = chestWith();
+    chest.input[0] = { id: 'coal', count: MACHINES.chest.slotSize };
+    chest.input[1] = { id: 'coal', count: 20 };
+
+    expect(gatherStacks(world, player, chest.id, { area: 'input', index: 0 })).toBe(false);
+    expect(gatherStacks(world, player, chest.id, { area: 'input', index: 4 })).toBe(false);
+
+    player.cursor = { id: 'coal', count: 1 };
+    chest.input[0] = { id: 'coal', count: 20 };
+    expect(gatherStacks(world, player, chest.id, { area: 'input', index: 0 })).toBe(false);
+    expect(chest.input[1]).toEqual({ id: 'coal', count: 20 });
+  });
+
+  it('gathers in the bag too, at the bag\u2019s own ceiling', () => {
+    const { world, player } = chestWith();
+    player.inventory[2] = { id: 'stone', count: 300 };
+    player.inventory[8] = { id: 'stone', count: 250 };
+
+    expect(gatherStacks(world, player, null, { area: 'bag', index: 2 })).toBe(true);
+
+    expect(player.inventory[2]).toEqual({ id: 'stone', count: 550 });
+    expect(player.inventory[8]).toBe(null);
   });
 });
 

@@ -1,16 +1,25 @@
 import { ITEMS } from '@shared/data/items';
 import { CYCLE } from '@shared/sim/constants';
 import { hasAll } from '@shared/sim/inventory';
-import type { ClickButton, SlotRef } from '@shared/sim/containers';
+import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import type { Machine, Player, World } from '@shared/sim/types';
 import { InventoryScreen } from './inventory';
 import {
   TABS,
   entriesFor,
+  entryFor,
   selectionKey,
+  tabOf,
   type BuildSelection,
   type PaletteTab,
 } from './palette';
+import {
+  HOTBAR_SLOTS,
+  loadHotbar,
+  saveHotbar,
+  slotOf,
+  type HotbarBinding,
+} from './hotbar';
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -29,6 +38,8 @@ export interface HudCallbacks {
   onSetRecipe: (machineId: number, recipeId: string) => void;
   onSlotAction: (ref: SlotRef, button: ClickButton, quick: boolean) => void;
   onTakeAll: (machineId: number) => void;
+  onSort: (area: SlotArea) => void;
+  onGather: (ref: SlotRef) => void;
   onCloseInventory: () => void;
 }
 
@@ -50,6 +61,7 @@ export class Hud {
     xpFill: $('xp-fill'),
     xpText: $('xp-text'),
     pouch: $('pouch'),
+    hotbar: $('hotbar'),
     buildbar: $('buildbar'),
     buildTabs: $('buildbar-tabs'),
     buildItems: $('buildbar-items'),
@@ -77,6 +89,9 @@ export class Hud {
   /** Signature of the last rendered offer set, to avoid rebuilding every frame. */
   private offerKey = '';
   private pouchKey = '';
+  private hotbarKey = '';
+  /** What each quick slot places. A client preference, saved on every change. */
+  private hotbar: HotbarBinding[] = loadHotbar();
 
   constructor(private callbacks: HudCallbacks) {
     this.els.btnBuild.addEventListener('click', () => this.callbacks.onToggleBuild());
@@ -93,11 +108,14 @@ export class Hud {
         if (machine) this.callbacks.onTakeAll(machine.id);
       },
       onSetRecipe: (machineId, recipeId) => this.callbacks.onSetRecipe(machineId, recipeId),
+      onSort: (area) => this.callbacks.onSort(area),
+      onGather: (ref) => this.callbacks.onGather(ref),
       onClose: () => this.callbacks.onCloseInventory(),
     });
 
     this.buildTabs();
     this.buildPalette();
+    this.buildHotbar();
   }
 
   /** The pause overlay doubles as the way back to the main menu. */
@@ -155,15 +173,20 @@ export class Hud {
       button.className = `tab${tab.id === this.tab ? ' on' : ''}`;
       button.textContent = tab.label;
       button.addEventListener('click', () => {
-        this.tab = tab.id;
-        this.buildTabs();
-        this.buildPalette();
+        this.showTab(tab.id);
         // Switching tabs selects that tab's first entry, so the ghost is valid.
         const first = entriesFor(this.tab)[0];
         if (first) this.select(first.selection);
       });
       this.els.buildTabs.appendChild(button);
     }
+  }
+
+  private showTab(tab: PaletteTab): void {
+    if (this.tab === tab) return;
+    this.tab = tab;
+    this.buildTabs();
+    this.buildPalette();
   }
 
   private buildPalette(): void {
@@ -186,6 +209,101 @@ export class Hud {
     this.callbacks.onSelect(selection);
   }
 
+  private buildHotbar(): void {
+    this.els.hotbar.innerHTML = '';
+    this.hotbarKey = '';
+    for (let i = 0; i < HOTBAR_SLOTS; i++) {
+      const cell = document.createElement('button');
+      cell.className = 'quick';
+      cell.dataset.index = String(i);
+      cell.addEventListener('click', () => this.useHotbar(i));
+      // Right-click clears a slot, the same button that removes in the world.
+      cell.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+        this.clearHotbar(i);
+      });
+      this.els.hotbar.appendChild(cell);
+    }
+    this.paintHotbar();
+  }
+
+  /** Redraw the labels. Only the binding changes them, so not every frame. */
+  private paintHotbar(): void {
+    const cells = Array.from(this.els.hotbar.children) as HTMLElement[];
+    for (let i = 0; i < cells.length; i++) {
+      const binding = this.hotbar[i];
+      const entry = binding ? entryFor(binding) : undefined;
+      cells[i].classList.toggle('empty', !entry);
+      cells[i].title = entry
+        ? `${entry.name} — ${entry.description}`
+        : `Empty — select a piece and press shift+${i + 1}`;
+      cells[i].innerHTML = `<kbd>${i + 1}</kbd><b>${entry ? entry.name : '—'}</b>`;
+    }
+  }
+
+  /**
+   * Press a number: place what that slot holds. Pressing the slot already
+   * selected leaves build mode again, so one key is the whole round trip.
+   */
+  useHotbar(index: number): void {
+    const binding = this.hotbar[index];
+    if (!binding) {
+      this.toast(`Quick slot ${index + 1} is empty — shift+${index + 1} binds the selected piece`);
+      return;
+    }
+
+    const same = selectionKey(binding) === selectionKey(this.selection);
+    if (same && this.buildMode) {
+      this.callbacks.onToggleBuild();
+      return;
+    }
+
+    this.showTab(tabOf(binding));
+    this.select(binding);
+  }
+
+  /** Shift-number: put whatever is selected into that slot. */
+  bindHotbar(index: number): void {
+    const entry = entryFor(this.selection);
+    if (!entry) return;
+
+    // A piece lives in one slot only, so binding it moves it rather than
+    // leaving the player with two keys for the same thing.
+    const existing = slotOf(this.hotbar, this.selection);
+    if (existing >= 0) this.hotbar[existing] = null;
+    this.hotbar[index] = this.selection;
+
+    saveHotbar(this.hotbar);
+    this.paintHotbar();
+    this.toast(`${entry.name} on quick slot ${index + 1}`, 'good');
+  }
+
+  private clearHotbar(index: number): void {
+    if (!this.hotbar[index]) return;
+    this.hotbar[index] = null;
+    saveHotbar(this.hotbar);
+    this.paintHotbar();
+  }
+
+  private updateHotbar(player: Player): void {
+    const active = slotOf(this.hotbar, this.selection);
+    const key = `${active}:${this.buildMode}:${this.hotbar
+      .map((b) => (b && hasAll(player, entryFor(b)?.cost ?? []) ? '1' : '0'))
+      .join('')}`;
+    if (key === this.hotbarKey) return;
+    this.hotbarKey = key;
+
+    const cells = Array.from(this.els.hotbar.children) as HTMLElement[];
+    for (let i = 0; i < cells.length; i++) {
+      const binding = this.hotbar[i];
+      cells[i].classList.toggle('on', i === active && this.buildMode);
+      cells[i].classList.toggle(
+        'poor',
+        !!binding && !hasAll(player, entryFor(binding)?.cost ?? []),
+      );
+    }
+  }
+
   toast(message: string, tone: 'info' | 'warn' | 'good' = 'info'): void {
     const el = document.createElement('div');
     el.className = `toast ${tone === 'info' ? '' : tone}`.trim();
@@ -204,6 +322,7 @@ export class Hud {
     this.updatePouch(player);
     this.updateDash(player);
     this.updateOffers(player);
+    this.updateHotbar(player);
     this.inventory.update(player, this.liveMachine(world));
     if (this.buildMode) this.updateBuildAffordability(player);
   }

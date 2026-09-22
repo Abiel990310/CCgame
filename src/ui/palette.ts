@@ -51,3 +51,17 @@ export function entriesFor(tab: PaletteTab): PaletteEntry[] {
 export function selectionKey(selection: BuildSelection): string {
   return selection.kind === 'belt' ? 'belt' : `${selection.kind}:${selection.id}`;
 }
+
+const BY_KEY = new Map<string, PaletteEntry>(
+  [...FACTORY, ...CAMP].map((entry) => [selectionKey(entry.selection), entry]),
+);
+
+/** The palette row a selection came from, whichever tab it lives on. */
+export function entryFor(selection: BuildSelection): PaletteEntry | undefined {
+  return BY_KEY.get(selectionKey(selection));
+}
+
+/** Which tab holds a selection, so picking one from the hotbar can show it. */
+export function tabOf(selection: BuildSelection): PaletteTab {
+  return selection.kind === 'building' ? 'camp' : 'factory';
+}
