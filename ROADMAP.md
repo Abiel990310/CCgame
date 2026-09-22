@@ -53,6 +53,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Ore | Discrete patches, not noise | A patch is a thing a player can point at, and outgrowing one is what drives expansion. |
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
+| Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
@@ -88,6 +89,11 @@ wants more throughput does not. Factorio has the rocket, Satisfactory has the
 space elevator. Without one, players finish the recipes and stop.
 
 ## Phase 4 — power and depth (next)
+
+Steel is in: the furnace takes two inputs and smelts 2 iron plate + 1 coal into
+a steel plate, and the assembler makes batteries from copper and coal, motors
+from steel and gears, and advanced circuits from circuits and batteries. That is
+the recipe half of this phase; power itself is still ahead.
 
 - Power as a network: generators, poles, consumption per machine. Machines stop
   when supply runs short, which makes power a system rather than a cost.
@@ -153,8 +159,6 @@ detail behind the factory entries is in
       index and `stepMiner` never decrements it. One miner supplies an island
       forever. (The design question is under Open questions; the code
       contradicting its own comment is the bug.)
-- [ ] Coal is mined but nothing consumes it. No row in `recipes.ts` takes it as
-      an input, so a third of the island's ore is dead weight.
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
       right-click only, so on a phone a misplaced belt is permanent.
 - [ ] Tapping the canvas in build mode places nothing. The `pointerdown`
@@ -228,6 +232,10 @@ detail behind the factory entries is in
 - [ ] **A hotbar** — now that the bag is a real slot grid, a row of quick slots
       that selects what build mode places is a small addition with a large
       effect on how it feels to play.
+- [ ] **Something to spend steel, motors and advanced circuits on.** They are
+      made but nothing consumes them: every machine still costs wood, stone and
+      iron plate. Machine tiers, the lab or the megaproject are all candidates,
+      and until one lands the new chain is a collection rather than a sink.
 - [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
       A crafted satchel is an obvious early sink and a reason to build a
       workbench.
@@ -271,6 +279,11 @@ detail behind the factory entries is in
       refund that scales with the damage taken.
 - [ ] Build mode gives no hover highlight for what `X` or right-click will
       take, so removal is aimed blind at whatever the cursor happens to cover.
+- [ ] Steel plate and iron plate are both grey discs on a belt, so a mixed line
+      cannot be read at a glance. Item shapes in the world would tell them apart.
+- [ ] The machine screen lists every recipe its machine can run, and the
+      assembler is already at six. It needs grouping or a filter before the
+      steel tier doubles it again.
 - [ ] The camp `Chest` and the factory `Storage Chest` are different things
       with nearly the same name, in the same palette, two tabs apart.
 - [ ] Camp placement keeps scenery away with a fixed 14px clearance while
@@ -339,6 +352,11 @@ detail behind the factory entries is in
 - [ ] Dragging items on a touchscreen. The inventory screen is built on pointer
       events so a tap-then-tap should work, but it has only been driven with a
       mouse.
+- [ ] Whether a coal patch now pulls its weight in a real base. The steel and
+      battery lines were built and run in a browser, but the ratios (a coal
+      miner outruns steel demand several times over) have never been played.
+- [ ] Motor and advanced circuit are covered by simulation tests only; neither
+      has been built as a line in a browser.
 - [ ] Clearing land is now permanent: build on a chopped node and it never
       returns. Whether an island can be stripped bare over hundreds of hours,
       and whether that matters, has not been played out.
