@@ -41,14 +41,14 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   furnace: {
     id: 'furnace',
     name: 'Furnace',
-    description: 'Smelts ore into plates. The first real production step.',
+    description: 'Smelts ore into plates. Feed it coal as well and it makes steel.',
     cost: [
       { id: 'stone', count: 20 },
       { id: 'wood', count: 5 },
     ],
     color: '#8c7263',
     accent: '#f0a95c',
-    inputSlots: 1,
+    inputSlots: 2,
     outputSlots: 1,
     slotSize: 50,
     speed: 1,

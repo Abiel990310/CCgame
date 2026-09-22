@@ -1,3 +1,4 @@
+import type { MachineDef } from '../../data/machines';
 import {
   BELT_CAPACITY,
   BELT_ITEM_GAP,
@@ -5,10 +6,11 @@ import {
   INSERTER_SWING,
   MACHINES,
 } from '../../data/machines';
+import type { Recipe } from '../../data/recipes';
 import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
 import { beltAt, inputTile, machineAt, outputTile } from '../factory';
 import { oreAt } from '../ore';
-import { addToSlots, countIn, roomFor, takeFromSlots } from '../slots';
+import { addToSlots, countIn, roomFor, slotCap, takeFromSlots } from '../slots';
 import type { Belt, ItemId, ItemStack, Machine, Slot, World } from '../types';
 
 /**
@@ -77,9 +79,35 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
   if (def.choosesRecipe) {
     const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
     if (!recipe || !recipe.inputs.some((i) => i.id === item)) return false;
+    if (!ingredientFits(machine.input, def, recipe, item)) return false;
   }
 
   return addToSlots(machine.input, item, 1, def.slotSize) === 1;
+}
+
+/**
+ * Every ingredient of a recipe has to keep a slot of its own. One belt carrying
+ * two ingredients delivers them in whatever order they arrive, and without this
+ * the first to turn up fills the whole input grid — the machine then waits
+ * forever for a second ingredient that can no longer get in, and only a hand
+ * reaching in unjams it.
+ */
+function ingredientFits(input: Slot[], def: MachineDef, recipe: Recipe, item: ItemId): boolean {
+  const cap = slotCap(item, def.slotSize);
+  let owned = 0;
+  let free = 0;
+
+  for (const slot of input) {
+    if (slot === null) free++;
+    else if (slot.id === item) {
+      // Room in a stack this ingredient already owns costs no new slot.
+      if (slot.count < cap) return true;
+      owned++;
+    }
+  }
+
+  if (free === 0) return false;
+  return owned < Math.max(1, Math.floor(def.inputSlots / recipe.inputs.length));
 }
 
 export function stepMachines(world: World, dt: number): void {

@@ -106,28 +106,30 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
   const entity = world.grid.get(key);
   if (entity === undefined) return false;
 
-  const beltIndex = world.belts.findIndex((b) => b.id === entity.id);
-  if (beltIndex >= 0) {
-    const [belt] = world.belts.splice(beltIndex, 1);
-    world.grid.delete(key);
+  // The grid has already resolved the tile, so the type of the piece decides
+  // which list to take it out of; the lists are only scanned because they are
+  // what defines the tick order.
+  world.grid.delete(key);
+
+  if ('items' in entity) {
+    drop(world.belts, entity);
     refund(world, player, BELT_COST);
     // Items riding the removed belt go back to the player rather than vanishing.
-    for (const riding of belt.items) giveOrDrop(world, player, riding.item, 1);
+    for (const riding of entity.items) giveOrDrop(world, player, riding.item, 1);
     return true;
   }
 
-  const machineIndex = world.machines.findIndex((m) => m.id === entity.id);
-  if (machineIndex >= 0) {
-    const [machine] = world.machines.splice(machineIndex, 1);
-    world.grid.delete(key);
-    refund(world, player, MACHINES[machine.type].cost);
-    for (const stack of [...machine.input, ...machine.output]) {
-      if (stack) giveOrDrop(world, player, stack.id, stack.count);
-    }
-    return true;
+  drop(world.machines, entity);
+  refund(world, player, MACHINES[entity.type].cost);
+  for (const stack of [...entity.input, ...entity.output]) {
+    if (stack) giveOrDrop(world, player, stack.id, stack.count);
   }
+  return true;
+}
 
-  return false;
+function drop<T>(list: T[], entity: T): void {
+  const index = list.indexOf(entity);
+  if (index >= 0) list.splice(index, 1);
 }
 
 function refund(world: World, player: Player, cost: readonly ItemStack[]): void {

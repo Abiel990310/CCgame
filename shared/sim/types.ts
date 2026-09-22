@@ -21,10 +21,14 @@ export type ItemId =
   // Smelted
   | 'ironPlate'
   | 'copperPlate'
+  | 'steelPlate'
   // Assembled
   | 'gear'
   | 'wire'
-  | 'circuit';
+  | 'circuit'
+  | 'battery'
+  | 'motor'
+  | 'advancedCircuit';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 

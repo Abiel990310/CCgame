@@ -38,10 +38,20 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     stack: 999,
     shape: 'plate',
   },
+  steelPlate: { id: 'steelPlate', name: 'Steel Plate', color: '#8d99ab', stack: 999, shape: 'plate' },
 
   gear: { id: 'gear', name: 'Gear', color: '#9aa4ae', stack: 999, shape: 'round' },
   wire: { id: 'wire', name: 'Wire', color: '#e8a860', stack: 999, shape: 'strand' },
   circuit: { id: 'circuit', name: 'Circuit', color: '#6fc98a', stack: 999, shape: 'plate' },
+  battery: { id: 'battery', name: 'Battery', color: '#e3d24a', stack: 999, shape: 'chunk' },
+  motor: { id: 'motor', name: 'Motor', color: '#4f7fb8', stack: 999, shape: 'round' },
+  advancedCircuit: {
+    id: 'advancedCircuit',
+    name: 'Advanced Circuit',
+    color: '#d4664f',
+    stack: 999,
+    shape: 'plate',
+  },
 };
 
 export interface ResourceDef {
