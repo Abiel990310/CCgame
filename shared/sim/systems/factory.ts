@@ -1,6 +1,12 @@
-import { BELT_CAPACITY, BELT_ITEM_GAP, BELT_SPEED, MACHINES } from '../../data/machines';
+import {
+  BELT_CAPACITY,
+  BELT_ITEM_GAP,
+  BELT_SPEED,
+  INSERTER_SWING,
+  MACHINES,
+} from '../../data/machines';
 import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
-import { beltAt, machineAt, outputTile } from '../factory';
+import { beltAt, inputTile, machineAt, outputTile } from '../factory';
 import { oreAt } from '../ore';
 import { addToSlots, countIn, roomFor, takeFromSlots } from '../slots';
 import type { Belt, ItemId, ItemStack, Machine, Slot, World } from '../types';
@@ -62,6 +68,11 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
   const def = MACHINES[machine.type];
   if (def.inputSlots === 0) return false;
 
+  // An inserter's input slot is its hand, not a hopper: it fills that itself
+  // from the tile behind it. Refusing here is also what stops two inserters
+  // facing each other from passing one item back and forth forever.
+  if (machine.type === 'inserter') return false;
+
   // A machine only takes what its recipe actually uses; a chest takes anything.
   if (def.choosesRecipe) {
     const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
@@ -80,6 +91,9 @@ export function stepMachines(world: World, dt: number): void {
       case 'chest':
         // Chests only receive; nothing to tick.
         machine.stalled = false;
+        break;
+      case 'inserter':
+        stepInserter(world, machine, dt);
         break;
       default:
         stepCrafter(machine, dt);
@@ -111,6 +125,86 @@ function stepMiner(world: World, machine: Machine, dt: number): void {
 
   machine.progress -= MINE_TIME;
   addToSlots(machine.output, ore, 1, def.slotSize);
+}
+
+/**
+ * An inserter reaches into the tile behind it, swings, and lets go into the
+ * tile it faces. It is the only thing that can take items back out of a chest,
+ * so without one a chest is where a production line stops.
+ *
+ * The item is picked up first and held in the single input slot, so a blocked
+ * destination stalls an inserter with its hand full rather than quietly
+ * dropping what it grabbed.
+ */
+function stepInserter(world: World, machine: Machine, dt: number): void {
+  const def = MACHINES.inserter;
+
+  if (machine.input[0] === null) {
+    const grabbed = grabFromBehind(world, machine);
+    if (grabbed === null) {
+      // Nothing within reach is idle, not stalled — a red light on every
+      // inserter waiting on a slow line would drown out real blockages.
+      machine.progress = 0;
+      machine.stalled = false;
+      return;
+    }
+    machine.input[0] = { id: grabbed, count: 1 };
+  }
+
+  machine.stalled = false;
+  machine.progress = Math.min(machine.progress + dt * def.speed, INSERTER_SWING);
+  if (machine.progress < INSERTER_SWING) return;
+
+  const hand = machine.input[0];
+  if (!hand || !dropInFront(world, machine, hand.id)) {
+    // Arm extended over a full destination: hold the item and show it.
+    machine.stalled = true;
+    return;
+  }
+
+  machine.input[0] = null;
+  machine.progress = 0;
+}
+
+/** Take one item out of whatever sits behind the inserter. */
+function grabFromBehind(world: World, machine: Machine): ItemId | null {
+  const { tx, ty } = inputTile(machine);
+
+  const belt = beltAt(world, tx, ty);
+  if (belt) {
+    // The item nearest the belt's output end is the one within reach.
+    const front = belt.items[0];
+    if (!front) return null;
+    belt.items.shift();
+    return front.item;
+  }
+
+  const source = machineAt(world, tx, ty);
+  if (!source || source.type === 'inserter') return null;
+
+  // A machine with an output side gives from there and nowhere else, so an
+  // inserter cannot steal the ore a furnace is waiting to smelt. A chest has
+  // no output side, and its storage is exactly what wants emptying.
+  const from = MACHINES[source.type].outputSlots > 0 ? source.output : source.input;
+
+  for (const slot of from) {
+    if (slot && slot.count > 0) {
+      takeStack(from, slot.id, 1);
+      return slot.id;
+    }
+  }
+  return null;
+}
+
+/** Put the held item into the belt or machine the inserter faces. */
+function dropInFront(world: World, machine: Machine, item: ItemId): boolean {
+  const { tx, ty } = outputTile(machine);
+
+  const belt = beltAt(world, tx, ty);
+  if (belt) return pushOntoBelt(belt, item);
+
+  const target = machineAt(world, tx, ty);
+  return target ? insertIntoMachine(target, item) : false;
 }
 
 function stepCrafter(machine: Machine, dt: number): void {

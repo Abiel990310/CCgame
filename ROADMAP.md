@@ -74,7 +74,7 @@ always rebuilding something you built an hour ago.
 | Tier | Unlocks | The new problem it creates | Status |
 | --- | --- | --- | --- |
 | 0 | Hand gathering | — | ✅ |
-| 1 | Miner, belt, chest | Things move without you | ✅ |
+| 1 | Miner, belt, chest, inserter | Things move without you | ✅ |
 | 2 | Furnace, plates | Ratios: several miners feed one furnace | ✅ |
 | 3 | Assembler: gears, wire, circuits | Multi-input recipes, sub-factories | ✅ |
 | 4 | Power (coal → steam) | Everything stops when power dies | Next |
@@ -165,9 +165,6 @@ detail behind the factory entries is in
 - [ ] Islands built before scenery blocked placement can still have a living
       tree standing inside a belt. It clears itself the first time it is
       chopped, but until then it is in the way.
-- [ ] A chest still cannot feed a belt. The player can take items out by hand
-      now, but nothing automated can, so a chest is a buffer only in one
-      direction. The inserter under New features is the other half.
 - [ ] The page requests `/favicon.ico` and 404s on every load. Harmless, but it
       is the one request the bundle makes that is not the bundle.
 
@@ -190,10 +187,14 @@ detail behind the factory entries is in
 - [ ] **Splitter** — one input, two outputs, alternating, with an optional
       filter per side. Best value per line of code in the factory layer: until
       it exists a belt feeds exactly one machine.
-- [ ] **Inserter and long inserter** — move items between a belt and a machine
-      or chest it does not directly face. Also what lets a chest feed a line
-      rather than only receive from one; the player can now take items out of a
-      chest by hand, but nothing automated can.
+- [ ] **Long inserter** — an arm that reaches two tiles instead of one, so a
+      machine can be loaded from across a belt. The one-tile inserter is built;
+      this is the other half of that entry.
+- [ ] **Inserter filter** — an inserter set to a single item, so a mixed chest
+      can feed a line that only wants plates. Unloading a chest is possible
+      now, which is what makes a mixed buffer worth having.
+- [ ] **Inserter tiers** — `MachineDef.speed` already multiplies the swing
+      time, so a faster arm is a data row and nothing else.
 - [ ] **Lab and a `TECHS` table** — research consumed as a belt-fed item flow
       rather than bought from a shop, so every unlock is a throughput problem.
 - [ ] **Tech gating on the build palette** — start with miner, furnace and
@@ -255,6 +256,13 @@ detail behind the factory entries is in
       opt-in and building freely never punishes you.
 - [ ] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
       for belt tiers, and it touches the save format.
+- [ ] An inserter will not take from or give to another inserter, so items
+      cannot cross a gap without a belt tile between them. Deliberate — it is
+      what stops two facing arms passing one item back and forth forever — but
+      the long inserter is the intended answer and this should be revisited
+      with it.
+- [ ] The miner's 1.2s cycle is written as a literal in `src/render/factory.ts`
+      as well as `MINE_TIME` in the sim. Two places for one number.
 - [ ] Grow `UPGRADES` from 9 stat entries and 4 weapons to 40–60 entries with
       rarity tiers. Once labs feed XP continuously a player sees hundreds of
       level-ups, and three cards drawn from the same nine is thin within an
@@ -341,3 +349,7 @@ detail behind the factory entries is in
 - [ ] Clearing land is now permanent: build on a chopped node and it never
       returns. Whether an island can be stripped bare over hundreds of hours,
       and whether that matters, has not been played out.
+- [ ] Inserter throughput has not been balanced by play. One arm moves about
+      1.7 items a second against a belt's 1.6 tiles a second, so a single
+      inserter roughly keeps pace with one belt. Whether that is the right
+      ratio for feeding a furnace bank is a guess.

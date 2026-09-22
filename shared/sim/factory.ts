@@ -2,7 +2,7 @@ import { BELT_COST, MACHINES } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { giveOrDrop, payAll, hasAll } from './inventory';
 import { makeSlots } from './slots';
-import { inBounds, step1, tileKey } from './grid';
+import { inBounds, opposite, step1, tileKey } from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
 import { isWalkable, terrainAtIndex } from './terrain';
@@ -145,6 +145,14 @@ export function setRecipe(world: World, machineId: number, recipeId: string): bo
   machine.recipe = recipeId;
   machine.progress = 0;
   return true;
+}
+
+/** The tile an inserter reaches back into. Nothing else has an input side. */
+export function inputTile(entity: { tx: number; ty: number; dir: Direction }): {
+  tx: number;
+  ty: number;
+} {
+  return step1(entity.tx, entity.ty, opposite(entity.dir));
 }
 
 /** The tile a machine or belt pushes its output into. */
