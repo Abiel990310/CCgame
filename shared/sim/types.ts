@@ -175,18 +175,21 @@ export type Direction = 0 | 1 | 2 | 3;
 
 export type OreKind = 'ironOre' | 'copperOre' | 'coal';
 
+/**
+ * What a machine fundamentally is. Every tier of a machine shares its family's
+ * recipes, its tick and its silhouette, so anything that switches on the kind
+ * of machine switches on this rather than on the type.
+ */
+export type MachineFamily = 'miner' | 'furnace' | 'assembler' | 'chest' | 'inserter';
+
 export type MachineId =
-  | 'miner'
+  | MachineFamily
   | 'minerMk2'
   | 'minerMk3'
-  | 'furnace'
   | 'furnaceMk2'
   | 'furnaceMk3'
-  | 'assembler'
   | 'assemblerMk2'
-  | 'assemblerMk3'
-  | 'chest'
-  | 'inserter';
+  | 'assemblerMk3';
 
 /** One item riding a belt tile, positioned 0..1 along its length. */
 export interface BeltItem {
@@ -262,6 +265,11 @@ export interface World {
 
 export type SimEvent =
   | { kind: 'hit'; pos: Vec2; amount: number }
+  | { kind: 'shot'; pos: Vec2; weapon: WeaponId }
+  | { kind: 'collected'; pos: Vec2; item: ItemId | null }
+  | { kind: 'produced'; pos: Vec2; machine: MachineId; item: ItemId }
+  | { kind: 'placed'; pos: Vec2; what: MachineId | 'belt' }
+  | { kind: 'removed'; pos: Vec2 }
   | { kind: 'mobDied'; pos: Vec2; type: MobTypeId }
   | { kind: 'levelUp'; playerId: number; level: number }
   | { kind: 'gathered'; pos: Vec2; item: ItemId }

@@ -9,6 +9,7 @@ import {
 import type { Recipe } from '../../data/recipes';
 import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
 import { beltAt, inputTile, machineAt, outputTile } from '../factory';
+import { tileCenter } from '../grid';
 import { oreAt } from '../ore';
 import { addToSlots, countIn, roomFor, slotCap, takeFromSlots } from '../slots';
 import type { Belt, ItemId, ItemStack, Machine, Slot, World } from '../types';
@@ -126,7 +127,7 @@ export function stepMachines(world: World, dt: number): void {
         stepInserter(world, machine, dt);
         break;
       default:
-        stepCrafter(machine, dt);
+        stepCrafter(world, machine, dt);
         break;
     }
     pushMachineOutput(world, machine);
@@ -155,6 +156,21 @@ function stepMiner(world: World, machine: Machine, dt: number): void {
 
   machine.progress -= MINE_TIME;
   addToSlots(machine.output, ore, 1, def.slotSize);
+  announce(world, machine, ore);
+}
+
+/**
+ * Tell the client one item came out of this machine. Positions are the tile
+ * centre rather than the machine, so a listener can place the sound without
+ * needing the grid.
+ */
+function announce(world: World, machine: Machine, item: ItemId): void {
+  world.events.push({
+    kind: 'produced',
+    pos: tileCenter(machine.tx, machine.ty),
+    machine: machine.type,
+    item,
+  });
 }
 
 /**
@@ -237,7 +253,7 @@ function dropInFront(world: World, machine: Machine, item: ItemId): boolean {
   return target ? insertIntoMachine(target, item) : false;
 }
 
-function stepCrafter(machine: Machine, dt: number): void {
+function stepCrafter(world: World, machine: Machine, dt: number): void {
   const def = MACHINES[machine.type];
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   if (!recipe) {
@@ -261,7 +277,10 @@ function stepCrafter(machine: Machine, dt: number): void {
   if (machine.progress < duration) return;
 
   machine.progress = 0;
-  for (const out of recipe.outputs) addToSlots(machine.output, out.id, out.count, def.slotSize);
+  for (const out of recipe.outputs) {
+    addToSlots(machine.output, out.id, out.count, def.slotSize);
+    announce(world, machine, out.id);
+  }
 }
 
 function outputFull(machine: Machine, slotSize: number): boolean {

@@ -1,4 +1,4 @@
-import type { ItemStack, MachineId } from '../sim/types';
+import type { ItemStack, MachineFamily, MachineId } from '../sim/types';
 
 export interface MachineDef {
   id: MachineId;
@@ -19,7 +19,7 @@ export interface MachineDef {
    * itself, so a steel furnace smelts everything a stone furnace does without
    * the recipe table gaining a row per tier.
    */
-  family: MachineId;
+  family: MachineFamily;
   /** 1, 2 or 3. Drawn as pips, so a tier is readable out on the island. */
   tier: number;
   /** True when the machine must be placed on an ore tile. */
