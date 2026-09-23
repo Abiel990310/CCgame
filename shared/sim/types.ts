@@ -175,12 +175,21 @@ export type Direction = 0 | 1 | 2 | 3;
 
 export type OreKind = 'ironOre' | 'copperOre' | 'coal';
 
+/**
+ * What a machine fundamentally is. Every tier of a machine shares its family's
+ * recipes, its tick and its silhouette, so anything that switches on the kind
+ * of machine switches on this rather than on the type.
+ */
+export type MachineFamily = 'miner' | 'furnace' | 'assembler' | 'chest' | 'inserter';
+
 export type MachineId =
-  | 'miner'
-  | 'furnace'
-  | 'assembler'
-  | 'chest'
-  | 'inserter'
+  | MachineFamily
+  | 'minerMk2'
+  | 'minerMk3'
+  | 'furnaceMk2'
+  | 'furnaceMk3'
+  | 'assemblerMk2'
+  | 'assemblerMk3'
   | 'longInserter';
 
 /** One item riding a belt tile, positioned 0..1 along its length. */

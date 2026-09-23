@@ -1,7 +1,9 @@
-import { BELT_SPEED, INSERTER_SWING, MACHINES, isInserter } from '@shared/data/machines';
+import type { MachineDef } from '@shared/data/machines';
+import { BELT_SPEED, INSERTER_SWING, MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TILE } from '@shared/sim/constants';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
+import { MINE_TIME } from '@shared/sim/systems/factory';
 import type { Belt, Machine, OreKind } from '@shared/sim/types';
 import { drawItemSprite } from './items';
 import { UI, rgba, shift } from './palette';
@@ -123,7 +125,7 @@ export function drawMachine(
   const def = MACHINES[machine.type];
   const { x, y } = tileCenter(machine.tx, machine.ty);
 
-  if (isInserter(machine.type)) {
+  if (def.family === 'inserter') {
     drawInserter(ctx, machine, x, y);
     return;
   }
@@ -140,7 +142,8 @@ export function drawMachine(
   ctx.roundRect(x - TILE * 0.44, y + TILE * 0.14, TILE * 0.88, TILE * 0.22, 5);
   ctx.fill();
 
-  drawMachineFace(ctx, machine, def.accent, time, x, y);
+  drawMachineFace(ctx, machine, def, time, x, y);
+  drawTierPips(ctx, def, x, y);
   drawOutputNub(ctx, machine, x, y);
 
   if (machine.stalled) {
@@ -159,17 +162,21 @@ export function drawMachine(
 function drawMachineFace(
   ctx: CanvasRenderingContext2D,
   machine: Machine,
-  accent: string,
+  def: MachineDef,
   time: number,
   x: number,
   y: number,
 ): void {
   const running = !machine.stalled;
+  const accent = def.accent;
+  // A faster tier animates faster, so a Mk3 reads as working harder than the
+  // Mk1 beside it without having to open either one.
+  const rate = time * def.speed;
 
-  switch (machine.type) {
+  switch (def.family) {
     case 'miner': {
       // A drill head that only turns while the miner is actually working.
-      const spin = running ? time * 3 : 0;
+      const spin = running ? rate * 3 : 0;
       ctx.save();
       ctx.translate(x, y - TILE * 0.06);
       ctx.rotate(spin);
@@ -188,7 +195,7 @@ function drawMachineFace(
       break;
     }
     case 'furnace': {
-      const glow = running ? 0.65 + Math.sin(time * 7) * 0.25 : 0.12;
+      const glow = running ? 0.65 + Math.sin(rate * 7) * 0.25 : 0.12;
       ctx.fillStyle = rgba(accent, glow);
       ctx.beginPath();
       ctx.roundRect(x - TILE * 0.2, y - TILE * 0.22, TILE * 0.4, TILE * 0.3, 3);
@@ -196,7 +203,7 @@ function drawMachineFace(
       break;
     }
     case 'assembler': {
-      const arm = running ? Math.sin(time * 4) * TILE * 0.12 : 0;
+      const arm = running ? Math.sin(rate * 4) * TILE * 0.12 : 0;
       ctx.strokeStyle = accent;
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -304,6 +311,30 @@ function drawInserter(
   }
 }
 
+/**
+ * Tier marks along the top edge: one chevron per tier above the first. Tiers
+ * share a silhouette on purpose — a furnace should still read as a furnace —
+ * so the pips are what tells a bank of Mk2s from a bank of Mk3s at a glance.
+ */
+function drawTierPips(
+  ctx: CanvasRenderingContext2D,
+  def: MachineDef,
+  x: number,
+  y: number,
+): void {
+  if (def.tier < 2) return;
+
+  const marks = def.tier - 1;
+  const width = 5;
+  const left = x - ((marks - 1) * width) / 2;
+  ctx.fillStyle = def.accent;
+  for (let i = 0; i < marks; i++) {
+    ctx.beginPath();
+    ctx.roundRect(left + i * width - 1.6, y - TILE * 0.46, 3.2, 4.4, 1.4);
+    ctx.fill();
+  }
+}
+
 /** A small tab on the output side, so rotation is readable before you commit. */
 function drawOutputNub(
   ctx: CanvasRenderingContext2D,
@@ -329,12 +360,17 @@ function drawProgress(
   x: number,
   y: number,
 ): void {
+  const def = MACHINES[machine.type];
   // A chest has no cycle, and an inserter's arm already is its progress bar.
-  if (machine.type === 'chest' || isInserter(machine.type)) return;
+  if (def.family === 'chest' || def.family === 'inserter') return;
 
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   const duration =
-    machine.type === 'miner' ? 1.2 : recipe ? craftTime(recipe, MACHINES[machine.type].speed) : 0;
+    def.family === 'miner'
+      ? MINE_TIME / def.speed
+      : recipe
+        ? craftTime(recipe, def.speed)
+        : 0;
   if (duration <= 0 || machine.progress <= 0) return;
 
   meter(ctx, x, y + TILE * 0.4, TILE * 0.8, 3, machine.progress / duration, UI.xp);

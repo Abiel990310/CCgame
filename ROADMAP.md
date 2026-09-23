@@ -54,6 +54,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
 | Camp vs factory | One overlap test, in `shared/sim/building.ts` | Camp pieces are circles in world units and factory pieces own whole tiles, so neither list can see the other by lookup. Both placement checks now go through the same circle-against-tile test, with 4px of slack so a wide piece does not claim the ring of tiles its edge merely grazes. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
+| Machine tiers | A tier is a data row: a family plus a speed multiplier | A steel furnace is a furnace that runs faster, so it points at the furnace's recipes rather than duplicating them. Adding a tier costs one row in `machines.ts` and no recipe rows, which is what keeps the engine small as the ladder grows. |
 | Inserter reach and filters | Data rows on the machine table, not new machine types | `MachineDef.reach` is what makes the long arm a row rather than a system, and `Machine.filter` sits beside the recipe so both arms take one. A third arm, or a filtered one of any length, costs a table entry. |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
@@ -87,7 +88,7 @@ always rebuilding something you built an hour ago.
 | 2 | Furnace, plates | Ratios: several miners feed one furnace | ✅ |
 | 3 | Assembler: gears, wire, circuits | Multi-input recipes, sub-factories | ✅ |
 | 4 | Power (coal → steam) | Everything stops when power dies | Next |
-| 5 | Steel, resin, advanced circuits | Chains six or more steps deep | Planned |
+| 5 | Steel, resin, advanced circuits | Chains six or more steps deep | Recipes and machine tiers done; resin ahead |
 | 6 | Island logistics: drones, rail | Remote outposts on distant ore | Planned |
 | 7 | The Megaproject | An endgame sink with unbounded appetite | Planned |
 
@@ -99,8 +100,11 @@ space elevator. Without one, players finish the recipes and stop.
 
 Steel is in: the furnace takes two inputs and smelts 2 iron plate + 1 coal into
 a steel plate, and the assembler makes batteries from copper and coal, motors
-from steel and gears, and advanced circuits from circuits and batteries. That is
-the recipe half of this phase; power itself is still ahead.
+from steel and gears, and advanced circuits from circuits and batteries. Those
+now have somewhere to go: every miner, furnace and assembler has a Mk2 bought
+with steel and gears and a Mk3 bought with motors and advanced circuits, at
+double and quadruple speed. That is the recipe half of this phase; power itself
+is still ahead.
 
 - Power as a network: generators, poles, consumption per machine. Machines stop
   when supply runs short, which makes power a system rather than a cost.
@@ -210,9 +214,14 @@ detail behind the factory entries is in
       interest of a layout.
 - [ ] **Generator and power radius** — tier-3 machines draw power instead of
       fuel; a brown-out slows machines proportionally rather than stopping them.
-- [ ] **Machine tiers 2 and 3** — steel furnace, assembler Mk2, electric miner,
-      electric furnace, industrial assembler. `MachineDef.speed` already exists
-      and is `1` everywhere, so the multipliers are free.
+- [ ] **Storage and logistics tiers** — a steel chest with more slots and a fast
+      inserter. Miners, furnaces and assemblers have three tiers each now;
+      `MachineDef.speed` already multiplies an inserter's swing, so both are a
+      row apiece.
+- [ ] **Upgrade in place** — placing a Mk2 over a Mk1 should swap it, keeping
+      its recipe, its contents and its facing. Today a tier upgrade means
+      removing the machine, picking its stock back up and rebuilding, which is
+      the tedious part of every rebuild the ladder is meant to cause.
 - [ ] **Modules** — a slotted item for +speed, +output or −power in a tier-3
       machine. A sink that never saturates.
 - [ ] **Steel and 8–10 new recipes** — gives research something worth gating.
@@ -244,10 +253,6 @@ detail behind the factory entries is in
 - [ ] **Muffle the world behind an open modal** — a lowpass on the master bus
       while the pause or inventory screen is up, so the interface sits in front
       of the island rather than inside it.
-- [ ] **Something to spend steel, motors and advanced circuits on.** They are
-      made but nothing consumes them: every machine still costs wood, stone and
-      iron plate. Machine tiers, the lab or the megaproject are all candidates,
-      and until one lands the new chain is a collection rather than a sink.
 - [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
       A crafted satchel is an obvious early sink and a reason to build a
       workbench.
@@ -295,8 +300,6 @@ detail behind the factory entries is in
 - [ ] The world sizes every item the same: 5.2 for a belt or an inserter hand,
       6 for a ground drop. A wood log and a circuit board are not the same size
       in life, and `ItemDef` could carry a scale the way it carries a colour.
-- [ ] The miner's 1.2s cycle is written as a literal in `src/render/factory.ts`
-      as well as `MINE_TIME` in the sim. Two places for one number.
 - [ ] A filtered arm reads only the front item of the belt it watches, so a
       full belt of the wrong item parks it even when its item is two places
       back. Correct for one lane; worth revisiting if belts ever carry sides.
@@ -329,6 +332,15 @@ detail behind the factory entries is in
       each machine and building would read better in an eight-wide bar.
 - [ ] Steel plate and iron plate are both grey discs on a belt, so a mixed line
       cannot be read at a glance. Item shapes in the world would tell them apart.
+- [ ] A Mk3 machine runs four times a Mk1, but an inserter still swings at one
+      speed — about 1.7 items a second, against an electric furnace that can eat
+      four ore a second. Feeding a tier 3 bank by arm is the bottleneck until
+      inserter tiers land.
+- [ ] The factory palette is twelve entries and now wraps to four rows. It wants
+      grouping, or the tech gating above, before belts and chests get tiers too.
+- [ ] Nothing gates a tier: a player who has the steel can build an electric
+      furnace on night one. That is the tech-tree entry's job, but worth
+      recording as true today.
 - [ ] The machine screen lists every recipe its machine can run, and the
       assembler is already at six. It needs grouping or a filter before the
       steel tier doubles it again.
@@ -434,6 +446,14 @@ detail behind the factory entries is in
 - [ ] Whether a long inserter's 0.8 speed is the right price for its reach. It
       moves about 1.3 items a second against the short arm's 1.7, which is a
       guess rather than something a real furnace bank has argued with.
+- [ ] Whether 1 → 2 → 4 is the right speed curve, and whether the tier costs
+      land at the moment a player wants the upgrade, has never been played.
+      A tier 3 line was driven in a browser and does deliver four times the
+      plates; that it is *fun* at that point is a guess.
+- [ ] Tier pips. Tiers share a silhouette and differ by accent colour and one
+      or two marks on the top edge, which reads at a 4x zoom in a screenshot.
+      Whether a bank of Mk2s is tellable from a bank of Mk3s while playing at
+      normal zoom has not been checked by eye.
 - [ ] The ground cache now scrolls: on a rebuild it slides what is still in
       view and paints only the strip that came in. Driven in headless Chromium,
       where the rebuild frame went from ~43ms to ~28ms and the scrolled cache

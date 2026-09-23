@@ -1,6 +1,6 @@
 import { createWorld } from '@shared/sim/world';
 import { ITEMS } from '@shared/data/items';
-import { MACHINES, isInserter } from '@shared/data/machines';
+import { MACHINES } from '@shared/data/machines';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
@@ -346,7 +346,7 @@ function loadMachine(machine: Machine): Machine {
 /** A filter naming an item this build no longer has is dropped, not honoured. */
 function loadFilter(machine: Machine): ItemId | null {
   const filter = machine.filter as ItemId | null | undefined;
-  if (!filter || !isInserter(machine.type) || !(filter in ITEMS)) return null;
+  if (!filter || MACHINES[machine.type].family !== 'inserter' || !(filter in ITEMS)) return null;
   return filter;
 }
 

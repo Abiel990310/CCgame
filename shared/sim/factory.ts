@@ -1,4 +1,4 @@
-import { BELT_COST, MACHINES, isInserter } from '../data/machines';
+import { BELT_COST, MACHINES } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { buildingOnTile } from './building';
 import { giveOrDrop, payAll, hasAll } from './inventory';
@@ -106,7 +106,7 @@ export function placeMachine(
     ty,
     dir,
     // A miner's "recipe" is whatever it is standing on; everything else is chosen.
-    recipe: type === 'miner' ? null : defaultRecipe(type),
+    recipe: def.family === 'miner' ? null : defaultRecipe(type),
     filter: null,
     progress: 0,
     input: makeSlots(def.inputSlots),
@@ -132,7 +132,7 @@ function defaultRecipe(type: MachineId): string | null {
  */
 export function setFilter(world: World, machineId: number, item: ItemId | null): boolean {
   const machine = world.machines.find((m) => m.id === machineId);
-  if (!machine || !isInserter(machine.type)) return false;
+  if (!machine || MACHINES[machine.type].family !== 'inserter') return false;
 
   machine.filter = item;
   return true;
@@ -180,7 +180,7 @@ export function setRecipe(world: World, machineId: number, recipeId: string): bo
   if (!MACHINES[machine.type].choosesRecipe) return false;
 
   const recipe = RECIPE_BY_ID.get(recipeId);
-  if (!recipe || recipe.machine !== machine.type) return false;
+  if (!recipe || recipe.machine !== MACHINES[machine.type].family) return false;
 
   machine.recipe = recipeId;
   machine.progress = 0;

@@ -1,5 +1,5 @@
 import { ITEMS, ITEM_ORDER } from '@shared/data/items';
-import { MACHINES, isInserter } from '@shared/data/machines';
+import { MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import { totalIn } from '@shared/sim/slots';
@@ -171,7 +171,7 @@ export class InventoryScreen {
     }
 
     const def = MACHINES[machine.type];
-    const arm = isInserter(machine.type);
+    const arm = def.family === 'inserter';
     this.els.eyebrow.textContent = def.choosesRecipe ? 'Machine' : arm ? 'Arm' : 'Storage';
     this.els.title.textContent = def.name;
     this.els.blurb.textContent = def.description;
@@ -289,7 +289,7 @@ export class InventoryScreen {
       ? ''
       : def?.choosesRecipe
         ? `recipe:${machine.id}:${machine.recipe}`
-        : isInserter(machine.type)
+        : def?.family === 'inserter'
           ? `filter:${machine.id}:${machine.filter}`
           : '';
     if (key === this.recipeKey) return;
@@ -298,7 +298,7 @@ export class InventoryScreen {
     this.els.recipes.classList.toggle('filters', key.startsWith('filter:'));
     this.els.recipes.innerHTML = '';
     if (!machine) return;
-    if (isInserter(machine.type)) {
+    if (def?.family === 'inserter') {
       this.paintFilters(machine);
       return;
     }
