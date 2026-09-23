@@ -1,12 +1,55 @@
 import { BUILDINGS } from '../data/buildings';
 import { CAMP, TILE } from './constants';
-import { distance } from './math';
+import { clamp, distance } from './math';
+import { inBounds, tileKey } from './grid';
 import { giveOrDrop, payAll, hasAll } from './inventory';
 import { clearFelledNodes } from './nodes';
 import { isWalkable, terrainAtIndex } from './terrain';
 import type { Building, BuildingId, Player, Vec2, World } from './types';
 
-export type PlacementError = 'range' | 'terrain' | 'overlap' | 'cost' | null;
+export type PlacementError = 'range' | 'terrain' | 'overlap' | 'factory' | 'cost' | null;
+
+/**
+ * Camp pieces are circles in world units while factory pieces own whole tiles,
+ * so the two build systems can only see each other through an overlap test.
+ * The slack keeps a wide piece like the campfire from claiming the ring of
+ * tiles its edge merely grazes.
+ */
+const TILE_SLACK = 4;
+
+function overlapsTile(pos: Vec2, radius: number, tx: number, ty: number): boolean {
+  const reach = radius - TILE_SLACK;
+  if (reach <= 0) return false;
+
+  const dx = pos.x - clamp(pos.x, tx * TILE, (tx + 1) * TILE);
+  const dy = pos.y - clamp(pos.y, ty * TILE, (ty + 1) * TILE);
+  return dx * dx + dy * dy < reach * reach;
+}
+
+/** The camp piece standing on a factory tile, so belts cannot run through it. */
+export function buildingOnTile(world: World, tx: number, ty: number): Building | null {
+  for (const b of world.buildings) {
+    if (overlapsTile(b.pos, BUILDINGS[b.type].radius, tx, ty)) return b;
+  }
+  return null;
+}
+
+/** Whether a camp piece of this size would come down on top of the factory. */
+function coversFactory(world: World, pos: Vec2, radius: number): boolean {
+  const minTx = Math.floor((pos.x - radius) / TILE);
+  const maxTx = Math.floor((pos.x + radius) / TILE);
+  const minTy = Math.floor((pos.y - radius) / TILE);
+  const maxTy = Math.floor((pos.y + radius) / TILE);
+
+  for (let ty = minTy; ty <= maxTy; ty++) {
+    for (let tx = minTx; tx <= maxTx; tx++) {
+      if (!inBounds(tx, ty)) continue;
+      if (!world.grid.has(tileKey(tx, ty))) continue;
+      if (overlapsTile(pos, radius, tx, ty)) return true;
+    }
+  }
+  return false;
+}
 
 /** Why a placement would fail, or null when it is legal. Drives the ghost preview. */
 export function placementError(
@@ -28,6 +71,7 @@ export function placementError(
   for (const node of world.nodes) {
     if (node.charges > 0 && distance(node.pos, pos) < def.radius + 14) return 'overlap';
   }
+  if (coversFactory(world, pos, def.radius)) return 'factory';
 
   if (!hasAll(player, def.cost)) return 'cost';
   return null;

@@ -4,11 +4,30 @@ import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import { asStack, normalizeSlots } from '@shared/sim/slots';
-import type { Machine, Player, World } from '@shared/sim/types';
-import { slotKey } from './saves';
+import type {
+  Belt,
+  Building,
+  Direction,
+  ItemId,
+  Machine,
+  MachineId,
+  Player,
+  ResourceNode,
+  Slot,
+  World,
+} from '@shared/sim/types';
+import { FACTORY_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
 
-const VERSION = 3;
+const VERSION = 4;
 
+/**
+ * The header: everything that moves on every single save. Small enough that
+ * rewriting it eight seconds apart costs nothing.
+ *
+ * Versions up to 3 also carried the whole island inline, which is why the
+ * world fields below are still read — they are how an older save is loaded,
+ * never how a new one is written.
+ */
 interface SaveFile {
   version: number;
   savedAt: number;
@@ -21,18 +40,63 @@ interface SaveFile {
   nextId: number;
   rngState: number;
   players: Player[];
-  nodes: World['nodes'];
-  buildings: World['buildings'];
-  belts: World['belts'];
-  machines: World['machines'];
   peaceful: boolean;
+  /** Version 3 and older only. */
+  nodes?: ResourceNode[];
+  buildings?: Building[];
+  belts?: Belt[];
+  machines?: Machine[];
 }
 
 /**
- * Phase 2 persistence: the whole island in localStorage, one entry per save
- * slot. Deliberately stores only durable state — mobs, projectiles and loose
- * pickups are transient and are regenerated on load, which also stops a save
- * from resurrecting a night.
+ * The slow half of the island: what you built and how far the scenery has been
+ * worked. Written only when one of them actually moved, which on a quiet
+ * minute of play is never.
+ */
+interface ScenerySection {
+  buildings: Building[];
+  /** Nodes the seed grows that are no longer standing. */
+  gone: number[];
+  /** `[id, charges, regrow]` for a node that has been chopped but not cleared. */
+  worn: [number, number, number][];
+  /** Nodes the seed does not account for, so a delta cannot describe them. */
+  extra: ResourceNode[];
+}
+
+/** `[itemId, count]`, or null for an empty cell. */
+type PackedSlot = [ItemId, number] | null;
+/** `[id, tx, ty, dir, item, offset, item, offset, ...]`. */
+type PackedBelt = (number | ItemId)[];
+type PackedMachine = [
+  number,
+  MachineId,
+  number,
+  number,
+  Direction,
+  string | null,
+  number,
+  PackedSlot[],
+  PackedSlot[],
+];
+
+interface FactorySection {
+  belts: PackedBelt[];
+  machines: PackedMachine[];
+}
+
+/**
+ * Phase 2 persistence: one island split across three localStorage entries,
+ * grouped by how often each part changes.
+ *
+ * The whole island used to go into one entry every eight seconds, about 110 kB
+ * of JSON — and 109 kB of that was the resource nodes, which `createWorld`
+ * derives from the seed and so never had to be stored at all. Nodes are now
+ * regenerated on load and only their differences are kept, the factory is
+ * packed into arrays instead of objects, and a section whose text has not
+ * changed since the last save is not written again.
+ *
+ * Mobs, projectiles and loose pickups are still left out entirely: they are
+ * transient, and regenerating them stops a save from resurrecting a night.
  */
 export function saveWorld(world: World, slot: string): boolean {
   const file: SaveFile = {
@@ -47,41 +111,31 @@ export function saveWorld(world: World, slot: string): boolean {
     nextId: world.nextId,
     rngState: world.rngState,
     players: [...world.players.values()],
-    nodes: world.nodes,
-    buildings: world.buildings,
-    belts: world.belts,
-    machines: world.machines,
     peaceful: world.peaceful,
   };
-  try {
-    localStorage.setItem(slotKey(slot), JSON.stringify(file));
-    return true;
-  } catch {
-    // A full or blocked storage quota must never take the game down.
-    return false;
-  }
+
+  // Sections go down before the header. Neither order is atomic, but this one
+  // fails towards a header that is a few seconds behind an island that is
+  // fully written, rather than a header promising a factory that is not there.
+  if (!writeSection(slot, SCENERY_SUFFIX, packScenery(world))) return false;
+  if (!writeSection(slot, FACTORY_SUFFIX, packFactory(world))) return false;
+  return writeSection(slot, '', file);
 }
 
 export function loadWorld(slot: string): World | null {
-  let raw: string | null = null;
-  try {
-    raw = localStorage.getItem(slotKey(slot));
-  } catch {
-    return null;
-  }
-  if (!raw) return null;
+  const file = readSection<SaveFile>(slot, '');
+  if (!file) return null;
 
   try {
-    const file = JSON.parse(raw) as SaveFile;
-    // Older saves are read, not thrown away: every field the factory added is
-    // optional below, so a version 1 island loads with an empty factory rather
-    // than dropping someone's world on the floor. A save from a future version
-    // is the only one we refuse, since we cannot know what it means.
+    // A save from a future version is the only one we refuse, since we cannot
+    // know what it means.
     if (!(file.version >= 1 && file.version <= VERSION)) return null;
 
-    // Terrain is regenerated from the seed rather than stored — it is large,
-    // and it is a pure function of the seed anyway.
+    // Terrain, ore and scenery are all regenerated from the seed rather than
+    // stored — they are large, and they are a pure function of the seed.
     const world = createWorld(file.seed, file.peaceful ?? false);
+    const pristine = world.nodes;
+
     world.tick = file.tick;
     world.time = file.time;
     // Always wake up in daylight, however the session ended.
@@ -90,12 +144,21 @@ export function loadWorld(slot: string): World | null {
     world.nightIndex = file.nightIndex;
     world.nextId = file.nextId;
     world.rngState = file.rngState;
-    world.nodes = file.nodes;
-    world.buildings = file.buildings;
-    world.belts = file.belts ?? [];
+
+    const scenery = readSection<ScenerySection>(slot, SCENERY_SUFFIX);
+    // An older island carried its scenery in the header; a version 4 one has
+    // only the differences from what the seed grows.
+    world.nodes = file.nodes ?? applyScenery(pristine, scenery);
+    world.buildings = file.buildings ?? scenery?.buildings ?? world.buildings;
+
+    const factory = readSection<FactorySection>(slot, FACTORY_SUFFIX);
+    world.belts = file.belts ?? (factory?.belts ?? []).map(unpackBelt);
     // A machine whose type no longer exists is dropped rather than taken as a
     // reason to refuse the whole island.
-    world.machines = (file.machines ?? []).filter((m) => m.type in MACHINES).map(loadMachine);
+    world.machines = (file.machines ?? (factory?.machines ?? []).map(unpackMachine))
+      .filter((m) => m.type in MACHINES)
+      .map(loadMachine);
+
     // The tile index is derived state, so rebuild it rather than storing it.
     rebuildGrid(world);
     // Older islands were built before scenery blocked placement, so they can
@@ -112,10 +175,155 @@ export function loadWorld(slot: string): World | null {
       player.inventory = normalizeSlots(player.inventory, INVENTORY_SLOTS);
       player.cursor = asStack(player.cursor);
     }
+
+    // The freshly generated nodes are what the next save diffs against, and we
+    // have just built them, so hand them straight to the cache.
+    rememberPristine(file.seed, pristine);
     return world;
   } catch {
     return null;
   }
+}
+
+/** Forget everything remembered about a slot, so its next save writes in full. */
+export function forgetSlot(slot: string): void {
+  for (const suffix of SLOT_SUFFIXES) written.delete(slotKey(slot) + suffix);
+}
+
+// --- Scenery -----------------------------------------------------------------
+
+interface PristineNode {
+  charges: number;
+  regrow: number;
+}
+
+let pristineSeed: number | null = null;
+let pristineNodes = new Map<number, PristineNode>();
+
+function rememberPristine(seed: number, nodes: ResourceNode[]): void {
+  pristineSeed = seed;
+  pristineNodes = new Map(nodes.map((n) => [n.id, { charges: n.charges, regrow: n.regrow }]));
+}
+
+/**
+ * What the seed grows on a fresh island, keyed by node id. Generating it means
+ * building a whole world, so it is kept until the seed changes — which in
+ * practice means once per island, and usually not even that, since a load has
+ * already produced it.
+ */
+function pristine(seed: number): Map<number, PristineNode> {
+  if (pristineSeed !== seed) rememberPristine(seed, createWorld(seed, true).nodes);
+  return pristineNodes;
+}
+
+function packScenery(world: World): ScenerySection {
+  const fresh = pristine(world.seed);
+  const section: ScenerySection = {
+    buildings: world.buildings,
+    gone: [],
+    worn: [],
+    extra: [],
+  };
+
+  const standing = new Set<number>();
+  for (const node of world.nodes) {
+    const base = fresh.get(node.id);
+    // A node the seed does not produce cannot be described as a difference
+    // from it, so it is written out whole. This only happens when worldgen has
+    // changed under an existing island.
+    if (!base) {
+      section.extra.push(node);
+      continue;
+    }
+    standing.add(node.id);
+    if (node.charges !== base.charges || node.regrow !== base.regrow) {
+      section.worn.push([node.id, node.charges, round(node.regrow, 2)]);
+    }
+  }
+  for (const id of fresh.keys()) if (!standing.has(id)) section.gone.push(id);
+
+  return section;
+}
+
+function applyScenery(nodes: ResourceNode[], section: ScenerySection | null): ResourceNode[] {
+  if (!section) return nodes;
+
+  const gone = new Set(section.gone);
+  const kept = nodes.filter((n) => !gone.has(n.id));
+  const byId = new Map(kept.map((n) => [n.id, n]));
+  for (const [id, charges, regrow] of section.worn ?? []) {
+    const node = byId.get(id);
+    if (!node) continue;
+    node.charges = charges;
+    node.regrow = regrow;
+  }
+  return [...kept, ...(section.extra ?? [])];
+}
+
+// --- Factory -----------------------------------------------------------------
+
+function packBelt(belt: Belt): PackedBelt {
+  const packed: PackedBelt = [belt.id, belt.tx, belt.ty, belt.dir];
+  // Offsets are a position along one tile, so three decimals is finer than any
+  // pixel the renderer can draw them at, and a good deal shorter than a float.
+  for (const item of belt.items) packed.push(item.item, round(item.offset, 3));
+  return packed;
+}
+
+function unpackBelt(packed: PackedBelt): Belt {
+  const belt: Belt = {
+    id: packed[0] as number,
+    tx: packed[1] as number,
+    ty: packed[2] as number,
+    dir: packed[3] as Direction,
+    items: [],
+  };
+  for (let i = 4; i + 1 < packed.length; i += 2) {
+    belt.items.push({ item: packed[i] as ItemId, offset: packed[i + 1] as number });
+  }
+  return belt;
+}
+
+function packSlots(slots: Slot[]): PackedSlot[] {
+  return slots.map((slot) => (slot ? [slot.id, slot.count] : null));
+}
+
+function unpackSlots(packed: PackedSlot[]): Slot[] {
+  return (packed ?? []).map((slot) => (slot ? { id: slot[0], count: slot[1] } : null));
+}
+
+function packMachine(machine: Machine): PackedMachine {
+  return [
+    machine.id,
+    machine.type,
+    machine.tx,
+    machine.ty,
+    machine.dir,
+    machine.recipe,
+    round(machine.progress, 3),
+    packSlots(machine.input),
+    packSlots(machine.output),
+  ];
+}
+
+function unpackMachine(packed: PackedMachine): Machine {
+  return {
+    id: packed[0],
+    type: packed[1],
+    tx: packed[2],
+    ty: packed[3],
+    dir: packed[4],
+    recipe: packed[5],
+    progress: packed[6],
+    input: unpackSlots(packed[7]),
+    output: unpackSlots(packed[8]),
+    // Recomputed by the factory system on the first tick after a load.
+    stalled: false,
+  };
+}
+
+function packFactory(world: World): FactorySection {
+  return { belts: world.belts.map(packBelt), machines: world.machines.map(packMachine) };
 }
 
 /** Machine storage is a fixed grid too, sized by the machine's own definition. */
@@ -132,4 +340,56 @@ function rebuildGrid(world: World): void {
   world.grid.clear();
   for (const belt of world.belts) world.grid.set(tileKey(belt.tx, belt.ty), belt);
   for (const machine of world.machines) world.grid.set(tileKey(machine.tx, machine.ty), machine);
+}
+
+// --- Storage -----------------------------------------------------------------
+
+/**
+ * The text last put in each key, so a section that has not moved is not
+ * serialised into storage again. It records what this tab believes storage
+ * holds, which is why a load seeds it and a failed write clears it.
+ */
+const written = new Map<string, string>();
+
+function writeSection(slot: string, suffix: string, value: unknown): boolean {
+  const key = slotKey(slot) + suffix;
+  const text = JSON.stringify(value);
+  if (written.get(key) === text) return true;
+  try {
+    localStorage.setItem(key, text);
+    written.set(key, text);
+    return true;
+  } catch {
+    // A full or blocked storage quota must never take the game down. Forget
+    // the key so the next save tries it again rather than assuming it landed.
+    written.delete(key);
+    return false;
+  }
+}
+
+function readSection<T>(slot: string, suffix: string): T | null {
+  const key = slotKey(slot) + suffix;
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+  if (raw === null) {
+    written.delete(key);
+    return null;
+  }
+  try {
+    const value = JSON.parse(raw) as T;
+    written.set(key, raw);
+    return value;
+  } catch {
+    written.delete(key);
+    return null;
+  }
+}
+
+function round(value: number, places: number): number {
+  const scale = 10 ** places;
+  return Math.round(value * scale) / scale;
 }
