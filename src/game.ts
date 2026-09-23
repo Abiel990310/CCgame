@@ -43,7 +43,7 @@ import type {
 import { addPlayer, createWorld } from '@shared/sim/world';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview, type RemovalPreview } from './render/renderer';
-import { loadWorld, saveWorld } from './save';
+import { forgetSlot, loadWorld, saveWorld } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { Hud } from './ui/hud';
 
@@ -135,6 +135,9 @@ export class Game {
   /** Open a save slot: load its island, or generate one the first time. */
   enter(slot: SaveSlot, peaceful = false): void {
     this.slot = slot;
+    // Saves skip a section whose text has not changed, so the record of what
+    // this tab already wrote has to start empty for whatever slot is opened.
+    forgetSlot(slot.id);
     const loaded = loadWorld(slot.id);
 
     if (loaded) {
