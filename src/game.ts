@@ -289,7 +289,7 @@ export class Game {
       if (action === 'build' && !blocked) this.toggleBuild();
       if (action === 'inventory') this.toggleBag();
       if (action === 'rotate' && !blocked) this.buildDir = rotate(this.buildDir);
-      if (action === 'remove' && !blocked) this.removeUnderCursor();
+      if (action === 'remove' && !blocked) this.tryRemove();
       if (action === 'cancel') {
         // Esc backs out of whatever is open, and opens the menu when nothing is.
         if (this.hud.isPauseOpen) this.togglePause();
@@ -329,12 +329,17 @@ export class Game {
 
   /**
    * What `X` or right-click would take, so removal is aimed at something rather
-   * than at wherever the cursor happens to be. Only shown in build mode: a red
-   * outline around every machine walked past would fight the gather hint.
+   * than at wherever the cursor happens to be. Only drawn in build mode, which
+   * is also the only mode that removes: outside it the cursor opens a machine,
+   * and a demolition outline on the chest you are about to click reads as a
+   * warning rather than as the hint it is meant to be.
    */
   private removalTarget(): RemovalPreview | null {
-    if (!this.hud.isBuildMode) return null;
+    return this.hud.isBuildMode ? this.targetUnderCursor() : null;
+  }
 
+  /** The piece the cursor is over, whatever mode the game is in. */
+  private targetUnderCursor(): RemovalPreview | null {
     const pos = this.cursorWorld;
     const { tx, ty } = toTile(pos);
 
@@ -411,6 +416,21 @@ export class Game {
 
   private costMessage(cost: ItemStack[]): string {
     return `Need ${cost.map((c) => `${c.count} ${ITEMS[c.id].name}`).join(', ')}`;
+  }
+
+  /**
+   * Removal is a build-mode action, so `X` and right-click outside it say where
+   * removal lives rather than silently taking a piece the player never saw
+   * outlined. Silence when the cursor is over nothing removable: right-clicking
+   * open grass should not nag.
+   */
+  private tryRemove(): void {
+    if (this.hud.isBuildMode) {
+      this.removeUnderCursor();
+      return;
+    }
+    const target = this.targetUnderCursor();
+    if (target && !target.fixed) this.hud.toast('Open build mode (B) to remove', 'warn');
   }
 
   private removeUnderCursor(): void {
