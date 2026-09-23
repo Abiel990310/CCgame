@@ -74,7 +74,7 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
   // An inserter's input slot is its hand, not a hopper: it fills that itself
   // from the tile behind it. Refusing here is also what stops two inserters
   // facing each other from passing one item back and forth forever.
-  if (machine.type === 'inserter') return false;
+  if (def.family === 'inserter') return false;
 
   // A machine only takes what its recipe actually uses; a chest takes anything.
   if (def.choosesRecipe) {
@@ -113,7 +113,9 @@ function ingredientFits(input: Slot[], def: MachineDef, recipe: Recipe, item: It
 
 export function stepMachines(world: World, dt: number): void {
   for (const machine of world.machines) {
-    switch (machine.type) {
+    // Dispatch on the family, not the type: a steel furnace is a furnace that
+    // runs faster, and every tier added later should stay that cheap.
+    switch (MACHINES[machine.type].family) {
       case 'miner':
         stepMiner(world, machine, dt);
         break;
@@ -132,8 +134,8 @@ export function stepMachines(world: World, dt: number): void {
   }
 }
 
-/** Seconds a miner takes to extract one ore. */
-const MINE_TIME = 1.2;
+/** Seconds a tier 1 miner takes to extract one ore; speed divides it. */
+export const MINE_TIME = 1.2;
 
 function stepMiner(world: World, machine: Machine, dt: number): void {
   const ore = oreAt(world.ore, machine.tx, machine.ty);
@@ -142,7 +144,7 @@ function stepMiner(world: World, machine: Machine, dt: number): void {
     return;
   }
 
-  const def = MACHINES.miner;
+  const def = MACHINES[machine.type];
   if (roomFor(machine.output, ore, def.slotSize) < 1) {
     machine.stalled = true;
     return;
@@ -181,7 +183,7 @@ function announce(world: World, machine: Machine, item: ItemId): void {
  * dropping what it grabbed.
  */
 function stepInserter(world: World, machine: Machine, dt: number): void {
-  const def = MACHINES.inserter;
+  const def = MACHINES[machine.type];
 
   if (machine.input[0] === null) {
     const grabbed = grabFromBehind(world, machine);
@@ -224,7 +226,7 @@ function grabFromBehind(world: World, machine: Machine): ItemId | null {
   }
 
   const source = machineAt(world, tx, ty);
-  if (!source || source.type === 'inserter') return null;
+  if (!source || MACHINES[source.type].family === 'inserter') return null;
 
   // A machine with an output side gives from there and nowhere else, so an
   // inserter cannot steal the ore a furnace is waiting to smelt. A chest has
