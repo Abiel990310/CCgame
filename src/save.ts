@@ -1,13 +1,14 @@
 import { createWorld } from '@shared/sim/world';
-import { MACHINES } from '@shared/data/machines';
+import { ITEMS } from '@shared/data/items';
+import { MACHINES, isInserter } from '@shared/data/machines';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import { asStack, normalizeSlots } from '@shared/sim/slots';
-import type { Machine, Player, World } from '@shared/sim/types';
+import type { ItemId, Machine, Player, World } from '@shared/sim/types';
 import { slotKey } from './saves';
 
-const VERSION = 3;
+const VERSION = 4;
 
 interface SaveFile {
   version: number;
@@ -123,9 +124,18 @@ function loadMachine(machine: Machine): Machine {
   const def = MACHINES[machine.type];
   return {
     ...machine,
+    // Version 4 added inserter filters, so every earlier save has none.
+    filter: loadFilter(machine),
     input: normalizeSlots(machine.input, def.inputSlots, def.slotSize),
     output: normalizeSlots(machine.output, def.outputSlots, def.slotSize),
   };
+}
+
+/** A filter naming an item this build no longer has is dropped, not honoured. */
+function loadFilter(machine: Machine): ItemId | null {
+  const filter = machine.filter as ItemId | null | undefined;
+  if (!filter || !isInserter(machine.type) || !(filter in ITEMS)) return null;
+  return filter;
 }
 
 function rebuildGrid(world: World): void {

@@ -1,5 +1,5 @@
 import { ITEMS } from '@shared/data/items';
-import { BELT_SPEED, INSERTER_SWING, MACHINES } from '@shared/data/machines';
+import { BELT_SPEED, INSERTER_SWING, MACHINES, isInserter } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TILE } from '@shared/sim/constants';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
@@ -125,7 +125,7 @@ export function drawMachine(
   const def = MACHINES[machine.type];
   const { x, y } = tileCenter(machine.tx, machine.ty);
 
-  if (machine.type === 'inserter') {
+  if (isInserter(machine.type)) {
     drawInserter(ctx, machine, x, y);
     return;
   }
@@ -231,6 +231,9 @@ function drawMachineFace(
  *
  * The post is deliberately darker and bluer than the island's rock, which it
  * would otherwise be mistaken for wherever a line crosses stone.
+ *
+ * A long arm sweeps across two tiles rather than one, which is the only thing
+ * on screen that says how far it reaches.
  */
 function drawInserter(
   ctx: CanvasRenderingContext2D,
@@ -238,13 +241,15 @@ function drawInserter(
   x: number,
   y: number,
 ): void {
-  const def = MACHINES.inserter;
+  const def = MACHINES[machine.type];
   const hand = machine.input[0];
   // Empty-handed, the arm rests back over its source, waiting.
   const swing = hand ? Math.min(machine.progress / INSERTER_SWING, 1) : 0;
   const angle = dirAngle(machine.dir);
   // -1 is fully back over the source tile, +1 fully forward over the target.
-  const along = (swing * 2 - 1) * TILE * 0.5;
+  // The hand stops half a tile short of the far tile's centre, so a long arm
+  // visibly clears the tile it reaches over instead of resting on top of it.
+  const along = (swing * 2 - 1) * TILE * (def.reach - 0.5);
   const pivotY = y - TILE * 0.22;
   const handX = x + Math.cos(angle) * along;
   const handY = pivotY + Math.sin(angle) * along;
@@ -275,6 +280,22 @@ function drawInserter(
   ctx.beginPath();
   ctx.arc(x, pivotY, 3.2, 0, Math.PI * 2);
   ctx.fill();
+
+  // A filtered arm carries a chip of what it is set to, so a bank of arms
+  // taking different items out of one chest can be told apart without
+  // opening every one of them.
+  if (machine.filter) {
+    // Pale backing, because the darkest item in the table is nearly the colour
+    // of the post and would otherwise leave no chip at all.
+    ctx.fillStyle = '#e4e9f2';
+    ctx.beginPath();
+    ctx.roundRect(x - TILE * 0.11, y + TILE * 0.08, TILE * 0.22, TILE * 0.15, 3);
+    ctx.fill();
+    ctx.fillStyle = ITEMS[machine.filter].color;
+    ctx.beginPath();
+    ctx.roundRect(x - TILE * 0.08, y + TILE * 0.105, TILE * 0.16, TILE * 0.1, 2);
+    ctx.fill();
+  }
 
   // The carried item goes on last: mid-swing the hand is over the post, and an
   // item that blinks out of sight halfway across looks like a dropped one.
@@ -316,7 +337,7 @@ function drawProgress(
   y: number,
 ): void {
   // A chest has no cycle, and an inserter's arm already is its progress bar.
-  if (machine.type === 'chest' || machine.type === 'inserter') return;
+  if (machine.type === 'chest' || isInserter(machine.type)) return;
 
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   const duration =

@@ -18,6 +18,12 @@ export interface MachineDef {
   needsOre: boolean;
   /** True when the player picks which recipe it runs. */
   choosesRecipe: boolean;
+  /**
+   * Tiles an arm reaches on each side, over whatever sits in between; 0 for
+   * everything that is not an inserter. It is what separates the two arms, so
+   * a longer reach is a data row rather than a second system.
+   */
+  reach: number;
 }
 
 export const MACHINES: Record<MachineId, MachineDef> = {
@@ -37,6 +43,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: true,
     choosesRecipe: false,
+    reach: 0,
   },
   furnace: {
     id: 'furnace',
@@ -54,6 +61,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: true,
+    reach: 0,
   },
   assembler: {
     id: 'assembler',
@@ -71,6 +79,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: true,
+    reach: 0,
   },
   chest: {
     id: 'chest',
@@ -85,6 +94,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: false,
+    reach: 0,
   },
   inserter: {
     id: 'inserter',
@@ -103,6 +113,27 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: false,
+    reach: 1,
+  },
+  longInserter: {
+    id: 'longInserter',
+    name: 'Long Inserter',
+    description: 'Reaches two tiles, so it loads a machine from across a belt.',
+    cost: [
+      { id: 'wood', count: 6 },
+      { id: 'ironPlate', count: 4 },
+      { id: 'gear', count: 2 },
+    ],
+    color: '#3f3a57',
+    accent: '#c3a2ff',
+    inputSlots: 1,
+    outputSlots: 0,
+    slotSize: 1,
+    // The longer arm has further to travel, so it is the slower of the two.
+    speed: 0.8,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 2,
   },
 };
 
@@ -112,7 +143,13 @@ export const MACHINE_ORDER: MachineId[] = [
   'assembler',
   'chest',
   'inserter',
+  'longInserter',
 ];
+
+/** Inserters are the machines with a reach; everything else stays put. */
+export function isInserter(type: MachineId): boolean {
+  return MACHINES[type].reach > 0;
+}
 
 export const BELT_COST: ItemStack[] = [
   { id: 'wood', count: 1 },

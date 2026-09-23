@@ -53,6 +53,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Ore | Discrete patches, not noise | A patch is a thing a player can point at, and outgrowing one is what drives expansion. |
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
+| Inserter reach and filters | Data rows on the machine table, not new machine types | `MachineDef.reach` is what makes the long arm a row rather than a system, and `Machine.filter` sits beside the recipe so both arms take one. A third arm, or a filtered one of any length, costs a table entry. |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
@@ -179,14 +180,19 @@ detail behind the factory entries is in
 - [ ] **Splitter** — one input, two outputs, alternating, with an optional
       filter per side. Best value per line of code in the factory layer: until
       it exists a belt feeds exactly one machine.
-- [ ] **Long inserter** — an arm that reaches two tiles instead of one, so a
-      machine can be loaded from across a belt. The one-tile inserter is built;
-      this is the other half of that entry.
-- [ ] **Inserter filter** — an inserter set to a single item, so a mixed chest
-      can feed a line that only wants plates. Unloading a chest is possible
-      now, which is what makes a mixed buffer worth having.
+- [x] **Long inserter** — an arm that reaches two tiles instead of one, so a
+      machine can be loaded from across a belt. Built: a `MACHINES` row with
+      `reach: 2`, slower than the short arm.
+- [x] **Inserter filter** — an inserter set to a single item, so a mixed chest
+      can feed a line that only wants plates. Built: set from the arm's screen,
+      and anything else rides past it on a belt.
 - [ ] **Inserter tiers** — `MachineDef.speed` already multiplies the swing
-      time, so a faster arm is a data row and nothing else.
+      time, so a faster arm is a data row and nothing else. `reach` is now a
+      data row too, so a longer one is as well.
+- [ ] **Filtered chest slots** — the same filter idea on a chest, so a buffer
+      reserves room for what a line needs rather than filling with one item.
+- [ ] **Copy settings between machines** — a bank of filtered arms means
+      setting the same filter a dozen times by hand.
 - [ ] **Lab and a `TECHS` table** — research consumed as a belt-fed item flow
       rather than bought from a shop, so every unlock is a throughput problem.
 - [ ] **Tech gating on the build palette** — start with miner, furnace and
@@ -248,13 +254,16 @@ detail behind the factory entries is in
       opt-in and building freely never punishes you.
 - [ ] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
       for belt tiers, and it touches the save format.
-- [ ] An inserter will not take from or give to another inserter, so items
+- [x] An inserter will not take from or give to another inserter, so items
       cannot cross a gap without a belt tile between them. Deliberate — it is
-      what stops two facing arms passing one item back and forth forever — but
-      the long inserter is the intended answer and this should be revisited
-      with it.
+      what stops two facing arms passing one item back and forth forever. The
+      long inserter is the answer as intended: it reaches straight over an arm
+      standing in the way.
 - [ ] The miner's 1.2s cycle is written as a literal in `src/render/factory.ts`
       as well as `MINE_TIME` in the sim. Two places for one number.
+- [ ] A filtered arm reads only the front item of the belt it watches, so a
+      full belt of the wrong item parks it even when its item is two places
+      back. Correct for one lane; worth revisiting if belts ever carry sides.
 - [ ] Grow `UPGRADES` from 9 stat entries and 4 weapons to 40–60 entries with
       rarity tiers. Once labs feed XP continuously a player sees hundreds of
       level-ups, and three cards drawn from the same nine is thin within an
@@ -363,6 +372,9 @@ detail behind the factory entries is in
       miner outruns steel demand several times over) have never been played.
 - [ ] Motor and advanced circuit are covered by simulation tests only; neither
       has been built as a line in a browser.
+- [ ] Whether a long inserter's 0.8 speed is the right price for its reach. It
+      moves about 1.3 items a second against the short arm's 1.7, which is a
+      guess rather than something a real furnace bank has argued with.
 - [ ] The ground cache now scrolls: on a rebuild it slides what is still in
       view and paints only the strip that came in. Driven in headless Chromium,
       where the rebuild frame went from ~43ms to ~28ms and the scrolled cache

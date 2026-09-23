@@ -54,6 +54,9 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   },
 };
 
+/** Every item in table order, which is the order an item picker offers them. */
+export const ITEM_ORDER = Object.keys(ITEMS) as ItemId[];
+
 export interface ResourceDef {
   kind: ResourceKind;
   name: string;

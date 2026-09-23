@@ -26,6 +26,7 @@ import {
   placeBelt,
   placeMachine,
   removeAt,
+  setFilter,
   setRecipe,
 } from '@shared/sim/factory';
 import { rotate, tileCenter, toTile } from '@shared/sim/grid';
@@ -89,6 +90,9 @@ export class Game {
       onSetRecipe: (machineId, recipeId) => {
         if (setRecipe(this.world, machineId, recipeId)) this.requestSave();
       },
+      onSetFilter: (machineId, item) => {
+        if (setFilter(this.world, machineId, item)) this.requestSave();
+      },
       onToggleBag: () => this.toggleBag(),
       onDash: () => this.input.triggerDash(),
       onTogglePause: () => this.togglePause(),
@@ -118,6 +122,7 @@ export class Game {
       placeMachine,
       removeAt,
       setRecipe,
+      setFilter,
       machineAt,
       clickSlot,
       quickMove,

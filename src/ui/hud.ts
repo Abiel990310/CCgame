@@ -2,7 +2,7 @@ import { ITEMS } from '@shared/data/items';
 import { CYCLE } from '@shared/sim/constants';
 import { hasAll } from '@shared/sim/inventory';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { Machine, Player, World } from '@shared/sim/types';
+import type { ItemId, Machine, Player, World } from '@shared/sim/types';
 import { InventoryScreen } from './inventory';
 import {
   TABS,
@@ -36,6 +36,7 @@ export interface HudCallbacks {
   onTogglePause: () => void;
   onQuitToMenu: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
+  onSetFilter: (machineId: number, item: ItemId | null) => void;
   onSlotAction: (ref: SlotRef, button: ClickButton, quick: boolean) => void;
   onTakeAll: (machineId: number) => void;
   onSort: (area: SlotArea) => void;
@@ -108,6 +109,7 @@ export class Hud {
         if (machine) this.callbacks.onTakeAll(machine.id);
       },
       onSetRecipe: (machineId, recipeId) => this.callbacks.onSetRecipe(machineId, recipeId),
+      onSetFilter: (machineId, item) => this.callbacks.onSetFilter(machineId, item),
       onSort: (area) => this.callbacks.onSort(area),
       onGather: (ref) => this.callbacks.onGather(ref),
       onClose: () => this.callbacks.onCloseInventory(),
