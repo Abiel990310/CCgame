@@ -13,6 +13,7 @@ import type {
   ResourceNode,
   World,
 } from '@shared/sim/types';
+import { drawItemSprite } from './items';
 import { UI, rgba, shift } from './palette';
 import { facetedBlob, meter, polygon, shadow } from './shapes';
 
@@ -291,9 +292,13 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile): vo
 
 export function drawPickup(ctx: CanvasRenderingContext2D, pickup: Pickup, time: number): void {
   const bob = Math.sin(time * 4 + pickup.id) * 2;
-  const color = pickup.item ? ITEMS[pickup.item].color : UI.xp;
   shadow(ctx, pickup.pos.x, pickup.pos.y + 4, 5, 0.18);
-  facetedBlob(ctx, pickup.pos.x, pickup.pos.y + bob, 5.5, 5, pickup.id, color, 0.25);
+  // An XP orb is not an item and has no row in the table, so it keeps the blob.
+  if (!pickup.item) {
+    facetedBlob(ctx, pickup.pos.x, pickup.pos.y + bob, 5.5, 5, pickup.id, UI.xp, 0.25);
+    return;
+  }
+  drawItemSprite(ctx, pickup.pos.x, pickup.pos.y + bob, 6, pickup.item);
 }
 
 /**
