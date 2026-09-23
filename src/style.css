@@ -915,6 +915,27 @@ kbd {
   margin-bottom: 12px;
 }
 
+.filter-cell {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.filter-cell > span {
+  font-size: 10px;
+  color: var(--ink-dim);
+}
+
+.filter-cell .islot {
+  width: 100%;
+}
+
+.islot.any {
+  border-style: dashed;
+  font-size: 10px;
+  color: var(--ink-dim);
+}
+
 .offer.on {
   border-color: var(--gold);
   background: rgba(232, 182, 76, 0.12);

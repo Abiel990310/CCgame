@@ -1,4 +1,5 @@
 import { createWorld } from '@shared/sim/world';
+import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
@@ -121,11 +122,23 @@ export function loadWorld(slot: string): World | null {
 /** Machine storage is a fixed grid too, sized by the machine's own definition. */
 function loadMachine(machine: Machine): Machine {
   const def = MACHINES[machine.type];
-  return {
+  const loaded: Machine = {
     ...machine,
     input: normalizeSlots(machine.input, def.inputSlots, def.slotSize),
     output: normalizeSlots(machine.output, def.outputSlots, def.slotSize),
   };
+
+  // A splitter always has exactly two sides. A filter naming an item that no
+  // longer exists opens back up rather than refusing everything forever.
+  if (loaded.type === 'splitter') {
+    const saved = machine.filters ?? [];
+    loaded.filters = [0, 1].map((i) => {
+      const item = saved[i];
+      return item && item in ITEMS ? item : null;
+    });
+    loaded.turn = machine.turn === 1 ? 1 : 0;
+  }
+  return loaded;
 }
 
 function rebuildGrid(world: World): void {

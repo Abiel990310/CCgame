@@ -4,7 +4,8 @@ import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import { totalIn } from '@shared/sim/slots';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { Machine, Player, Slot } from '@shared/sim/types';
+import { filterOf } from '@shared/sim/factory';
+import type { ItemId, Machine, Player, Slot } from '@shared/sim/types';
 
 export interface InventoryCallbacks {
   /** A slot was clicked: pick up, put down, split, or send across. */
@@ -44,6 +45,8 @@ export class InventoryScreen {
     container: HTMLElement;
     inputLabel: HTMLElement;
     inputGrid: HTMLElement;
+    filterBlock: HTMLElement;
+    filterGrid: HTMLElement;
     outputBlock: HTMLElement;
     outputGrid: HTMLElement;
     progress: HTMLElement;
@@ -77,6 +80,8 @@ export class InventoryScreen {
       container: must('inv-container'),
       inputLabel: must('inv-input-label'),
       inputGrid: must('inv-input-grid'),
+      filterBlock: must('inv-filters'),
+      filterGrid: must('inv-filter-grid'),
       outputBlock: must('inv-output'),
       outputGrid: must('inv-output-grid'),
       progress: must('inv-progress'),
@@ -93,6 +98,7 @@ export class InventoryScreen {
 
     this.grids = [
       { area: 'input', el: this.els.inputGrid, cells: [] },
+      { area: 'filter', el: this.els.filterGrid, cells: [] },
       { area: 'output', el: this.els.outputGrid, cells: [] },
       { area: 'bag', el: this.els.bagGrid, cells: [] },
     ];
@@ -164,16 +170,56 @@ export class InventoryScreen {
     this.els.blurb.classList.remove('hidden');
     this.els.container.classList.remove('hidden');
 
-    // A chest's grid is its whole point, so it is not labelled "In".
-    this.els.inputLabel.textContent = def.choosesRecipe ? 'In' : 'Stored';
+    // A chest's grid is its whole point, so it is not labelled "In"; a
+    // splitter's single slot is a queue rather than a shelf.
+    this.els.inputLabel.textContent = def.choosesRecipe
+      ? 'In'
+      : machine.type === 'splitter'
+        ? 'Passing through'
+        : 'Stored';
     this.els.inputGrid.parentElement?.classList.toggle('hidden', def.inputSlots === 0);
     this.els.outputBlock.classList.toggle('hidden', def.outputSlots === 0);
     this.els.progress.classList.toggle('hidden', !def.choosesRecipe);
 
-    this.els.sortInput.classList.toggle('hidden', def.inputSlots < 2);
+    // A splitter's buffer is a queue of one item; there is nothing to tidy.
+    this.els.sortInput.classList.toggle(
+      'hidden',
+      def.inputSlots < 2 || machine.type === 'splitter',
+    );
+    this.els.filterBlock.classList.toggle('hidden', machine.type !== 'splitter');
 
     this.buildGrid('input', def.inputSlots);
     this.buildGrid('output', def.outputSlots);
+    if (machine.type === 'splitter') this.buildFilters();
+  }
+
+  /**
+   * A splitter's two sides, as slots. They hold nothing — clicking one with a
+   * stack in hand points that side at the item without spending any of it,
+   * which is the same gesture as moving items and needs no second grammar.
+   */
+  private buildFilters(): void {
+    const grid = this.grids.find((g) => g.area === 'filter')!;
+    if (grid.cells.length === 2) return;
+
+    grid.el.innerHTML = '';
+    grid.cells = [];
+    for (const [index, name] of ['Left', 'Right'].entries()) {
+      const wrap = document.createElement('div');
+      wrap.className = 'filter-cell';
+
+      const cell = document.createElement('div');
+      cell.className = 'islot';
+      cell.dataset.area = 'filter';
+      cell.dataset.index = String(index);
+
+      const caption = document.createElement('span');
+      caption.textContent = name;
+
+      wrap.append(cell, caption);
+      grid.el.appendChild(wrap);
+      grid.cells.push(cell);
+    }
   }
 
   private buildGrid(area: SlotArea, count: number): void {
@@ -219,7 +265,8 @@ export class InventoryScreen {
       list.map((s) => (s ? `${s.id}x${s.count}` : '-')).join(',');
     const cursor = player.cursor ? `${player.cursor.id}x${player.cursor.count}` : '-';
     const held = machine ? `${slots(machine.input)}|${slots(machine.output)}` : '';
-    return `${slots(player.inventory)}|${held}|${cursor}`;
+    const sides = machine?.filters?.join(',') ?? '';
+    return `${slots(player.inventory)}|${held}|${cursor}|${sides}`;
   }
 
   private paint(player: Player, machine: Machine | null): void {
@@ -227,6 +274,7 @@ export class InventoryScreen {
     if (machine) {
       this.paintGrid('input', machine.input);
       this.paintGrid('output', machine.output);
+      if (machine.type === 'splitter') this.paintFilters(machine);
       const stored = totalIn(machine.input) + totalIn(machine.output);
       this.els.takeAll.disabled = stored === 0;
       this.els.takeAll.textContent = stored === 0 ? 'Empty' : `Take all (${stored})`;
@@ -240,6 +288,11 @@ export class InventoryScreen {
   private paintGrid(area: SlotArea, slots: Slot[]): void {
     const grid = this.grids.find((g) => g.area === area)!;
     for (let i = 0; i < grid.cells.length; i++) paintSlot(grid.cells[i], slots[i] ?? null);
+  }
+
+  private paintFilters(machine: Machine): void {
+    const grid = this.grids.find((g) => g.area === 'filter')!;
+    for (let i = 0; i < grid.cells.length; i++) paintFilter(grid.cells[i], filterOf(machine, i));
   }
 
   private paintCarried(player: Player): void {
@@ -336,6 +389,20 @@ function paintSlot(cell: HTMLElement, slot: Slot): void {
   cell.innerHTML =
     `<i class="item ${def.shape}" style="--item:${def.color}"></i>` +
     `<b>${slot.count}</b>`;
+}
+
+function paintFilter(cell: HTMLElement, item: ItemId | null): void {
+  if (!item) {
+    cell.className = 'islot any';
+    cell.textContent = 'Any';
+    cell.title = 'Takes anything. Drop an item here to keep this side for it.';
+    return;
+  }
+
+  const def = ITEMS[item];
+  cell.className = 'islot filled';
+  cell.title = `${def.name} only. Click with an empty hand to open this side up.`;
+  cell.innerHTML = `<i class="item ${def.shape}" style="--item:${def.color}"></i>`;
 }
 
 function must<T extends HTMLElement>(id: string): T {

@@ -8,7 +8,15 @@ import {
 } from '../../data/machines';
 import type { Recipe } from '../../data/recipes';
 import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
-import { beltAt, inputTile, machineAt, outputTile } from '../factory';
+import {
+  beltAt,
+  filterOf,
+  inputTile,
+  machineAt,
+  outputTile,
+  sideTiles,
+  splitterAccepts,
+} from '../factory';
 import { oreAt } from '../ore';
 import { addToSlots, countIn, roomFor, slotCap, takeFromSlots } from '../slots';
 import type { Belt, ItemId, ItemStack, Machine, Slot, World } from '../types';
@@ -75,6 +83,10 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
   // facing each other from passing one item back and forth forever.
   if (machine.type === 'inserter') return false;
 
+  // A splitter with both sides filtered is a sorter: what it cannot route it
+  // never takes, so the rest of the line still gets it.
+  if (machine.type === 'splitter' && !splitterAccepts(machine, item)) return false;
+
   // A machine only takes what its recipe actually uses; a chest takes anything.
   if (def.choosesRecipe) {
     const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
@@ -122,6 +134,9 @@ export function stepMachines(world: World, dt: number): void {
         break;
       case 'inserter':
         stepInserter(world, machine, dt);
+        break;
+      case 'splitter':
+        stepSplitter(world, machine);
         break;
       default:
         stepCrafter(machine, dt);
@@ -233,6 +248,76 @@ function dropInFront(world: World, machine: Machine, item: ItemId): boolean {
 
   const target = machineAt(world, tx, ty);
   return target ? insertIntoMachine(target, item) : false;
+}
+
+/**
+ * A splitter empties its buffer into the two tiles either side of it, offering
+ * each item to the side whose turn it is and handing it to the other when that
+ * one will not take it. The turn only advances on a side that actually took
+ * something, so a blocked or filtered-out side never costs the line a slot in
+ * the rotation.
+ *
+ * It moves as much as it can in a tick rather than on a timer: a splitter that
+ * metered items would throttle every line it sat on, and the belts it feeds
+ * already refuse items faster than they can carry them.
+ */
+function stepSplitter(world: World, machine: Machine): void {
+  machine.stalled = false;
+
+  for (let guard = 0; guard < MACHINES.splitter.slotSize; guard++) {
+    const slot = machine.input.find((s): s is ItemStack => s !== null && s.count > 0);
+    if (!slot) return;
+
+    if (!offerToSides(world, machine, slot.id)) {
+      // Holding something neither side will take is what a jam looks like.
+      machine.stalled = true;
+      return;
+    }
+    takeStack(machine.input, slot.id, 1);
+  }
+}
+
+/** Try the side whose turn it is, then the other. */
+function offerToSides(world: World, machine: Machine, item: ItemId): boolean {
+  const sides = sideTiles(machine);
+  const first = machine.turn === 1 ? 1 : 0;
+
+  for (let i = 0; i < sides.length; i++) {
+    const side = (first + i) % sides.length;
+    const filter = filterOf(machine, side);
+    if (filter !== null && filter !== item) continue;
+    if (!giveToTile(world, machine, sides[side], item)) continue;
+
+    machine.turn = (side + 1) % sides.length;
+    return true;
+  }
+  return false;
+}
+
+/** Hand one item to whatever sits on a tile, refusing anything that feeds back. */
+function giveToTile(
+  world: World,
+  machine: Machine,
+  tile: { tx: number; ty: number },
+  item: ItemId,
+): boolean {
+  const belt = beltAt(world, tile.tx, tile.ty);
+  if (belt) {
+    // A belt pointing back at the splitter would bounce the item forever.
+    const back = outputTile(belt);
+    if (back.tx === machine.tx && back.ty === machine.ty) return false;
+    return pushOntoBelt(belt, item);
+  }
+
+  const target = machineAt(world, tile.tx, tile.ty);
+  if (!target) return false;
+  // Two splitters aimed at each other would pass the same item back and forth.
+  if (target.type === 'splitter' && facesBack(target, machine)) return false;
+  return insertIntoMachine(target, item);
+}
+
+function facesBack(splitter: Machine, at: Machine): boolean {
+  return sideTiles(splitter).some((t) => t.tx === at.tx && t.ty === at.ty);
 }
 
 function stepCrafter(machine: Machine, dt: number): void {

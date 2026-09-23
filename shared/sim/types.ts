@@ -175,7 +175,7 @@ export type Direction = 0 | 1 | 2 | 3;
 
 export type OreKind = 'ironOre' | 'copperOre' | 'coal';
 
-export type MachineId = 'miner' | 'furnace' | 'assembler' | 'chest' | 'inserter';
+export type MachineId = 'miner' | 'furnace' | 'assembler' | 'chest' | 'inserter' | 'splitter';
 
 /** One item riding a belt tile, positioned 0..1 along its length. */
 export interface BeltItem {
@@ -208,6 +208,13 @@ export interface Machine {
   output: Slot[];
   /** True when the machine could not run last tick, for the renderer. */
   stalled: boolean;
+  /**
+   * Splitter only: the item each output side takes, left first. A null side
+   * takes anything. Absent on every other machine, so saves stay small.
+   */
+  filters?: (ItemId | null)[];
+  /** Splitter only: which of the two sides the next item is offered to. */
+  turn?: number;
 }
 
 export interface World {

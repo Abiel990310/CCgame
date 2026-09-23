@@ -175,9 +175,15 @@ detail behind the factory entries is in
 
 ### New features
 
-- [ ] **Splitter** — one input, two outputs, alternating, with an optional
-      filter per side. Best value per line of code in the factory layer: until
-      it exists a belt feeds exactly one machine.
+- [x] **Splitter** — one input, two outputs, alternating, with an optional
+      filter per side. Built as a T: whatever feeds it goes out to the tiles on
+      its left and right, turn by turn, skipping a side that is full or
+      filtered against. A side is set by dropping an item on it in the machine
+      screen, and a splitter with both sides filtered is a sorter — it refuses
+      what it cannot route rather than jamming on it.
+- [ ] **Merger** — two belts into one, the splitter read backwards. A splitter
+      can feed two lines now, but joining two lines still takes a chest and an
+      inserter.
 - [ ] **Long inserter** — an arm that reaches two tiles instead of one, so a
       machine can be loaded from across a belt. The one-tile inserter is built;
       this is the other half of that entry.
@@ -282,6 +288,13 @@ detail behind the factory entries is in
       the chest you are about to click would read as a warning. `X` and
       right-click outside build mode now say where removal lives instead of
       taking a piece the player never saw outlined.
+- [ ] A splitter is a T, so a line that wants to continue straight while
+      tapping off one side costs two extra belt tiles to turn back. Fine for
+      feeding two furnace rows, awkward on a bus; whether a forward-and-side
+      variant is wanted is a play question, not a code one.
+- [ ] A splitter's sides cannot be filtered before it is placed, so every one
+      is placed, opened and then set. A filter carried on the build selection
+      would make a row of sorters one pass instead of two.
 - [ ] A long name truncates in a quick slot (`Storag…`). A short display name on
       each machine and building would read better in an eight-wide bar.
 - [ ] Steel plate and iron plate are both grey discs on a belt, so a mixed line
@@ -315,6 +328,9 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] A splitter that prefers the emptier side over strict alternation. Turn
+      by turn is right while both sides flow; when one backs up the rotation
+      still offers it first every other item and only then falls through.
 - [ ] Peaceful worlds need a fishing-only route to the top research tier, since
       `essence` also drops from wisps at night. Otherwise peaceful is locked
       out of the endgame it suits best.
@@ -383,6 +399,10 @@ detail behind the factory entries is in
 - [ ] Clearing land is now permanent: build on a chopped node and it never
       returns. Whether an island can be stripped bare over hundreds of hours,
       and whether that matters, has not been played out.
+- [ ] Splitter filters as a sorter on a real mixed line. One miner through a
+      splitter into two chests was driven in a browser, and sorting iron from
+      copper is covered by tests, but a saturated mixed bus has never been
+      played.
 - [ ] Inserter throughput has not been balanced by play. One arm moves about
       1.7 items a second against a belt's 1.6 tiles a second, so a single
       inserter roughly keeps pace with one belt. Whether that is the right
