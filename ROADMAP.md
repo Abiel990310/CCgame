@@ -56,6 +56,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
+| Save contents | Derive what the seed decides; store only what play changed | Scenery was 109 kB of a 110 kB save and `createWorld` already rebuilds it from the seed, exactly as terrain is. Nodes are regenerated on load and only the chopped and cleared ones are written, which is also why worldgen changing under an existing island would move its scenery. |
+| Save layout | One entry per part of the island, grouped by how often it changes | A header, the scenery, and the factory. A section whose text has not moved is not written again, so standing still costs the header alone instead of the whole world. |
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Quick slots | Bound in `localStorage`, not in the save | The bar says how one person likes their tools arranged, not what is true of an island. Keeping it out of the world means no save version, and one bar across every island — which is what someone who arranges it once expects. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
@@ -161,6 +163,10 @@ detail behind the factory entries is in
       index and `stepMiner` never decrements it. One miner supplies an island
       forever. (The design question is under Open questions; the code
       contradicting its own comment is the bug.)
+- [ ] Two tabs open on the same island overwrite each other, and now the
+      skipped-write cache can make one of them skip a section the other has
+      already replaced. Harmless today because nobody is told they can play in
+      two tabs, but it is a real way to lose a factory.
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
       right-click only, so on a phone a misplaced belt is permanent. Now that
       removal is build-mode only, the fix belongs in the build bar: a remove
@@ -233,11 +239,12 @@ detail behind the factory entries is in
 
 ### Changes
 
-- [ ] Saving still serialises the whole island every 8 seconds — about 110 kB of
-      JSON on a barely-built one, most of it nodes and players, and it grows
-      with the base. Now that placements coalesce onto that timer it is the only
-      save cost left, so the next step is writing only what changed, or a
-      compact format.
+- [x] Saving serialised the whole island every 8 seconds — about 110 kB of JSON
+      on a barely-built one. Scenery is now regenerated from the seed and only
+      its differences stored, the factory is packed into arrays, and the save is
+      split into a header, scenery and factory so a section that has not moved
+      is not rewritten. A 101 kB island measured in a browser now writes 1.4 kB,
+      and standing still writes only the 1 kB header.
 - [ ] Nothing on the factory grid blocks movement. `collideBuildings` in
       `shared/sim/systems/movement.ts` walks `world.buildings` only, so players
       and mobs pass straight through furnaces, chests and miners. Walking over
@@ -247,6 +254,13 @@ detail behind the factory entries is in
       it now blocks the four tiles that meet there rather than one. Snapping it
       to a tile centre on world creation would hand three of them back, but it
       moves the camp for every existing save.
+- [ ] Regenerating scenery from the seed means changing `populateNodes` or
+      terrain generation moves the trees on islands people already have. Worth
+      a generation counter in the save, so a changed worldgen can be spotted
+      rather than silently rearranging someone's island.
+- [ ] A busy factory still rewrites every belt and machine each save, because
+      one belt item moving makes the whole section's text differ. Fine at a few
+      hundred belts; if the section gets big, split it per chunk of the map.
 - [ ] Lab consumption should grant XP to every player on the island. `grantXp`
       fires only from gathering and mob kills today, which means automating
       your island *slows your character down*. This also gives peaceful worlds
@@ -315,6 +329,9 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] The save header is written every 8 seconds even when nothing happened,
+      since `tick` always moves. Skipping it while the player is idle and
+      nothing is running would make a paused island cost nothing at all.
 - [ ] Peaceful worlds need a fishing-only route to the top research tier, since
       `essence` also drops from wisps at night. Otherwise peaceful is locked
       out of the endgame it suits best.
