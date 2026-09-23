@@ -26,6 +26,12 @@ export interface MachineDef {
   needsOre: boolean;
   /** True when the player picks which recipe it runs. */
   choosesRecipe: boolean;
+  /**
+   * Tiles an arm reaches on each side, over whatever sits in between; 0 for
+   * every family but the inserter. It is what separates the two arms, so a
+   * longer reach is a data row rather than a second system.
+   */
+  reach: number;
 }
 
 export const MACHINES: Record<MachineId, MachineDef> = {
@@ -47,6 +53,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: true,
     choosesRecipe: false,
+    reach: 0,
   },
   furnace: {
     id: 'furnace',
@@ -66,6 +73,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: true,
+    reach: 0,
   },
   assembler: {
     id: 'assembler',
@@ -85,6 +93,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: true,
+    reach: 0,
   },
   minerMk2: {
     id: 'minerMk2',
@@ -104,6 +113,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 2,
     needsOre: true,
     choosesRecipe: false,
+    reach: 0,
   },
   minerMk3: {
     id: 'minerMk3',
@@ -124,6 +134,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 4,
     needsOre: true,
     choosesRecipe: false,
+    reach: 0,
   },
   furnaceMk2: {
     id: 'furnaceMk2',
@@ -143,6 +154,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 2,
     needsOre: false,
     choosesRecipe: true,
+    reach: 0,
   },
   furnaceMk3: {
     id: 'furnaceMk3',
@@ -163,6 +175,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 4,
     needsOre: false,
     choosesRecipe: true,
+    reach: 0,
   },
   assemblerMk2: {
     id: 'assemblerMk2',
@@ -183,6 +196,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 2,
     needsOre: false,
     choosesRecipe: true,
+    reach: 0,
   },
   assemblerMk3: {
     id: 'assemblerMk3',
@@ -203,6 +217,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 4,
     needsOre: false,
     choosesRecipe: true,
+    reach: 0,
   },
   chest: {
     id: 'chest',
@@ -219,6 +234,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: false,
+    reach: 0,
   },
   inserter: {
     id: 'inserter',
@@ -239,6 +255,30 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: false,
+    reach: 1,
+  },
+  longInserter: {
+    id: 'longInserter',
+    family: 'inserter',
+    // A sidegrade rather than a rung: it reaches further, not faster.
+    tier: 1,
+    name: 'Long Inserter',
+    description: 'Reaches two tiles, so it loads a machine from across a belt.',
+    cost: [
+      { id: 'wood', count: 6 },
+      { id: 'ironPlate', count: 4 },
+      { id: 'gear', count: 2 },
+    ],
+    color: '#3f3a57',
+    accent: '#c3a2ff',
+    inputSlots: 1,
+    outputSlots: 0,
+    slotSize: 1,
+    // The longer arm has further to travel, so it is the slower of the two.
+    speed: 0.8,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 2,
   },
 };
 
@@ -255,6 +295,7 @@ export const MACHINE_ORDER: MachineId[] = [
   'assemblerMk3',
   'chest',
   'inserter',
+  'longInserter',
 ];
 
 export const BELT_COST: ItemStack[] = [

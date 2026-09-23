@@ -236,6 +236,9 @@ function drawMachineFace(
  *
  * The post is deliberately darker and bluer than the island's rock, which it
  * would otherwise be mistaken for wherever a line crosses stone.
+ *
+ * A long arm sweeps across two tiles rather than one, which is the only thing
+ * on screen that says how far it reaches.
  */
 function drawInserter(
   ctx: CanvasRenderingContext2D,
@@ -249,7 +252,9 @@ function drawInserter(
   const swing = hand ? Math.min(machine.progress / INSERTER_SWING, 1) : 0;
   const angle = dirAngle(machine.dir);
   // -1 is fully back over the source tile, +1 fully forward over the target.
-  const along = (swing * 2 - 1) * TILE * 0.5;
+  // The hand stops half a tile short of the far tile's centre, so a long arm
+  // visibly clears the tile it reaches over instead of resting on top of it.
+  const along = (swing * 2 - 1) * TILE * (def.reach - 0.5);
   const pivotY = y - TILE * 0.22;
   const handX = x + Math.cos(angle) * along;
   const handY = pivotY + Math.sin(angle) * along;
@@ -280,6 +285,19 @@ function drawInserter(
   ctx.beginPath();
   ctx.arc(x, pivotY, 3.2, 0, Math.PI * 2);
   ctx.fill();
+
+  // A filtered arm carries a chip of what it is set to, so a bank of arms
+  // taking different items out of one chest can be told apart without
+  // opening every one of them.
+  if (machine.filter) {
+    // A pale plate behind it, because the darkest items in the table are
+    // nearly the colour of the post and would otherwise leave no chip at all.
+    ctx.fillStyle = '#e4e9f2';
+    ctx.beginPath();
+    ctx.roundRect(x - TILE * 0.13, y + TILE * 0.06, TILE * 0.26, TILE * 0.2, 3);
+    ctx.fill();
+    drawItemSprite(ctx, x, y + TILE * 0.16, TILE * 0.09, machine.filter);
+  }
 
   // The carried item goes on last: mid-swing the hand is over the post, and an
   // item that blinks out of sight halfway across looks like a dropped one.

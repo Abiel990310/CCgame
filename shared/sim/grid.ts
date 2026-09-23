@@ -28,8 +28,18 @@ export const DIR_VECTORS: ReadonlyArray<{ x: number; y: number }> = [
 ];
 
 export function step1(tx: number, ty: number, dir: Direction): { tx: number; ty: number } {
+  return stepN(tx, ty, dir, 1);
+}
+
+/** The tile `n` steps away, which is how an arm reaches over what lies between. */
+export function stepN(
+  tx: number,
+  ty: number,
+  dir: Direction,
+  n: number,
+): { tx: number; ty: number } {
   const v = DIR_VECTORS[dir];
-  return { tx: tx + v.x, ty: ty + v.y };
+  return { tx: tx + v.x * n, ty: ty + v.y * n };
 }
 
 export function opposite(dir: Direction): Direction {

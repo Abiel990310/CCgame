@@ -901,6 +901,56 @@ kbd {
   background: rgba(232, 182, 76, 0.12);
 }
 
+/* An inserter's filter list is one row per item, so it has to stay compact
+   enough that the whole item table fits without burying the bag below it. */
+.offers.filters {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 6px;
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.filter-head {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.offers.filters .offer.chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 10px;
+}
+
+.offers.filters .offer.chip:hover {
+  transform: none;
+}
+
+.offers.filters .offer.chip b {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+/* "Anything" has no item to draw, so it gets an empty slot instead. */
+.chip-icon.any {
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+}
+
 .inv-inner .ghost-btn {
   width: 100%;
 }

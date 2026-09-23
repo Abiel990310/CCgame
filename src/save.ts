@@ -1,4 +1,5 @@
 import { createWorld } from '@shared/sim/world';
+import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
@@ -77,6 +78,8 @@ type PackedMachine = [
   number,
   PackedSlot[],
   PackedSlot[],
+  /** An inserter's filter. Absent on a row packed before filters existed. */
+  (ItemId | null)?,
 ];
 
 interface FactorySection {
@@ -303,6 +306,7 @@ function packMachine(machine: Machine): PackedMachine {
     round(machine.progress, 3),
     packSlots(machine.input),
     packSlots(machine.output),
+    machine.filter,
   ];
 }
 
@@ -317,6 +321,7 @@ function unpackMachine(packed: PackedMachine): Machine {
     progress: packed[6],
     input: unpackSlots(packed[7]),
     output: unpackSlots(packed[8]),
+    filter: packed[9] ?? null,
     // Recomputed by the factory system on the first tick after a load.
     stalled: false,
   };
@@ -331,9 +336,18 @@ function loadMachine(machine: Machine): Machine {
   const def = MACHINES[machine.type];
   return {
     ...machine,
+    // An island saved before filters existed simply has none.
+    filter: loadFilter(machine),
     input: normalizeSlots(machine.input, def.inputSlots, def.slotSize),
     output: normalizeSlots(machine.output, def.outputSlots, def.slotSize),
   };
+}
+
+/** A filter naming an item this build no longer has is dropped, not honoured. */
+function loadFilter(machine: Machine): ItemId | null {
+  const filter = machine.filter as ItemId | null | undefined;
+  if (!filter || MACHINES[machine.type].family !== 'inserter' || !(filter in ITEMS)) return null;
+  return filter;
 }
 
 function rebuildGrid(world: World): void {
