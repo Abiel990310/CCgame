@@ -30,6 +30,8 @@ import {
 } from '@shared/sim/factory';
 import { rotate, tileCenter, toTile } from '@shared/sim/grid';
 import { chooseUpgrade } from '@shared/sim/progression';
+import { TECH_BY_ID } from '@shared/data/techs';
+import { setResearch } from '@shared/sim/research';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
 import type {
@@ -89,6 +91,9 @@ export class Game {
       onSetRecipe: (machineId, recipeId) => {
         if (setRecipe(this.world, machineId, recipeId)) this.requestSave();
       },
+      onSetResearch: (techId) => {
+        if (setResearch(this.world, techId)) this.requestSave();
+      },
       onToggleBag: () => this.toggleBag(),
       onDash: () => this.input.triggerDash(),
       onTogglePause: () => this.togglePause(),
@@ -125,6 +130,7 @@ export class Game {
       sortArea,
       gatherStacks,
       addItem,
+      setResearch: (techId: string | null) => setResearch(this.world, techId),
       openInventory: (machine: Machine | null) => this.hud.openInventory(machine),
     };
   }
@@ -478,6 +484,7 @@ export class Game {
         step(this.world, inputs);
         this.renderer.effects.consume(this.world.events);
         this.announcePhase();
+        this.announceResearch();
       }
 
       this.saveTimer -= elapsed;
@@ -491,6 +498,22 @@ export class Game {
     this.renderer.camera.follow(this.self.pos, elapsed);
     this.renderer.render(this.world, this.selfId, this.world.time, ghost, removal);
     this.hud.update(this.world, this.self);
+  }
+
+  /** A finished tech is a milestone, and the only sign a lab gives of one. */
+  private announceResearch(): void {
+    for (const event of this.world.events) {
+      if (event.kind !== 'research') continue;
+
+      const tech = TECH_BY_ID.get(event.tech);
+      const name = tech?.repeatable ? `${tech.name} ${event.level}` : (tech?.name ?? event.tech);
+      const next = event.next ? TECH_BY_ID.get(event.next) : null;
+      this.hud.toast(
+        next ? `Researched ${name}. Labs moved to ${next.name}.` : `Researched ${name}`,
+        'good',
+      );
+      this.requestSave();
+    }
   }
 
   private announcePhase(): void {

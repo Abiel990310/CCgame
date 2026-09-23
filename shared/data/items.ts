@@ -5,7 +5,7 @@ import type { ItemId, ResourceKind, ToolKind } from '../sim/types';
  * a shape plus the item's colour is what makes a grid of stacks readable at a
  * glance instead of a wall of identical squares.
  */
-export type ItemShape = 'chunk' | 'plate' | 'round' | 'strand' | 'leaf' | 'log';
+export type ItemShape = 'chunk' | 'plate' | 'round' | 'strand' | 'leaf' | 'log' | 'flask';
 
 export interface ItemDef {
   id: ItemId;
@@ -52,6 +52,16 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     stack: 999,
     shape: 'plate',
   },
+
+  researchPack: {
+    id: 'researchPack',
+    name: 'Research Pack',
+    color: '#e0574f',
+    stack: 999,
+    shape: 'flask',
+  },
+  logicPack: { id: 'logicPack', name: 'Logic Pack', color: '#5fbf7a', stack: 999, shape: 'flask' },
+  powerPack: { id: 'powerPack', name: 'Power Pack', color: '#6f8cf0', stack: 999, shape: 'flask' },
 };
 
 export interface ResourceDef {

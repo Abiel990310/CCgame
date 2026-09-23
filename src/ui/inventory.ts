@@ -1,10 +1,19 @@
 import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
+import { TECHS, TECH_BY_ID } from '@shared/data/techs';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
+import {
+  activeTech,
+  cyclesDone,
+  cyclesNeeded,
+  isAvailable,
+  isFinished,
+  techLevel,
+} from '@shared/sim/research';
 import { totalIn } from '@shared/sim/slots';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { Machine, Player, Slot } from '@shared/sim/types';
+import type { Machine, Player, Slot, World } from '@shared/sim/types';
 
 export interface InventoryCallbacks {
   /** A slot was clicked: pick up, put down, split, or send across. */
@@ -15,6 +24,8 @@ export interface InventoryCallbacks {
   /** Double-click: pull every loose stack of this item into this slot. */
   onGather: (ref: SlotRef) => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
+  /** Point every lab on the island at a tech. Research belongs to the world. */
+  onSetResearch: (techId: string) => void;
   onClose: () => void;
 }
 
@@ -52,6 +63,7 @@ export class InventoryScreen {
     sortInput: HTMLButtonElement;
     sortBag: HTMLButtonElement;
     recipes: HTMLElement;
+    research: HTMLElement;
     bagGrid: HTMLElement;
     bagNote: HTMLElement;
     close: HTMLButtonElement;
@@ -85,6 +97,7 @@ export class InventoryScreen {
       sortInput: must<HTMLButtonElement>('inv-sort-input'),
       sortBag: must<HTMLButtonElement>('inv-sort-bag'),
       recipes: must('inv-recipes'),
+      research: must('inv-research'),
       bagGrid: must('inv-bag-grid'),
       bagNote: must('inv-bag-note'),
       close: must<HTMLButtonElement>('inv-close'),
@@ -153,22 +166,26 @@ export class InventoryScreen {
       this.els.title.textContent = 'Your bag';
       this.els.blurb.classList.add('hidden');
       this.els.container.classList.add('hidden');
+      this.els.research.classList.add('hidden');
       this.els.recipes.innerHTML = '';
       return;
     }
 
     const def = MACHINES[machine.type];
-    this.els.eyebrow.textContent = def.choosesRecipe ? 'Machine' : 'Storage';
+    const lab = machine.type === 'lab';
+    this.els.eyebrow.textContent = lab ? 'Research' : def.choosesRecipe ? 'Machine' : 'Storage';
     this.els.title.textContent = def.name;
     this.els.blurb.textContent = def.description;
     this.els.blurb.classList.remove('hidden');
     this.els.container.classList.remove('hidden');
 
     // A chest's grid is its whole point, so it is not labelled "In".
-    this.els.inputLabel.textContent = def.choosesRecipe ? 'In' : 'Stored';
+    this.els.inputLabel.textContent = lab ? 'Packs' : def.choosesRecipe ? 'In' : 'Stored';
     this.els.inputGrid.parentElement?.classList.toggle('hidden', def.inputSlots === 0);
     this.els.outputBlock.classList.toggle('hidden', def.outputSlots === 0);
-    this.els.progress.classList.toggle('hidden', !def.choosesRecipe);
+    // A lab has a cycle like a crafter does, even though it chooses no recipe.
+    this.els.progress.classList.toggle('hidden', !def.choosesRecipe && !lab);
+    this.els.research.classList.toggle('hidden', !lab);
 
     this.els.sortInput.classList.toggle('hidden', def.inputSlots < 2);
 
@@ -194,7 +211,7 @@ export class InventoryScreen {
     }
   }
 
-  update(player: Player, machine: Machine | null): void {
+  update(world: World, player: Player, machine: Machine | null): void {
     if (!this.open) return;
     // The machine object is re-read every frame: removing it while its screen
     // is open must close the screen rather than show a ghost.
@@ -211,7 +228,8 @@ export class InventoryScreen {
     }
 
     if (machine) this.updateProgress(machine);
-    this.updateRecipes(machine);
+    if (machine?.type === 'lab') this.updateResearchNote(world);
+    this.updateRecipes(world, machine);
   }
 
   private signature(player: Player, machine: Machine | null): string {
@@ -255,23 +273,52 @@ export class InventoryScreen {
 
   private updateProgress(machine: Machine): void {
     const def = MACHINES[machine.type];
-    if (!def.choosesRecipe) return;
+    if (!def.choosesRecipe && machine.type !== 'lab') return;
 
-    const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
-    const duration = recipe ? craftTime(recipe, def.speed) : 0;
+    const duration =
+      machine.type === 'lab'
+        ? (machine.recipe ? (TECH_BY_ID.get(machine.recipe)?.time ?? 0) : 0)
+        : this.craftDuration(machine, def.speed);
     const fraction = duration > 0 ? Math.min(1, machine.progress / duration) : 0;
     this.els.progressFill.style.width = `${fraction * 100}%`;
     this.els.progress.classList.toggle('stalled', machine.stalled);
   }
 
-  private updateRecipes(machine: Machine | null): void {
+  private craftDuration(machine: Machine, speed: number): number {
+    const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
+    return recipe ? craftTime(recipe, speed) : 0;
+  }
+
+  /** What the island is researching, in a line above the tech list. */
+  private updateResearchNote(world: World): void {
+    const tech = activeTech(world);
+    const text = tech
+      ? `Researching <b>${tech.name}</b> — ${cyclesDone(world, tech.id)} / ` +
+        `${cyclesNeeded(world, tech)} cycles, ` +
+        `${tech.inputs.map((i) => `${i.count} ${ITEMS[i.id].name}`).join(' + ')} each`
+      : 'Nothing selected. Every lab on the island works on what you pick below.';
+    if (this.els.research.innerHTML !== text) this.els.research.innerHTML = text;
+  }
+
+  private updateRecipes(world: World, machine: Machine | null): void {
     const def = machine ? MACHINES[machine.type] : null;
-    const key = machine && def?.choosesRecipe ? `${machine.id}:${machine.recipe}` : '';
+    const key = !machine || !def
+      ? ''
+      : machine.type === 'lab'
+        ? `lab:${researchKey(world)}`
+        : def.choosesRecipe
+          ? `${machine.id}:${machine.recipe}`
+          : '';
     if (key === this.recipeKey) return;
     this.recipeKey = key;
 
     this.els.recipes.innerHTML = '';
-    if (!machine || !def?.choosesRecipe) return;
+    if (!machine || !def) return;
+    if (machine.type === 'lab') {
+      this.paintTechs(world);
+      return;
+    }
+    if (!def.choosesRecipe) return;
 
     for (const recipe of recipesFor(machine.type)) {
       const button = document.createElement('button');
@@ -280,6 +327,37 @@ export class InventoryScreen {
       const outputs = recipe.outputs.map((o) => `${o.count} ${ITEMS[o.id].name}`).join(' + ');
       button.innerHTML = `<b>${recipe.name}</b><span>${inputs} → ${outputs}<br>${recipe.time}s</span>`;
       button.addEventListener('click', () => this.callbacks.onSetRecipe(machine.id, recipe.id));
+      this.els.recipes.appendChild(button);
+    }
+  }
+
+  /**
+   * The tech tree, as the cards a level-up draft uses. Locked techs stay on the
+   * list rather than being hidden: what you are working toward is most of the
+   * reason to build another assembler.
+   */
+  private paintTechs(world: World): void {
+    for (const tech of TECHS) {
+      const level = techLevel(world, tech.id);
+      const open = isAvailable(world, tech);
+      const done = isFinished(world, tech);
+      const current = world.research.current === tech.id;
+
+      const button = document.createElement('button');
+      button.className = `offer${current ? ' on' : ''}`;
+      button.disabled = !open || done;
+
+      const cost = tech.inputs.map((i) => `${i.count} ${ITEMS[i.id].name}`).join(' + ');
+      const state = done
+        ? 'Done'
+        : !open
+          ? `Needs ${tech.requires.map((id) => TECH_BY_ID.get(id)?.name ?? id).join(', ')}`
+          : `${cyclesDone(world, tech.id)} / ${cyclesNeeded(world, tech)} cycles`;
+      const name = tech.repeatable && level > 0 ? `${tech.name} ${level + 1}` : tech.name;
+
+      button.innerHTML =
+        `<b>${name}</b><span>${tech.description}<br>${cost} · ${tech.time}s · ${state}</span>`;
+      button.addEventListener('click', () => this.callbacks.onSetResearch(tech.id));
       this.els.recipes.appendChild(button);
     }
   }
@@ -313,6 +391,13 @@ export class InventoryScreen {
     if (!to || (to.area === from.area && to.index === from.index)) return;
     this.callbacks.onSlotAction(to, event.button === 2 ? 'right' : 'left', event.shiftKey);
   }
+}
+
+/** Everything the tech list draws from, so it repaints when research moves. */
+function researchKey(world: World): string {
+  const current = world.research.current;
+  const levels = TECHS.map((t) => techLevel(world, t.id)).join(',');
+  return `${current}:${levels}:${current ? cyclesDone(world, current) : 0}`;
 }
 
 function refAt(target: EventTarget | null): SlotRef | null {

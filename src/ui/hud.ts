@@ -1,5 +1,6 @@
 import { ITEMS } from '@shared/data/items';
 import { CYCLE } from '@shared/sim/constants';
+import { activeTech, cyclesDone, cyclesNeeded } from '@shared/sim/research';
 import { hasAll } from '@shared/sim/inventory';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import type { Machine, Player, World } from '@shared/sim/types';
@@ -36,6 +37,7 @@ export interface HudCallbacks {
   onTogglePause: () => void;
   onQuitToMenu: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
+  onSetResearch: (techId: string) => void;
   onSlotAction: (ref: SlotRef, button: ClickButton, quick: boolean) => void;
   onTakeAll: (machineId: number) => void;
   onSort: (area: SlotArea) => void;
@@ -60,6 +62,9 @@ export class Hud {
     hpText: $('hp-text'),
     xpFill: $('xp-fill'),
     xpText: $('xp-text'),
+    research: $('research'),
+    researchFill: $('research-fill'),
+    researchText: $('research-text'),
     pouch: $('pouch'),
     hotbar: $('hotbar'),
     buildbar: $('buildbar'),
@@ -108,6 +113,7 @@ export class Hud {
         if (machine) this.callbacks.onTakeAll(machine.id);
       },
       onSetRecipe: (machineId, recipeId) => this.callbacks.onSetRecipe(machineId, recipeId),
+      onSetResearch: (techId) => this.callbacks.onSetResearch(techId),
       onSort: (area) => this.callbacks.onSort(area),
       onGather: (ref) => this.callbacks.onGather(ref),
       onClose: () => this.callbacks.onCloseInventory(),
@@ -323,7 +329,8 @@ export class Hud {
     this.updateDash(player);
     this.updateOffers(player);
     this.updateHotbar(player);
-    this.inventory.update(player, this.liveMachine(world));
+    this.updateResearch(world);
+    this.inventory.update(world, player, this.liveMachine(world));
     if (this.buildMode) this.updateBuildAffordability(player);
   }
 
@@ -332,6 +339,22 @@ export class Hud {
     const open = this.inventory.inspecting;
     if (!open) return null;
     return world.machines.find((m) => m.id === open.id) ?? null;
+  }
+
+  /**
+   * The island's research, beside the player's own bars. It appears once a
+   * tech is chosen and not before: nothing is more confusing on minute one
+   * than a progress bar for a thing that does not exist yet.
+   */
+  private updateResearch(world: World): void {
+    const tech = activeTech(world);
+    this.els.research.classList.toggle('hidden', !tech);
+    if (!tech) return;
+
+    const done = cyclesDone(world, tech.id);
+    const needed = cyclesNeeded(world, tech);
+    this.els.researchFill.style.width = `${(done / needed) * 100}%`;
+    this.els.researchText.textContent = `${tech.name} ${done} / ${needed}`;
   }
 
   private updatePhase(world: World): void {

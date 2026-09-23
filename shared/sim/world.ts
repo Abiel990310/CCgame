@@ -5,6 +5,7 @@ import { isShore, isWalkable, terrainAtIndex, generateTerrain } from './terrain'
 import { generateOre, oreAt } from './ore';
 import type { Player, ResourceKind, Vec2, World } from './types';
 import { xpForLevel } from './progression';
+import { newResearch } from './research';
 import { newInventory } from './inventory';
 
 export function createPlayer(id: number, name: string, pos: Vec2): Player {
@@ -69,6 +70,7 @@ export function createWorld(seed = 12345, peaceful = false): World {
     belts: [],
     machines: [],
     grid: new Map(),
+    research: newResearch(),
     peaceful,
     waveBudget: 0,
     wavePulse: 0,

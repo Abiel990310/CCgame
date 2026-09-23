@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { TICK_DT } from '../constants';
+import { TICK_DT, TILE } from '../constants';
 import { placeBelt, placeMachine, setRecipe } from '../factory';
 import { tileKey } from '../grid';
 import { addItem } from '../inventory';
@@ -52,7 +52,24 @@ export function bench(seed = 2026): Bench {
     }
   }
 
+  // Scenery is generated before the strip is flattened, so a tree can be left
+  // standing in the middle of the bench — and placement refuses to bury one.
+  // Clearing them is what makes every tile of the bench buildable, rather than
+  // the ones this seed happened to leave empty.
+  world.nodes = world.nodes.filter((node) => !onBench(node.pos.x, node.pos.y));
+
   return { world, player };
+}
+
+function onBench(x: number, y: number): boolean {
+  const tx = Math.floor(x / TILE);
+  const ty = Math.floor(y / TILE);
+  return (
+    tx >= BENCH.tx &&
+    tx < BENCH.tx + BENCH.width &&
+    ty >= BENCH.ty &&
+    ty < BENCH.ty + BENCH.height
+  );
 }
 
 /** A tile on the bench, offset from its top-left corner. */

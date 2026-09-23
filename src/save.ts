@@ -1,5 +1,7 @@
 import { createWorld } from '@shared/sim/world';
 import { MACHINES } from '@shared/data/machines';
+import { TECH_BY_ID } from '@shared/data/techs';
+import { newResearch } from '@shared/sim/research';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
@@ -7,7 +9,7 @@ import { asStack, normalizeSlots } from '@shared/sim/slots';
 import type { Machine, Player, World } from '@shared/sim/types';
 import { slotKey } from './saves';
 
-const VERSION = 3;
+const VERSION = 4;
 
 interface SaveFile {
   version: number;
@@ -25,6 +27,7 @@ interface SaveFile {
   buildings: World['buildings'];
   belts: World['belts'];
   machines: World['machines'];
+  research: World['research'];
   peaceful: boolean;
 }
 
@@ -51,6 +54,7 @@ export function saveWorld(world: World, slot: string): boolean {
     buildings: world.buildings,
     belts: world.belts,
     machines: world.machines,
+    research: world.research,
     peaceful: world.peaceful,
   };
   try {
@@ -96,6 +100,9 @@ export function loadWorld(slot: string): World | null {
     // A machine whose type no longer exists is dropped rather than taken as a
     // reason to refuse the whole island.
     world.machines = (file.machines ?? []).filter((m) => m.type in MACHINES).map(loadMachine);
+    // Islands saved before version 4 have researched nothing, which is exactly
+    // what a fresh research state says.
+    world.research = loadResearch(file.research);
     // The tile index is derived state, so rebuild it rather than storing it.
     rebuildGrid(world);
     // Older islands were built before scenery blocked placement, so they can
@@ -116,6 +123,31 @@ export function loadWorld(slot: string): World | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Research read back defensively: a tech that no longer exists is dropped
+ * rather than left pointing the island's labs at nothing, and a level or a
+ * cycle count that is not a number is read as none.
+ */
+function loadResearch(raw: World['research'] | undefined): World['research'] {
+  const research = newResearch();
+  if (!raw || typeof raw !== 'object') return research;
+
+  for (const [id, level] of Object.entries(raw.levels ?? {})) {
+    if (TECH_BY_ID.has(id) && typeof level === 'number' && level > 0) {
+      research.levels[id] = Math.floor(level);
+    }
+  }
+  for (const [id, done] of Object.entries(raw.progress ?? {})) {
+    if (TECH_BY_ID.has(id) && typeof done === 'number' && done > 0) {
+      research.progress[id] = Math.floor(done);
+    }
+  }
+  if (typeof raw.current === 'string' && TECH_BY_ID.has(raw.current)) {
+    research.current = raw.current;
+  }
+  return research;
 }
 
 /** Machine storage is a fixed grid too, sized by the machine's own definition. */

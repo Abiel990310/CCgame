@@ -54,6 +54,9 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
+| Research | Packs belted into labs, owned by the world | Research is the first thing the factory feeds rather than the player, so an unlock is a throughput problem: a second lab is worth exactly what a second furnace is. It belongs to the island, not a player, because a lab is a building and multiplayer will have several people feeding one tree. |
+| Tech effects | Multipliers, never unlocks | Every machine stays available from minute one; a tech makes the factory you already built worth more. A tree of unlocks ends, and two of these repeat forever, so the curve does not. |
+| Research XP | Every lab cycle levels up every player | Gathering by hand was the only source of XP, so automating the island slowed the character down and a peaceful world barely levelled at all. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Quick slots | Bound in `localStorage`, not in the save | The bar says how one person likes their tools arranged, not what is true of an island. Keeping it out of the world means no save version, and one bar across every island — which is what someone who arranges it once expects. |
@@ -96,11 +99,19 @@ a steel plate, and the assembler makes batteries from copper and coal, motors
 from steel and gears, and advanced circuits from circuits and batteries. That is
 the recipe half of this phase; power itself is still ahead.
 
+Research is in too. A **Lab** eats research packs off a belt, and `TECHS` in
+`shared/data/techs.ts` is the tree it works through: three packs
+(research, logic, power) assembled from the existing chain, eight techs, and
+two of them repeatable forever. Every tech is a multiplier on machines that
+already exist — mining, crafting, belt and inserter speed, lab speed, research
+XP — so nothing is locked behind research and a finished tree still compounds.
+Each lab cycle grants XP to every player on the island, which is what stops
+automating your island from slowing your character down, and gives a peaceful
+world a levelling curve at last.
+
 - Power as a network: generators, poles, consumption per machine. Machines stop
   when supply runs short, which makes power a system rather than a cost.
 - Steel and resin: recipes six or more steps from raw ore.
-- A tech tree gated by **producing** items, not by killing things — production
-  is the verb this game rewards.
 - Belt tiers or not (see open questions).
 - Production statistics, so a player can find their own bottleneck. This is a
   core factory-game affordance, not a nicety.
@@ -135,8 +146,6 @@ Unresolved, and worth a deliberate answer rather than a default.
 
 - **Do ore patches deplete?** Currently infinite. Depletion forces expansion but
   can feel punishing. Factorio chose finite; Satisfactory chose infinite.
-- **How is the tech tree gated** — by producing science items, or by cumulative
-  output?
 - **Do belts get tiers** (faster belts), or does throughput scale only by adding
   parallel lines?
 - **How early do blueprints arrive?** They remove enormous tedium, but also
@@ -168,6 +177,11 @@ detail behind the factory entries is in
 - [ ] Touch has no rotate, so every belt placed on a phone would face one way.
 - [ ] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely.
+- [ ] Shift-clicking a large stack into a two-slot machine fills **both** input
+      slots with one ingredient, so the second ingredient can never get in and
+      the machine deadlocks until you take some back out by hand. Belts are
+      guarded against exactly this (one slot reserved per ingredient); hand
+      loading is not. Found driving a research line in a browser.
 - [ ] Camp pieces are invisible to factory placement. Walls and turrets live in
       `world.buildings` by radius, not in `world.grid`, and
       `factoryPlacementError` only checks the grid — so a belt or a machine can
@@ -187,8 +201,6 @@ detail behind the factory entries is in
       now, which is what makes a mixed buffer worth having.
 - [ ] **Inserter tiers** — `MachineDef.speed` already multiplies the swing
       time, so a faster arm is a data row and nothing else.
-- [ ] **Lab and a `TECHS` table** — research consumed as a belt-fed item flow
-      rather than bought from a shop, so every unlock is a throughput problem.
 - [ ] **Tech gating on the build palette** — start with miner, furnace and
       belt; everything else is earned. Today all four machines are available at
       minute one.
@@ -222,10 +234,10 @@ detail behind the factory entries is in
 - [ ] **Second island via a bridge** — a new generated region with its own ore
       tier and tech branch. Multiplies content instead of ending it.
 - [ ] **Audio** — there is none.
-- [ ] **Something to spend steel, motors and advanced circuits on.** They are
-      made but nothing consumes them: every machine still costs wood, stone and
-      iron plate. Machine tiers, the lab or the megaproject are all candidates,
-      and until one lands the new chain is a collection rather than a sink.
+- [ ] **Machine costs stop at iron plate.** Research packs now consume steel,
+      motors and advanced circuits, so the deep chain has a sink — but nothing
+      *built* costs them. Machine tiers or the megaproject are the next
+      candidates.
 - [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
       A crafted satchel is an obvious early sink and a reason to build a
       workbench.
@@ -239,10 +251,6 @@ detail behind the factory entries is in
       with the base. Now that placements coalesce onto that timer it is the only
       save cost left, so the next step is writing only what changed, or a
       compact format.
-- [ ] Lab consumption should grant XP to every player on the island. `grantXp`
-      fires only from gathering and mob kills today, which means automating
-      your island *slows your character down*. This also gives peaceful worlds
-      a levelling curve, which they currently lack.
 - [ ] Scale `waveBudget` off the highest research tier completed rather than
       the night index alone. Researching is a choice, so difficulty stays
       opt-in and building freely never punishes you.
@@ -253,8 +261,16 @@ detail behind the factory entries is in
       what stops two facing arms passing one item back and forth forever — but
       the long inserter is the intended answer and this should be revisited
       with it.
-- [ ] The miner's 1.2s cycle is written as a literal in `src/render/factory.ts`
-      as well as `MINE_TIME` in the sim. Two places for one number.
+- [ ] A pending level-up freezes the whole world, and labs now grant XP
+      continuously, so a running factory interrupts itself with a draft card
+      every couple of minutes. Either the draft should not pause a factory that
+      the player is not touching, or level-ups should queue.
+- [ ] The lab's body is nearly the assembler's blue-grey; the lit dome is what
+      tells them apart. Fine beside each other, worth a second look in a dense
+      base.
+- [ ] Research auto-advances to the first available tech when one finishes, so a
+      lab never idles. A visible queue the player orders themselves would be
+      better than a guess.
 - [ ] Grow `UPGRADES` from 9 stat entries and 4 weapons to 40–60 entries with
       rarity tiers. Once labs feed XP continuously a player sees hundreds of
       level-ups, and three cards drawn from the same nine is thin within an
@@ -307,8 +323,9 @@ detail behind the factory entries is in
 - [ ] Peaceful worlds need a fishing-only route to the top research tier, since
       `essence` also drops from wisps at night. Otherwise peaceful is locked
       out of the endgame it suits best.
-- [ ] Research shared per world rather than per player once multiplayer lands —
-      it is what makes another player arriving unambiguously good.
+- [ ] Research is already per world rather than per player, which is what will
+      make another player arriving unambiguously good. Worth revisiting whether
+      XP from a cycle should scale with how many people are on the island.
 - [ ] Grandfather existing saves as fully unlocked when the palette becomes
       tech-gated. "Nothing is lost" is a stated pillar.
 - [ ] Trains as a later flourish on top of port logistics, for the spectacle
@@ -348,6 +365,11 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Research rates are guesses. The first tech is 20 cycles at 4s, packs cost
+      a gear and a copper plate each, and the repeatable techs double in price
+      per level. None of it has been played, only driven.
+- [ ] Whether a lab is worth its cost (20 iron plate, 10 gears, 5 circuits) at
+      the point in a run where a player can first afford one.
 - [ ] The core loop has never been playtested by a human. Day length (3 min),
       night length (1 min), gather rates and belt speed are all unvalidated
       guesses.
