@@ -52,10 +52,13 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Offline production | None | Every hour of progress is an hour someone played; the economy never has to be balanced around absence. |
 | Ore | Discrete patches, not noise | A patch is a thing a player can point at, and outgrowing one is what drives expansion. |
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
+| Camp vs factory | One overlap test, in `shared/sim/building.ts` | Camp pieces are circles in world units and factory pieces own whole tiles, so neither list can see the other by lookup. Both placement checks now go through the same circle-against-tile test, with 4px of slack so a wide piece does not claim the ring of tiles its edge merely grazes. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine tiers | A tier is a data row: a family plus a speed multiplier | A steel furnace is a furnace that runs faster, so it points at the furnace's recipes rather than duplicating them. Adding a tier costs one row in `machines.ts` and no recipe rows, which is what keeps the engine small as the ladder grows. |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
+| Save contents | Derive what the seed decides; store only what play changed | Scenery was 109 kB of a 110 kB save and `createWorld` already rebuilds it from the seed, exactly as terrain is. Nodes are regenerated on load and only the chopped and cleared ones are written, which is also why worldgen changing under an existing island would move its scenery. |
+| Save layout | One entry per part of the island, grouped by how often it changes | A header, the scenery, and the factory. A section whose text has not moved is not written again, so standing still costs the header alone instead of the whole world. |
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Quick slots | Bound in `localStorage`, not in the save | The bar says how one person likes their tools arranged, not what is true of an island. Keeping it out of the world means no save version, and one bar across every island — which is what someone who arranges it once expects. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
@@ -164,18 +167,20 @@ detail behind the factory entries is in
       index and `stepMiner` never decrements it. One miner supplies an island
       forever. (The design question is under Open questions; the code
       contradicting its own comment is the bug.)
+- [ ] Two tabs open on the same island overwrite each other, and now the
+      skipped-write cache can make one of them skip a section the other has
+      already replaced. Harmless today because nobody is told they can play in
+      two tabs, but it is a real way to lose a factory.
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
-      right-click only, so on a phone a misplaced belt is permanent.
+      right-click only, so on a phone a misplaced belt is permanent. Now that
+      removal is build-mode only, the fix belongs in the build bar: a remove
+      tool that arms the next tap.
 - [ ] Tapping the canvas in build mode places nothing. The `pointerdown`
       handler in `src/input.ts` returns early for `pointerType === 'touch'`, so
       `takeClick()` never fires and a phone cannot build or inspect a machine.
 - [ ] Touch has no rotate, so every belt placed on a phone would face one way.
 - [ ] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely.
-- [ ] Camp pieces are invisible to factory placement. Walls and turrets live in
-      `world.buildings` by radius, not in `world.grid`, and
-      `factoryPlacementError` only checks the grid — so a belt or a machine can
-      be placed straight through a wall.
 
 
 ### New features
@@ -239,11 +244,28 @@ detail behind the factory entries is in
 
 ### Changes
 
-- [ ] Saving still serialises the whole island every 8 seconds — about 110 kB of
-      JSON on a barely-built one, most of it nodes and players, and it grows
-      with the base. Now that placements coalesce onto that timer it is the only
-      save cost left, so the next step is writing only what changed, or a
-      compact format.
+- [x] Saving serialised the whole island every 8 seconds — about 110 kB of JSON
+      on a barely-built one. Scenery is now regenerated from the seed and only
+      its differences stored, the factory is packed into arrays, and the save is
+      split into a header, scenery and factory so a section that has not moved
+      is not rewritten. A 101 kB island measured in a browser now writes 1.4 kB,
+      and standing still writes only the 1 kB header.
+- [ ] Nothing on the factory grid blocks movement. `collideBuildings` in
+      `shared/sim/systems/movement.ts` walks `world.buildings` only, so players
+      and mobs pass straight through furnaces, chests and miners. Walking over
+      a belt is fine; walking through an assembler is not, and a mob taking the
+      shortcut through a machine bank ignores the wall line entirely.
+- [ ] The campfire stands on the map's exact centre, which is a tile corner, so
+      it now blocks the four tiles that meet there rather than one. Snapping it
+      to a tile centre on world creation would hand three of them back, but it
+      moves the camp for every existing save.
+- [ ] Regenerating scenery from the seed means changing `populateNodes` or
+      terrain generation moves the trees on islands people already have. Worth
+      a generation counter in the save, so a changed worldgen can be spotted
+      rather than silently rearranging someone's island.
+- [ ] A busy factory still rewrites every belt and machine each save, because
+      one belt item moving makes the whole section's text differ. Fine at a few
+      hundred belts; if the section gets big, split it per chunk of the map.
 - [ ] Lab consumption should grant XP to every player on the island. `grantXp`
       fires only from gathering and mob kills today, which means automating
       your island *slows your character down*. This also gives peaceful worlds
@@ -271,9 +293,12 @@ detail behind the factory entries is in
 - [ ] A wall chipped to 1 hit point refunds its full cost, so taking it down
       and putting it back is a free repair. Walls want a repair action, or a
       refund that scales with the damage taken.
-- [ ] The removal highlight only shows in build mode, so a right-click on the
-      open island is still aimed blind. Either highlight outside build mode too,
-      or make removal a build-mode action.
+- [x] The removal highlight only shows in build mode, so a right-click on the
+      open island is still aimed blind. Settled by making removal a build-mode
+      action: outside it the cursor opens a machine, so a demolition outline on
+      the chest you are about to click would read as a warning. `X` and
+      right-click outside build mode now say where removal lives instead of
+      taking a piece the player never saw outlined.
 - [ ] A long name truncates in a quick slot (`Storag…`). A short display name on
       each machine and building would read better in an eight-wide bar.
 - [ ] Steel plate and iron plate are both grey discs on a belt, so a mixed line
@@ -316,6 +341,9 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] The save header is written every 8 seconds even when nothing happened,
+      since `tick` always moves. Skipping it while the player is idle and
+      nothing is running would make a paused island cost nothing at all.
 - [ ] Peaceful worlds need a fishing-only route to the top research tier, since
       `essence` also drops from wisps at night. Otherwise peaceful is locked
       out of the endgame it suits best.
