@@ -52,6 +52,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Offline production | None | Every hour of progress is an hour someone played; the economy never has to be balanced around absence. |
 | Ore | Discrete patches, not noise | A patch is a thing a player can point at, and outgrowing one is what drives expansion. |
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
+| Camp vs factory | One overlap test, in `shared/sim/building.ts` | Camp pieces are circles in world units and factory pieces own whole tiles, so neither list can see the other by lookup. Both placement checks now go through the same circle-against-tile test, with 4px of slack so a wide piece does not claim the ring of tiles its edge merely grazes. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
@@ -168,10 +169,6 @@ detail behind the factory entries is in
 - [ ] Touch has no rotate, so every belt placed on a phone would face one way.
 - [ ] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely.
-- [ ] Camp pieces are invisible to factory placement. Walls and turrets live in
-      `world.buildings` by radius, not in `world.grid`, and
-      `factoryPlacementError` only checks the grid — so a belt or a machine can
-      be placed straight through a wall.
 
 
 ### New features
@@ -239,6 +236,15 @@ detail behind the factory entries is in
       with the base. Now that placements coalesce onto that timer it is the only
       save cost left, so the next step is writing only what changed, or a
       compact format.
+- [ ] Nothing on the factory grid blocks movement. `collideBuildings` in
+      `shared/sim/systems/movement.ts` walks `world.buildings` only, so players
+      and mobs pass straight through furnaces, chests and miners. Walking over
+      a belt is fine; walking through an assembler is not, and a mob taking the
+      shortcut through a machine bank ignores the wall line entirely.
+- [ ] The campfire stands on the map's exact centre, which is a tile corner, so
+      it now blocks the four tiles that meet there rather than one. Snapping it
+      to a tile centre on world creation would hand three of them back, but it
+      moves the camp for every existing save.
 - [ ] Lab consumption should grant XP to every player on the island. `grantXp`
       fires only from gathering and mob kills today, which means automating
       your island *slows your character down*. This also gives peaceful worlds

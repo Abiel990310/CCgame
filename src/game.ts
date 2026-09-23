@@ -116,6 +116,9 @@ export class Game {
     debug.__ccfactory = {
       placeBelt,
       placeMachine,
+      placeBuilding,
+      placementError,
+      factoryPlacementError,
       removeAt,
       setRecipe,
       machineAt,
@@ -376,6 +379,7 @@ export class Game {
       range: 'Too far from camp',
       terrain: "Can't build there",
       overlap: 'Something is in the way',
+      factory: 'A belt or machine is in the way',
       cost: this.costMessage(BUILDINGS[ghost.type].cost),
     };
     this.hud.toast(messages[error], 'warn');
@@ -399,6 +403,7 @@ export class Game {
       terrain: "Can't build on water",
       ore: 'A miner has to sit on an ore patch',
       scenery: "Clear what's growing there first",
+      camp: 'A camp building is in the way',
       cost: this.costMessage(cost),
     };
     this.hud.toast(messages[error], 'warn');
