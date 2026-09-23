@@ -5,6 +5,7 @@ import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import { totalIn } from '@shared/sim/slots';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import type { ItemId, Machine, Player, Slot } from '@shared/sim/types';
+import { itemIconVar } from '../render/items';
 
 export interface InventoryCallbacks {
   /** A slot was clicked: pick up, put down, split, or send across. */
@@ -319,7 +320,7 @@ export class InventoryScreen {
       const button = document.createElement('button');
       button.className = `offer chip${machine.filter === item ? ' on' : ''}`;
       const icon = item
-        ? `<span class="chip-icon"><i class="item ${ITEMS[item].shape}" style="--item:${ITEMS[item].color}"></i></span>`
+        ? `<span class="chip-icon"><i class="item" style="background-image:${itemIconVar(item)}"></i></span>`
         : '<span class="chip-icon any"></span>';
       button.innerHTML = `${icon}<b>${item ? ITEMS[item].name : 'Anything'}</b>`;
       button.addEventListener('click', () => this.callbacks.onSetFilter(machine.id, item));
@@ -380,7 +381,7 @@ function paintSlot(cell: HTMLElement, slot: Slot): void {
   if (!cell.className.includes(' filled')) cell.className += ' filled';
   cell.title = `${def.name} — ${slot.count}`;
   cell.innerHTML =
-    `<i class="item ${def.shape}" style="--item:${def.color}"></i>` +
+    `<i class="item" style="background-image:${itemIconVar(slot.id)}"></i>` +
     `<b>${slot.count}</b>`;
 }
 

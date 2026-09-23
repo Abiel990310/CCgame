@@ -3,6 +3,7 @@ import { CYCLE } from '@shared/sim/constants';
 import { hasAll } from '@shared/sim/inventory';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import type { ItemId, Machine, Player, World } from '@shared/sim/types';
+import { itemIconVar } from '../render/items';
 import { InventoryScreen } from './inventory';
 import {
   TABS,
@@ -375,7 +376,7 @@ export class Hud {
       const def = ITEMS[id as keyof typeof ITEMS];
       const chip = document.createElement('div');
       chip.className = 'chip';
-      chip.innerHTML = `<i class="dot" style="background:${def.color}"></i>${count}`;
+      chip.innerHTML = `<i class="dot icon" style="background-image:${itemIconVar(id as ItemId)}"></i>${count}`;
       chip.title = def.name;
       this.els.pouch.appendChild(chip);
     }

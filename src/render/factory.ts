@@ -1,9 +1,9 @@
-import { ITEMS } from '@shared/data/items';
 import { BELT_SPEED, INSERTER_SWING, MACHINES, isInserter } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TILE } from '@shared/sim/constants';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
 import type { Belt, Machine, OreKind } from '@shared/sim/types';
+import { drawItemSprite } from './items';
 import { UI, rgba, shift } from './palette';
 import { meter, polygon, shadow } from './shapes';
 
@@ -111,9 +111,7 @@ export function drawBeltItems(ctx: CanvasRenderingContext2D, belt: Belt): void {
     ctx.ellipse(ix, iy + 3, 4.5, 2.4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    polygon(ctx, ix, iy, 4.6, 5, riding.offset * 1000 + belt.id, 0.2);
-    ctx.fillStyle = ITEMS[riding.item].color;
-    ctx.fill();
+    drawItemSprite(ctx, ix, iy, 5.2, riding.item);
   }
 }
 
@@ -285,16 +283,13 @@ function drawInserter(
   // taking different items out of one chest can be told apart without
   // opening every one of them.
   if (machine.filter) {
-    // Pale backing, because the darkest item in the table is nearly the colour
-    // of the post and would otherwise leave no chip at all.
+    // A pale plate behind it, because the darkest items in the table are
+    // nearly the colour of the post and would otherwise leave no chip at all.
     ctx.fillStyle = '#e4e9f2';
     ctx.beginPath();
-    ctx.roundRect(x - TILE * 0.11, y + TILE * 0.08, TILE * 0.22, TILE * 0.15, 3);
+    ctx.roundRect(x - TILE * 0.13, y + TILE * 0.06, TILE * 0.26, TILE * 0.2, 3);
     ctx.fill();
-    ctx.fillStyle = ITEMS[machine.filter].color;
-    ctx.beginPath();
-    ctx.roundRect(x - TILE * 0.08, y + TILE * 0.105, TILE * 0.16, TILE * 0.1, 2);
-    ctx.fill();
+    drawItemSprite(ctx, x, y + TILE * 0.16, TILE * 0.09, machine.filter);
   }
 
   // The carried item goes on last: mid-swing the hand is over the post, and an
@@ -305,9 +300,7 @@ function drawInserter(
     ctx.ellipse(handX, handY + TILE * 0.22, 4.5, 2.4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    polygon(ctx, handX, handY, 4.8, 5, machine.id, 0.2);
-    ctx.fillStyle = ITEMS[hand.id].color;
-    ctx.fill();
+    drawItemSprite(ctx, handX, handY, 5.2, hand.id);
   }
 }
 
