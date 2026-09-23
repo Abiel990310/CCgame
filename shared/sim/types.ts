@@ -175,7 +175,18 @@ export type Direction = 0 | 1 | 2 | 3;
 
 export type OreKind = 'ironOre' | 'copperOre' | 'coal';
 
-export type MachineId = 'miner' | 'furnace' | 'assembler' | 'chest' | 'inserter';
+export type MachineId =
+  | 'miner'
+  | 'minerMk2'
+  | 'minerMk3'
+  | 'furnace'
+  | 'furnaceMk2'
+  | 'furnaceMk3'
+  | 'assembler'
+  | 'assemblerMk2'
+  | 'assemblerMk3'
+  | 'chest'
+  | 'inserter';
 
 /** One item riding a belt tile, positioned 0..1 along its length. */
 export interface BeltItem {

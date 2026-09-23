@@ -20,7 +20,11 @@ const STORE_KEY = 'ccgame.hotbar.v1';
 
 /** The first eight pieces in palette order — the bar a new player wants. */
 export function defaultHotbar(): HotbarBinding[] {
-  const order = [...entriesFor('factory'), ...entriesFor('camp')].map((e) => e.selection);
+  const order = [...entriesFor('factory'), ...entriesFor('camp')]
+    .map((e) => e.selection)
+    // Later tiers are earned, not started with, so they do not take a default
+    // slot from the chest and the inserter a new island actually needs.
+    .filter((s) => s.kind !== 'machine' || MACHINES[s.id].tier === 1);
   const slots: HotbarBinding[] = [];
   for (let i = 0; i < HOTBAR_SLOTS; i++) slots.push(order[i] ?? null);
   return slots;

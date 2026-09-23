@@ -42,7 +42,17 @@ export function bench(seed = 2026): Bench {
 
   // Enough of everything the machines cost, so placement never fails for want
   // of materials.
-  for (const item of ['wood', 'stone', 'ironPlate'] as ItemId[]) addItem(player, item, 900);
+  const stock: ItemId[] = [
+    'wood',
+    'stone',
+    'ironPlate',
+    'steelPlate',
+    'gear',
+    'circuit',
+    'motor',
+    'advancedCircuit',
+  ];
+  for (const item of stock) addItem(player, item, 900);
 
   const grass = TERRAIN_ORDER.indexOf('grass');
   for (let ty = BENCH.ty; ty < BENCH.ty + BENCH.height; ty++) {
