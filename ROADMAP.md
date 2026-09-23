@@ -67,6 +67,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
 | Dependencies | Zero runtime deps, zero external requests | Nothing to leak, nothing to break when a CDN does. |
+| Audio | Synthesised in Web Audio, never sampled | A sound pack would be the first file the page ever fetched, and the first thing between a load and a playable island. It also means the music can be generated rather than looped, which matters when someone is on the same island for hours. Sounds are a data table (`src/audio/sounds.ts`) like every other kind of content. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -233,7 +234,16 @@ detail behind the factory entries is in
       world.
 - [ ] **Second island via a bridge** — a new generated region with its own ore
       tier and tech branch. Multiplies content instead of ending it.
-- [ ] **Audio** — there is none.
+- [ ] **Mob voices** — every mob dies to the same sound. One row per mob in
+      `src/audio/sounds.ts` would make a wisp and a brute distinguishable with
+      your eyes on the belt you are laying.
+- [ ] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
+      themselves. Movement is the verb the player does most and it is silent.
+- [ ] **A pitch per item on production sounds**, so a bank of furnaces reads as
+      a chord and a stalled one is audible as a gap.
+- [ ] **Muffle the world behind an open modal** — a lowpass on the master bus
+      while the pause or inventory screen is up, so the interface sits in front
+      of the island rather than inside it.
 - [ ] **Something to spend steel, motors and advanced circuits on.** They are
       made but nothing consumes them: every machine still costs wood, stone and
       iron plate. Machine tiers, the lab or the megaproject are all candidates,
@@ -290,6 +300,12 @@ detail behind the factory entries is in
 - [ ] A filtered arm reads only the front item of the belt it watches, so a
       full belt of the wrong item parks it even when its item is two places
       back. Correct for one lane; worth revisiting if belts ever carry sides.
+- [ ] Weapons only ever fire at the nearest mob, so a forty-mob night sounds
+      exactly like a one-mob night. Noticed while balancing combat audio; it is
+      a combat-feel question, not an audio one.
+- [ ] The factory hum counts machines within earshot every 0.3s by scanning
+      every machine and belt on the island. Fine at hundreds; if a base ever
+      reaches thousands it wants the same spatial index the renderer will need.
 - [ ] Grow `UPGRADES` from 9 stat entries and 4 weapons to 40–60 entries with
       rarity tiers. Once labs feed XP continuously a player sees hundreds of
       level-ups, and three cards drawn from the same nine is thin within an
@@ -392,6 +408,14 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] **Nobody has actually listened to the game.** The audio layer was verified
+      in headless Chromium by tapping the master bus with an analyser — which
+      proves sound is rendered, that mute silences it and that gameplay drives
+      it, but says nothing about whether it is pleasant. The mix, the default
+      volumes and the generative music all want a human with headphones.
+- [ ] Audio on a phone. iOS needs a gesture before a context will start (the
+      menu click is one) and honours the hardware mute switch, neither of which
+      has been tried on real hardware.
 - [ ] The core loop has never been playtested by a human. Day length (3 min),
       night length (1 min), gather rates and belt speed are all unvalidated
       guesses.

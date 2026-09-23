@@ -3,6 +3,7 @@ import { MACHINES, isInserter } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import { totalIn } from '@shared/sim/slots';
+import { audio } from '../audio';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import type { ItemId, Machine, Player, Slot } from '@shared/sim/types';
 import { itemIconVar } from '../render/items';
@@ -102,9 +103,18 @@ export class InventoryScreen {
     this.buildGrid('bag', INVENTORY_SLOTS);
 
     this.els.close.addEventListener('click', () => this.callbacks.onClose());
-    this.els.takeAll.addEventListener('click', () => this.callbacks.onTakeAll());
-    this.els.sortInput.addEventListener('click', () => this.callbacks.onSort('input'));
-    this.els.sortBag.addEventListener('click', () => this.callbacks.onSort('bag'));
+    this.els.takeAll.addEventListener('click', () => {
+      audio.play('click');
+      this.callbacks.onTakeAll();
+    });
+    this.els.sortInput.addEventListener('click', () => {
+      audio.play('click');
+      this.callbacks.onSort('input');
+    });
+    this.els.sortBag.addEventListener('click', () => {
+      audio.play('click');
+      this.callbacks.onSort('bag');
+    });
     // Right-click is a split, not the browser's menu.
     this.root.addEventListener('contextmenu', (e) => e.preventDefault());
     this.root.addEventListener('pointerdown', (e) => this.onPointerDown(e));
@@ -300,7 +310,10 @@ export class InventoryScreen {
       const inputs = recipe.inputs.map((i) => `${i.count} ${ITEMS[i.id].name}`).join(' + ');
       const outputs = recipe.outputs.map((o) => `${o.count} ${ITEMS[o.id].name}`).join(' + ');
       button.innerHTML = `<b>${recipe.name}</b><span>${inputs} → ${outputs}<br>${recipe.time}s</span>`;
-      button.addEventListener('click', () => this.callbacks.onSetRecipe(machine.id, recipe.id));
+      button.addEventListener('click', () => {
+        audio.play('click');
+        this.callbacks.onSetRecipe(machine.id, recipe.id);
+      });
       this.els.recipes.appendChild(button);
     }
   }
@@ -342,6 +355,7 @@ export class InventoryScreen {
     event.preventDefault();
     this.pressRef = ref;
     this.pressAt = { x: event.clientX, y: event.clientY };
+    audio.play('slot');
     this.callbacks.onSlotAction(ref, event.button === 2 ? 'right' : 'left', event.shiftKey);
   }
 
@@ -358,6 +372,7 @@ export class InventoryScreen {
 
     const to = refAt(event.target);
     if (!to || (to.area === from.area && to.index === from.index)) return;
+    audio.play('slot');
     this.callbacks.onSlotAction(to, event.button === 2 ? 'right' : 'left', event.shiftKey);
   }
 }
