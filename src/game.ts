@@ -44,7 +44,7 @@ import type {
 import { addPlayer, createWorld } from '@shared/sim/world';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview, type RemovalPreview } from './render/renderer';
-import { loadWorld, saveWorld } from './save';
+import { forgetSlot, loadWorld, saveWorld } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { Hud } from './ui/hud';
 
@@ -120,6 +120,9 @@ export class Game {
     debug.__ccfactory = {
       placeBelt,
       placeMachine,
+      placeBuilding,
+      placementError,
+      factoryPlacementError,
       removeAt,
       setRecipe,
       setFilter,
@@ -137,6 +140,9 @@ export class Game {
   /** Open a save slot: load its island, or generate one the first time. */
   enter(slot: SaveSlot, peaceful = false): void {
     this.slot = slot;
+    // Saves skip a section whose text has not changed, so the record of what
+    // this tab already wrote has to start empty for whatever slot is opened.
+    forgetSlot(slot.id);
     const loaded = loadWorld(slot.id);
 
     if (loaded) {
@@ -291,7 +297,7 @@ export class Game {
       if (action === 'build' && !blocked) this.toggleBuild();
       if (action === 'inventory') this.toggleBag();
       if (action === 'rotate' && !blocked) this.buildDir = rotate(this.buildDir);
-      if (action === 'remove' && !blocked) this.removeUnderCursor();
+      if (action === 'remove' && !blocked) this.tryRemove();
       if (action === 'cancel') {
         // Esc backs out of whatever is open, and opens the menu when nothing is.
         if (this.hud.isPauseOpen) this.togglePause();
@@ -331,12 +337,17 @@ export class Game {
 
   /**
    * What `X` or right-click would take, so removal is aimed at something rather
-   * than at wherever the cursor happens to be. Only shown in build mode: a red
-   * outline around every machine walked past would fight the gather hint.
+   * than at wherever the cursor happens to be. Only drawn in build mode, which
+   * is also the only mode that removes: outside it the cursor opens a machine,
+   * and a demolition outline on the chest you are about to click reads as a
+   * warning rather than as the hint it is meant to be.
    */
   private removalTarget(): RemovalPreview | null {
-    if (!this.hud.isBuildMode) return null;
+    return this.hud.isBuildMode ? this.targetUnderCursor() : null;
+  }
 
+  /** The piece the cursor is over, whatever mode the game is in. */
+  private targetUnderCursor(): RemovalPreview | null {
     const pos = this.cursorWorld;
     const { tx, ty } = toTile(pos);
 
@@ -381,6 +392,7 @@ export class Game {
       range: 'Too far from camp',
       terrain: "Can't build there",
       overlap: 'Something is in the way',
+      factory: 'A belt or machine is in the way',
       cost: this.costMessage(BUILDINGS[ghost.type].cost),
     };
     this.hud.toast(messages[error], 'warn');
@@ -404,6 +416,7 @@ export class Game {
       terrain: "Can't build on water",
       ore: 'A miner has to sit on an ore patch',
       scenery: "Clear what's growing there first",
+      camp: 'A camp building is in the way',
       cost: this.costMessage(cost),
     };
     this.hud.toast(messages[error], 'warn');
@@ -411,6 +424,21 @@ export class Game {
 
   private costMessage(cost: ItemStack[]): string {
     return `Need ${cost.map((c) => `${c.count} ${ITEMS[c.id].name}`).join(', ')}`;
+  }
+
+  /**
+   * Removal is a build-mode action, so `X` and right-click outside it say where
+   * removal lives rather than silently taking a piece the player never saw
+   * outlined. Silence when the cursor is over nothing removable: right-clicking
+   * open grass should not nag.
+   */
+  private tryRemove(): void {
+    if (this.hud.isBuildMode) {
+      this.removeUnderCursor();
+      return;
+    }
+    const target = this.targetUnderCursor();
+    if (target && !target.fixed) this.hud.toast('Open build mode (B) to remove', 'warn');
   }
 
   private removeUnderCursor(): void {

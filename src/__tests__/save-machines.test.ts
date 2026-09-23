@@ -3,8 +3,8 @@ import { MACHINES } from '@shared/data/machines';
 import { makeSlots } from '@shared/sim/slots';
 import type { Machine, MachineId, World } from '@shared/sim/types';
 import { createWorld } from '@shared/sim/world';
-import { loadWorld, saveWorld } from '../save';
-import { slotKey } from '../saves';
+import { forgetSlot, loadWorld, saveWorld } from '../save';
+import { FACTORY_SUFFIX, slotKey } from '../saves';
 
 /** The registry only ever talks to localStorage, so a Map stands in for it. */
 function installStorage(): Map<string, string> {
@@ -26,6 +26,9 @@ function installStorage(): Map<string, string> {
 let store: Map<string, string>;
 beforeEach(() => {
   store = installStorage();
+  // The writer skips a section whose text it already wrote, and that memory
+  // outlives the stub storage this test replaces.
+  for (const slot of ['a', 'b', 'c']) forgetSlot(slot);
 });
 
 function machine(type: MachineId, tx: number, ty: number): Machine {
@@ -66,25 +69,46 @@ describe('saving an island with inserters on it', () => {
 
   it('reads an island saved before filters existed', () => {
     const world = island();
-    saveWorld(world, 'b');
-    // What a version 3 save looks like: no `filter` on any machine at all.
-    const file = JSON.parse(store.get(slotKey('b'))!);
-    file.version = 3;
-    for (const m of file.machines) delete m.filter;
-    store.set(slotKey('b'), JSON.stringify(file));
+    // A version 3 save: the whole island in the header, and no `filter`
+    // anywhere in it, written the way that version wrote it.
+    const legacy = {
+      version: 3,
+      savedAt: Date.now(),
+      seed: world.seed,
+      tick: 0,
+      time: 0,
+      phase: 'day',
+      phaseTime: 60,
+      nightIndex: 0,
+      nextId: world.nextId,
+      rngState: world.rngState,
+      players: [],
+      nodes: world.nodes,
+      buildings: world.buildings,
+      belts: [],
+      machines: world.machines.map((m) => {
+        const { filter: _filter, ...rest } = m;
+        return rest;
+      }),
+      peaceful: true,
+    };
+    store.set(slotKey('b'), JSON.stringify(legacy));
 
     const loaded = loadWorld('b')!;
 
-    expect(loaded.machines).toHaveLength(2);
+    expect(loaded.machines.map((m) => m.type)).toEqual(['inserter', 'longInserter']);
     expect(loaded.machines.map((m) => m.filter)).toEqual([null, null]);
   });
 
   it('drops a filter naming an item this build no longer has', () => {
     const world = island();
+    world.machines[0].filter = 'ironPlate';
     saveWorld(world, 'c');
-    const file = JSON.parse(store.get(slotKey('c'))!);
-    file.machines[0].filter = 'plasteel';
-    store.set(slotKey('c'), JSON.stringify(file));
+
+    const factory = JSON.parse(store.get(slotKey('c') + FACTORY_SUFFIX)!);
+    // The filter is the last field of a packed machine.
+    factory.machines[0][9] = 'plasteel';
+    store.set(slotKey('c') + FACTORY_SUFFIX, JSON.stringify(factory));
 
     expect(loadWorld('c')!.machines[0].filter).toBe(null);
   });
