@@ -97,8 +97,8 @@ export function placeMachine(
     ty,
     dir,
     // A miner's "recipe" is whatever it is standing on; everything else is chosen.
-    recipe: type === 'miner' ? null : defaultRecipe(type),
-    ore: type === 'miner' ? oreAt(world.ore, tx, ty) : null,
+    recipe: def.family === 'miner' ? null : defaultRecipe(type),
+    ore: def.family === 'miner' ? oreAt(world.ore, tx, ty) : null,
     progress: 0,
     input: makeSlots(def.inputSlots),
     output: makeSlots(def.outputSlots),
@@ -158,7 +158,7 @@ export function setRecipe(world: World, machineId: number, recipeId: string): bo
   if (!MACHINES[machine.type].choosesRecipe) return false;
 
   const recipe = RECIPE_BY_ID.get(recipeId);
-  if (!recipe || recipe.machine !== machine.type) return false;
+  if (!recipe || recipe.machine !== MACHINES[machine.type].family) return false;
 
   machine.recipe = recipeId;
   machine.progress = 0;
