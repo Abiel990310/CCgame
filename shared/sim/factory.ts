@@ -85,6 +85,7 @@ export function placeMachine(
     dir,
     // A miner's "recipe" is whatever it is standing on; everything else is chosen.
     recipe: type === 'miner' ? null : defaultRecipe(type),
+    ore: type === 'miner' ? oreAt(world.ore, tx, ty) : null,
     progress: 0,
     input: makeSlots(def.inputSlots),
     output: makeSlots(def.outputSlots),

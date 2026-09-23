@@ -73,3 +73,21 @@ export const WAVES = {
   /** Seconds between spawn pulses during a night. */
   pulseInterval: 4,
 } as const;
+
+/**
+ * Ore patches are finite. A tile holds enough to keep one miner fed for a long
+ * session, and a whole patch for hours, so running one dry is an event a player
+ * plans around rather than a chore they do every few minutes.
+ */
+export const ORE = {
+  /** Ore in the richest tile of a patch — the ones at its centre. */
+  tileAmount: 800,
+  /** Share of that a tile on the patch's rim holds instead. */
+  edgeShare: 0.35,
+  /**
+   * How far a miner works out from the tile it stands on. Draining only its own
+   * tile would have a miner move every quarter of an hour, which is tedium
+   * rather than the expansion depletion is supposed to drive.
+   */
+  minerReach: 1,
+} as const;

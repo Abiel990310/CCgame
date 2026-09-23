@@ -5,6 +5,7 @@ import { tileKey } from '../grid';
 import { addItem } from '../inventory';
 import { addToSlots, countIn, stacksIn, totalIn } from '../slots';
 import { ORE_ORDER } from '../ore';
+import { ORE } from '../constants';
 import { EMPTY_INPUT, step } from '../step';
 import { TERRAIN_ORDER } from '../terrain';
 import type {
@@ -49,6 +50,8 @@ export function bench(seed = 2026): Bench {
     for (let tx = BENCH.tx; tx < BENCH.tx + BENCH.width; tx++) {
       world.terrain[tileKey(tx, ty)] = grass;
       world.ore[tileKey(tx, ty)] = 0;
+      world.oreLeft[tileKey(tx, ty)] = 0;
+      world.oreMax[tileKey(tx, ty)] = 0;
     }
   }
 
@@ -60,8 +63,16 @@ export function at(dx: number, dy: number): { tx: number; ty: number } {
   return { tx: BENCH.tx + dx, ty: BENCH.ty + dy };
 }
 
-export function plantOre(world: World, kind: OreKind, tx: number, ty: number): void {
+export function plantOre(
+  world: World,
+  kind: OreKind,
+  tx: number,
+  ty: number,
+  amount: number = ORE.tileAmount,
+): void {
   world.ore[tileKey(tx, ty)] = ORE_ORDER.indexOf(kind);
+  world.oreLeft[tileKey(tx, ty)] = amount;
+  world.oreMax[tileKey(tx, ty)] = amount;
 }
 
 /** Run the whole simulation forward, the same way the game does. */

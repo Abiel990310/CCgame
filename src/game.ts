@@ -477,6 +477,7 @@ export class Game {
         this.accumulator -= TICK_DT;
         step(this.world, inputs);
         this.renderer.effects.consume(this.world.events);
+        this.renderer.noteEvents(this.world.events);
         this.announcePhase();
       }
 

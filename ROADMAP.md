@@ -51,6 +51,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Logistics | Real belts now, drones and rail at tier 6 | Belts are where the spatial puzzle lives. Drones remove late tedium without replacing the puzzle. |
 | Offline production | None | Every hour of progress is an hour someone played; the economy never has to be balanced around absence. |
 | Ore | Discrete patches, not noise | A patch is a thing a player can point at, and outgrowing one is what drives expansion. |
+| Ore depletion | Large but finite | A patch holds hours of mining and then stops. Infinite ore makes the first patch the last one and takes expansion out of the game; a small patch turns the factory into a chore of moving miners. Large enough that running one dry is something you plan for. |
+| Miner reach | Its own tile and the ring around it | A miner that drained only the tile under it would have to be moved every quarter of an hour, which is tedium rather than the expansion depletion is for. Nine tiles is a couple of hours of one miner, so the thing you outgrow is the patch. |
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
@@ -133,8 +135,8 @@ and the content breadth that makes the hour count real.
 
 Unresolved, and worth a deliberate answer rather than a default.
 
-- **Do ore patches deplete?** Currently infinite. Depletion forces expansion but
-  can feel punishing. Factorio chose finite; Satisfactory chose infinite.
+- ~~**Do ore patches deplete?**~~ Answered: large but finite, in the decision
+  log above. Revisit only if play shows the numbers are wrong.
 - **How is the tech tree gated** — by producing science items, or by cumulative
   output?
 - **Do belts get tiers** (faster belts), or does throughput scale only by adding
@@ -155,11 +157,11 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] Ore never depletes. `shared/sim/ore.ts` says in a comment that a finite
-      patch is what pushes a player outward, but the grid stores only a kind
-      index and `stepMiner` never decrements it. One miner supplies an island
-      forever. (The design question is under Open questions; the code
-      contradicting its own comment is the bug.)
+- [ ] `npm run preview` answers 404 to the browser's own request for the
+      module bundle in this container — vite's preview server rejects
+      `Sec-Fetch-Dest: script`, though curl for the same URL is fine. Serving
+      `dist/` with `python3 -m http.server` works. Costs a session twenty
+      minutes if nobody says so.
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
       right-click only, so on a phone a misplaced belt is permanent.
 - [ ] Tapping the canvas in build mode places nothing. The `pointerdown`
@@ -282,11 +284,6 @@ detail behind the factory entries is in
       with nearly the same name, in the same palette, two tabs apart.
 - [ ] Camp placement keeps scenery away with a fixed 14px clearance while
       regrowth uses each node's real radius. Two numbers for one question.
-- [ ] Ore is drawn from `world.ore` whenever the ground cache is painted, so
-      depleting a patch no longer means re-baking the island — but the cache
-      still has to be told. Whatever makes ore finite needs to invalidate the
-      ground cache on the tiles that change (setting `groundScale = 0` repaints
-      it, and a tile-level version counter would be tidier).
 - [ ] The ground cache is still the biggest allocation in the client: 29 MB at
       `devicePixelRatio` 2 on a 1280×800 viewport, set by `GROUND_MARGIN`. A
       smaller margin shrinks it but makes the cache scroll more often; worth
@@ -304,6 +301,18 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] A miner that runs its ground out goes quiet with nothing to say about it.
+      A toast, or a mark on the map, would stop a base dying while its owner is
+      at the other end of the island.
+- [ ] Deep mining as a late unlock: spend to keep working an exhausted patch at
+      a worse rate. An answer to an island that has been emptied, and a sink
+      that never stops asking.
+- [ ] Miner tiers could widen the reach as well as the speed. `ORE.minerReach`
+      is one number and a wider arm is a genuinely different machine, not just
+      a faster one.
+- [ ] The starting island has a fixed amount of ore in it, which is now a real
+      number rather than an infinity. Whether that number is a wall or a nudge
+      toward a second island is the question phase 6 has to answer.
 - [ ] Peaceful worlds need a fishing-only route to the top research tier, since
       `essence` also drops from wisps at night. Otherwise peaceful is locked
       out of the endgame it suits best.
@@ -348,6 +357,13 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Whether 800 ore in a patch's richest tile is the right number. It works
+      out at roughly two hours of one miner over a nine-tile reach and hours
+      for a whole patch, but no one has played far enough to feel it.
+- [ ] Ore thinning is drawn in four steps, and the ground cache is repainted a
+      tile at a time as a tile crosses one. Driven in headless Chromium against
+      a single miner; a base with twenty miners crossing steps at once has not
+      been watched for frame cost.
 - [ ] The core loop has never been playtested by a human. Day length (3 min),
       night length (1 min), gather rates and belt speed are all unvalidated
       guesses.

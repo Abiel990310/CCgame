@@ -24,7 +24,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   miner: {
     id: 'miner',
     name: 'Miner',
-    description: 'Place on an ore patch. Pulls ore out on its own, forever.',
+    description: 'Place on an ore patch. Works the ground around it until the ore is gone.',
     cost: [
       { id: 'wood', count: 10 },
       { id: 'stone', count: 10 },

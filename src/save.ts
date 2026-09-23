@@ -7,7 +7,7 @@ import { asStack, normalizeSlots } from '@shared/sim/slots';
 import type { Machine, Player, World } from '@shared/sim/types';
 import { slotKey } from './saves';
 
-const VERSION = 3;
+const VERSION = 4;
 
 interface SaveFile {
   version: number;
@@ -26,6 +26,13 @@ interface SaveFile {
   belts: World['belts'];
   machines: World['machines'];
   peaceful: boolean;
+  /**
+   * Ore left in the tiles miners have eaten into, keyed by tile. Only tiles
+   * that differ from what the seed generated are written, so a young island
+   * costs a handful of entries and a long-running one still costs far less
+   * than the whole grid.
+   */
+  oreLeft?: Record<number, number>;
 }
 
 /**
@@ -52,6 +59,7 @@ export function saveWorld(world: World, slot: string): boolean {
     belts: world.belts,
     machines: world.machines,
     peaceful: world.peaceful,
+    oreLeft: minedTiles(world),
   };
   try {
     localStorage.setItem(slotKey(slot), JSON.stringify(file));
@@ -60,6 +68,15 @@ export function saveWorld(world: World, slot: string): boolean {
     // A full or blocked storage quota must never take the game down.
     return false;
   }
+}
+
+/** The tiles that have been mined, as tile key to ore left. */
+function minedTiles(world: World): Record<number, number> {
+  const out: Record<number, number> = {};
+  for (let i = 0; i < world.oreLeft.length; i++) {
+    if (world.oreLeft[i] !== world.oreMax[i]) out[i] = world.oreLeft[i];
+  }
+  return out;
 }
 
 export function loadWorld(slot: string): World | null {
@@ -96,6 +113,9 @@ export function loadWorld(slot: string): World | null {
     // A machine whose type no longer exists is dropped rather than taken as a
     // reason to refuse the whole island.
     world.machines = (file.machines ?? []).filter((m) => m.type in MACHINES).map(loadMachine);
+    // Version 4 made ore finite. A save from before it has no mined tiles at
+    // all, which is exactly what a full island looks like.
+    applyMinedTiles(world, file.oreLeft);
     // The tile index is derived state, so rebuild it rather than storing it.
     rebuildGrid(world);
     // Older islands were built before scenery blocked placement, so they can
@@ -118,11 +138,27 @@ export function loadWorld(slot: string): World | null {
   }
 }
 
+function applyMinedTiles(world: World, mined: Record<number, number> | undefined): void {
+  if (!mined) return;
+  for (const [key, left] of Object.entries(mined)) {
+    const i = Number(key);
+    if (!Number.isInteger(i) || i < 0 || i >= world.oreLeft.length) continue;
+    // Clamp against what the seed generates: a hand-edited save cannot mint ore,
+    // and a tile the generator no longer fills cannot come back holding some.
+    const amount = Math.max(0, Math.min(world.oreMax[i], Math.floor(left) || 0));
+    world.oreLeft[i] = amount;
+    if (amount === 0) world.ore[i] = 0;
+  }
+}
+
 /** Machine storage is a fixed grid too, sized by the machine's own definition. */
 function loadMachine(machine: Machine): Machine {
   const def = MACHINES[machine.type];
   return {
     ...machine,
+    // Miners saved before ore ran out never recorded what they were pulling up;
+    // the simulation reads it back off their own tile on the next tick.
+    ore: machine.ore ?? null,
     input: normalizeSlots(machine.input, def.inputSlots, def.slotSize),
     output: normalizeSlots(machine.output, def.outputSlots, def.slotSize),
   };
