@@ -161,7 +161,9 @@ detail behind the factory entries is in
       forever. (The design question is under Open questions; the code
       contradicting its own comment is the bug.)
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
-      right-click only, so on a phone a misplaced belt is permanent.
+      right-click only, so on a phone a misplaced belt is permanent. Now that
+      removal is build-mode only, the fix belongs in the build bar: a remove
+      tool that arms the next tap.
 - [ ] Tapping the canvas in build mode places nothing. The `pointerdown`
       handler in `src/input.ts` returns early for `pointerType === 'touch'`, so
       `takeClick()` never fires and a phone cannot build or inspect a machine.
@@ -268,9 +270,12 @@ detail behind the factory entries is in
 - [ ] A wall chipped to 1 hit point refunds its full cost, so taking it down
       and putting it back is a free repair. Walls want a repair action, or a
       refund that scales with the damage taken.
-- [ ] The removal highlight only shows in build mode, so a right-click on the
-      open island is still aimed blind. Either highlight outside build mode too,
-      or make removal a build-mode action.
+- [x] The removal highlight only shows in build mode, so a right-click on the
+      open island is still aimed blind. Settled by making removal a build-mode
+      action: outside it the cursor opens a machine, so a demolition outline on
+      the chest you are about to click would read as a warning. `X` and
+      right-click outside build mode now say where removal lives instead of
+      taking a piece the player never saw outlined.
 - [ ] A long name truncates in a quick slot (`Storag…`). A short display name on
       each machine and building would read better in an eight-wide bar.
 - [ ] Steel plate and iron plate are both grey discs on a belt, so a mixed line
