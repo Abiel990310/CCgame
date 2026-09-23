@@ -27,6 +27,7 @@ import {
 } from './entities';
 import { UI, rgba } from './palette';
 import { GroundMesh } from './terrain';
+import { setItemScale } from './items';
 import { polygon } from './shapes';
 import { drawBelt, drawBeltItems, drawMachine } from './factory';
 import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
@@ -128,6 +129,7 @@ export class Renderer {
       );
     }
     ctx.setTransform(scale, 0, 0, scale, originX, originY);
+    setItemScale(scale);
 
     const view = this.camera.bounds();
     const visible = (p: Vec2, pad = 0): boolean =>

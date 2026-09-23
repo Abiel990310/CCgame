@@ -1,14 +1,23 @@
 import { BELT_COST, MACHINES } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
+import { buildingOnTile } from './building';
 import { giveOrDrop, payAll, hasAll } from './inventory';
 import { makeSlots } from './slots';
-import { inBounds, opposite, step1, tileKey } from './grid';
+import { inBounds, opposite, step1, tileCenter, tileKey } from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
 import { isWalkable, terrainAtIndex } from './terrain';
 import type { Belt, Direction, ItemStack, Machine, MachineId, Player, World } from './types';
 
-export type FactoryError = 'occupied' | 'terrain' | 'ore' | 'cost' | 'bounds' | 'scenery' | null;
+export type FactoryError =
+  | 'occupied'
+  | 'terrain'
+  | 'ore'
+  | 'cost'
+  | 'bounds'
+  | 'scenery'
+  | 'camp'
+  | null;
 
 export function entityAt(world: World, tx: number, ty: number): Belt | Machine | null {
   return world.grid.get(tileKey(tx, ty)) ?? null;
@@ -37,6 +46,9 @@ export function factoryPlacementError(
   if (!isWalkable(terrainAtIndex(world.terrain, tx, ty))) return 'terrain';
   // A tree buried under a belt keeps standing and keeps regrowing; clear it first.
   if (nodeOnTile(world, tx, ty) !== null) return 'scenery';
+  // Camp pieces are held by radius rather than on the grid, so without their
+  // own pass a belt runs straight through a wall.
+  if (buildingOnTile(world, tx, ty) !== null) return 'camp';
 
   if (what === 'belt') {
     return hasAll(player, BELT_COST) ? null : 'cost';
@@ -60,6 +72,7 @@ export function placeBelt(
   const belt: Belt = { id: world.nextId++, tx, ty, dir, items: [] };
   world.belts.push(belt);
   world.grid.set(tileKey(tx, ty), belt);
+  world.events.push({ kind: 'placed', pos: tileCenter(tx, ty), what: 'belt' });
   clearFelledNodes(world);
   return belt;
 }
@@ -93,6 +106,7 @@ export function placeMachine(
   };
   world.machines.push(machine);
   world.grid.set(tileKey(tx, ty), machine);
+  world.events.push({ kind: 'placed', pos: tileCenter(tx, ty), what: type });
   clearFelledNodes(world);
   return machine;
 }
@@ -111,6 +125,7 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
   // which list to take it out of; the lists are only scanned because they are
   // what defines the tick order.
   world.grid.delete(key);
+  world.events.push({ kind: 'removed', pos: tileCenter(tx, ty) });
 
   if ('items' in entity) {
     drop(world.belts, entity);

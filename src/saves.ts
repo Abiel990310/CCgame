@@ -1,7 +1,7 @@
 /**
  * The save registry: every island you have started is a slot, and a slot is
- * what the main menu calls a game. The world data itself still lives in one
- * localStorage entry per slot (written by `save.ts`); this module only owns
+ * what the main menu calls a game. The world data itself lives in its own
+ * localStorage entries per slot (written by `save.ts`); this module only owns
  * the list of slots and the summary the menu needs to draw a card without
  * parsing a whole island.
  */
@@ -29,6 +29,18 @@ interface SaveIndex {
 }
 
 const EMPTY: SaveIndex = { version: 1, lastPlayed: null, slots: [] };
+
+/**
+ * A slot's world data is split across several entries, grouped by how often
+ * each part changes, so a save only rewrites what moved. `save.ts` owns what
+ * goes in each; the registry only has to know they exist, so that deleting a
+ * game takes all of them with it.
+ */
+export const SCENERY_SUFFIX = '.w';
+export const FACTORY_SUFFIX = '.f';
+export const ORE_SUFFIX = '.o';
+/** Every entry one slot occupies, the header's own key first. */
+export const SLOT_SUFFIXES = ['', SCENERY_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX] as const;
 
 /** Where one slot's world data lives. */
 export function slotKey(id: string): string {
@@ -219,7 +231,7 @@ export function deleteSlot(id: string): void {
   index.slots = index.slots.filter((s) => s.id !== id);
   if (index.lastPlayed === id) index.lastPlayed = index.slots[0]?.id ?? null;
   writeIndex(index);
-  remove(slotKey(id));
+  for (const suffix of SLOT_SUFFIXES) remove(slotKey(id) + suffix);
 }
 
 /** "just now", "12m ago", "3d ago" — the menu's only time display. */

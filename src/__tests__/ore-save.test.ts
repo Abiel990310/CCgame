@@ -5,7 +5,7 @@ import { oreAt, oreLeftAt } from '@shared/sim/ore';
 import { createWorld } from '@shared/sim/world';
 import type { World } from '@shared/sim/types';
 import { loadWorld, saveWorld } from '../save';
-import { slotKey } from '../saves';
+import { ORE_SUFFIX, slotKey } from '../saves';
 
 /** The save layer only ever talks to localStorage, so a Map stands in for it. */
 function installStorage(): Map<string, string> {
@@ -59,8 +59,8 @@ describe('mined ore survives a save', () => {
     world.oreLeft[anOreTile(world)] -= 1;
     saveWorld(world, 'slot');
 
-    const file = JSON.parse(store.get(slotKey('slot'))!) as { oreLeft: Record<string, number> };
-    expect(Object.keys(file.oreLeft)).toHaveLength(1);
+    const mined = JSON.parse(store.get(slotKey('slot') + ORE_SUFFIX)!) as Record<string, number>;
+    expect(Object.keys(mined)).toHaveLength(1);
   });
 
   it('brings an emptied tile back as bare ground', () => {
@@ -81,11 +81,11 @@ describe('mined ore survives a save', () => {
     const world = createWorld(SEED);
     saveWorld(world, 'slot');
 
-    // Exactly what a version 3 save looks like: no record of ore at all.
+    // Exactly what a version 4 save looks like: no record of the ground at all.
     const file = JSON.parse(store.get(slotKey('slot'))!) as Record<string, unknown>;
-    file.version = 3;
-    delete file.oreLeft;
+    file.version = 4;
     store.set(slotKey('slot'), JSON.stringify(file));
+    store.delete(slotKey('slot') + ORE_SUFFIX);
 
     const loaded = loadWorld('slot')!;
     expect([...loaded.oreLeft]).toEqual([...world.oreMax]);
@@ -96,12 +96,10 @@ describe('mined ore survives a save', () => {
     const key = anOreTile(world);
     saveWorld(world, 'slot');
 
-    const file = JSON.parse(store.get(slotKey('slot'))!) as {
-      oreLeft: Record<string, number>;
-    };
-    file.oreLeft[key] = ORE.tileAmount * 1000;
-    file.oreLeft['999999'] = 50;
-    store.set(slotKey('slot'), JSON.stringify(file));
+    const mined = JSON.parse(store.get(slotKey('slot') + ORE_SUFFIX)!) as Record<string, number>;
+    mined[key] = ORE.tileAmount * 1000;
+    mined['999999'] = 50;
+    store.set(slotKey('slot') + ORE_SUFFIX, JSON.stringify(mined));
 
     const loaded = loadWorld('slot')!;
     expect(loaded.oreLeft[key]).toBe(world.oreMax[key]);
