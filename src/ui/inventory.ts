@@ -5,6 +5,7 @@ import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import { totalIn } from '@shared/sim/slots';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import type { Machine, Player, Slot } from '@shared/sim/types';
+import { itemIconVar } from '../render/items';
 
 export interface InventoryCallbacks {
   /** A slot was clicked: pick up, put down, split, or send across. */
@@ -334,7 +335,7 @@ function paintSlot(cell: HTMLElement, slot: Slot): void {
   if (!cell.className.includes(' filled')) cell.className += ' filled';
   cell.title = `${def.name} — ${slot.count}`;
   cell.innerHTML =
-    `<i class="item ${def.shape}" style="--item:${def.color}"></i>` +
+    `<i class="item" style="background-image:${itemIconVar(slot.id)}"></i>` +
     `<b>${slot.count}</b>`;
 }
 

@@ -55,6 +55,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Camp vs factory | One overlap test, in `shared/sim/building.ts` | Camp pieces are circles in world units and factory pieces own whole tiles, so neither list can see the other by lookup. Both placement checks now go through the same circle-against-tile test, with 4px of slack so a wide piece does not claim the ring of tiles its edge merely grazes. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
+| Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Save contents | Derive what the seed decides; store only what play changed | Scenery was 109 kB of a 110 kB save and `createWorld` already rebuilds it from the seed, exactly as terrain is. Nodes are regenerated on load and only the chopped and cleared ones are written, which is also why worldgen changing under an existing island would move its scenery. |
 | Save layout | One entry per part of the island, grouped by how often it changes | A header, the scenery, and the factory. A section whose text has not moved is not written again, so standing still costs the header alone instead of the whole world. |
@@ -275,6 +276,9 @@ detail behind the factory entries is in
       what stops two facing arms passing one item back and forth forever — but
       the long inserter is the intended answer and this should be revisited
       with it.
+- [ ] The world sizes every item the same: 5.2 for a belt or an inserter hand,
+      6 for a ground drop. A wood log and a circuit board are not the same size
+      in life, and `ItemDef` could carry a scale the way it carries a colour.
 - [ ] The miner's 1.2s cycle is written as a literal in `src/render/factory.ts`
       as well as `MINE_TIME` in the sim. Two places for one number.
 - [ ] Grow `UPGRADES` from 9 stat entries and 4 weapons to 40–60 entries with
@@ -335,6 +339,9 @@ detail behind the factory entries is in
 - [ ] Peaceful worlds need a fishing-only route to the top research tier, since
       `essence` also drops from wisps at night. Otherwise peaceful is locked
       out of the endgame it suits best.
+- [ ] Item shapes could carry a second colour — a gear's bore, a battery's
+      terminal — instead of deriving every tone from one hex. Worth it only if
+      a tier adds items a single hue cannot keep apart.
 - [ ] Research shared per world rather than per player once multiplayer lands —
       it is what makes another player arriving unambiguously good.
 - [ ] Grandfather existing saves as fully unlocked when the palette becomes
@@ -397,6 +404,13 @@ detail behind the factory entries is in
       matches a full repaint pixel for pixel bar faint facet-edge antialiasing.
       Software rasterising exaggerates both numbers; it wants a look on real
       hardware, and on a phone especially.
+- [ ] Item silhouettes at the lowest zoom. They were driven in headless
+      Chromium at 1280x800 and read clearly there, but a belt item is about ten
+      device pixels wide at the minimum zoom and a phone has never shown one.
+- [ ] Baking each silhouette to a sprite held a screen full of belts (3,800
+      items) at ~41ms a frame against ~37ms for the flat blob it replaced;
+      tracing the paths per item was 67ms. Software rasterising exaggerates all
+      three, so the real cost on a GPU wants a look on real hardware.
 - [ ] Clearing land is now permanent: build on a chopped node and it never
       returns. Whether an island can be stripped bare over hundreds of hours,
       and whether that matters, has not been played out.
