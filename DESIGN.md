@@ -150,6 +150,25 @@ re-themeable.
 
 Fallback if it does not read well in motion: hand-made pixel art.
 
+## Sound direction
+
+Same principle as the art: **every sound is generated, none is a file.** Tools,
+weapons and machines are short synthesised blips built from a data table, so a
+new sound is a row rather than an asset.
+
+Under them sits a bed that describes the island back to you — wind and surf that
+thicken at dusk, a drone that leans in as a raid builds, and a hum that grows
+with the machines running around you. Building a bigger factory makes the island
+louder, which is the cheapest way to make hours of work audible.
+
+The music is generated too: a sparse pentatonic walk, major and unhurried by day,
+lower and thinner at night. A loop would be the wrong shape for a game someone
+plays for hundreds of hours on one island.
+
+Four sliders, on the main menu and the pause screen: master, effects, ambience
+and music, plus `M` to mute. Nothing plays before the first click, because that
+is both the browser's rule and good manners.
+
 ## Technical architecture
 
 - **Client:** TypeScript + Vite + HTML5 canvas. No engine.

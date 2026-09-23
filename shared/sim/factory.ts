@@ -2,7 +2,7 @@ import { BELT_COST, MACHINES } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { giveOrDrop, payAll, hasAll } from './inventory';
 import { makeSlots } from './slots';
-import { inBounds, opposite, step1, tileKey } from './grid';
+import { inBounds, opposite, step1, tileCenter, tileKey } from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
 import { isWalkable, terrainAtIndex } from './terrain';
@@ -60,6 +60,7 @@ export function placeBelt(
   const belt: Belt = { id: world.nextId++, tx, ty, dir, items: [] };
   world.belts.push(belt);
   world.grid.set(tileKey(tx, ty), belt);
+  world.events.push({ kind: 'placed', pos: tileCenter(tx, ty), what: 'belt' });
   clearFelledNodes(world);
   return belt;
 }
@@ -92,6 +93,7 @@ export function placeMachine(
   };
   world.machines.push(machine);
   world.grid.set(tileKey(tx, ty), machine);
+  world.events.push({ kind: 'placed', pos: tileCenter(tx, ty), what: type });
   clearFelledNodes(world);
   return machine;
 }
@@ -110,6 +112,7 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
   // which list to take it out of; the lists are only scanned because they are
   // what defines the tick order.
   world.grid.delete(key);
+  world.events.push({ kind: 'removed', pos: tileCenter(tx, ty) });
 
   if ('items' in entity) {
     drop(world.belts, entity);
