@@ -42,6 +42,9 @@ export function stepWeapons(world: World, player: Player, dt: number): void {
     const base = normalize({ x: target.pos.x - player.pos.x, y: target.pos.y - player.pos.y });
     const spread = shots > 1 ? 0.22 : 0;
 
+    // One event per volley, not per projectile: multishot is one bowstring.
+    world.events.push({ kind: 'shot', pos: { ...player.pos }, weapon: weapon.id });
+
     for (let i = 0; i < shots; i++) {
       const offset = shots > 1 ? (i - (shots - 1) / 2) * spread : 0;
       const cos = Math.cos(offset);
