@@ -258,6 +258,11 @@ export interface World {
 
 export type SimEvent =
   | { kind: 'hit'; pos: Vec2; amount: number }
+  | { kind: 'shot'; pos: Vec2; weapon: WeaponId }
+  | { kind: 'collected'; pos: Vec2; item: ItemId | null }
+  | { kind: 'produced'; pos: Vec2; machine: MachineId; item: ItemId }
+  | { kind: 'placed'; pos: Vec2; what: MachineId | 'belt' }
+  | { kind: 'removed'; pos: Vec2 }
   | { kind: 'mobDied'; pos: Vec2; type: MobTypeId }
   | { kind: 'levelUp'; playerId: number; level: number }
   | { kind: 'gathered'; pos: Vec2; item: ItemId }

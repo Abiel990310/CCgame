@@ -1,3 +1,5 @@
+import { audio } from '../audio';
+import { SoundPanel } from './sound';
 import {
   createSlot,
   deleteSlot,
@@ -37,12 +39,18 @@ export class MainMenu {
     peaceful: $<HTMLInputElement>('opt-peaceful'),
     saves: $('saves'),
     list: $('save-list'),
+    sound: $('menu-sound'),
   };
 
   /** The slot whose delete button is armed, so a stray click cannot wipe a save. */
   private armedDelete: string | null = null;
+  private sound: SoundPanel;
 
   constructor(private callbacks: MenuCallbacks) {
+    // Mounted here as well as in the pause screen so the first thing a player
+    // can do on the page is decide how loud it is.
+    this.sound = new SoundPanel(this.els.sound);
+
     this.els.continue.addEventListener('click', () => {
       const slot = lastPlayed() ?? listSaves()[0];
       if (slot) this.play(slot);
@@ -53,6 +61,7 @@ export class MainMenu {
 
   open(): void {
     this.armedDelete = null;
+    this.sound.refresh();
     this.render();
     this.els.root.classList.remove('hidden');
   }
@@ -66,6 +75,7 @@ export class MainMenu {
   }
 
   private play(slot: SaveSlot): void {
+    audio.play('open');
     this.close();
     // An island that already exists keeps the mode it was generated with; the
     // checkbox only ever decides a fresh one.
@@ -108,12 +118,16 @@ export class MainMenu {
     const rename = document.createElement('button');
     rename.className = 'save-tool';
     rename.textContent = 'Rename';
-    rename.addEventListener('click', () => this.beginRename(card, slot));
+    rename.addEventListener('click', () => {
+      audio.play('click');
+      this.beginRename(card, slot);
+    });
 
     const remove = document.createElement('button');
     remove.className = 'save-tool danger';
     remove.textContent = this.armedDelete === slot.id ? 'Really delete?' : 'Delete';
     remove.addEventListener('click', () => {
+      audio.play(this.armedDelete === slot.id ? 'removed' : 'denied');
       if (this.armedDelete === slot.id) {
         deleteSlot(slot.id);
         this.armedDelete = null;

@@ -42,9 +42,10 @@ import type {
   World,
 } from '@shared/sim/types';
 import { addPlayer, createWorld } from '@shared/sim/world';
+import { audio } from './audio';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview, type RemovalPreview } from './render/renderer';
-import { loadWorld, saveWorld } from './save';
+import { forgetSlot, loadWorld, saveWorld } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { Hud } from './ui/hud';
 
@@ -112,8 +113,9 @@ export class Game {
 
     // Debug handles: let tooling (and you, in the console) inspect live state
     // and drive the factory through the same API the UI uses.
-    const debug = window as unknown as { __ccgame: Game; __ccfactory: unknown };
+    const debug = window as unknown as { __ccgame: Game; __ccfactory: unknown; __ccaudio: unknown };
     debug.__ccgame = this;
+    debug.__ccaudio = audio;
     debug.__ccfactory = {
       placeBelt,
       placeMachine,
@@ -137,6 +139,9 @@ export class Game {
   /** Open a save slot: load its island, or generate one the first time. */
   enter(slot: SaveSlot, peaceful = false): void {
     this.slot = slot;
+    // Saves skip a section whose text has not changed, so the record of what
+    // this tab already wrote has to start empty for whatever slot is opened.
+    forgetSlot(slot.id);
     const loaded = loadWorld(slot.id);
 
     if (loaded) {
@@ -166,6 +171,14 @@ export class Game {
       this.running = true;
       requestAnimationFrame((t) => this.frame(t));
     }
+  }
+
+  private toggleMute(): void {
+    const muted = audio.toggleMute();
+    this.hud.refreshSound();
+    // Unmuting plays its own confirmation; muting cannot, so the toast is it.
+    if (!muted) audio.play('click');
+    this.hud.toast(muted ? 'Sound off' : 'Sound on', muted ? 'warn' : 'good');
   }
 
   private togglePause(): void {
@@ -288,6 +301,7 @@ export class Game {
         continue;
       }
 
+      if (action === 'mute') this.toggleMute();
       if (action === 'build' && !blocked) this.toggleBuild();
       if (action === 'inventory') this.toggleBag();
       if (action === 'rotate' && !blocked) this.buildDir = rotate(this.buildDir);
@@ -389,6 +403,7 @@ export class Game {
       factory: 'A belt or machine is in the way',
       cost: this.costMessage(BUILDINGS[ghost.type].cost),
     };
+    audio.play('denied');
     this.hud.toast(messages[error], 'warn');
   }
 
@@ -413,6 +428,7 @@ export class Game {
       camp: 'A camp building is in the way',
       cost: this.costMessage(cost),
     };
+    audio.play('denied');
     this.hud.toast(messages[error], 'warn');
   }
 
@@ -452,10 +468,12 @@ export class Game {
       return;
     }
     if (result === 'campfire') {
+      audio.play('denied');
       this.hud.toast('The campfire stays — the camp is built around it', 'warn');
       return;
     }
     // Silence here reads as a broken key, so say plainly that nothing was hit.
+    audio.play('denied');
     this.hud.toast('Nothing to remove there', 'warn');
   }
 
@@ -481,6 +499,11 @@ export class Game {
     const removal = this.removalTarget();
     this.tryPlace(ghost);
 
+    // Placing, removing and anything else driven straight from the UI announces
+    // itself outside the tick, and `step` empties the buffer before the loop
+    // below ever reads it — so drain what has built up since the last frame.
+    this.flush();
+
     // A pending level-up freezes the world, so the draft is never a panic.
     if (!paused) {
       this.accumulator += elapsed;
@@ -503,7 +526,7 @@ export class Game {
       while (this.accumulator >= TICK_DT && ticks++ < 8) {
         this.accumulator -= TICK_DT;
         step(this.world, inputs);
-        this.renderer.effects.consume(this.world.events);
+        this.flush();
         this.announcePhase();
       }
 
@@ -516,8 +539,20 @@ export class Game {
 
     this.renderer.effects.update(elapsed);
     this.renderer.camera.follow(this.self.pos, elapsed);
+    // The ear rides the camera, not the player: what you can see is what you
+    // should be able to hear.
+    audio.listenFrom(this.renderer.camera.pos, this.renderer.camera.width / this.renderer.camera.zoom);
+    audio.update(this.world, elapsed);
     this.renderer.render(this.world, this.selfId, this.world.time, ghost, removal);
     this.hud.update(this.world, this.self);
+  }
+
+  /** Hand one batch of simulation events to the cosmetic layers, once. */
+  private flush(): void {
+    if (this.world.events.length === 0) return;
+    this.renderer.effects.consume(this.world.events);
+    audio.consume(this.world.events);
+    this.world.events.length = 0;
   }
 
   private announcePhase(): void {

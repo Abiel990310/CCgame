@@ -124,6 +124,7 @@ export function removeBuildingAt(world: World, player: Player, pos: Vec2): Remov
   if (target.type === 'campfire') return 'campfire';
 
   world.buildings.splice(world.buildings.indexOf(target), 1);
+  world.events.push({ kind: 'removed', pos: { ...target.pos } });
   for (const entry of BUILDINGS[target.type].cost) {
     giveOrDrop(world, player, entry.id, entry.count);
   }
