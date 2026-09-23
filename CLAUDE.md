@@ -42,6 +42,7 @@ shared/            Deterministic simulation — no DOM, no rendering
 src/               Browser client
   render/          Canvas renderer: terrain mesh, entities, factory, lighting,
                    effects, palette, shapes, camera
+  audio/           Web Audio mixer: every sound is synthesised, none is a file
   ui/              DOM overlay: HUD, build palette, inventory screen, modals
 .github/workflows/ CI and Pages deployment
 ```
@@ -65,6 +66,12 @@ a rewrite instead of an addition.
 
 `step(world, inputs, dt)` in `shared/sim/step.ts` is the whole simulation.
 
+Anything the player should see or hear about the world leaves the sim as a
+`SimEvent`. The buffer is cleared at the top of every `step`, so a client has to
+drain it before stepping again — `Game.flush` is the one place that does, and it
+runs once per frame as well as once per tick because placing and removing push
+events from outside the tick.
+
 ## Adding content
 
 **Adding depth means adding rows to data tables, not writing systems.** The
@@ -80,6 +87,7 @@ engine is deliberately small and generic; the content is data.
 | A tech | `shared/data/techs.ts` |
 | A level-up upgrade | `shared/data/upgrades.ts` |
 | A camp building | `shared/data/buildings.ts` |
+| A sound | `src/audio/sounds.ts` |
 | Balance tuning | `shared/sim/constants.ts` |
 
 If a new feature seems to need a new system, check first whether it is really a
@@ -93,7 +101,9 @@ on purpose and should stay true as tiers are added.
 - **Comments explain why, not what.** Do not narrate the code.
 - **No runtime dependencies.** The bundle currently has zero, and zero external
   network requests. Do not add a font CDN, an analytics snippet, or a UI
-  library without asking. Keeping this true is a feature.
+  library without asking. Keeping this true is a feature. **This is why every
+  sound is synthesised** rather than sampled: a sound pack would be the first
+  asset the page ever fetched.
 - **Imports**: client code uses the `@shared/*` alias; `shared/` uses relative
   paths internally.
 - **Rendering**: entities are Y-sorted (painter's algorithm) for the 3/4 view.

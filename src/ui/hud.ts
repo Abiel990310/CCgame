@@ -3,8 +3,11 @@ import { CYCLE } from '@shared/sim/constants';
 import { activeTech, cyclesDone, cyclesNeeded } from '@shared/sim/research';
 import { hasAll } from '@shared/sim/inventory';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { Machine, Player, World } from '@shared/sim/types';
+import type { ItemId, Machine, Player, World } from '@shared/sim/types';
+import { audio } from '../audio';
+import { itemIconVar } from '../render/items';
 import { InventoryScreen } from './inventory';
+import { SoundPanel } from './sound';
 import {
   TABS,
   entriesFor,
@@ -84,9 +87,11 @@ export class Hud {
     pauseResume: $<HTMLButtonElement>('pause-resume'),
     pauseQuit: $<HTMLButtonElement>('pause-quit'),
     toasts: $('toasts'),
+    sound: $('pause-sound'),
   };
 
   private inventory: InventoryScreen;
+  private sound: SoundPanel;
   private selection: BuildSelection = { kind: 'belt' };
   private tab: PaletteTab = 'factory';
   private buildMode = false;
@@ -99,6 +104,21 @@ export class Hud {
   private hotbar: HotbarBinding[] = loadHotbar();
 
   constructor(private callbacks: HudCallbacks) {
+    this.sound = new SoundPanel(this.els.sound);
+
+    // Every button in the HUD clicks; the action each one triggers makes its
+    // own noise on top, so the click is only ever the press itself.
+    for (const button of [
+      this.els.btnBuild,
+      this.els.btnBag,
+      this.els.btnDash,
+      this.els.btnMenu,
+      this.els.pauseResume,
+      this.els.pauseQuit,
+    ]) {
+      button.addEventListener('click', () => audio.play('click'));
+    }
+
     this.els.btnBuild.addEventListener('click', () => this.callbacks.onToggleBuild());
     this.els.btnBag.addEventListener('click', () => this.callbacks.onToggleBag());
     this.els.btnDash.addEventListener('click', () => this.callbacks.onDash());
@@ -130,12 +150,19 @@ export class Hud {
     this.els.pause.classList.toggle('hidden', !open);
     this.els.btnMenu.classList.toggle('on', open);
     if (!open) return;
+    // The sliders may have been moved from the main menu, or by the mute key.
+    this.sound.refresh();
     this.els.pauseName.textContent = slotName;
     this.els.pauseSub.textContent = subtitle;
   }
 
   get isPauseOpen(): boolean {
     return this.pauseOpen;
+  }
+
+  /** Pull the sound controls back in step after the mute key. */
+  refreshSound(): void {
+    this.sound.refresh();
   }
 
   setBuildMode(on: boolean): void {
@@ -146,11 +173,13 @@ export class Hud {
 
   /** Open the inventory screen, on its own or beside a container. */
   openInventory(machine: Machine | null): void {
+    if (!this.inventory.isOpen) audio.play('open');
     this.inventory.show(machine);
     this.els.btnBag.classList.toggle('on', machine === null);
   }
 
   closeInventory(): void {
+    if (this.inventory.isOpen) audio.play('close');
     this.inventory.hide();
     this.els.btnBag.classList.remove('on');
   }
@@ -205,7 +234,10 @@ export class Hud {
       button.innerHTML = `<b>${entry.name}</b><em>${entry.cost
         .map((c) => `${c.count} ${ITEMS[c.id].name}`)
         .join(' · ')}</em>`;
-      button.addEventListener('click', () => this.select(entry.selection));
+      button.addEventListener('click', () => {
+        audio.play('click');
+        this.select(entry.selection);
+      });
       this.els.buildItems.appendChild(button);
     }
   }
@@ -396,7 +428,7 @@ export class Hud {
       const def = ITEMS[id as keyof typeof ITEMS];
       const chip = document.createElement('div');
       chip.className = 'chip';
-      chip.innerHTML = `<i class="dot" style="background:${def.color}"></i>${count}`;
+      chip.innerHTML = `<i class="dot icon" style="background-image:${itemIconVar(id as ItemId)}"></i>${count}`;
       chip.title = def.name;
       this.els.pouch.appendChild(chip);
     }
@@ -429,7 +461,10 @@ export class Hud {
       const button = document.createElement('button');
       button.className = 'offer';
       button.innerHTML = `<b>${offer.title}</b><span>${offer.description}</span>`;
-      button.addEventListener('click', () => this.callbacks.onChooseUpgrade(offer.id));
+      button.addEventListener('click', () => {
+        audio.play('levelUp');
+        this.callbacks.onChooseUpgrade(offer.id);
+      });
       this.els.offers.appendChild(button);
     }
   }

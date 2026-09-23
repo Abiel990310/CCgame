@@ -1,4 +1,3 @@
-import { ITEMS } from '@shared/data/items';
 import { BELT_SPEED, INSERTER_SWING, MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TECH_BY_ID } from '@shared/data/techs';
@@ -6,6 +5,7 @@ import { TILE } from '@shared/sim/constants';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
 import type { Belt, Machine, OreKind } from '@shared/sim/types';
+import { drawItemSprite } from './items';
 import { UI, rgba, shift } from './palette';
 import { meter, polygon, shadow } from './shapes';
 
@@ -113,9 +113,7 @@ export function drawBeltItems(ctx: CanvasRenderingContext2D, belt: Belt): void {
     ctx.ellipse(ix, iy + 3, 4.5, 2.4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    polygon(ctx, ix, iy, 4.6, 5, riding.offset * 1000 + belt.id, 0.2);
-    ctx.fillStyle = ITEMS[riding.item].color;
-    ctx.fill();
+    drawItemSprite(ctx, ix, iy, 5.2, riding.item);
   }
 }
 
@@ -304,9 +302,7 @@ function drawInserter(
     ctx.ellipse(handX, handY + TILE * 0.22, 4.5, 2.4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    polygon(ctx, handX, handY, 4.8, 5, machine.id, 0.2);
-    ctx.fillStyle = ITEMS[hand.id].color;
-    ctx.fill();
+    drawItemSprite(ctx, handX, handY, 5.2, hand.id);
   }
 }
 

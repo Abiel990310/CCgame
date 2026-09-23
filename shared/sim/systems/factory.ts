@@ -9,6 +9,7 @@ import {
 import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
 import { RESEARCH_PACKS, TECH_BY_ID, isResearchPack } from '../../data/techs';
 import { beltAt, inputTile, machineAt, outputTile } from '../factory';
+import { tileCenter } from '../grid';
 import { oreAt } from '../ore';
 import { activeTech, finishCycle, researchBonuses, type ResearchBonuses } from '../research';
 import { addToSlots, countIn, roomFor, slotCap, takeFromSlots } from '../slots';
@@ -146,7 +147,7 @@ export function stepMachines(world: World, dt: number): void {
         stepLab(world, machine, dt, bonus);
         break;
       default:
-        stepCrafter(machine, dt, bonus);
+        stepCrafter(world, machine, dt, bonus);
         break;
     }
     pushMachineOutput(world, machine);
@@ -175,6 +176,21 @@ function stepMiner(world: World, machine: Machine, dt: number, bonus: ResearchBo
 
   machine.progress -= MINE_TIME;
   addToSlots(machine.output, ore, 1, def.slotSize);
+  announce(world, machine, ore);
+}
+
+/**
+ * Tell the client one item came out of this machine. Positions are the tile
+ * centre rather than the machine, so a listener can place the sound without
+ * needing the grid.
+ */
+function announce(world: World, machine: Machine, item: ItemId): void {
+  world.events.push({
+    kind: 'produced',
+    pos: tileCenter(machine.tx, machine.ty),
+    machine: machine.type,
+    item,
+  });
 }
 
 /**
@@ -260,7 +276,12 @@ function dropInFront(world: World, machine: Machine, item: ItemId): boolean {
   return target ? insertIntoMachine(target, item) : false;
 }
 
-function stepCrafter(machine: Machine, dt: number, bonus: ResearchBonuses): void {
+function stepCrafter(
+  world: World,
+  machine: Machine,
+  dt: number,
+  bonus: ResearchBonuses,
+): void {
   const def = MACHINES[machine.type];
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   if (!recipe) {
@@ -284,7 +305,10 @@ function stepCrafter(machine: Machine, dt: number, bonus: ResearchBonuses): void
   if (machine.progress < duration) return;
 
   machine.progress = 0;
-  for (const out of recipe.outputs) addToSlots(machine.output, out.id, out.count, def.slotSize);
+  for (const out of recipe.outputs) {
+    addToSlots(machine.output, out.id, out.count, def.slotSize);
+    announce(world, machine, out.id);
+  }
 }
 
 /**

@@ -52,12 +52,16 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Offline production | None | Every hour of progress is an hour someone played; the economy never has to be balanced around absence. |
 | Ore | Discrete patches, not noise | A patch is a thing a player can point at, and outgrowing one is what drives expansion. |
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
+| Camp vs factory | One overlap test, in `shared/sim/building.ts` | Camp pieces are circles in world units and factory pieces own whole tiles, so neither list can see the other by lookup. Both placement checks now go through the same circle-against-tile test, with 4px of slack so a wide piece does not claim the ring of tiles its edge merely grazes. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Research | Packs belted into labs, owned by the world | Research is the first thing the factory feeds rather than the player, so an unlock is a throughput problem: a second lab is worth exactly what a second furnace is. It belongs to the island, not a player, because a lab is a building and multiplayer will have several people feeding one tree. |
 | Tech effects | Multipliers, never unlocks | Every machine stays available from minute one; a tech makes the factory you already built worth more. A tree of unlocks ends, and two of these repeat forever, so the curve does not. |
 | Research XP | Every lab cycle levels up every player | Gathering by hand was the only source of XP, so automating the island slowed the character down and a peaceful world barely levelled at all. |
+| Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
+| Save contents | Derive what the seed decides; store only what play changed | Scenery was 109 kB of a 110 kB save and `createWorld` already rebuilds it from the seed, exactly as terrain is. Nodes are regenerated on load and only the chopped and cleared ones are written, which is also why worldgen changing under an existing island would move its scenery. |
+| Save layout | One entry per part of the island, grouped by how often it changes | A header, the scenery, and the factory. A section whose text has not moved is not written again, so standing still costs the header alone instead of the whole world. |
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Quick slots | Bound in `localStorage`, not in the save | The bar says how one person likes their tools arranged, not what is true of an island. Keeping it out of the world means no save version, and one bar across every island — which is what someone who arranges it once expects. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
@@ -65,6 +69,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
 | Dependencies | Zero runtime deps, zero external requests | Nothing to leak, nothing to break when a CDN does. |
+| Audio | Synthesised in Web Audio, never sampled | A sound pack would be the first file the page ever fetched, and the first thing between a load and a playable island. It also means the music can be generated rather than looped, which matters when someone is on the same island for hours. Sounds are a data table (`src/audio/sounds.ts`) like every other kind of content. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -169,8 +174,14 @@ detail behind the factory entries is in
       index and `stepMiner` never decrements it. One miner supplies an island
       forever. (The design question is under Open questions; the code
       contradicting its own comment is the bug.)
+- [ ] Two tabs open on the same island overwrite each other, and now the
+      skipped-write cache can make one of them skip a section the other has
+      already replaced. Harmless today because nobody is told they can play in
+      two tabs, but it is a real way to lose a factory.
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
-      right-click only, so on a phone a misplaced belt is permanent.
+      right-click only, so on a phone a misplaced belt is permanent. Now that
+      removal is build-mode only, the fix belongs in the build bar: a remove
+      tool that arms the next tap.
 - [ ] Tapping the canvas in build mode places nothing. The `pointerdown`
       handler in `src/input.ts` returns early for `pointerType === 'touch'`, so
       `takeClick()` never fires and a phone cannot build or inspect a machine.
@@ -182,10 +193,6 @@ detail behind the factory entries is in
       the machine deadlocks until you take some back out by hand. Belts are
       guarded against exactly this (one slot reserved per ingredient); hand
       loading is not. Found driving a research line in a browser.
-- [ ] Camp pieces are invisible to factory placement. Walls and turrets live in
-      `world.buildings` by radius, not in `world.grid`, and
-      `factoryPlacementError` only checks the grid — so a belt or a machine can
-      be placed straight through a wall.
 
 
 ### New features
@@ -233,7 +240,18 @@ detail behind the factory entries is in
       world.
 - [ ] **Second island via a bridge** — a new generated region with its own ore
       tier and tech branch. Multiplies content instead of ending it.
-- [ ] **Audio** — there is none.
+- [ ] **Mob voices** — every mob dies to the same sound. One row per mob in
+      `src/audio/sounds.ts` would make a wisp and a brute distinguishable with
+      your eyes on the belt you are laying.
+- [ ] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
+      themselves. Movement is the verb the player does most and it is silent.
+- [ ] **A pitch per item on production sounds**, so a bank of furnaces reads as
+      a chord and a stalled one is audible as a gap.
+- [ ] **Muffle the world behind an open modal** — a lowpass on the master bus
+      while the pause or inventory screen is up, so the interface sits in front
+      of the island rather than inside it.
+- [ ] **A sound for a finished research cycle**, and a different one for a
+      finished tech. A lab is the one machine whose output is invisible.
 - [ ] **Machine costs stop at iron plate.** Research packs now consume steel,
       motors and advanced circuits, so the deep chain has a sink — but nothing
       *built* costs them. Machine tiers or the megaproject are the next
@@ -246,11 +264,28 @@ detail behind the factory entries is in
 
 ### Changes
 
-- [ ] Saving still serialises the whole island every 8 seconds — about 110 kB of
-      JSON on a barely-built one, most of it nodes and players, and it grows
-      with the base. Now that placements coalesce onto that timer it is the only
-      save cost left, so the next step is writing only what changed, or a
-      compact format.
+- [x] Saving serialised the whole island every 8 seconds — about 110 kB of JSON
+      on a barely-built one. Scenery is now regenerated from the seed and only
+      its differences stored, the factory is packed into arrays, and the save is
+      split into a header, scenery and factory so a section that has not moved
+      is not rewritten. A 101 kB island measured in a browser now writes 1.4 kB,
+      and standing still writes only the 1 kB header.
+- [ ] Nothing on the factory grid blocks movement. `collideBuildings` in
+      `shared/sim/systems/movement.ts` walks `world.buildings` only, so players
+      and mobs pass straight through furnaces, chests and miners. Walking over
+      a belt is fine; walking through an assembler is not, and a mob taking the
+      shortcut through a machine bank ignores the wall line entirely.
+- [ ] The campfire stands on the map's exact centre, which is a tile corner, so
+      it now blocks the four tiles that meet there rather than one. Snapping it
+      to a tile centre on world creation would hand three of them back, but it
+      moves the camp for every existing save.
+- [ ] Regenerating scenery from the seed means changing `populateNodes` or
+      terrain generation moves the trees on islands people already have. Worth
+      a generation counter in the save, so a changed worldgen can be spotted
+      rather than silently rearranging someone's island.
+- [ ] A busy factory still rewrites every belt and machine each save, because
+      one belt item moving makes the whole section's text differ. Fine at a few
+      hundred belts; if the section gets big, split it per chunk of the map.
 - [ ] Scale `waveBudget` off the highest research tier completed rather than
       the night index alone. Researching is a choice, so difficulty stays
       opt-in and building freely never punishes you.
@@ -271,6 +306,15 @@ detail behind the factory entries is in
 - [ ] Research auto-advances to the first available tech when one finishes, so a
       lab never idles. A visible queue the player orders themselves would be
       better than a guess.
+- [ ] The world sizes every item the same: 5.2 for a belt or an inserter hand,
+      6 for a ground drop. A wood log and a circuit board are not the same size
+      in life, and `ItemDef` could carry a scale the way it carries a colour.
+- [ ] Weapons only ever fire at the nearest mob, so a forty-mob night sounds
+      exactly like a one-mob night. Noticed while balancing combat audio; it is
+      a combat-feel question, not an audio one.
+- [ ] The factory hum counts machines within earshot every 0.3s by scanning
+      every machine and belt on the island. Fine at hundreds; if a base ever
+      reaches thousands it wants the same spatial index the renderer will need.
 - [ ] Grow `UPGRADES` from 9 stat entries and 4 weapons to 40–60 entries with
       rarity tiers. Once labs feed XP continuously a player sees hundreds of
       level-ups, and three cards drawn from the same nine is thin within an
@@ -284,9 +328,12 @@ detail behind the factory entries is in
 - [ ] A wall chipped to 1 hit point refunds its full cost, so taking it down
       and putting it back is a free repair. Walls want a repair action, or a
       refund that scales with the damage taken.
-- [ ] The removal highlight only shows in build mode, so a right-click on the
-      open island is still aimed blind. Either highlight outside build mode too,
-      or make removal a build-mode action.
+- [x] The removal highlight only shows in build mode, so a right-click on the
+      open island is still aimed blind. Settled by making removal a build-mode
+      action: outside it the cursor opens a machine, so a demolition outline on
+      the chest you are about to click would read as a warning. `X` and
+      right-click outside build mode now say where removal lives instead of
+      taking a piece the player never saw outlined.
 - [ ] A long name truncates in a quick slot (`Storag…`). A short display name on
       each machine and building would read better in an eight-wide bar.
 - [ ] Steel plate and iron plate are both grey discs on a belt, so a mixed line
@@ -320,12 +367,18 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] The save header is written every 8 seconds even when nothing happened,
+      since `tick` always moves. Skipping it while the player is idle and
+      nothing is running would make a paused island cost nothing at all.
 - [ ] Peaceful worlds need a fishing-only route to the top research tier, since
       `essence` also drops from wisps at night. Otherwise peaceful is locked
       out of the endgame it suits best.
 - [ ] Research is already per world rather than per player, which is what will
       make another player arriving unambiguously good. Worth revisiting whether
       XP from a cycle should scale with how many people are on the island.
+- [ ] Item shapes could carry a second colour — a gear's bore, a battery's
+      terminal — instead of deriving every tone from one hex. Worth it only if
+      a tier adds items a single hue cannot keep apart.
 - [ ] Grandfather existing saves as fully unlocked when the palette becomes
       tech-gated. "Nothing is lost" is a stated pillar.
 - [ ] Trains as a later flourish on top of port logistics, for the spectacle
@@ -370,6 +423,14 @@ detail behind the factory entries is in
       per level. None of it has been played, only driven.
 - [ ] Whether a lab is worth its cost (20 iron plate, 10 gears, 5 circuits) at
       the point in a run where a player can first afford one.
+- [ ] **Nobody has actually listened to the game.** The audio layer was verified
+      in headless Chromium by tapping the master bus with an analyser — which
+      proves sound is rendered, that mute silences it and that gameplay drives
+      it, but says nothing about whether it is pleasant. The mix, the default
+      volumes and the generative music all want a human with headphones.
+- [ ] Audio on a phone. iOS needs a gesture before a context will start (the
+      menu click is one) and honours the hardware mute switch, neither of which
+      has been tried on real hardware.
 - [ ] The core loop has never been playtested by a human. Day length (3 min),
       night length (1 min), gather rates and belt speed are all unvalidated
       guesses.
@@ -391,6 +452,13 @@ detail behind the factory entries is in
       matches a full repaint pixel for pixel bar faint facet-edge antialiasing.
       Software rasterising exaggerates both numbers; it wants a look on real
       hardware, and on a phone especially.
+- [ ] Item silhouettes at the lowest zoom. They were driven in headless
+      Chromium at 1280x800 and read clearly there, but a belt item is about ten
+      device pixels wide at the minimum zoom and a phone has never shown one.
+- [ ] Baking each silhouette to a sprite held a screen full of belts (3,800
+      items) at ~41ms a frame against ~37ms for the flat blob it replaced;
+      tracing the paths per item was 67ms. Software rasterising exaggerates all
+      three, so the real cost on a GPU wants a look on real hardware.
 - [ ] Clearing land is now permanent: build on a chopped node and it never
       returns. Whether an island can be stripped bare over hundreds of hours,
       and whether that matters, has not been played out.
