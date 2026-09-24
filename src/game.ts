@@ -11,6 +11,7 @@ import {
 import {
   clickSlot,
   gatherStacks,
+  machineById,
   quickMove,
   sortArea,
   stowCursor,
@@ -20,8 +21,13 @@ import {
   type SlotRef,
 } from '@shared/sim/containers';
 import {
+  copySettings,
   entityAt,
   factoryPlacementError,
+  hasSettings,
+  pasteSettings,
+  setSlotFilter,
+  type MachineSettings,
   machineAt,
   placeBelt,
   placeMachine,
@@ -39,6 +45,7 @@ import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
 import type {
   Direction,
+  MachineFamily,
   ItemStack,
   Machine,
   Player,
@@ -90,6 +97,11 @@ export class Game {
   private lastPhase: World['phase'] = 'day';
   /** Facing applied to the next belt or machine placed. */
   private buildDir: Direction = 0;
+  /**
+   * The last machine settings copied. It belongs to this player's hands rather
+   * than the island, so it is neither saved nor shared.
+   */
+  private clipboard: MachineSettings | null = null;
   private lock = new SlotLock((slot, reason) => this.evict(slot, reason));
 
   constructor(canvas: HTMLCanvasElement, private callbacks: GameCallbacks) {
@@ -113,6 +125,8 @@ export class Game {
       onTogglePause: () => this.togglePause(),
       onQuitToMenu: () => this.quitToMenu(),
       onSlotAction: (ref, button, quick) => this.moveItems(ref, button, quick),
+      onCopySettings: (machineId) => this.copyFrom(machineById(this.world, machineId)),
+      onPasteSettings: (machineId) => this.pasteOnto(machineById(this.world, machineId)),
       onTakeAll: (machineId) => this.takeEverything(machineId),
       onSort: (area) => this.sortGrid(area),
       onGather: (ref) => this.gatherInto(ref),
@@ -147,6 +161,9 @@ export class Game {
       setRecipe,
       setFilter,
       setSideFilter,
+      setSlotFilter,
+      copySettings,
+      pasteSettings,
       machineAt,
       clickSlot,
       quickMove,
@@ -404,6 +421,8 @@ export class Game {
       if (action === 'inventory') this.toggleBag();
       if (action === 'rotate' && !blocked) this.buildDir = rotate(this.buildDir);
       if (action === 'remove' && !blocked) this.tryRemove();
+      if (action === 'copy' && !blocked) this.copyFrom(this.machineUnderCursor());
+      if (action === 'paste' && !blocked) this.pasteOnto(this.machineUnderCursor());
       if (action === 'cancel') {
         // Esc backs out of whatever is open, and opens the menu when nothing is.
         if (this.hud.isPauseOpen) this.togglePause();
@@ -589,9 +608,45 @@ export class Game {
   }
 
   private inspectUnderCursor(): void {
-    const { tx, ty } = toTile(this.cursorWorld);
-    const machine = machineAt(this.world, tx, ty);
+    const machine = this.machineUnderCursor();
     if (machine) this.hud.openInventory(machine);
+  }
+
+  private machineUnderCursor(): Machine | null {
+    const { tx, ty } = toTile(this.cursorWorld);
+    return machineAt(this.world, tx, ty);
+  }
+
+  private copyFrom(machine: Machine | null): void {
+    if (!machine) return;
+    const name = MACHINES[machine.type].name;
+    if (!hasSettings(machine)) {
+      this.hud.toast(`A ${name} has no settings to copy`, 'warn');
+      return;
+    }
+    this.clipboard = copySettings(machine);
+    this.hud.setClipboard(this.clipboard.family);
+    audio.play('click');
+    this.hud.toast(`Copied ${name} settings — shift-click to paste`, 'good');
+  }
+
+  private pasteOnto(machine: Machine | null): void {
+    const copied = this.clipboard;
+    if (!machine) return;
+    if (!copied) {
+      this.hud.toast('Nothing copied yet — shift-right-click a machine first', 'warn');
+      return;
+    }
+    if (MACHINES[machine.type].family !== copied.family) {
+      audio.play('denied');
+      this.hud.toast(`Those are ${familyName(copied.family)} settings`, 'warn');
+      return;
+    }
+    if (pasteSettings(this.world, machine.id, copied)) {
+      audio.play('click');
+      this.hud.toast('Settings pasted', 'good');
+      this.requestSave();
+    } else this.hud.toast('Already set the same way');
   }
 
   private frame(now: number): void {
@@ -711,4 +766,10 @@ export class Game {
       this.persist();
     }
   }
+}
+
+/** What a family is called, by the name of its first tier. */
+function familyName(family: MachineFamily): string {
+  const def = Object.values(MACHINES).find((d) => d.family === family && d.tier === 1);
+  return def?.name ?? family;
 }
