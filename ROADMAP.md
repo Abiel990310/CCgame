@@ -212,6 +212,8 @@ detail behind the factory entries is in
 
 - [ ] The game gets very laggy near the campfire. *Hold lifted 2026-09-24; the
       engine thread is on it (WebGL world drawing, Canvas fix first).*
+- [ ] On a phone held sideways (iPhone 13 landscape, 750×342) the day panel
+      covers the right half of the health and XP bars.
 - [x] The overlapping HUD panels are still showing after the UI revamp. The
       co-op code chip sat on the resource pouch at every screen size, and on
       a 320px phone the phase panel wrapped into it. The top-right corner is
