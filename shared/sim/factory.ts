@@ -14,6 +14,7 @@ import type {
   ItemId,
   ItemStack,
   Machine,
+  MachineFamily,
   MachineId,
   Player,
   World,
@@ -130,11 +131,13 @@ export function placeMachine(
     output: makeSlots(def.outputSlots),
     stalled: false,
   };
-  // Only a splitter carries sides, so nothing else pays for the fields.
+  // Only a splitter carries sides and only storage carries slot filters, so
+  // nothing else pays for the fields.
   if (def.family === 'splitter') {
     machine.filters = [null, null];
     machine.turn = 0;
   }
+  if (def.family === 'chest') machine.filters = new Array<ItemId | null>(def.inputSlots).fill(null);
   if (def.fuelSlots > 0) {
     machine.fuel = makeSlots(def.fuelSlots);
     machine.heat = 0;
@@ -185,6 +188,10 @@ function upgradeMachine(
   // A higher tier never has fewer slots, so every stack keeps its position.
   machine.input = normalizeSlots(machine.input, def.inputSlots, def.slotSize);
   machine.output = normalizeSlots(machine.output, def.outputSlots, def.slotSize);
+  // A bigger chest keeps its slot filters where they were and opens the rest.
+  if (def.family === 'chest') {
+    machine.filters = machine.input.map((_, i) => machine.filters?.[i] ?? null);
+  }
   // A stone furnace upgraded to steel becomes a burner, and starts cold.
   if (def.fuelSlots > 0) {
     machine.fuel = normalizeSlots(machine.fuel ?? [], def.fuelSlots, def.slotSize);
@@ -338,4 +345,103 @@ export function setSideFilter(
   filters[side] = item;
   machine.filters = filters;
   return true;
+}
+
+/**
+ * Whether a machine keeps a filter per storage slot. Keyed on the family, so a
+ * bigger chest tier would carry them with no changes here; a splitter holds
+ * items too, but its filters are its sides.
+ */
+export function hasSlotFilters(machine: Machine): boolean {
+  return MACHINES[machine.type].family === 'chest';
+}
+
+/**
+ * Keep one of a chest's slots for a single item, or open it back up with null.
+ * The filter governs what goes in, not what is already there: a stack of
+ * something else stays put until it is taken out, and nothing new joins it.
+ */
+export function setSlotFilter(
+  world: World,
+  machineId: number,
+  index: number,
+  item: ItemId | null,
+): boolean {
+  const machine = world.machines.find((m) => m.id === machineId);
+  if (!machine || !hasSlotFilters(machine)) return false;
+  if (!Number.isInteger(index) || index < 0 || index >= machine.input.length) return false;
+
+  const filters = machine.filters ?? new Array<ItemId | null>(machine.input.length).fill(null);
+  if ((filters[index] ?? null) === item) return false;
+  filters[index] = item;
+  machine.filters = filters;
+  return true;
+}
+
+/**
+ * Everything a player sets on a machine, lifted off it so it can be put on
+ * another. What a machine holds and how far through a cycle it is are not
+ * settings, so a paste never moves items or progress.
+ */
+export interface MachineSettings {
+  family: MachineFamily;
+  recipe: string | null;
+  filter: ItemId | null;
+  filters: (ItemId | null)[] | null;
+}
+
+/**
+ * Whether a machine has anything to copy. A miner works whatever it stands on
+ * and a lab whatever the island researches, so neither has a setting of its own.
+ */
+export function hasSettings(machine: Machine): boolean {
+  const def = MACHINES[machine.type];
+  return (
+    def.choosesRecipe ||
+    def.family === 'inserter' ||
+    def.family === 'splitter' ||
+    def.family === 'chest'
+  );
+}
+
+export function copySettings(machine: Machine): MachineSettings {
+  return {
+    family: MACHINES[machine.type].family,
+    recipe: machine.recipe,
+    filter: machine.filter,
+    filters: machine.filters ? [...machine.filters] : null,
+  };
+}
+
+/**
+ * Put copied settings on another machine of the same family. Tiers share a
+ * family, so a Mk1 furnace's recipe goes onto a Mk3 as readily as onto another
+ * Mk1; a chest's slot filters go on slot for slot, as far as both grids reach.
+ * Returns whether anything changed.
+ */
+export function pasteSettings(world: World, machineId: number, settings: MachineSettings): boolean {
+  const machine = world.machines.find((m) => m.id === machineId);
+  if (!machine) return false;
+  const def = MACHINES[machine.type];
+  if (def.family !== settings.family) return false;
+
+  let changed = false;
+  if (def.choosesRecipe && settings.recipe !== null && settings.recipe !== machine.recipe) {
+    changed = setRecipe(world, machineId, settings.recipe) || changed;
+  }
+  if (def.family === 'inserter' && settings.filter !== machine.filter) {
+    changed = setFilter(world, machineId, settings.filter) || changed;
+  }
+  if (settings.filters) {
+    if (isSplitter(machine)) {
+      for (const side of [0, 1]) {
+        changed = setSideFilter(world, machineId, side, settings.filters[side] ?? null) || changed;
+      }
+    } else if (hasSlotFilters(machine)) {
+      for (let i = 0; i < machine.input.length; i++) {
+        changed = setSlotFilter(world, machineId, i, settings.filters[i] ?? null) || changed;
+      }
+    }
+  }
+  return changed;
 }

@@ -21,6 +21,8 @@ export type ActionKey =
   | 'rotate'
   | 'remove'
   | 'mute'
+  | 'copy'
+  | 'paste'
   | `hotbar${HotbarKey}`
   | `bind${HotbarKey}`;
 
@@ -97,6 +99,12 @@ export class InputManager {
 
     this.target.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'touch') return;
+      // Shift with either button copies a machine's settings or pastes them,
+      // the pair Factorio players already have in their hands.
+      if (e.shiftKey && (e.button === 0 || e.button === 2)) {
+        this.pending.push(e.button === 2 ? 'copy' : 'paste');
+        return;
+      }
       if (e.button === 2) {
         this.pending.push('remove');
         return;

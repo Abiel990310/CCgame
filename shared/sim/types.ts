@@ -256,8 +256,9 @@ export interface Machine {
   /** True when the machine could not run last tick, for the renderer. */
   stalled: boolean;
   /**
-   * Splitter only: the item each output side takes, left first. A null side
-   * takes anything. Absent on every other machine, so saves stay small.
+   * A splitter's two output sides, left first, or a chest's slots one for one:
+   * the item each takes, where null takes anything. Absent on every other
+   * machine, so saves stay small.
    */
   filters?: (ItemId | null)[];
   /** Splitter only: which of the two sides the next item is offered to. */

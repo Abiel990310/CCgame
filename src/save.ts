@@ -106,8 +106,12 @@ type PackedMachine = [
    * the filter at that position.
    */
   (OreKind | null)?,
-  /** A splitter's two sides and whose turn it is; only a splitter has them. */
+  /**
+   * A splitter's two sides, or a chest's slot filters. Absent on a chest packed
+   * before chests had filters, and on a chest with none set.
+   */
   ((ItemId | null)[])?,
+  /** Whose turn it is on a splitter; nothing else has one. */
   number?,
   /**
    * A burner's fuel grid and the heat left in it. Only a burner has them, and
@@ -421,6 +425,10 @@ function packMachine(machine: Machine): PackedMachine {
     packed[11] = machine.filters ?? [null, null];
     packed[12] = machine.turn ?? 0;
   }
+  // A chest nobody has filtered writes nothing extra, which is most chests.
+  if (MACHINES[machine.type].family === 'chest' && machine.filters?.some((f) => f !== null)) {
+    packed[11] = machine.filters;
+  }
   if (machine.fuel) {
     packed[13] = packSlots(machine.fuel);
     packed[14] = round(machine.heat ?? 0, 3);
@@ -451,6 +459,7 @@ function unpackMachine(packed: PackedMachine): Machine {
     machine.filters = packed[11] ?? [null, null];
     machine.turn = packed[12] ?? 0;
   }
+  if (MACHINES[machine.type]?.family === 'chest' && packed[11]) machine.filters = packed[11];
   if (packed[13]) {
     machine.fuel = unpackSlots(packed[13]);
     machine.heat = packed[14] ?? 0;
@@ -497,6 +506,14 @@ function loadMachine(machine: Machine): Machine {
       return item && item in ITEMS ? item : null;
     });
     loaded.turn = machine.turn === 1 ? 1 : 0;
+  }
+  // A chest has one filter per slot, whatever its grid was when it was saved.
+  if (def.family === 'chest') {
+    const saved = machine.filters ?? [];
+    loaded.filters = loaded.input.map((_, i) => {
+      const item = saved[i];
+      return item && item in ITEMS ? item : null;
+    });
   }
 
   // A machine that became a burner after it was built starts with an empty

@@ -3,7 +3,7 @@ import { CYCLE } from '@shared/sim/constants';
 import { activeTech, cyclesDone, cyclesNeeded } from '@shared/sim/research';
 import { countItem, hasAll } from '@shared/sim/inventory';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { ItemId, ItemStack, Machine, Player, World } from '@shared/sim/types';
+import type { ItemId, ItemStack, Machine, MachineFamily, Player, World } from '@shared/sim/types';
 import { audio } from '../audio';
 import { itemIconVar } from '../render/items';
 import { pieceIconVar } from '../render/pieces';
@@ -48,6 +48,8 @@ export interface HudCallbacks {
   onSetResearch: (techId: string) => void;
   onSetFilter: (machineId: number, item: ItemId | null) => void;
   onSlotAction: (ref: SlotRef, button: ClickButton, quick: boolean) => void;
+  onCopySettings: (machineId: number) => void;
+  onPasteSettings: (machineId: number) => void;
   onTakeAll: (machineId: number) => void;
   onSort: (area: SlotArea) => void;
   onGather: (ref: SlotRef) => void;
@@ -154,6 +156,8 @@ export class Hud {
       onSetRecipe: (machineId, recipeId) => this.callbacks.onSetRecipe(machineId, recipeId),
       onSetResearch: (techId) => this.callbacks.onSetResearch(techId),
       onSetFilter: (machineId, item) => this.callbacks.onSetFilter(machineId, item),
+      onCopySettings: (machineId) => this.callbacks.onCopySettings(machineId),
+      onPasteSettings: (machineId) => this.callbacks.onPasteSettings(machineId),
       onSort: (area) => this.callbacks.onSort(area),
       onGather: (ref) => this.callbacks.onGather(ref),
       onClose: () => this.callbacks.onCloseInventory(),
@@ -162,6 +166,11 @@ export class Hud {
     this.buildTabs();
     this.buildPalette();
     this.buildHotbar();
+  }
+
+  /** Which family the copied settings fit, so the machine screen can offer a paste. */
+  setClipboard(family: MachineFamily | null): void {
+    this.inventory.setClipboard(family);
   }
 
   /** The pause overlay doubles as the way back to the main menu. */

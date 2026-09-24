@@ -126,7 +126,10 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
     if (!ingredientFits(machine.input, def, recipe.inputs.length, item)) return false;
   }
 
-  return addToSlots(machine.input, item, 1, def.slotSize) === 1;
+  // A chest's filtered slots are kept for their own item, so a line that
+  // fills a buffer with one thing still leaves room for what the next needs.
+  const filters = def.family === 'chest' ? machine.filters : undefined;
+  return addToSlots(machine.input, item, 1, def.slotSize, filters) === 1;
 }
 
 /**
