@@ -9,6 +9,7 @@ import { dirAngle, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
 import type { Belt, Direction, Machine, MachineId } from '@shared/sim/types';
 import { drawItemSprite } from './items';
+import { blitCached } from './paint';
 import { UI, rgba, shift } from './palette';
 import { meter, shadow } from './shapes';
 
@@ -19,8 +20,19 @@ import { meter, shadow } from './shapes';
  */
 export function drawBelt(ctx: CanvasRenderingContext2D, belt: Belt, time: number): void {
   const { x, y } = tileCenter(belt.tx, belt.ty);
-  drawBeltAt(ctx, x, y, belt.dir, time);
+  // A base is hundreds of belts, and tracing each one's bed, treads and rails
+  // was half of a busy factory's frame. The treads only ever sit at one of a
+  // few phases of their spacing, so each facing and phase is baked once.
+  const phase = Math.floor((((time * BELT_SPEED * TILE) % BELT_SPACING) / BELT_SPACING) * BELT_PHASES);
+  const r = TILE * 0.5 + 1;
+  blitCached(ctx, `belt:${belt.dir}:${phase}`, x, y, { left: r, right: r, top: r, bottom: r }, (c) =>
+    drawBeltAt(c, 0, 0, belt.dir, (phase / BELT_PHASES) * (BELT_SPACING / (BELT_SPEED * TILE)), 0.5),
+  );
 }
+
+const BELT_SPACING = TILE / 4;
+/** Tread positions baked per facing; enough that the scroll never visibly steps. */
+const BELT_PHASES = 16;
 
 export function drawBeltAt(
   ctx: CanvasRenderingContext2D,
@@ -28,21 +40,25 @@ export function drawBeltAt(
   y: number,
   dir: Belt['dir'],
   time: number,
+  bleed = 0,
 ): void {
   const h = TILE / 2;
+  // How far bed and rails reach past the tile, so baked neighbours, each
+  // snapped to its own whole pixel, overlap instead of leaving a hairline.
+  const e = h + bleed;
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(dirAngle(dir));
 
   // Bed.
   ctx.fillStyle = BELT.bed;
-  ctx.fillRect(-h, -TILE * 0.36, TILE, TILE * 0.72);
+  ctx.fillRect(-e, -TILE * 0.36, e * 2, TILE * 0.72);
 
   // Scrolling treads. All of them go into one path — a stroke apiece is
   // several draw calls per belt, and a base is thousands of belts.
   ctx.strokeStyle = BELT.tread;
   ctx.lineWidth = 2;
-  const spacing = TILE / 4;
+  const spacing = BELT_SPACING;
   const scroll = (time * BELT_SPEED * TILE) % spacing;
   ctx.beginPath();
   for (let i = -h - spacing; i < h + spacing; i += spacing) {
@@ -56,13 +72,13 @@ export function drawBeltAt(
   // Rails, one path: the lit top edge and the shaded body of both sides.
   ctx.fillStyle = BELT.rail;
   ctx.beginPath();
-  ctx.rect(-h, -TILE * 0.44, TILE, TILE * 0.1);
-  ctx.rect(-h, TILE * 0.34, TILE, TILE * 0.1);
+  ctx.rect(-e, -TILE * 0.44, e * 2, TILE * 0.1);
+  ctx.rect(-e, TILE * 0.34, e * 2, TILE * 0.1);
   ctx.fill();
   ctx.fillStyle = BELT.railLit;
   ctx.beginPath();
-  ctx.rect(-h, -TILE * 0.44, TILE, TILE * 0.035);
-  ctx.rect(-h, TILE * 0.34, TILE, TILE * 0.035);
+  ctx.rect(-e, -TILE * 0.44, e * 2, TILE * 0.035);
+  ctx.rect(-e, TILE * 0.34, e * 2, TILE * 0.035);
   ctx.fill();
 
   // A chevron painted on the bed.
@@ -101,12 +117,15 @@ export function drawBeltItems(ctx: CanvasRenderingContext2D, belt: Belt): void {
     const ix = x + dx * along;
     const iy = y + dy * along;
 
-    ctx.fillStyle = 'rgba(10, 14, 20, 0.28)';
-    ctx.beginPath();
-    ctx.ellipse(ix, iy + 3, 4.5, 2.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    drawItemSprite(ctx, ix, iy, 5.2, riding.item);
+    // The item and its shadow are one sprite: a base full of belts carries
+    // thousands of items, and a path for every shadow was most of their cost.
+    blitCached(ctx, `riding:${riding.item}`, ix, iy, { left: 7, right: 7, top: 7, bottom: 7 }, (c) => {
+      c.fillStyle = 'rgba(10, 14, 20, 0.28)';
+      c.beginPath();
+      c.ellipse(0, 3, 4.5, 2.4, 0, 0, Math.PI * 2);
+      c.fill();
+      drawItemSprite(c, 0, 0, 5.2, riding.item);
+    });
   }
 }
 
@@ -176,7 +195,6 @@ function drawBody(ctx: CanvasRenderingContext2D, def: MachineDef, dir: Direction
   drawTierPips(ctx, def, x, y);
 }
 
-const bodies = new Map<string, HTMLCanvasElement>();
 let bodyScale = 0;
 /** Half the sprite's side, in world units: room for the chimney, port and shadow. */
 const BODY_REACH = TILE * 0.95;
@@ -187,24 +205,10 @@ export function setFactoryScale(scale: number): void {
 }
 
 function blitBody(ctx: CanvasRenderingContext2D, def: MachineDef, dir: Direction, x: number, y: number): void {
-  const px = Math.max(24, Math.ceil((BODY_REACH * 2 * bodyScale) / 6) * 6);
-  const key = `${def.id}:${dir}:${px}`;
-  let sprite = bodies.get(key);
-  if (!sprite) {
-    sprite = document.createElement('canvas');
-    sprite.width = px;
-    sprite.height = px;
-    const bake = sprite.getContext('2d');
-    if (!bake) {
-      drawBody(ctx, def, dir, x, y);
-      return;
-    }
-    const k = px / (BODY_REACH * 2);
-    bake.setTransform(k, 0, 0, k, px / 2, px / 2);
-    drawBody(bake, def, dir, 0, 0);
-    bodies.set(key, sprite);
-  }
-  ctx.drawImage(sprite, x - BODY_REACH, y - BODY_REACH, BODY_REACH * 2, BODY_REACH * 2);
+  const r = BODY_REACH;
+  blitCached(ctx, `body:${def.id}:${dir}`, x, y, { left: r, right: r, top: r, bottom: r }, (c) =>
+    drawBody(c, def, dir, 0, 0),
+  );
 }
 
 /** Where the top face ends and the front face begins, as a fraction of a tile. */

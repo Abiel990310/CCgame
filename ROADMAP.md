@@ -376,6 +376,11 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [x] Belts, machine bodies and belt items are baked sprites copied to whole
+      pixels (belts at 16 tread phases per facing). A dense factory, 300
+      machines and 600 belts on a 2x screen, went from 17 to 29 fps headless.
+      What is left in a factory frame is each machine's live parts (drill,
+      gears, smoke, lamp), traced every frame.
 - [ ] **Move drawing to WebGL** (decided 2026-09-24, Abiel asked for the game
       to look and run like a Steam game). Profiled on the live build: the
       simulation, HUD and lighting maths cost under 1 ms a frame; the rest is
