@@ -2042,19 +2042,6 @@ kbd {
   color: var(--ink-dim);
 }
 
-.menu-secondary {
-  margin-top: 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.menu-hint {
-  font-size: 11.5px;
-  color: var(--ink-faint);
-}
-
 /* ---------- Sound: the same panel in the main menu and the pause screen ---------- */
 
 .sound-panel {

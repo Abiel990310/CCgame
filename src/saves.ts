@@ -39,8 +39,10 @@ const EMPTY: SaveIndex = { version: 1, lastPlayed: null, slots: [] };
 export const SCENERY_SUFFIX = '.w';
 export const FACTORY_SUFFIX = '.f';
 export const ORE_SUFFIX = '.o';
+/** Friends who have played this island in co-op; see `net/guests.ts`. */
+export const GUESTS_SUFFIX = '.g';
 /** Every entry one slot occupies, the header's own key first. */
-export const SLOT_SUFFIXES = ['', SCENERY_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX] as const;
+export const SLOT_SUFFIXES = ['', SCENERY_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX, GUESTS_SUFFIX] as const;
 
 /** Which tab currently owns the slot; see `tablock.ts`. Not island data. */
 export const LOCK_SUFFIX = '.lock';

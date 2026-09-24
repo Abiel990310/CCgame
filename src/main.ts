@@ -1,7 +1,9 @@
 import './style.css';
 import { Game } from './game';
 import { MainMenu } from './ui/menu';
-import { mountIcons } from './ui/icons';
+import { icon, mountIcons } from './ui/icons';
+import { JoinScreen } from './ui/coop';
+import { cleanCode } from './net/protocol';
 
 const canvas = document.getElementById('stage');
 if (!(canvas instanceof HTMLCanvasElement)) {
@@ -22,3 +24,16 @@ const game = new Game(canvas, {
 });
 menu.open();
 game.showcase();
+
+// Co-op's front door sits beside the island buttons: joining is another way in.
+const join = new JoinScreen(async (code, name) => {
+  await game.joinGame(code, name);
+  menu.close();
+});
+const joinButton = document.createElement('button');
+joinButton.className = 'ghost-btn coop-join-btn';
+joinButton.innerHTML = `${icon('users')}Join a friend`;
+joinButton.addEventListener('click', () => join.open());
+document.querySelector('.menu-actions')?.appendChild(joinButton);
+const invited = cleanCode(new URLSearchParams(location.search).get('join') ?? '');
+if (invited) join.open(invited);

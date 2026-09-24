@@ -1,4 +1,5 @@
 import { BUILDINGS } from '@shared/data/buildings';
+import { drawNameTags } from './nametags';
 import { RESOURCES } from '@shared/data/items';
 import { CAMP, CYCLE, MAP_SIZE, MAP_TILES, TILE } from '@shared/sim/constants';
 import { clamp } from '@shared/sim/math';
@@ -204,6 +205,12 @@ export class Renderer {
     ctx.restore();
 
     this.drawLighting(world, selfId, time);
+
+    // Names stay readable after dark, so they go over the night layer.
+    ctx.save();
+    ctx.setTransform(scale, 0, 0, scale, originX, originY);
+    drawNameTags(ctx, world, selfId, visible);
+    ctx.restore();
 
     // Eyes in the dark: drawn over the night layer so a raid gives itself away.
     const darkness = nightDarkness(world);
