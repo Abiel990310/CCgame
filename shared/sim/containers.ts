@@ -1,6 +1,6 @@
 import { MACHINES } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
-import { isSplitter, setFilter, splitterAccepts } from './factory';
+import { isSplitter, setSideFilter, splitterAccepts } from './factory';
 import { giveOrDrop } from './inventory';
 import { addToSlots, slotCap, sortSlots, takeFromSlots } from './slots';
 import type { ItemId, Machine, Player, Slot, World } from './types';
@@ -83,7 +83,7 @@ export function clickSlot(
   // click never takes the item: a filter is a label, not a stored stack.
   if (ref.area === 'filter') {
     if (machineId === null || !machine || !isSplitter(machine)) return false;
-    return setFilter(world, machineId, ref.index, player.cursor?.id ?? null);
+    return setSideFilter(world, machineId, ref.index, player.cursor?.id ?? null);
   }
 
   const slots = slotsFor(player, machine, ref.area);

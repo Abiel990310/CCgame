@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { TICK_DT } from '../constants';
+import { TICK_DT, TILE } from '../constants';
 import { placeBelt, placeMachine, setRecipe } from '../factory';
 import { tileKey } from '../grid';
 import { addItem } from '../inventory';
@@ -16,6 +16,7 @@ import type {
   OreKind,
   Player,
   Slot,
+  Vec2,
   World,
 } from '../types';
 import { addPlayer, createWorld } from '../world';
@@ -62,7 +63,22 @@ export function bench(seed = 2026): Bench {
     }
   }
 
+  // Scenery blocks placement, and the generator scatters it over these tiles
+  // too — which would make where a layout fits a property of the seed again.
+  world.nodes = world.nodes.filter((node) => !onBench(node.pos));
+
   return { world, player };
+}
+
+function onBench(pos: Vec2): boolean {
+  const tx = Math.floor(pos.x / TILE);
+  const ty = Math.floor(pos.y / TILE);
+  return (
+    tx >= BENCH.tx &&
+    tx < BENCH.tx + BENCH.width &&
+    ty >= BENCH.ty &&
+    ty < BENCH.ty + BENCH.height
+  );
 }
 
 /** A tile on the bench, offset from its top-left corner. */

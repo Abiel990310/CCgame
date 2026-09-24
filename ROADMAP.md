@@ -55,6 +55,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Camp vs factory | One overlap test, in `shared/sim/building.ts` | Camp pieces are circles in world units and factory pieces own whole tiles, so neither list can see the other by lookup. Both placement checks now go through the same circle-against-tile test, with 4px of slack so a wide piece does not claim the ring of tiles its edge merely grazes. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine tiers | A tier is a data row: a family plus a speed multiplier | A steel furnace is a furnace that runs faster, so it points at the furnace's recipes rather than duplicating them. Adding a tier costs one row in `machines.ts` and no recipe rows, which is what keeps the engine small as the ladder grows. |
+| Inserter reach and filters | Data rows on the machine table, not new machine types | `MachineDef.reach` is what makes the long arm a row rather than a system, and `Machine.filter` sits beside the recipe so both arms take one. A third arm, or a filtered one of any length, costs a table entry. |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
@@ -196,14 +197,19 @@ detail behind the factory entries is in
 - [ ] **Merger** — two belts into one, the splitter read backwards. A splitter
       can feed two lines now, but joining two lines still takes a chest and an
       inserter.
-- [ ] **Long inserter** — an arm that reaches two tiles instead of one, so a
-      machine can be loaded from across a belt. The one-tile inserter is built;
-      this is the other half of that entry.
-- [ ] **Inserter filter** — an inserter set to a single item, so a mixed chest
-      can feed a line that only wants plates. Unloading a chest is possible
-      now, which is what makes a mixed buffer worth having.
+- [x] **Long inserter** — an arm that reaches two tiles instead of one, so a
+      machine can be loaded from across a belt. Built: a `MACHINES` row with
+      `reach: 2`, slower than the short arm.
+- [x] **Inserter filter** — an inserter set to a single item, so a mixed chest
+      can feed a line that only wants plates. Built: set from the arm's screen,
+      and anything else rides past it on a belt.
 - [ ] **Inserter tiers** — `MachineDef.speed` already multiplies the swing
-      time, so a faster arm is a data row and nothing else.
+      time, so a faster arm is a data row and nothing else. `reach` is now a
+      data row too, so a longer one is as well.
+- [ ] **Filtered chest slots** — the same filter idea on a chest, so a buffer
+      reserves room for what a line needs rather than filling with one item.
+- [ ] **Copy settings between machines** — a bank of filtered arms means
+      setting the same filter a dozen times by hand.
 - [ ] **Lab and a `TECHS` table** — research consumed as a belt-fed item flow
       rather than bought from a shop, so every unlock is a throughput problem.
 - [ ] **Tech gating on the build palette** — start with miner, furnace and
@@ -292,14 +298,17 @@ detail behind the factory entries is in
       opt-in and building freely never punishes you.
 - [ ] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
       for belt tiers, and it touches the save format.
-- [ ] An inserter will not take from or give to another inserter, so items
+- [x] An inserter will not take from or give to another inserter, so items
       cannot cross a gap without a belt tile between them. Deliberate — it is
-      what stops two facing arms passing one item back and forth forever — but
-      the long inserter is the intended answer and this should be revisited
-      with it.
+      what stops two facing arms passing one item back and forth forever. The
+      long inserter is the answer as intended: it reaches straight over an arm
+      standing in the way.
 - [ ] The world sizes every item the same: 5.2 for a belt or an inserter hand,
       6 for a ground drop. A wood log and a circuit board are not the same size
       in life, and `ItemDef` could carry a scale the way it carries a colour.
+- [ ] A filtered arm reads only the front item of the belt it watches, so a
+      full belt of the wrong item parks it even when its item is two places
+      back. Correct for one lane; worth revisiting if belts ever carry sides.
 - [ ] Weapons only ever fire at the nearest mob, so a forty-mob night sounds
       exactly like a one-mob night. Noticed while balancing combat audio; it is
       a combat-feel question, not an audio one.
@@ -329,6 +338,10 @@ detail behind the factory entries is in
       tapping off one side costs two extra belt tiles to turn back. Fine for
       feeding two furnace rows, awkward on a bus; whether a forward-and-side
       variant is wanted is a play question, not a code one.
+- [ ] Filters are set two different ways: an inserter picks from a row of item
+      chips, a splitter takes an item dropped on each side. They landed the
+      same day in parallel. One gesture for both would be less to learn; the
+      drop suits two sides, the chips suit browsing an unfamiliar item.
 - [ ] A splitter's sides cannot be filtered before it is placed, so every one
       is placed, opened and then set. A filter carried on the build selection
       would make a row of sorters one pass instead of two.
@@ -450,6 +463,9 @@ detail behind the factory entries is in
       miner outruns steel demand several times over) have never been played.
 - [ ] Motor and advanced circuit are covered by simulation tests only; neither
       has been built as a line in a browser.
+- [ ] Whether a long inserter's 0.8 speed is the right price for its reach. It
+      moves about 1.3 items a second against the short arm's 1.7, which is a
+      guess rather than something a real furnace bank has argued with.
 - [ ] Whether 1 → 2 → 4 is the right speed curve, and whether the tier costs
       land at the moment a player wants the upgrade, has never been played.
       A tier 3 line was driven in a browser and does deliver four times the

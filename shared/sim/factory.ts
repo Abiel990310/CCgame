@@ -3,7 +3,7 @@ import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { buildingOnTile } from './building';
 import { giveOrDrop, payAll, hasAll } from './inventory';
 import { makeSlots } from './slots';
-import { inBounds, opposite, rotate, step1, tileCenter, tileKey, turnLeft } from './grid';
+import { inBounds, opposite, rotate, step1, stepN, tileCenter, tileKey, turnLeft } from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
 import { isWalkable, terrainAtIndex } from './terrain';
@@ -107,6 +107,7 @@ export function placeMachine(
     dir,
     // A miner's "recipe" is whatever it is standing on; everything else is chosen.
     recipe: def.family === 'miner' ? null : defaultRecipe(type),
+    filter: null,
     progress: 0,
     input: makeSlots(def.inputSlots),
     output: makeSlots(def.outputSlots),
@@ -128,6 +129,19 @@ export function placeMachine(
 function defaultRecipe(type: MachineId): string | null {
   const options = recipesFor(type);
   return options.length > 0 ? options[0].id : null;
+}
+
+/**
+ * Restrict an inserter to one item, or clear the restriction with null. A
+ * filtered arm is what lets one mixed chest feed several lines: everything it
+ * is not set to rides past untouched.
+ */
+export function setFilter(world: World, machineId: number, item: ItemId | null): boolean {
+  const machine = world.machines.find((m) => m.id === machineId);
+  if (!machine || MACHINES[machine.type].family !== 'inserter') return false;
+
+  machine.filter = item;
+  return true;
 }
 
 export function removeAt(world: World, player: Player, tx: number, ty: number): boolean {
@@ -179,20 +193,24 @@ export function setRecipe(world: World, machineId: number, recipeId: string): bo
   return true;
 }
 
-/** The tile an inserter reaches back into. Nothing else has an input side. */
-export function inputTile(entity: { tx: number; ty: number; dir: Direction }): {
-  tx: number;
-  ty: number;
-} {
-  return step1(entity.tx, entity.ty, opposite(entity.dir));
+/**
+ * The tile an inserter reaches back into. Nothing else has an input side.
+ * `reach` is the arm's length in tiles: a long arm passes over whatever is in
+ * between rather than interacting with it.
+ */
+export function inputTile(
+  entity: { tx: number; ty: number; dir: Direction },
+  reach = 1,
+): { tx: number; ty: number } {
+  return stepN(entity.tx, entity.ty, opposite(entity.dir), reach);
 }
 
 /** The tile a machine or belt pushes its output into. */
-export function outputTile(entity: { tx: number; ty: number; dir: Direction }): {
-  tx: number;
-  ty: number;
-} {
-  return step1(entity.tx, entity.ty, entity.dir);
+export function outputTile(
+  entity: { tx: number; ty: number; dir: Direction },
+  reach = 1,
+): { tx: number; ty: number } {
+  return stepN(entity.tx, entity.ty, entity.dir, reach);
 }
 
 /**
@@ -231,8 +249,11 @@ export function splitterAccepts(machine: Machine, item: ItemId): boolean {
   return filters.some((f) => f == null || f === item);
 }
 
-/** Point one of a splitter's sides at a single item, or clear it with null. */
-export function setFilter(
+/**
+ * Point one of a splitter's sides at a single item, or clear it with null.
+ * Named apart from the inserter's `setFilter` because a splitter has two.
+ */
+export function setSideFilter(
   world: World,
   machineId: number,
   side: number,

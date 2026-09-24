@@ -68,7 +68,6 @@ interface ScenerySection {
 type PackedSlot = [ItemId, number] | null;
 /** `[id, tx, ty, dir, item, offset, item, offset, ...]`. */
 type PackedBelt = (number | ItemId)[];
-/** The last two are a splitter's sides, and only a splitter carries them. */
 type PackedMachine = [
   number,
   MachineId,
@@ -79,6 +78,9 @@ type PackedMachine = [
   number,
   PackedSlot[],
   PackedSlot[],
+  /** An inserter's filter. Absent on a row packed before filters existed. */
+  (ItemId | null)?,
+  /** A splitter's two sides and whose turn it is; only a splitter has them. */
   ((ItemId | null)[])?,
   number?,
 ];
@@ -307,12 +309,13 @@ function packMachine(machine: Machine): PackedMachine {
     round(machine.progress, 3),
     packSlots(machine.input),
     packSlots(machine.output),
+    machine.filter,
   ];
 
   // Only a splitter has sides, so only a splitter pays for them in the file.
   if (MACHINES[machine.type].family === 'splitter') {
-    packed[9] = machine.filters ?? [null, null];
-    packed[10] = machine.turn ?? 0;
+    packed[10] = machine.filters ?? [null, null];
+    packed[11] = machine.turn ?? 0;
   }
   return packed;
 }
@@ -328,13 +331,14 @@ function unpackMachine(packed: PackedMachine): Machine {
     progress: packed[6],
     input: unpackSlots(packed[7]),
     output: unpackSlots(packed[8]),
+    filter: packed[9] ?? null,
     // Recomputed by the factory system on the first tick after a load.
     stalled: false,
   };
 
   if (MACHINES[machine.type]?.family === 'splitter') {
-    machine.filters = packed[9] ?? [null, null];
-    machine.turn = packed[10] ?? 0;
+    machine.filters = packed[10] ?? [null, null];
+    machine.turn = packed[11] ?? 0;
   }
   return machine;
 }
@@ -348,6 +352,8 @@ function loadMachine(machine: Machine): Machine {
   const def = MACHINES[machine.type];
   const loaded: Machine = {
     ...machine,
+    // An island saved before filters existed simply has none.
+    filter: loadFilter(machine),
     input: normalizeSlots(machine.input, def.inputSlots, def.slotSize),
     output: normalizeSlots(machine.output, def.outputSlots, def.slotSize),
   };
@@ -363,6 +369,13 @@ function loadMachine(machine: Machine): Machine {
     loaded.turn = machine.turn === 1 ? 1 : 0;
   }
   return loaded;
+}
+
+/** A filter naming an item this build no longer has is dropped, not honoured. */
+function loadFilter(machine: Machine): ItemId | null {
+  const filter = machine.filter as ItemId | null | undefined;
+  if (!filter || MACHINES[machine.type].family !== 'inserter' || !(filter in ITEMS)) return null;
+  return filter;
 }
 
 function rebuildGrid(world: World): void {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { placeBelt, placeMachine, setFilter, setRecipe } from '@shared/sim/factory';
+import { placeBelt, placeMachine, setSideFilter, setRecipe } from '@shared/sim/factory';
 import { addItem } from '@shared/sim/inventory';
 import { addToSlots } from '@shared/sim/slots';
 import { tileKey } from '@shared/sim/grid';
@@ -111,7 +111,7 @@ describe('saving an island', () => {
 
     const splitter = placeMachine(world, player, 'splitter', SITE.tx, SITE.ty, 2)!;
     const plain = placeMachine(world, player, 'chest', SITE.tx + 1, SITE.ty, 0)!;
-    expect(setFilter(world, splitter.id, 1, 'copperOre')).toBe(true);
+    expect(setSideFilter(world, splitter.id, 1, 'copperOre')).toBe(true);
     splitter.turn = 1;
 
     saveWorld(world, SLOT);

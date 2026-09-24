@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MACHINES, SPLITTER_BUFFER } from '../../data/machines';
 import { TICK_DT } from '../constants';
 import { clickSlot } from '../containers';
-import { removeAt, setFilter, sideTiles } from '../factory';
+import { removeAt, setSideFilter, sideTiles } from '../factory';
 import { countIn, totalIn } from '../slots';
 import { insertIntoMachine, pushOntoBelt } from '../systems/factory';
 import type { Belt, Machine, World } from '../types';
@@ -85,8 +85,8 @@ describe('a splitter feeding two lines', () => {
 describe('a splitter with a side filtered', () => {
   it('sorts a mixed belt into one chest each', () => {
     const { b, feed, splitter, left, right } = tee();
-    expect(setFilter(b.world, splitter.id, 0, 'ironOre')).toBe(true);
-    expect(setFilter(b.world, splitter.id, 1, 'copperOre')).toBe(true);
+    expect(setSideFilter(b.world, splitter.id, 0, 'ironOre')).toBe(true);
+    expect(setSideFilter(b.world, splitter.id, 1, 'copperOre')).toBe(true);
 
     for (let i = 0; i < 6; i++) {
       expect(pushOntoBelt(feed, i % 2 === 0 ? 'ironOre' : 'copperOre')).toBe(true);
@@ -102,7 +102,7 @@ describe('a splitter with a side filtered', () => {
 
   it('still alternates between the sides an unfiltered item may use', () => {
     const { b, splitter, left, right } = tee();
-    setFilter(b.world, splitter.id, 0, 'coal');
+    setSideFilter(b.world, splitter.id, 0, 'coal');
     fill(splitter.input, 'ironPlate', SPLITTER_BUFFER, SPLITTER_BUFFER);
 
     advance(b.world, TICK_DT);
@@ -114,8 +114,8 @@ describe('a splitter with a side filtered', () => {
 
   it('refuses an item neither side would route rather than jamming on it', () => {
     const { b, feed, splitter, left, right } = tee();
-    setFilter(b.world, splitter.id, 0, 'ironOre');
-    setFilter(b.world, splitter.id, 1, 'ironOre');
+    setSideFilter(b.world, splitter.id, 0, 'ironOre');
+    setSideFilter(b.world, splitter.id, 1, 'ironOre');
 
     expect(insertIntoMachine(splitter, 'coal')).toBe(false);
 
@@ -130,10 +130,10 @@ describe('a splitter with a side filtered', () => {
 
   it('has no sides to set on a machine that is not a splitter', () => {
     const { b, splitter, left } = tee();
-    expect(setFilter(b.world, left.id, 0, 'coal')).toBe(false);
-    expect(setFilter(b.world, splitter.id, 2, 'coal')).toBe(false);
+    expect(setSideFilter(b.world, left.id, 0, 'coal')).toBe(false);
+    expect(setSideFilter(b.world, splitter.id, 2, 'coal')).toBe(false);
     // Setting a side to what it already is changes nothing.
-    expect(setFilter(b.world, splitter.id, 0, null)).toBe(false);
+    expect(setSideFilter(b.world, splitter.id, 0, null)).toBe(false);
     expect(splitter.filters).toEqual([null, null]);
   });
 });
@@ -151,7 +151,7 @@ describe('setting a filter by hand', () => {
 
   it('opens the side back up when clicked empty-handed', () => {
     const { b, splitter } = tee();
-    setFilter(b.world, splitter.id, 0, 'coal');
+    setSideFilter(b.world, splitter.id, 0, 'coal');
     b.player.cursor = null;
 
     expect(clickSlot(b.world, b.player, splitter.id, { area: 'filter', index: 0 })).toBe(true);
@@ -161,8 +161,8 @@ describe('setting a filter by hand', () => {
 
   it('refuses a stack neither side would route', () => {
     const { b, splitter } = tee();
-    setFilter(b.world, splitter.id, 0, 'ironOre');
-    setFilter(b.world, splitter.id, 1, 'ironOre');
+    setSideFilter(b.world, splitter.id, 0, 'ironOre');
+    setSideFilter(b.world, splitter.id, 1, 'ironOre');
     b.player.cursor = { id: 'coal', count: 3 };
 
     expect(clickSlot(b.world, b.player, splitter.id, { area: 'input', index: 0 })).toBe(false);
