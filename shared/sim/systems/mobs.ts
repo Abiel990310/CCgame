@@ -6,6 +6,7 @@ import { nextFloat } from '../progression';
 import { isWalkable, terrainAtIndex } from '../terrain';
 import type { Mob, MobTypeId, Vec2, World } from '../types';
 import { damagePlayer } from './combat';
+import { resolveMachines } from './movement';
 
 /** Mobs head for the nearest standing player, or the camp when nobody is up. */
 function findTarget(world: World, mob: Mob): Vec2 {
@@ -42,6 +43,9 @@ export function stepMobs(world: World, dt: number): void {
 
     stepMobPosition(world, mob, def.radius, dt);
     separate(world, mob, def.radius);
+    // After separation, so a crowd pressing on a furnace cannot shove one of
+    // its own members through it.
+    resolveMachines(world, mob.pos, def.radius);
     attackNearby(world, mob, def.radius, def.damage);
   }
 }

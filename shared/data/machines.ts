@@ -40,6 +40,11 @@ export interface MachineDef {
    * a machine that consumes what it is fed must not be drained the same way.
    */
   storage: boolean;
+  /**
+   * True when players and mobs bump into it. A splitter is part of a belt
+   * line, and belts are walkable so a factory never walls its owner in.
+   */
+  solid: boolean;
 }
 
 /** Items a splitter holds while waiting for a side to take them. */
@@ -66,6 +71,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: false,
+    solid: true,
   },
   furnace: {
     id: 'furnace',
@@ -87,6 +93,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    solid: true,
   },
   assembler: {
     id: 'assembler',
@@ -108,6 +115,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    solid: true,
   },
   minerMk2: {
     id: 'minerMk2',
@@ -129,6 +137,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: false,
+    solid: true,
   },
   minerMk3: {
     id: 'minerMk3',
@@ -151,6 +160,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: false,
+    solid: true,
   },
   furnaceMk2: {
     id: 'furnaceMk2',
@@ -172,6 +182,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    solid: true,
   },
   furnaceMk3: {
     id: 'furnaceMk3',
@@ -194,6 +205,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    solid: true,
   },
   assemblerMk2: {
     id: 'assemblerMk2',
@@ -216,6 +228,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    solid: true,
   },
   assemblerMk3: {
     id: 'assemblerMk3',
@@ -238,6 +251,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    solid: true,
   },
   chest: {
     id: 'chest',
@@ -256,6 +270,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: true,
+    solid: true,
   },
   inserter: {
     id: 'inserter',
@@ -278,6 +293,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 1,
     storage: false,
+    solid: true,
   },
   longInserter: {
     id: 'longInserter',
@@ -302,6 +318,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 2,
     storage: false,
+    solid: true,
   },
   lab: {
     id: 'lab',
@@ -326,6 +343,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: false,
+    solid: true,
   },
   splitter: {
     id: 'splitter',
@@ -350,6 +368,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     // Its buffer is items in transit, not spent, so an arm may lift them out
     // exactly as it could before the flag existed.
     storage: true,
+    solid: false,
   },
   fishTrap: {
     id: 'fishTrap',
