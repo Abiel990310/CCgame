@@ -28,7 +28,11 @@ export type ItemId =
   | 'circuit'
   | 'battery'
   | 'motor'
-  | 'advancedCircuit';
+  | 'advancedCircuit'
+  // Consumed by labs
+  | 'researchPack'
+  | 'logicPack'
+  | 'powerPack';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -180,7 +184,14 @@ export type OreKind = 'ironOre' | 'copperOre' | 'coal';
  * recipes, its tick and its silhouette, so anything that switches on the kind
  * of machine switches on this rather than on the type.
  */
-export type MachineFamily = 'miner' | 'furnace' | 'assembler' | 'chest' | 'inserter';
+export type MachineFamily =
+  | 'miner'
+  | 'furnace'
+  | 'assembler'
+  | 'chest'
+  | 'inserter'
+  | 'splitter'
+  | 'lab';
 
 export type MachineId =
   | MachineFamily
@@ -218,6 +229,12 @@ export interface Machine {
   recipe: string | null;
   /** Inserters only: the one item this arm will move, or null for anything. */
   filter: ItemId | null;
+  /**
+   * What a miner is pulling up, remembered rather than read off its own tile:
+   * once that tile runs dry the miner keeps working the ring around it, and it
+   * must not start mixing a neighbouring patch's ore into the same output.
+   */
+  ore: OreKind | null;
   /** Seconds of crafting accumulated toward the current recipe. */
   progress: number;
   /** Fixed grids, sized by the machine's `inputSlots` and `outputSlots`. */
@@ -225,6 +242,27 @@ export interface Machine {
   output: Slot[];
   /** True when the machine could not run last tick, for the renderer. */
   stalled: boolean;
+  /**
+   * Splitter only: the item each output side takes, left first. A null side
+   * takes anything. Absent on every other machine, so saves stay small.
+   */
+  filters?: (ItemId | null)[];
+  /** Splitter only: which of the two sides the next item is offered to. */
+  turn?: number;
+}
+
+/**
+ * What the island has learned. Research belongs to the world rather than to a
+ * player: a lab is a building, and once multiplayer lands everyone standing on
+ * the island is feeding the same tree.
+ */
+export interface Research {
+  /** The tech labs are working on, or null when nothing is queued. */
+  current: string | null;
+  /** Cycles banked toward each tech. Kept per tech, so switching loses nothing. */
+  progress: Record<string, number>;
+  /** Times each tech has been completed. A repeatable tech counts up. */
+  levels: Record<string, number>;
 }
 
 export interface World {
@@ -246,6 +284,14 @@ export interface World {
   camp: Vec2;
   /** Row-major ore grid; 0 means no ore. Parallel to `terrain`. */
   ore: Uint8Array;
+  /**
+   * Ore left in each tile, parallel to `ore`. Patches are finite: a tile that
+   * reaches zero has its entry in `ore` cleared too, so everything that only
+   * asks what a tile holds keeps working without knowing about amounts.
+   */
+  oreLeft: Uint16Array;
+  /** What each tile held when the island was made, so a save can store a diff. */
+  oreMax: Uint16Array;
   belts: Belt[];
   machines: Machine[];
   /**
@@ -255,6 +301,8 @@ export interface World {
    * rather than saved, since it is derived state.
    */
   grid: Map<number, Belt | Machine>;
+  /** Techs finished and the one being researched now. */
+  research: Research;
   /** When true this world has no night raids; the factory is the whole game. */
   peaceful: boolean;
   /** Spawn budget left to release during the current night. */
@@ -279,4 +327,6 @@ export type SimEvent =
   | { kind: 'phase'; phase: Phase; nightIndex: number }
   | { kind: 'playerHit'; playerId: number; amount: number }
   | { kind: 'downed'; playerId: number }
-  | { kind: 'built'; pos: Vec2; type: BuildingId };
+  | { kind: 'built'; pos: Vec2; type: BuildingId }
+  | { kind: 'research'; tech: string; level: number; next: string | null }
+  | { kind: 'oreChanged'; tx: number; ty: number };

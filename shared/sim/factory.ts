@@ -3,7 +3,7 @@ import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { buildingOnTile } from './building';
 import { giveOrDrop, payAll, hasAll } from './inventory';
 import { makeSlots } from './slots';
-import { inBounds, opposite, stepN, tileCenter, tileKey } from './grid';
+import { inBounds, opposite, rotate, step1, stepN, tileCenter, tileKey, turnLeft } from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
 import { isWalkable, terrainAtIndex } from './terrain';
@@ -108,11 +108,18 @@ export function placeMachine(
     // A miner's "recipe" is whatever it is standing on; everything else is chosen.
     recipe: def.family === 'miner' ? null : defaultRecipe(type),
     filter: null,
+    ore: def.family === 'miner' ? oreAt(world.ore, tx, ty) : null,
     progress: 0,
     input: makeSlots(def.inputSlots),
     output: makeSlots(def.outputSlots),
     stalled: false,
   };
+  // Only a splitter carries sides, so nothing else pays for the fields.
+  if (def.family === 'splitter') {
+    machine.filters = [null, null];
+    machine.turn = 0;
+  }
+
   world.machines.push(machine);
   world.grid.set(tileKey(tx, ty), machine);
   world.events.push({ kind: 'placed', pos: tileCenter(tx, ty), what: type });
@@ -205,4 +212,61 @@ export function outputTile(
   reach = 1,
 ): { tx: number; ty: number } {
   return stepN(entity.tx, entity.ty, entity.dir, reach);
+}
+
+/**
+ * A splitter's two output tiles: the one on its left, then the one on its
+ * right. It is a T-piece — what feeds it comes in from any other side, and the
+ * two arms are what the belt line becomes.
+ */
+export function sideTiles(entity: { tx: number; ty: number; dir: Direction }): [
+  { tx: number; ty: number },
+  { tx: number; ty: number },
+] {
+  return [
+    step1(entity.tx, entity.ty, turnLeft(entity.dir)),
+    step1(entity.tx, entity.ty, rotate(entity.dir)),
+  ];
+}
+
+/** Keyed on the family, so a faster splitter tier would need no changes here. */
+export function isSplitter(machine: Machine): boolean {
+  return MACHINES[machine.type].family === 'splitter';
+}
+
+/** The item a splitter's side is set to take, or null when it takes anything. */
+export function filterOf(machine: Machine, side: number): ItemId | null {
+  return machine.filters?.[side] ?? null;
+}
+
+/**
+ * Whether a splitter has any side that would take this item. A splitter with
+ * both sides filtered is a sorter: it refuses what it cannot route rather than
+ * swallowing it, so the belt carries the rest on to the next machine.
+ */
+export function splitterAccepts(machine: Machine, item: ItemId): boolean {
+  const filters = machine.filters;
+  if (!filters || filters.length === 0) return true;
+  return filters.some((f) => f == null || f === item);
+}
+
+/**
+ * Point one of a splitter's sides at a single item, or clear it with null.
+ * Named apart from the inserter's `setFilter` because a splitter has two.
+ */
+export function setSideFilter(
+  world: World,
+  machineId: number,
+  side: number,
+  item: ItemId | null,
+): boolean {
+  const machine = world.machines.find((m) => m.id === machineId);
+  if (!machine || !isSplitter(machine)) return false;
+  if (side !== 0 && side !== 1) return false;
+
+  const filters = machine.filters ?? [null, null];
+  if (filters[side] === item) return false;
+  filters[side] = item;
+  machine.filters = filters;
+  return true;
 }

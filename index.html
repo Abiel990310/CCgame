@@ -27,6 +27,10 @@
             <i class="bar-icon xp-icon" data-icon="star"></i>
             <div class="bar xp"><div class="fill" id="xp-fill"></div><span id="xp-text">0 / 8</span></div>
           </div>
+          <div class="bar-row hidden" id="research">
+            <i class="bar-icon research-icon" data-icon="bolt"></i>
+            <div class="bar research"><div class="fill" id="research-fill"></div><span id="research-text"></span></div>
+          </div>
         </div>
       </section>
 
@@ -110,6 +114,7 @@
             <button class="icon-btn" id="inv-close" title="Close (Tab / Esc)"><i data-icon="close"></i></button>
           </header>
           <p class="blurb hidden" id="inv-blurb"></p>
+          <p class="research-note hidden" id="inv-research"></p>
 
           <section class="inv-panel hidden" id="inv-container">
             <div class="inv-flow">
@@ -125,6 +130,10 @@
               </div>
               <div class="craft-bar hidden" id="inv-progress">
                 <div class="craft-fill" id="inv-progress-fill"></div>
+              </div>
+              <div class="inv-block hidden" id="inv-filters">
+                <div class="inv-head"><b>Sides</b><span>Drop an item to filter</span></div>
+                <div class="slots few" id="inv-filter-grid"></div>
               </div>
               <div class="inv-block hidden" id="inv-output">
                 <div class="inv-head"><b>Out</b><span>Made here</span></div>

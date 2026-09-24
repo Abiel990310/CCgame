@@ -1,5 +1,5 @@
 import { MAP_SIZE, MAP_TILES, TILE } from '@shared/sim/constants';
-import { oreAt } from '@shared/sim/ore';
+import { oreAt, oreBand } from '@shared/sim/ore';
 import { hash2 } from '@shared/sim/rng';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
 import type { Terrain } from '@shared/sim/types';
@@ -80,6 +80,7 @@ export class GroundMesh {
     ctx: CanvasRenderingContext2D,
     terrain: Uint8Array,
     ore: Uint8Array,
+    oreLeft: Uint16Array,
     rect: GroundRect,
   ): void {
     const tx0 = Math.max(0, Math.floor(rect.x / TILE) - OVERHANG);
@@ -143,7 +144,7 @@ export class GroundMesh {
     }
 
     drawShoreFoam(ctx, terrain, this.seed, tx0, ty0, tx1, ty1);
-    drawOre(ctx, ore, tx0, ty0, tx1, ty1);
+    drawOre(ctx, ore, oreLeft, tx0, ty0, tx1, ty1);
   }
 
   private vertAt(tx: number, ty: number): [number, number] {
@@ -156,6 +157,7 @@ export class GroundMesh {
 function drawOre(
   ctx: CanvasRenderingContext2D,
   ore: Uint8Array,
+  oreLeft: Uint16Array,
   tx0: number,
   ty0: number,
   tx1: number,
@@ -164,7 +166,9 @@ function drawOre(
   for (let ty = ty0; ty <= ty1; ty++) {
     for (let tx = tx0; tx <= tx1; tx++) {
       const kind = oreAt(ore, tx, ty);
-      if (kind) drawOreTile(ctx, tx, ty, kind);
+      // A worked tile is drawn thinner, so a patch visibly wears away from its
+      // rim inward and a player can see one running out before it stops.
+      if (kind) drawOreTile(ctx, tx, ty, kind, oreBand(oreLeft[ty * MAP_TILES + tx]));
     }
   }
 }

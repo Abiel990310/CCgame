@@ -28,15 +28,17 @@ export const TABS: Array<{ id: PaletteTab; label: string }> = [
 
 /**
  * Factory pieces grouped by the job they do, in the order a line is built:
- * dig it up, move it, melt it, make something, keep it. Each group is a
+ * dig it up, move it, melt it, make something, study it, keep it. Each group is a
  * column, and a family's tiers stack down it, so the palette reads as a
  * ladder rather than a list.
  */
-export const GROUPS = ['Extraction', 'Logistics', 'Smelting', 'Assembly', 'Storage', 'Camp'] as const;
+export const GROUPS = ['Extraction', 'Logistics', 'Smelting', 'Assembly', 'Research', 'Storage', 'Camp'] as const;
 
 const FAMILY_GROUP: Record<MachineFamily, (typeof GROUPS)[number]> = {
   miner: 'Extraction',
   inserter: 'Logistics',
+  splitter: 'Logistics',
+  lab: 'Research',
   furnace: 'Smelting',
   assembler: 'Assembly',
   chest: 'Storage',

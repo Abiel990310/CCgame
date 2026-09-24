@@ -51,12 +51,17 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Logistics | Real belts now, drones and rail at tier 6 | Belts are where the spatial puzzle lives. Drones remove late tedium without replacing the puzzle. |
 | Offline production | None | Every hour of progress is an hour someone played; the economy never has to be balanced around absence. |
 | Ore | Discrete patches, not noise | A patch is a thing a player can point at, and outgrowing one is what drives expansion. |
+| Ore depletion | Large but finite | A patch holds hours of mining and then stops. Infinite ore makes the first patch the last one and takes expansion out of the game; a small patch turns the factory into a chore of moving miners. Large enough that running one dry is something you plan for. |
+| Miner reach | Its own tile and the ring around it | A miner that drained only the tile under it would have to be moved every quarter of an hour, which is tedium rather than the expansion depletion is for. Nine tiles is a couple of hours of one miner, so the thing you outgrow is the patch. |
 | Placement | Everything snaps to the tile grid | Belts cannot align without it, and freeform camp pieces meant a row of walls never came out straight. Build mode draws the grid so it is visible while placing. |
 | Camp vs factory | One overlap test, in `shared/sim/building.ts` | Camp pieces are circles in world units and factory pieces own whole tiles, so neither list can see the other by lookup. Both placement checks now go through the same circle-against-tile test, with 4px of slack so a wide piece does not claim the ring of tiles its edge merely grazes. |
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine tiers | A tier is a data row: a family plus a speed multiplier | A steel furnace is a furnace that runs faster, so it points at the furnace's recipes rather than duplicating them. Adding a tier costs one row in `machines.ts` and no recipe rows, which is what keeps the engine small as the ladder grows. |
 | Inserter reach and filters | Data rows on the machine table, not new machine types | `MachineDef.reach` is what makes the long arm a row rather than a system, and `Machine.filter` sits beside the recipe so both arms take one. A third arm, or a filtered one of any length, costs a table entry. |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
+| Research | Packs belted into labs, owned by the world | Research is the first thing the factory feeds rather than the player, so an unlock is a throughput problem: a second lab is worth exactly what a second furnace is. It belongs to the island, not a player, because a lab is a building and multiplayer will have several people feeding one tree. |
+| Tech effects | Multipliers, never unlocks | Every machine stays available from minute one; a tech makes the factory you already built worth more. A tree of unlocks ends, and two of these repeat forever, so the curve does not. |
+| Research XP | Every lab cycle levels up every player | Gathering by hand was the only source of XP, so automating the island slowed the character down and a peaceful world barely levelled at all. |
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
 | Interface look | One visual language, SVG icons, art baked from the world's own drawings | Emoji icons rendered as a different picture on every platform, so the HUD never looked like one thing. Icons are inline SVG (`src/ui/icons.ts`), and the hotbar and palette show each piece baked from the canvas drawing the world uses (`src/render/pieces.ts`), so a slot looks like what it places. Still zero requests and system fonts only. |
 | Machine art | A static body sprite per type and facing, with only moving parts drawn live | The 3/4-view blocks are a dozen fills each; drawing them per frame cost about 45% more than the flat boxes they replaced on a full screen. Baking shadow, block, deck, port and tier marks once brought it back level with the old art. |
@@ -71,6 +76,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
 | Dependencies | Zero runtime deps, zero external requests | Nothing to leak, nothing to break when a CDN does. |
 | Audio | Synthesised in Web Audio, never sampled | A sound pack would be the first file the page ever fetched, and the first thing between a load and a playable island. It also means the music can be generated rather than looped, which matters when someone is on the same island for hours. Sounds are a data table (`src/audio/sounds.ts`) like every other kind of content. |
+| Rendering between ticks | Draw moving things blended between their last two tick positions, one tick behind the sim | The sim ticks at 30 Hz and screens refresh at 60 or more; drawing raw positions showed each one for two frames or more, so walking read as 10–15 fps. Lives in `src/render/interpolate.ts`, never in `shared/`. The same blend is what multiplayer needs for other players. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -108,11 +114,19 @@ with steel and gears and a Mk3 bought with motors and advanced circuits, at
 double and quadruple speed. That is the recipe half of this phase; power itself
 is still ahead.
 
+Research is in too. A **Lab** eats research packs off a belt, and `TECHS` in
+`shared/data/techs.ts` is the tree it works through: three packs
+(research, logic, power) assembled from the existing chain, eight techs, and
+two of them repeatable forever. Every tech is a multiplier on machines that
+already exist — mining, crafting, belt and inserter speed, lab speed, research
+XP — so nothing is locked behind research and a finished tree still compounds.
+Each lab cycle grants XP to every player on the island, which is what stops
+automating your island from slowing your character down, and gives a peaceful
+world a levelling curve at last.
+
 - Power as a network: generators, poles, consumption per machine. Machines stop
   when supply runs short, which makes power a system rather than a cost.
 - Steel and resin: recipes six or more steps from raw ore.
-- A tech tree gated by **producing** items, not by killing things — production
-  is the verb this game rewards.
 - Belt tiers or not (see open questions).
 - Production statistics, so a player can find their own bottleneck. This is a
   core factory-game affordance, not a nicety.
@@ -145,10 +159,10 @@ and the content breadth that makes the hour count real.
 
 Unresolved, and worth a deliberate answer rather than a default.
 
-- **Do ore patches deplete?** Currently infinite. Depletion forces expansion but
-  can feel punishing. Factorio chose finite; Satisfactory chose infinite.
-- **How is the tech tree gated** — by producing science items, or by cumulative
-  output?
+- ~~**Do ore patches deplete?**~~ Answered: large but finite, in the decision
+  log above. Revisit only if play shows the numbers are wrong.
+- ~~**How is the tech tree gated?**~~ Answered: by producing research packs and
+  belting them into labs, in the decision log above.
 - **Do belts get tiers** (faster belts), or does throughput scale only by adding
   parallel lines?
 - **How early do blueprints arrive?** They remove enormous tedium, but also
@@ -170,11 +184,11 @@ detail behind the factory entries is in
 - [ ] On a phone the build palette covers the column of action buttons, so
       Build and Bag cannot be pressed while it is open. The palette has its own
       close button, but the Bag being unreachable while building is odd.
-- [ ] Ore never depletes. `shared/sim/ore.ts` says in a comment that a finite
-      patch is what pushes a player outward, but the grid stores only a kind
-      index and `stepMiner` never decrements it. One miner supplies an island
-      forever. (The design question is under Open questions; the code
-      contradicting its own comment is the bug.)
+- [ ] `npm run preview` answers 404 to the browser's own request for the
+      module bundle in this container — vite's preview server rejects
+      `Sec-Fetch-Dest: script`, though curl for the same URL is fine. Serving
+      `dist/` with `python3 -m http.server` works. Costs a session twenty
+      minutes if nobody says so.
 - [ ] Two tabs open on the same island overwrite each other, and now the
       skipped-write cache can make one of them skip a section the other has
       already replaced. Harmless today because nobody is told they can play in
@@ -189,13 +203,24 @@ detail behind the factory entries is in
 - [ ] Touch has no rotate, so every belt placed on a phone would face one way.
 - [ ] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely.
+- [ ] Shift-clicking a large stack into a two-slot machine fills **both** input
+      slots with one ingredient, so the second ingredient can never get in and
+      the machine deadlocks until you take some back out by hand. Belts are
+      guarded against exactly this (one slot reserved per ingredient); hand
+      loading is not. Found driving a research line in a browser.
 
 
 ### New features
 
-- [ ] **Splitter** — one input, two outputs, alternating, with an optional
-      filter per side. Best value per line of code in the factory layer: until
-      it exists a belt feeds exactly one machine.
+- [x] **Splitter** — one input, two outputs, alternating, with an optional
+      filter per side. Built as a T: whatever feeds it goes out to the tiles on
+      its left and right, turn by turn, skipping a side that is full or
+      filtered against. A side is set by dropping an item on it in the machine
+      screen, and a splitter with both sides filtered is a sorter — it refuses
+      what it cannot route rather than jamming on it.
+- [ ] **Merger** — two belts into one, the splitter read backwards. A splitter
+      can feed two lines now, but joining two lines still takes a chest and an
+      inserter.
 - [x] **Long inserter** — an arm that reaches two tiles instead of one, so a
       machine can be loaded from across a belt. Built: a `MACHINES` row with
       `reach: 2`, slower than the short arm.
@@ -209,8 +234,6 @@ detail behind the factory entries is in
       reserves room for what a line needs rather than filling with one item.
 - [ ] **Copy settings between machines** — a bank of filtered arms means
       setting the same filter a dozen times by hand.
-- [ ] **Lab and a `TECHS` table** — research consumed as a belt-fed item flow
-      rather than bought from a shop, so every unlock is a throughput problem.
 - [ ] **Tech gating on the build palette** — start with miner, furnace and
       belt; everything else is earned. Today all four machines are available at
       minute one.
@@ -258,6 +281,8 @@ detail behind the factory entries is in
 - [ ] **Muffle the world behind an open modal** — a lowpass on the master bus
       while the pause or inventory screen is up, so the interface sits in front
       of the island rather than inside it.
+- [ ] **A sound for a finished research cycle**, and a different one for a
+      finished tech. A lab is the one machine whose output is invisible.
 - [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
       A crafted satchel is an obvious early sink and a reason to build a
       workbench.
@@ -288,10 +313,6 @@ detail behind the factory entries is in
 - [ ] A busy factory still rewrites every belt and machine each save, because
       one belt item moving makes the whole section's text differ. Fine at a few
       hundred belts; if the section gets big, split it per chunk of the map.
-- [ ] Lab consumption should grant XP to every player on the island. `grantXp`
-      fires only from gathering and mob kills today, which means automating
-      your island *slows your character down*. This also gives peaceful worlds
-      a levelling curve, which they currently lack.
 - [ ] Scale `waveBudget` off the highest research tier completed rather than
       the night index alone. Researching is a choice, so difficulty stays
       opt-in and building freely never punishes you.
@@ -302,6 +323,20 @@ detail behind the factory entries is in
       what stops two facing arms passing one item back and forth forever. The
       long inserter is the answer as intended: it reaches straight over an arm
       standing in the way.
+- [ ] A pending level-up freezes the whole world, and labs now grant XP
+      continuously, so a running factory interrupts itself with a draft card
+      every couple of minutes. Either the draft should not pause a factory that
+      the player is not touching, or level-ups should queue.
+- [ ] The lab's body is nearly the assembler's blue-grey; the lit dome is what
+      tells them apart. Fine beside each other, worth a second look in a dense
+      base.
+- [ ] Now that ore runs out, research could raise **ore per tile**, not only how
+      fast a drill works. Every tech today is speed, which empties a patch
+      sooner; a productivity tech would make each patch last longer instead,
+      and would be the natural second infinite research.
+- [ ] Research auto-advances to the first available tech when one finishes, so a
+      lab never idles. A visible queue the player orders themselves would be
+      better than a guess.
 - [ ] The world sizes every item the same: 5.2 for a belt or an inserter hand,
       6 for a ground drop. A wood log and a circuit board are not the same size
       in life, and `ItemDef` could carry a scale the way it carries a colour.
@@ -333,10 +368,19 @@ detail behind the factory entries is in
       the chest you are about to click would read as a warning. `X` and
       right-click outside build mode now say where removal lives instead of
       taking a piece the player never saw outlined.
+- [ ] A splitter is a T, so a line that wants to continue straight while
+      tapping off one side costs two extra belt tiles to turn back. Fine for
+      feeding two furnace rows, awkward on a bus; whether a forward-and-side
+      variant is wanted is a play question, not a code one.
+- [ ] Filters are set two different ways: an inserter picks from a row of item
+      chips, a splitter takes an item dropped on each side. They landed the
+      same day in parallel. One gesture for both would be less to learn; the
+      drop suits two sides, the chips suit browsing an unfamiliar item.
+- [ ] A splitter's sides cannot be filtered before it is placed, so every one
+      is placed, opened and then set. A filter carried on the build selection
+      would make a row of sorters one pass instead of two.
 - [ ] A long name truncates in a quick slot (`Storag…`). A short display name on
       each machine and building would read better in an eight-wide bar.
-- [ ] Steel plate and iron plate are both grey discs on a belt, so a mixed line
-      cannot be read at a glance. Item shapes in the world would tell them apart.
 - [ ] A Mk3 machine runs four times a Mk1, but an inserter still swings at one
       speed — about 1.7 items a second, against an electric furnace that can eat
       four ore a second. Feeding a tier 3 bank by arm is the bottleneck until
@@ -353,11 +397,6 @@ detail behind the factory entries is in
       with nearly the same name, in the same palette, two tabs apart.
 - [ ] Camp placement keeps scenery away with a fixed 14px clearance while
       regrowth uses each node's real radius. Two numbers for one question.
-- [ ] Ore is drawn from `world.ore` whenever the ground cache is painted, so
-      depleting a patch no longer means re-baking the island — but the cache
-      still has to be told. Whatever makes ore finite needs to invalidate the
-      ground cache on the tiles that change (setting `groundScale = 0` repaints
-      it, and a tile-level version counter would be tidier).
 - [ ] The ground cache is still the biggest allocation in the client: 29 MB at
       `devicePixelRatio` 2 on a 1280×800 viewport, set by `GROUND_MARGIN`. A
       smaller margin shrinks it but makes the cache scroll more often; worth
@@ -367,6 +406,8 @@ detail behind the factory entries is in
       5-pixel steps where it used to be a continuous 4.29, so motion is
       quantised by well under a pixel. If it ever reads as judder on a
       high-refresh screen, this is the reason.
+      Checked with interpolation in place: at 60 fps the scene now advances
+      5, 5, 5, 6 device pixels per frame, a one-pixel wobble, so it stays.
 - [ ] `resize()` caps `devicePixelRatio` at 2, so a retina display rasterises
       four times the pixels every frame. Worth revisiting if lag is reported on
       one.
@@ -384,17 +425,35 @@ detail behind the factory entries is in
 - [ ] Machine status lights distinguish working, waiting and blocked in the
       renderer only. A "show me every blocked machine" toggle would use the
       same rule to find the bottleneck in a big base.
+- [ ] A splitter that prefers the emptier side over strict alternation. Turn
+      by turn is right while both sides flow; when one backs up the rotation
+      still offers it first every other item and only then falls through.
+- [ ] A miner that runs its ground out goes quiet with nothing to say about it.
+      A toast, or a mark on the map, would stop a base dying while its owner is
+      at the other end of the island.
+- [ ] Deep mining as a late unlock: spend to keep working an exhausted patch at
+      a worse rate. An answer to an island that has been emptied, and a sink
+      that never stops asking.
+- [ ] Miner tiers could widen the reach as well as the speed. `ORE.minerReach`
+      is one number and a wider arm is a genuinely different machine, not just
+      a faster one. It matters more now that ore is finite: the electric miner
+      is four times as fast, so it empties the same nine tiles in a quarter of
+      the time and has to be moved four times as often.
+- [ ] The starting island has a fixed amount of ore in it, which is now a real
+      number rather than an infinity. Whether that number is a wall or a nudge
+      toward a second island is the question phase 6 has to answer.
 - [ ] The save header is written every 8 seconds even when nothing happened,
       since `tick` always moves. Skipping it while the player is idle and
       nothing is running would make a paused island cost nothing at all.
 - [ ] Peaceful worlds need a fishing-only route to the top research tier, since
       `essence` also drops from wisps at night. Otherwise peaceful is locked
       out of the endgame it suits best.
+- [ ] Research is already per world rather than per player, which is what will
+      make another player arriving unambiguously good. Worth revisiting whether
+      XP from a cycle should scale with how many people are on the island.
 - [ ] Item shapes could carry a second colour — a gear's bore, a battery's
       terminal — instead of deriving every tone from one hex. Worth it only if
       a tier adds items a single hue cannot keep apart.
-- [ ] Research shared per world rather than per player once multiplayer lands —
-      it is what makes another player arriving unambiguously good.
 - [ ] Grandfather existing saves as fully unlocked when the palette becomes
       tech-gated. "Nothing is lost" is a stated pillar.
 - [ ] Trains as a later flourish on top of port logistics, for the spectacle
@@ -408,8 +467,6 @@ detail behind the factory entries is in
       something worth using from the bag.
 - [ ] Sorting discards the arrangement a player chose. A pinned or filtered slot
       would let a chest keep its shape while still tidying around it.
-- [ ] Item icons are CSS shapes in the UI and flat discs in the world. Drawing
-      both from one shape table would make an item look like itself everywhere.
 - [ ] **Measure the render path by frame rate, never by timing draw calls.**
       Canvas 2D records draw calls and rasterises them later, so
       `performance.now()` around drawing measures recording only. On a full
@@ -437,6 +494,21 @@ detail behind the factory entries is in
 - [ ] The UI revamp was verified in headless Chromium at 1440x900, iPhone 13
       portrait and landscape. Real phones (notch, safe areas, iOS Safari's
       backdrop blur) and a small laptop screen have not been tried.
+- [ ] Movement smoothing was measured at 60 fps in headless Chromium (the player
+      now moves every frame instead of every other one). Not yet watched on a
+      120 Hz screen or a phone, where the old stutter would have been worst.
+- [ ] Research rates are guesses. The first tech is 20 cycles at 4s, packs cost
+      a gear and a copper plate each, and the repeatable techs double in price
+      per level. None of it has been played, only driven.
+- [ ] Whether a lab is worth its cost (20 iron plate, 10 gears, 5 circuits) at
+      the point in a run where a player can first afford one.
+- [ ] Whether 800 ore in a patch's richest tile is the right number. It works
+      out at roughly two hours of one miner over a nine-tile reach and hours
+      for a whole patch, but no one has played far enough to feel it.
+- [ ] Ore thinning is drawn in four steps, and the ground cache is repainted a
+      tile at a time as a tile crosses one. Driven in headless Chromium against
+      a single miner; a base with twenty miners crossing steps at once has not
+      been watched for frame cost.
 - [ ] **Nobody has actually listened to the game.** The audio layer was verified
       in headless Chromium by tapping the master bus with an analyser — which
       proves sound is rendered, that mute silences it and that gameplay drives
@@ -487,6 +559,10 @@ detail behind the factory entries is in
 - [ ] Clearing land is now permanent: build on a chopped node and it never
       returns. Whether an island can be stripped bare over hundreds of hours,
       and whether that matters, has not been played out.
+- [ ] Splitter filters as a sorter on a real mixed line. One miner through a
+      splitter into two chests was driven in a browser, and sorting iron from
+      copper is covered by tests, but a saturated mixed bus has never been
+      played.
 - [ ] Inserter throughput has not been balanced by play. One arm moves about
       1.7 items a second against a belt's 1.6 tiles a second, so a single
       inserter roughly keeps pace with one belt. Whether that is the right

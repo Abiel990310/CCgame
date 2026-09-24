@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { placeBelt, placeMachine, setRecipe } from '@shared/sim/factory';
+import { placeBelt, placeMachine, setSideFilter, setRecipe } from '@shared/sim/factory';
 import { addItem } from '@shared/sim/inventory';
 import { addToSlots } from '@shared/sim/slots';
 import { tileKey } from '@shared/sim/grid';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
+import { setResearch } from '@shared/sim/research';
 import { addPlayer, createWorld } from '@shared/sim/world';
 import type { ItemId, World } from '@shared/sim/types';
 import { forgetSlot, loadWorld, saveWorld } from '../save';
@@ -105,6 +106,25 @@ describe('saving an island', () => {
     expect(back?.nodes.length).toBe(world.nodes.length);
   });
 
+  it("keeps a splitter's sides, which nothing else on the grid has", () => {
+    const world = island();
+    const player = [...world.players.values()][0];
+
+    const splitter = placeMachine(world, player, 'splitter', SITE.tx, SITE.ty, 2)!;
+    const plain = placeMachine(world, player, 'chest', SITE.tx + 1, SITE.ty, 0)!;
+    expect(setSideFilter(world, splitter.id, 1, 'copperOre')).toBe(true);
+    splitter.turn = 1;
+
+    saveWorld(world, SLOT);
+    const back = loadWorld(SLOT)!;
+
+    const reloaded = back.machines.find((m) => m.id === splitter.id)!;
+    expect(reloaded.filters).toEqual([null, 'copperOre']);
+    expect(reloaded.turn).toBe(1);
+    // Every other machine still carries no sides at all.
+    expect(back.machines.find((m) => m.id === plain.id)!.filters).toBeUndefined();
+  });
+
   it('round-trips a production line through the packed factory', () => {
     const world = island();
     const player = [...world.players.values()][0];
@@ -142,12 +162,13 @@ describe('saving an island', () => {
   it('rewrites only the sections that moved', () => {
     const world = island();
     saveWorld(world, SLOT);
-    expect(new Set(writes).size).toBe(3);
+    // The header, the scenery, the factory and the ground the miners have taken.
+    expect(new Set(writes).size).toBe(4);
 
     writes.length = 0;
     world.tick += 240;
     saveWorld(world, SLOT);
-    // Nothing was built and nothing was chopped, so only the header moved.
+    // Nothing was built, chopped or mined, so only the header moved.
     expect(writes).toEqual([slotKey(SLOT)]);
 
     writes.length = 0;
@@ -236,5 +257,50 @@ describe('older saves', () => {
   it('refuses a save from a version it cannot understand', () => {
     writeLegacy(island(), 99);
     expect(loadWorld(SLOT)).toBeNull();
+  });
+});
+
+/**
+ * Research rides in the header from version 5. A version that adds a field is
+ * exactly where an island gets silently emptied, so an island written before
+ * it has to load as having researched nothing, not fail to load.
+ */
+describe('research in a save', () => {
+  it('comes back exactly as it went in', () => {
+    const world = island();
+    world.research.levels.automation = 1;
+    world.research.levels.deepDrilling = 3;
+    world.research.progress.beltLogistics = 7;
+    setResearch(world, 'beltLogistics');
+
+    expect(saveWorld(world, SLOT)).toBe(true);
+    expect(loadWorld(SLOT)?.research).toEqual({
+      current: 'beltLogistics',
+      progress: { beltLogistics: 7 },
+      levels: { automation: 1, deepDrilling: 3 },
+    });
+  });
+
+  it('reads an island saved before research existed', () => {
+    const world = island();
+    setResearch(world, 'automation');
+    saveWorld(world, SLOT);
+
+    const header = JSON.parse(store.get(slotKey(SLOT))!);
+    delete header.research;
+    header.version = 4;
+    store.set(slotKey(SLOT), JSON.stringify(header));
+
+    expect(loadWorld(SLOT)?.research).toEqual({ current: null, progress: {}, levels: {} });
+  });
+
+  it('drops a tech the game no longer has rather than pointing labs at it', () => {
+    saveWorld(island(), SLOT);
+
+    const header = JSON.parse(store.get(slotKey(SLOT))!);
+    header.research = { current: 'gone', progress: { gone: 4 }, levels: { gone: 1 } };
+    store.set(slotKey(SLOT), JSON.stringify(header));
+
+    expect(loadWorld(SLOT)?.research).toEqual({ current: null, progress: {}, levels: {} });
   });
 });

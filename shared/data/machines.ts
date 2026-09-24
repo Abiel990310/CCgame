@@ -32,7 +32,16 @@ export interface MachineDef {
    * longer reach is a data row rather than a second system.
    */
   reach: number;
+  /**
+   * True when the machine holds items for anyone to take back out. An inserter
+   * empties storage through its input grid, because a chest has no output side;
+   * a machine that consumes what it is fed must not be drained the same way.
+   */
+  storage: boolean;
 }
+
+/** Items a splitter holds while waiting for a side to take them. */
+export const SPLITTER_BUFFER = 4;
 
 export const MACHINES: Record<MachineId, MachineDef> = {
   miner: {
@@ -40,7 +49,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     family: 'miner',
     tier: 1,
     name: 'Miner',
-    description: 'Place on an ore patch. Pulls ore out on its own, forever.',
+    description: 'Place on an ore patch. Works the ground around it until the ore is gone.',
     cost: [
       { id: 'wood', count: 10 },
       { id: 'stone', count: 10 },
@@ -54,6 +63,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: true,
     choosesRecipe: false,
     reach: 0,
+    storage: false,
   },
   furnace: {
     id: 'furnace',
@@ -74,6 +84,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: true,
     reach: 0,
+    storage: false,
   },
   assembler: {
     id: 'assembler',
@@ -94,13 +105,14 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: true,
     reach: 0,
+    storage: false,
   },
   minerMk2: {
     id: 'minerMk2',
     family: 'miner',
     tier: 2,
     name: 'Steel Miner',
-    description: 'A steel drill on the same patch. Twice the ore, one tile.',
+    description: 'A steel drill on the same ground. Twice the ore, and it runs out twice as fast.',
     cost: [
       { id: 'steelPlate', count: 12 },
       { id: 'gear', count: 10 },
@@ -114,13 +126,14 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: true,
     choosesRecipe: false,
     reach: 0,
+    storage: false,
   },
   minerMk3: {
     id: 'minerMk3',
     family: 'miner',
     tier: 3,
     name: 'Electric Miner',
-    description: 'Four ore for every one the first drill pulled, off one patch.',
+    description: 'Four ore for every one the first drill pulled, and a patch that lasts a quarter as long.',
     cost: [
       { id: 'steelPlate', count: 20 },
       { id: 'motor', count: 6 },
@@ -135,6 +148,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: true,
     choosesRecipe: false,
     reach: 0,
+    storage: false,
   },
   furnaceMk2: {
     id: 'furnaceMk2',
@@ -155,6 +169,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: true,
     reach: 0,
+    storage: false,
   },
   furnaceMk3: {
     id: 'furnaceMk3',
@@ -176,6 +191,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: true,
     reach: 0,
+    storage: false,
   },
   assemblerMk2: {
     id: 'assemblerMk2',
@@ -197,6 +213,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: true,
     reach: 0,
+    storage: false,
   },
   assemblerMk3: {
     id: 'assemblerMk3',
@@ -218,6 +235,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: true,
     reach: 0,
+    storage: false,
   },
   chest: {
     id: 'chest',
@@ -235,6 +253,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: false,
     reach: 0,
+    storage: true,
   },
   inserter: {
     id: 'inserter',
@@ -256,6 +275,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: false,
     reach: 1,
+    storage: false,
   },
   longInserter: {
     id: 'longInserter',
@@ -279,6 +299,55 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: false,
     reach: 2,
+    storage: false,
+  },
+  lab: {
+    id: 'lab',
+    family: 'lab',
+    tier: 1,
+    name: 'Lab',
+    description: 'Eats research packs off a belt. Every cycle it finishes levels you up.',
+    cost: [
+      { id: 'ironPlate', count: 20 },
+      { id: 'gear', count: 10 },
+      { id: 'circuit', count: 5 },
+    ],
+    color: '#5c6f8c',
+    accent: '#9fe3ff',
+    // One slot per kind of pack, so a full belt of one can never crowd out
+    // the others the way a shared grid would.
+    inputSlots: 3,
+    outputSlots: 0,
+    slotSize: 50,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+  },
+  splitter: {
+    id: 'splitter',
+    family: 'splitter',
+    tier: 1,
+    name: 'Splitter',
+    description: 'Takes one belt in and feeds the tiles either side of it, turn by turn.',
+    cost: [
+      { id: 'wood', count: 6 },
+      { id: 'ironPlate', count: 3 },
+    ],
+    color: '#4c5a6b',
+    accent: '#8fe0b4',
+    // A short buffer, so a splitter smooths a line rather than metering it.
+    inputSlots: 1,
+    outputSlots: 0,
+    slotSize: SPLITTER_BUFFER,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    // Its buffer is items in transit, not spent, so an arm may lift them out
+    // exactly as it could before the flag existed.
+    storage: true,
   },
 };
 
@@ -296,6 +365,8 @@ export const MACHINE_ORDER: MachineId[] = [
   'chest',
   'inserter',
   'longInserter',
+  'splitter',
+  'lab',
 ];
 
 export const BELT_COST: ItemStack[] = [

@@ -1,6 +1,8 @@
 import { createWorld } from '@shared/sim/world';
 import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
+import { TECH_BY_ID } from '@shared/data/techs';
+import { newResearch } from '@shared/sim/research';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
@@ -12,14 +14,15 @@ import type {
   ItemId,
   Machine,
   MachineId,
+  OreKind,
   Player,
   ResourceNode,
   Slot,
   World,
 } from '@shared/sim/types';
-import { FACTORY_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
+import { FACTORY_SUFFIX, ORE_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
 
-const VERSION = 4;
+const VERSION = 5;
 
 /**
  * The header: everything that moves on every single save. Small enough that
@@ -42,6 +45,8 @@ interface SaveFile {
   rngState: number;
   players: Player[];
   peaceful: boolean;
+  /** Version 5 and newer. An older island has researched nothing. */
+  research?: World['research'];
   /** Version 3 and older only. */
   nodes?: ResourceNode[];
   buildings?: Building[];
@@ -80,12 +85,30 @@ type PackedMachine = [
   PackedSlot[],
   /** An inserter's filter. Absent on a row packed before filters existed. */
   (ItemId | null)?,
+  /**
+   * What a miner is pulling up. Absent in version 4, where ore was endless.
+   * It sits after the filter because islands already carry rows packed with
+   * the filter at that position.
+   */
+  (OreKind | null)?,
+  /** A splitter's two sides and whose turn it is; only a splitter has them. */
+  ((ItemId | null)[])?,
+  number?,
 ];
 
 interface FactorySection {
   belts: PackedBelt[];
   machines: PackedMachine[];
 }
+
+/**
+ * The ground miners have eaten into, as tile key to ore left. Only tiles that
+ * differ from what the seed generates are in it, so a young island costs a
+ * handful of entries and a long-running one still costs far less than the
+ * whole grid. A save with no section at all is one whose patches are full,
+ * which is exactly what every island made before version 5 is.
+ */
+type OreSection = Record<number, number>;
 
 /**
  * Phase 2 persistence: one island split across three localStorage entries,
@@ -115,6 +138,7 @@ export function saveWorld(world: World, slot: string): boolean {
     rngState: world.rngState,
     players: [...world.players.values()],
     peaceful: world.peaceful,
+    research: world.research,
   };
 
   // Sections go down before the header. Neither order is atomic, but this one
@@ -122,7 +146,17 @@ export function saveWorld(world: World, slot: string): boolean {
   // fully written, rather than a header promising a factory that is not there.
   if (!writeSection(slot, SCENERY_SUFFIX, packScenery(world))) return false;
   if (!writeSection(slot, FACTORY_SUFFIX, packFactory(world))) return false;
+  if (!writeSection(slot, ORE_SUFFIX, minedTiles(world))) return false;
   return writeSection(slot, '', file);
+}
+
+/** The tiles miners have taken from, diffed against what the seed generated. */
+function minedTiles(world: World): OreSection {
+  const out: OreSection = {};
+  for (let i = 0; i < world.oreLeft.length; i++) {
+    if (world.oreLeft[i] !== world.oreMax[i]) out[i] = world.oreLeft[i];
+  }
+  return out;
 }
 
 export function loadWorld(slot: string): World | null {
@@ -147,6 +181,7 @@ export function loadWorld(slot: string): World | null {
     world.nightIndex = file.nightIndex;
     world.nextId = file.nextId;
     world.rngState = file.rngState;
+    world.research = loadResearch(file.research);
 
     const scenery = readSection<ScenerySection>(slot, SCENERY_SUFFIX);
     // An older island carried its scenery in the header; a version 4 one has
@@ -162,6 +197,7 @@ export function loadWorld(slot: string): World | null {
       .filter((m) => m.type in MACHINES)
       .map(loadMachine);
 
+    applyMinedTiles(world, readSection<OreSection>(slot, ORE_SUFFIX));
     // The tile index is derived state, so rebuild it rather than storing it.
     rebuildGrid(world);
     // Older islands were built before scenery blocked placement, so they can
@@ -186,6 +222,31 @@ export function loadWorld(slot: string): World | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Research read back defensively: a tech that no longer exists is dropped
+ * rather than left pointing the island's labs at nothing, and a level or a
+ * cycle count that is not a number is read as none.
+ */
+function loadResearch(raw: World['research'] | undefined): World['research'] {
+  const research = newResearch();
+  if (!raw || typeof raw !== 'object') return research;
+
+  for (const [id, level] of Object.entries(raw.levels ?? {})) {
+    if (TECH_BY_ID.has(id) && typeof level === 'number' && level > 0) {
+      research.levels[id] = Math.floor(level);
+    }
+  }
+  for (const [id, done] of Object.entries(raw.progress ?? {})) {
+    if (TECH_BY_ID.has(id) && typeof done === 'number' && done > 0) {
+      research.progress[id] = Math.floor(done);
+    }
+  }
+  if (typeof raw.current === 'string' && TECH_BY_ID.has(raw.current)) {
+    research.current = raw.current;
+  }
+  return research;
 }
 
 /** Forget everything remembered about a slot, so its next save writes in full. */
@@ -296,7 +357,7 @@ function unpackSlots(packed: PackedSlot[]): Slot[] {
 }
 
 function packMachine(machine: Machine): PackedMachine {
-  return [
+  const packed: PackedMachine = [
     machine.id,
     machine.type,
     machine.tx,
@@ -307,11 +368,19 @@ function packMachine(machine: Machine): PackedMachine {
     packSlots(machine.input),
     packSlots(machine.output),
     machine.filter,
+    machine.ore,
   ];
+
+  // Only a splitter has sides, so only a splitter pays for them in the file.
+  if (MACHINES[machine.type].family === 'splitter') {
+    packed[11] = machine.filters ?? [null, null];
+    packed[12] = machine.turn ?? 0;
+  }
+  return packed;
 }
 
 function unpackMachine(packed: PackedMachine): Machine {
-  return {
+  const machine: Machine = {
     id: packed[0],
     type: packed[1],
     tx: packed[2],
@@ -322,25 +391,61 @@ function unpackMachine(packed: PackedMachine): Machine {
     input: unpackSlots(packed[7]),
     output: unpackSlots(packed[8]),
     filter: packed[9] ?? null,
+    // A miner packed before ore ran out never recorded a kind; the simulation
+    // reads it back off its own tile on the next tick.
+    ore: packed[10] ?? null,
     // Recomputed by the factory system on the first tick after a load.
     stalled: false,
   };
+
+  if (MACHINES[machine.type]?.family === 'splitter') {
+    machine.filters = packed[11] ?? [null, null];
+    machine.turn = packed[12] ?? 0;
+  }
+  return machine;
 }
 
 function packFactory(world: World): FactorySection {
   return { belts: world.belts.map(packBelt), machines: world.machines.map(packMachine) };
 }
 
+function applyMinedTiles(world: World, mined: OreSection | null): void {
+  if (!mined) return;
+  for (const [key, left] of Object.entries(mined)) {
+    const i = Number(key);
+    if (!Number.isInteger(i) || i < 0 || i >= world.oreLeft.length) continue;
+    // Clamp against what the seed generates: a hand-edited save cannot mint ore,
+    // and a tile the generator no longer fills cannot come back holding some.
+    const amount = Math.max(0, Math.min(world.oreMax[i], Math.floor(left) || 0));
+    world.oreLeft[i] = amount;
+    if (amount === 0) world.ore[i] = 0;
+  }
+}
+
 /** Machine storage is a fixed grid too, sized by the machine's own definition. */
 function loadMachine(machine: Machine): Machine {
   const def = MACHINES[machine.type];
-  return {
+  const loaded: Machine = {
     ...machine,
     // An island saved before filters existed simply has none.
     filter: loadFilter(machine),
+    // Version 3 and older stored machines whole, and none of them had this.
+    ore: machine.ore ?? null,
     input: normalizeSlots(machine.input, def.inputSlots, def.slotSize),
     output: normalizeSlots(machine.output, def.outputSlots, def.slotSize),
   };
+
+  // A splitter always has exactly two sides. A filter naming an item that no
+  // longer exists opens back up rather than refusing everything forever.
+  if (def.family === 'splitter') {
+    const saved = machine.filters ?? [];
+    loaded.filters = [0, 1].map((i) => {
+      const item = saved[i];
+      return item && item in ITEMS ? item : null;
+    });
+    loaded.turn = machine.turn === 1 ? 1 : 0;
+  }
+  return loaded;
 }
 
 /** A filter naming an item this build no longer has is dropped, not honoured. */

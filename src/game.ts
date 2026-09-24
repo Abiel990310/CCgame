@@ -28,9 +28,12 @@ import {
   removeAt,
   setFilter,
   setRecipe,
+  setSideFilter,
 } from '@shared/sim/factory';
 import { rotate, tileCenter, toTile } from '@shared/sim/grid';
 import { chooseUpgrade } from '@shared/sim/progression';
+import { TECH_BY_ID } from '@shared/data/techs';
+import { setResearch } from '@shared/sim/research';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
 import type {
@@ -45,6 +48,7 @@ import { addPlayer, createWorld } from '@shared/sim/world';
 import { audio } from './audio';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview, type RemovalPreview } from './render/renderer';
+import { Interpolator } from './render/interpolate';
 import { forgetSlot, loadWorld, saveWorld } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { Hud } from './ui/hud';
@@ -74,6 +78,7 @@ export class Game {
   private hud: Hud;
 
   private accumulator = 0;
+  private readonly interpolator = new Interpolator();
   private lastFrame = 0;
   private saveTimer = SAVE_INTERVAL;
   private running = false;
@@ -93,6 +98,9 @@ export class Game {
       onSelect: () => this.hud.setBuildMode(true),
       onSetRecipe: (machineId, recipeId) => {
         if (setRecipe(this.world, machineId, recipeId)) this.requestSave();
+      },
+      onSetResearch: (techId) => {
+        if (setResearch(this.world, techId)) this.requestSave();
       },
       onSetFilter: (machineId, item) => {
         if (setFilter(this.world, machineId, item)) this.requestSave();
@@ -131,6 +139,7 @@ export class Game {
       removeAt,
       setRecipe,
       setFilter,
+      setSideFilter,
       machineAt,
       clickSlot,
       quickMove,
@@ -138,6 +147,7 @@ export class Game {
       sortArea,
       gatherStacks,
       addItem,
+      setResearch: (techId: string | null) => setResearch(this.world, techId),
       openInventory: (machine: Machine | null) => this.hud.openInventory(machine),
     };
   }
@@ -564,7 +574,10 @@ export class Game {
       let ticks = 0;
       while (this.accumulator >= TICK_DT && ticks++ < 8) {
         this.accumulator -= TICK_DT;
+        this.interpolator.capture(this.world);
         step(this.world, inputs);
+        // Before the flush: the cosmetic layers empty the buffer.
+        this.announceResearch();
         this.flush();
         this.announcePhase();
       }
@@ -577,20 +590,47 @@ export class Game {
     }
 
     this.renderer.effects.update(elapsed);
-    this.renderer.camera.follow(this.self.pos, elapsed);
-    // The ear rides the camera, not the player: what you can see is what you
-    // should be able to hear.
-    audio.listenFrom(this.renderer.camera.pos, this.renderer.camera.width / this.renderer.camera.zoom);
+    // Everything from here to `restore` sees positions blended between the
+    // last two ticks, the camera included: following the raw position would
+    // put the tick rate straight back into the scroll.
+    const alpha = Math.min(this.accumulator / TICK_DT, 1);
+    this.interpolator.apply(this.world, alpha);
+    try {
+      this.renderer.camera.follow(this.self.pos, elapsed);
+      // The ear rides the camera, not the player: what you can see is what you
+      // should be able to hear.
+      audio.listenFrom(this.renderer.camera.pos, this.renderer.camera.width / this.renderer.camera.zoom);
+      const time = this.world.time - (1 - alpha) * TICK_DT;
+      this.renderer.render(this.world, this.selfId, time, ghost, removal);
+    } finally {
+      this.interpolator.restore();
+    }
     audio.update(this.world, elapsed);
-    this.renderer.render(this.world, this.selfId, this.world.time, ghost, removal);
     this.hud.update(this.world, this.self);
     this.hud.updateStick(this.input.stickState);
+  }
+
+  /** A finished tech is a milestone, and the only sign a lab gives of one. */
+  private announceResearch(): void {
+    for (const event of this.world.events) {
+      if (event.kind !== 'research') continue;
+
+      const tech = TECH_BY_ID.get(event.tech);
+      const name = tech?.repeatable ? `${tech.name} ${event.level}` : (tech?.name ?? event.tech);
+      const next = event.next ? TECH_BY_ID.get(event.next) : null;
+      this.hud.toast(
+        next ? `Researched ${name}. Labs moved to ${next.name}.` : `Researched ${name}`,
+        'good',
+      );
+      this.requestSave();
+    }
   }
 
   /** Hand one batch of simulation events to the cosmetic layers, once. */
   private flush(): void {
     if (this.world.events.length === 0) return;
     this.renderer.effects.consume(this.world.events);
+    this.renderer.noteEvents(this.world.events);
     audio.consume(this.world.events);
     this.world.events.length = 0;
   }

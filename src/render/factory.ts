@@ -1,7 +1,10 @@
+import { ITEMS } from '@shared/data/items';
 import type { MachineDef } from '@shared/data/machines';
 import { BELT_SPEED, INSERTER_SWING, MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
+import { TECH_BY_ID } from '@shared/data/techs';
 import { TILE } from '@shared/sim/constants';
+import { filterOf } from '@shared/sim/factory';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
 import type { Belt, Direction, Machine, MachineId, OreKind } from '@shared/sim/types';
@@ -19,25 +22,32 @@ const ORE_COLORS: Record<OreKind, string> = {
  * Ore is drawn as scattered pebbles, never as a tinted tile. A flat per-tile
  * fill produces hard square edges across a patch that read as rendering
  * artefacts; soft circular shading plus rocks reads as an actual deposit.
+ *
+ * `band` is how full the tile still is, 1 to 4. A worked-out tile keeps fewer
+ * pebbles and a fainter stain, which is what lets a patch be read at a glance
+ * rather than by opening every miner on it.
  */
 export function drawOreTile(
   ctx: CanvasRenderingContext2D,
   tx: number,
   ty: number,
   kind: OreKind,
+  band = 4,
 ): void {
   const { x, y } = tileCenter(tx, ty);
   const color = ORE_COLORS[kind];
 
   // Circles overlap between neighbouring tiles, so a patch has no visible grid.
   // Kept faint: stronger, the overlapping discs read as a field of blotches.
-  ctx.fillStyle = rgba(color, 0.12);
+  ctx.fillStyle = rgba(color, 0.04 + band * 0.02);
   ctx.beginPath();
   ctx.arc(x, y, TILE * 0.6, 0, Math.PI * 2);
   ctx.fill();
 
   // Deterministic pebble placement so a patch never shimmers between frames.
-  for (let i = 0; i < 5; i++) {
+  // Pebbles are dropped from the end of that fixed sequence as the tile runs
+  // down, so the ones that remain never jump about.
+  for (let i = 0; i < band + 1; i++) {
     const hx = ((tx * 73856093) ^ (ty * 19349663) ^ (i * 83492791)) >>> 0;
     const ox = ((hx % 1000) / 1000 - 0.5) * TILE * 0.82;
     const oy = (((hx >> 10) % 1000) / 1000 - 0.5) * TILE * 0.82;
@@ -411,6 +421,72 @@ function drawMachineLive(
       ctx.fill();
       break;
     }
+    case 'splitter': {
+      // The T is the whole explanation of the piece: one way in, two arms out.
+      ctx.save();
+      ctx.translate(x, cy);
+      ctx.rotate(dirAngle(machine.dir));
+
+      ctx.strokeStyle = shift(def.color, -50);
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-TILE * 0.26, 0);
+      ctx.lineTo(0, 0);
+      ctx.moveTo(0, -TILE * 0.22);
+      ctx.lineTo(0, TILE * 0.22);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+
+      // Left is side 0, right is side 1 — the same order the screen shows them.
+      // A filtered side wears the item's own colour, which is how a sorter is
+      // read at a glance; the outline is what keeps a dark item like coal from
+      // disappearing into the casing.
+      for (const side of [0, 1]) {
+        const away = side === 0 ? -1 : 1;
+        const filter = filterOf(machine, side);
+        ctx.beginPath();
+        ctx.moveTo(0, away * TILE * 0.3);
+        ctx.lineTo(-TILE * 0.11, away * TILE * 0.14);
+        ctx.lineTo(TILE * 0.11, away * TILE * 0.14);
+        ctx.closePath();
+        ctx.fillStyle = filter ? ITEMS[filter].color : accent;
+        ctx.fill();
+        if (filter) {
+          ctx.strokeStyle = 'rgba(236, 242, 248, 0.75)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+      break;
+    }
+    case 'lab': {
+      // A glass dome with something rising through it. A lab has no output
+      // side and no moving arm, so the bubbles are the only sign it is working.
+      ctx.fillStyle = shift(def.color, -46);
+      ctx.beginPath();
+      ctx.ellipse(x, cy + TILE * 0.08, TILE * 0.28, TILE * 0.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = rgba(accent, running ? 0.45 : 0.16);
+      ctx.beginPath();
+      ctx.arc(x, cy + TILE * 0.08, TILE * 0.26, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.beginPath();
+      ctx.arc(x - TILE * 0.1, cy - TILE * 0.06, TILE * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = rgba(accent, running ? 0.95 : 0.3);
+      for (let i = 0; i < 3; i++) {
+        const rise = running ? (time * 0.6 + i / 3) % 1 : (i + 1) / 4;
+        const bx = x + Math.sin((i + 1) * 2.4 + time) * TILE * 0.09;
+        ctx.beginPath();
+        ctx.arc(bx, cy + TILE * 0.04 - rise * TILE * 0.2, 1.8 + (1 - rise) * 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
   }
 }
 
@@ -467,7 +543,8 @@ function drawStatusLight(
   x: number,
   y: number,
 ): void {
-  if (def.family === 'chest') return;
+  // A chest has nothing to report, and a splitter passes items straight on.
+  if (def.family === 'chest' || def.family === 'splitter') return;
   const lx = x + TILE * 0.32;
   const ly = y + TILE * 0.27;
   const blocked = machine.stalled && isBlocked(machine, def);
@@ -650,6 +727,24 @@ function drawOutputNub(
   ctx.restore();
 }
 
+/**
+ * Seconds one cycle of this machine takes at its own base speed. Research
+ * multiplies how fast progress accumulates rather than shortening the cycle,
+ * so this stays right however far up the tech tree the island is.
+ */
+function cycleLength(machine: Machine): number {
+  const def = MACHINES[machine.type];
+  // A miner's speed scales how fast progress climbs toward MINE_TIME, so the
+  // bar is out of MINE_TIME whatever the tier.
+  if (def.family === 'miner') return MINE_TIME;
+  if (def.family === 'lab') {
+    const tech = machine.recipe ? TECH_BY_ID.get(machine.recipe) : null;
+    return tech ? tech.time : 0;
+  }
+  const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
+  return recipe ? craftTime(recipe, def.speed) : 0;
+}
+
 function drawProgress(
   ctx: CanvasRenderingContext2D,
   machine: Machine,
@@ -657,16 +752,11 @@ function drawProgress(
   y: number,
 ): void {
   const def = MACHINES[machine.type];
-  // A chest has no cycle, and an inserter's arm already is its progress bar.
-  if (def.family === 'chest' || def.family === 'inserter') return;
+  // A chest has no cycle, an inserter's arm already is its progress bar, and a
+  // splitter passes items straight through.
+  if (def.family === 'chest' || def.family === 'inserter' || def.family === 'splitter') return;
 
-  const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
-  const duration =
-    def.family === 'miner'
-      ? MINE_TIME / def.speed
-      : recipe
-        ? craftTime(recipe, def.speed)
-        : 0;
+  const duration = cycleLength(machine);
   if (duration <= 0 || machine.progress <= 0) return;
 
   meter(ctx, x, y + TILE * 0.47, TILE * 0.72, 3, machine.progress / duration, UI.xp);
@@ -689,5 +779,6 @@ export function previewMachine(type: MachineId, tx: number, ty: number, dir: Dir
     input: [],
     output: [],
     stalled: false,
+    ore: null,
   };
 }

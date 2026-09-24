@@ -1,11 +1,22 @@
 import { ITEMS, ITEM_ORDER } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
+import { TECHS, TECH_BY_ID } from '@shared/data/techs';
+import { minerOreLeft } from '@shared/sim/ore';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
+import {
+  activeTech,
+  cyclesDone,
+  cyclesNeeded,
+  isAvailable,
+  isFinished,
+  techLevel,
+} from '@shared/sim/research';
 import { totalIn } from '@shared/sim/slots';
 import { audio } from '../audio';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { ItemId, Machine, Player, Slot } from '@shared/sim/types';
+import { filterOf } from '@shared/sim/factory';
+import type { ItemId, Machine, Player, Slot, World } from '@shared/sim/types';
 import { itemIconVar } from '../render/items';
 import { pieceIconVar } from '../render/pieces';
 import { icon } from './icons';
@@ -19,6 +30,8 @@ export interface InventoryCallbacks {
   /** Double-click: pull every loose stack of this item into this slot. */
   onGather: (ref: SlotRef) => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
+  /** Point every lab on the island at a tech. Research belongs to the world. */
+  onSetResearch: (techId: string) => void;
   /** Restrict an inserter to one item, or clear it with null. */
   onSetFilter: (machineId: number, item: ItemId | null) => void;
   onClose: () => void;
@@ -51,6 +64,8 @@ export class InventoryScreen {
     container: HTMLElement;
     inputLabel: HTMLElement;
     inputGrid: HTMLElement;
+    filterBlock: HTMLElement;
+    filterGrid: HTMLElement;
     outputBlock: HTMLElement;
     outputGrid: HTMLElement;
     progress: HTMLElement;
@@ -59,6 +74,7 @@ export class InventoryScreen {
     sortInput: HTMLButtonElement;
     sortBag: HTMLButtonElement;
     recipes: HTMLElement;
+    research: HTMLElement;
     bagGrid: HTMLElement;
     bagNote: HTMLElement;
     close: HTMLButtonElement;
@@ -85,6 +101,8 @@ export class InventoryScreen {
       container: must('inv-container'),
       inputLabel: must('inv-input-label'),
       inputGrid: must('inv-input-grid'),
+      filterBlock: must('inv-filters'),
+      filterGrid: must('inv-filter-grid'),
       outputBlock: must('inv-output'),
       outputGrid: must('inv-output-grid'),
       progress: must('inv-progress'),
@@ -93,6 +111,7 @@ export class InventoryScreen {
       sortInput: must<HTMLButtonElement>('inv-sort-input'),
       sortBag: must<HTMLButtonElement>('inv-sort-bag'),
       recipes: must('inv-recipes'),
+      research: must('inv-research'),
       bagGrid: must('inv-bag-grid'),
       bagNote: must('inv-bag-note'),
       close: must<HTMLButtonElement>('inv-close'),
@@ -101,6 +120,7 @@ export class InventoryScreen {
 
     this.grids = [
       { area: 'input', el: this.els.inputGrid, cells: [] },
+      { area: 'filter', el: this.els.filterGrid, cells: [] },
       { area: 'output', el: this.els.outputGrid, cells: [] },
       { area: 'bag', el: this.els.bagGrid, cells: [] },
     ];
@@ -171,13 +191,21 @@ export class InventoryScreen {
       this.els.icon.classList.add('hidden');
       this.els.blurb.classList.add('hidden');
       this.els.container.classList.add('hidden');
+      this.els.research.classList.add('hidden');
       this.els.recipes.innerHTML = '';
       return;
     }
 
     const def = MACHINES[machine.type];
+    const lab = def.family === 'lab';
     const arm = def.family === 'inserter';
-    this.els.eyebrow.textContent = def.choosesRecipe ? 'Machine' : arm ? 'Arm' : 'Storage';
+    this.els.eyebrow.textContent = lab
+      ? 'Research'
+      : def.choosesRecipe
+        ? 'Machine'
+        : arm
+          ? 'Arm'
+          : 'Storage';
     this.els.title.textContent = def.name;
     this.els.icon.classList.remove('hidden');
     this.els.icon.style.backgroundImage = pieceIconVar(`machine:${machine.type}`);
@@ -186,16 +214,62 @@ export class InventoryScreen {
     this.els.container.classList.remove('hidden');
 
     // A chest's grid is its whole point, so it is not labelled "In". An
-    // inserter's one slot is the hand, holding whatever is mid-swing.
-    this.els.inputLabel.textContent = def.choosesRecipe ? 'In' : arm ? 'Holding' : 'Stored';
+    // inserter's one slot is the hand, holding whatever is mid-swing, and a
+    // splitter's is a queue rather than a shelf.
+    this.els.inputLabel.textContent = lab
+      ? 'Packs'
+      : def.choosesRecipe
+        ? 'In'
+        : arm
+          ? 'Holding'
+          : def.family === 'splitter'
+            ? 'Passing through'
+            : 'Stored';
     this.els.inputGrid.parentElement?.classList.toggle('hidden', def.inputSlots === 0);
     this.els.outputBlock.classList.toggle('hidden', def.outputSlots === 0);
-    this.els.progress.classList.toggle('hidden', !def.choosesRecipe);
+    // A lab has a cycle like a crafter does, even though it chooses no recipe.
+    this.els.progress.classList.toggle('hidden', !def.choosesRecipe && !lab);
+    this.els.research.classList.toggle('hidden', !lab);
 
-    this.els.sortInput.classList.toggle('hidden', def.inputSlots < 2);
+    // A splitter's buffer is a queue of one item; there is nothing to tidy.
+    this.els.sortInput.classList.toggle(
+      'hidden',
+      def.inputSlots < 2 || def.family === 'splitter',
+    );
+    this.els.filterBlock.classList.toggle('hidden', def.family !== 'splitter');
 
     this.buildGrid('input', def.inputSlots);
     this.buildGrid('output', def.outputSlots);
+    if (def.family === 'splitter') this.buildSides();
+  }
+
+  /**
+   * A splitter's two sides, as slots. They hold nothing — clicking one with a
+   * stack in hand points that side at the item without spending any of it,
+   * which is the same gesture as moving items and needs no second grammar.
+   */
+  private buildSides(): void {
+    const grid = this.grids.find((g) => g.area === 'filter')!;
+    if (grid.cells.length === 2) return;
+
+    grid.el.innerHTML = '';
+    grid.cells = [];
+    for (const [index, name] of ['Left', 'Right'].entries()) {
+      const wrap = document.createElement('div');
+      wrap.className = 'filter-cell';
+
+      const cell = document.createElement('div');
+      cell.className = 'islot';
+      cell.dataset.area = 'filter';
+      cell.dataset.index = String(index);
+
+      const caption = document.createElement('span');
+      caption.textContent = name;
+
+      wrap.append(cell, caption);
+      grid.el.appendChild(wrap);
+      grid.cells.push(cell);
+    }
   }
 
   private buildGrid(area: SlotArea, count: number): void {
@@ -216,7 +290,7 @@ export class InventoryScreen {
     }
   }
 
-  update(player: Player, machine: Machine | null): void {
+  update(player: Player, machine: Machine | null, world: World): void {
     if (!this.open) return;
     // The machine object is re-read every frame: removing it while its screen
     // is open must close the screen rather than show a ghost.
@@ -233,7 +307,11 @@ export class InventoryScreen {
     }
 
     if (machine) this.updateProgress(machine);
-    this.updatePanel(machine);
+    if (machine && MACHINES[machine.type].family === 'miner') {
+      this.updateMinerOre(world, machine);
+    }
+    if (machine && MACHINES[machine.type].family === 'lab') this.updateResearchNote(world);
+    this.updatePanel(world, machine);
   }
 
   private signature(player: Player, machine: Machine | null): string {
@@ -241,7 +319,8 @@ export class InventoryScreen {
       list.map((s) => (s ? `${s.id}x${s.count}` : '-')).join(',');
     const cursor = player.cursor ? `${player.cursor.id}x${player.cursor.count}` : '-';
     const held = machine ? `${slots(machine.input)}|${slots(machine.output)}` : '';
-    return `${slots(player.inventory)}|${held}|${cursor}`;
+    const sides = machine?.filters?.join(',') ?? '';
+    return `${slots(player.inventory)}|${held}|${cursor}|${sides}`;
   }
 
   private paint(player: Player, machine: Machine | null): void {
@@ -249,6 +328,7 @@ export class InventoryScreen {
     if (machine) {
       this.paintGrid('input', machine.input);
       this.paintGrid('output', machine.output);
+      if (MACHINES[machine.type].family === 'splitter') this.paintSides(machine);
       const stored = totalIn(machine.input) + totalIn(machine.output);
       this.els.takeAll.disabled = stored === 0;
       this.els.takeAll.textContent = stored === 0 ? 'Empty' : `Take all (${stored})`;
@@ -264,6 +344,11 @@ export class InventoryScreen {
     for (let i = 0; i < grid.cells.length; i++) paintSlot(grid.cells[i], slots[i] ?? null);
   }
 
+  private paintSides(machine: Machine): void {
+    const grid = this.grids.find((g) => g.area === 'filter')!;
+    for (let i = 0; i < grid.cells.length; i++) paintSide(grid.cells[i], filterOf(machine, i));
+  }
+
   private paintCarried(player: Player): void {
     const held = player.cursor;
     this.els.carried.classList.toggle('hidden', !held);
@@ -277,27 +362,60 @@ export class InventoryScreen {
 
   private updateProgress(machine: Machine): void {
     const def = MACHINES[machine.type];
-    if (!def.choosesRecipe) return;
+    if (!def.choosesRecipe && def.family !== 'lab') return;
 
-    const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
-    const duration = recipe ? craftTime(recipe, def.speed) : 0;
+    const duration =
+      def.family === 'lab'
+        ? (machine.recipe ? (TECH_BY_ID.get(machine.recipe)?.time ?? 0) : 0)
+        : this.craftDuration(machine, def.speed);
     const fraction = duration > 0 ? Math.min(1, machine.progress / duration) : 0;
     this.els.progressFill.style.width = `${fraction * 100}%`;
     this.els.progress.classList.toggle('stalled', machine.stalled);
   }
 
+  private craftDuration(machine: Machine, speed: number): number {
+    const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
+    return recipe ? craftTime(recipe, speed) : 0;
+  }
+
+  /** What the island is researching, in a line above the tech list. */
+  private updateResearchNote(world: World): void {
+    const tech = activeTech(world);
+    const text = tech
+      ? `Researching <b>${tech.name}</b> — ${cyclesDone(world, tech.id)} / ` +
+        `${cyclesNeeded(world, tech)} cycles, ` +
+        `${tech.inputs.map((i) => `${i.count} ${ITEMS[i.id].name}`).join(' + ')} each`
+      : 'Nothing selected. Every lab on the island works on what you pick below.';
+    if (this.els.research.innerHTML !== text) this.els.research.innerHTML = text;
+  }
+
+  /**
+   * A miner has no recipe to show, so its blurb carries the one number that
+   * matters instead: how much is left under it before it has to move.
+   */
+  private updateMinerOre(world: World, machine: Machine): void {
+    const left = minerOreLeft(world, machine);
+    this.els.blurb.textContent =
+      left > 0
+        ? `${left.toLocaleString()} ore left within reach.`
+        : 'The ground here is worked out. Move it to a fresh patch.';
+  }
+
   /**
    * The panel under the slots: recipes for a machine that crafts, the item
-   * filter for an inserter. Both are rebuilt only when their choice changes.
+   * filter for an inserter, the tech tree for a lab. Each is rebuilt only when
+   * what it shows changes.
    */
-  private updatePanel(machine: Machine | null): void {
+  private updatePanel(world: World, machine: Machine | null): void {
     const def = machine ? MACHINES[machine.type] : null;
     const key = !machine
       ? ''
-      : def?.choosesRecipe
-        ? `recipe:${machine.id}:${machine.recipe}`
-        : def?.family === 'inserter'
-          ? `filter:${machine.id}:${machine.filter}`
+      : def?.family === 'lab'
+        ? `lab:${researchKey(world)}`
+        : def?.choosesRecipe
+          ? `recipe:${machine.id}:${machine.recipe}`
+          : def?.family === 'inserter'
+            ? `filter:${machine.id}:${machine.filter}`
           : '';
     if (key === this.recipeKey) return;
     this.recipeKey = key;
@@ -305,6 +423,10 @@ export class InventoryScreen {
     this.els.recipes.classList.toggle('filters', key.startsWith('filter:'));
     this.els.recipes.innerHTML = '';
     if (!machine) return;
+    if (def?.family === 'lab') {
+      this.paintTechs(world);
+      return;
+    }
     if (def?.family === 'inserter') {
       this.paintFilters(machine);
       return;
@@ -325,6 +447,47 @@ export class InventoryScreen {
       button.addEventListener('click', () => {
         audio.play('click');
         this.callbacks.onSetRecipe(machine.id, recipe.id);
+      });
+      this.els.recipes.appendChild(button);
+    }
+  }
+
+  /**
+   * The tech tree, as the cards a level-up draft uses. Locked techs stay on the
+   * list rather than being hidden: what you are working toward is most of the
+   * reason to build another assembler.
+   */
+  private paintTechs(world: World): void {
+    for (const tech of TECHS) {
+      const level = techLevel(world, tech.id);
+      const open = isAvailable(world, tech);
+      const done = isFinished(world, tech);
+      const current = world.research.current === tech.id;
+
+      const button = document.createElement('button');
+      button.className = `offer${current ? ' on' : ''}`;
+      button.disabled = !open || done;
+
+      const cost = tech.inputs
+        .map(
+          (i) =>
+            `<span class="stack" title="${ITEMS[i.id].name}"><i class="ic" style="background-image:${itemIconVar(i.id)}"></i>${i.count}</span>`,
+        )
+        .join('');
+      const state = done
+        ? 'Done'
+        : !open
+          ? `Needs ${tech.requires.map((id) => TECH_BY_ID.get(id)?.name ?? id).join(', ')}`
+          : `${cyclesDone(world, tech.id)} / ${cyclesNeeded(world, tech)} cycles`;
+      const name = tech.repeatable && level > 0 ? `${tech.name} ${level + 1}` : tech.name;
+
+      button.className += ' tech';
+      button.innerHTML =
+        `<b>${name}</b><span>${tech.description}</span>` +
+        `<span class="recipe-flow">${cost}<em>${tech.time}s · ${state}</em></span>`;
+      button.addEventListener('click', () => {
+        audio.play('click');
+        this.callbacks.onSetResearch(tech.id);
       });
       this.els.recipes.appendChild(button);
     }
@@ -389,6 +552,13 @@ export class InventoryScreen {
   }
 }
 
+/** Everything the tech list draws from, so it repaints when research moves. */
+function researchKey(world: World): string {
+  const current = world.research.current;
+  const levels = TECHS.map((t) => techLevel(world, t.id)).join(',');
+  return `${current}:${levels}:${current ? cyclesDone(world, current) : 0}`;
+}
+
 function refAt(target: EventTarget | null): SlotRef | null {
   if (!(target instanceof Element)) return null;
   const cell = target.closest<HTMLElement>('.islot');
@@ -410,6 +580,20 @@ function paintSlot(cell: HTMLElement, slot: Slot): void {
   cell.innerHTML =
     `<i class="item" style="background-image:${itemIconVar(slot.id)}"></i>` +
     `<b>${slot.count}</b>`;
+}
+
+function paintSide(cell: HTMLElement, item: ItemId | null): void {
+  if (!item) {
+    cell.className = 'islot any';
+    cell.textContent = 'Any';
+    cell.title = 'Takes anything. Drop an item here to keep this side for it.';
+    return;
+  }
+
+  const def = ITEMS[item];
+  cell.className = 'islot filled';
+  cell.title = `${def.name} only. Click with an empty hand to open this side up.`;
+  cell.innerHTML = `<i class="item" style="background-image:${itemIconVar(item)}"></i>`;
 }
 
 function must<T extends HTMLElement>(id: string): T {

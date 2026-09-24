@@ -3,7 +3,16 @@ import { RESOURCES } from '@shared/data/items';
 import { CAMP, CYCLE, MAP_SIZE, MAP_TILES, TILE } from '@shared/sim/constants';
 import { clamp } from '@shared/sim/math';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
-import type { Belt, BuildingId, Direction, Machine, MachineId, Vec2, World } from '@shared/sim/types';
+import type {
+  Belt,
+  BuildingId,
+  Direction,
+  Machine,
+  MachineId,
+  SimEvent,
+  Vec2,
+  World,
+} from '@shared/sim/types';
 import { Camera } from './camera';
 import { Effects } from './effects';
 import {
@@ -49,6 +58,13 @@ export class Renderer {
   private groundX = 0;
   private groundY = 0;
   private groundScale = 0;
+  /**
+   * Tiles whose ore has visibly changed since the last frame, packed as tile
+   * keys. Ore is baked into the cached ground, so a patch thinning has to be
+   * repainted there — but only the tiles that changed, since repainting the
+   * whole cache costs as much as a zoom.
+   */
+  private oreDirty: number[] = [];
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
   private visibleBelts: Belt[] = [];
   private visibleMachines: Machine[] = [];
@@ -103,6 +119,7 @@ export class Renderer {
     const originY = Math.round((height / 2 + shakeY) * this.dpr - this.camera.pos.y * scale);
 
     this.ensureGround(world);
+    this.repaintOre(world);
     if (this.ground) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(
@@ -248,6 +265,45 @@ export class Renderer {
     }
 
     this.paintGround(world, 0, 0, w, h);
+    // Everything in the cache has just been drawn from the live ore grid.
+    this.oreDirty.length = 0;
+  }
+
+  /**
+   * Take the ore changes the simulation reported this tick. Nothing is painted
+   * here: the cache may still be about to scroll or be rebuilt entirely.
+   */
+  noteEvents(events: SimEvent[]): void {
+    for (const event of events) {
+      if (event.kind === 'oreChanged') this.oreDirty.push(tileKey(event.tx, event.ty));
+    }
+  }
+
+  /**
+   * Redraw the cached ground under tiles whose ore has thinned or run out. The
+   * clip in `paintGround` is what makes this safe to do a tile at a time, and a
+   * tile of margin covers the ore stain and pebbles that spill onto neighbours.
+   */
+  private repaintOre(world: World): void {
+    if (this.oreDirty.length === 0 || !this.ground || this.groundScale === 0) return;
+
+    const scale = this.groundScale;
+    for (const key of this.oreDirty) {
+      const tx = key % MAP_TILES;
+      const ty = (key - tx) / MAP_TILES;
+      const left = Math.floor((tx * TILE - TILE - this.groundX) * scale);
+      const top = Math.floor((ty * TILE - TILE - this.groundY) * scale);
+      const size = Math.ceil(TILE * 3 * scale) + 2;
+
+      // Off the edge of the cache is not a problem: whatever scrolls in later
+      // is painted from the ore grid as it stands then.
+      const x = Math.max(0, left);
+      const y = Math.max(0, top);
+      const w = Math.min(this.ground.width, left + size) - x;
+      const h = Math.min(this.ground.height, top + size) - y;
+      if (w > 0 && h > 0) this.paintGround(world, x, y, w, h);
+    }
+    this.oreDirty.length = 0;
   }
 
   /**
@@ -269,7 +325,7 @@ export class Renderer {
     ctx.fillStyle = '#12232e';
     ctx.fillRect(x, y, w, h);
     ctx.setTransform(scale, 0, 0, scale, -this.groundX * scale, -this.groundY * scale);
-    this.mesh.paint(ctx, world.terrain, world.ore, {
+    this.mesh.paint(ctx, world.terrain, world.ore, world.oreLeft, {
       x: this.groundX + x / scale,
       y: this.groundY + y / scale,
       w: w / scale,

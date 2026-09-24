@@ -252,9 +252,11 @@ export class GameAudio {
         case 'collected':
           this.play('collected', { pos: event.pos });
           break;
-        case 'produced':
-          this.play(PRODUCED_SOUND[MACHINES[event.machine].family], { pos: event.pos });
+        case 'produced': {
+          const sound = PRODUCED_SOUND[MACHINES[event.machine].family];
+          if (sound) this.play(sound, { pos: event.pos });
           break;
+        }
         case 'placed':
           this.play('placed', { pos: event.pos });
           break;
@@ -289,9 +291,11 @@ const SHOT_SOUND = {
 } as const satisfies Record<string, SoundId>;
 
 /**
- * A chest never produces, but the table has to cover every family. Tiers are
- * keyed by family on purpose: a steel furnace is a furnace, and a row per tier
- * would be five more sounds saying the same thing.
+ * A chest never produces and a splitter only passes items along, but the table
+ * has to cover every family. Tiers are keyed by family on purpose: a steel
+ * furnace is a furnace, and a row per tier would be five more sounds saying
+ * the same thing. A lab consumes rather than
+ * produces, so it has no production sound yet.
  */
 const PRODUCED_SOUND = {
   miner: 'mined',
@@ -299,7 +303,9 @@ const PRODUCED_SOUND = {
   assembler: 'assembled',
   inserter: 'slot',
   chest: 'slot',
-} as const satisfies Record<MachineFamily, SoundId>;
+  splitter: 'slot',
+  lab: null,
+} as const satisfies Record<MachineFamily, SoundId | null>;
 
 export type { SoundId };
 

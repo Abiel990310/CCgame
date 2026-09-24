@@ -41,6 +41,7 @@ function machine(type: MachineId, tx: number, ty: number): Machine {
     dir: 0,
     recipe: null,
     filter: null,
+    ore: null,
     progress: 0,
     input: makeSlots(def.inputSlots),
     output: makeSlots(def.outputSlots),
