@@ -207,6 +207,8 @@ detail behind the factory entries is in
 
 ### Bugs
 
+- [ ] The game gets very laggy near the campfire. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [ ] The overlapping HUD panels are still showing after the UI revamp. *On hold until Abiel confirms multiplayer works (2026-09-24).*
 - [ ] Co-op: when the host's tab goes to the background, browsers throttle its
       timers and the island slows or stutters for everyone on it.
 
@@ -261,6 +263,11 @@ detail behind the factory entries is in
 
 ### New features
 
+- [ ] A much bigger map, so the island feels like an open world rather than one
+      screen of forest. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [ ] A big content pass across every system (recipes, machines, techs, goals,
+      mobs, camp) aimed at tens to hundreds of hours of play over the next
+      weeks. *On hold until Abiel confirms multiplayer works (2026-09-24).*
 - [ ] Co-op: predict a guest's own movement locally. A guest sees their own
       steps one round trip late (under a tenth of a second on a good line).
 - [ ] Co-op: a TURN relay fallback, so friends on strict networks (some mobile
