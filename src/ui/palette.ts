@@ -1,6 +1,6 @@
 import { BUILDINGS, BUILD_ORDER } from '@shared/data/buildings';
 import { BELT_COST, MACHINES, MACHINE_ORDER } from '@shared/data/machines';
-import type { BuildingId, ItemStack, MachineId } from '@shared/sim/types';
+import type { BuildingId, ItemStack, MachineFamily, MachineId } from '@shared/sim/types';
 
 /** What the player currently has selected in build mode. */
 export type BuildSelection =
@@ -13,6 +13,10 @@ export interface PaletteEntry {
   name: string;
   description: string;
   cost: ItemStack[];
+  /** The column it sits in: what kind of job it does in a line. */
+  group: string;
+  /** 1 for a starting piece; higher tiers wear a badge. */
+  tier: number;
 }
 
 export type PaletteTab = 'factory' | 'camp';
@@ -22,18 +26,38 @@ export const TABS: Array<{ id: PaletteTab; label: string }> = [
   { id: 'camp', label: 'Camp' },
 ];
 
+/**
+ * Factory pieces grouped by the job they do, in the order a line is built:
+ * dig it up, move it, melt it, make something, keep it. Each group is a
+ * column, and a family's tiers stack down it, so the palette reads as a
+ * ladder rather than a list.
+ */
+export const GROUPS = ['Extraction', 'Logistics', 'Smelting', 'Assembly', 'Storage', 'Camp'] as const;
+
+const FAMILY_GROUP: Record<MachineFamily, (typeof GROUPS)[number]> = {
+  miner: 'Extraction',
+  inserter: 'Logistics',
+  furnace: 'Smelting',
+  assembler: 'Assembly',
+  chest: 'Storage',
+};
+
 const FACTORY: PaletteEntry[] = [
   {
     selection: { kind: 'belt' },
     name: 'Belt',
     description: 'Carries items one tile at a time, in the direction it faces.',
     cost: BELT_COST,
+    group: 'Logistics',
+    tier: 1,
   },
   ...MACHINE_ORDER.map((id) => ({
     selection: { kind: 'machine' as const, id },
     name: MACHINES[id].name,
     description: MACHINES[id].description,
     cost: MACHINES[id].cost,
+    group: FAMILY_GROUP[MACHINES[id].family],
+    tier: MACHINES[id].tier,
   })),
 ];
 
@@ -42,6 +66,8 @@ const CAMP: PaletteEntry[] = BUILD_ORDER.map((id) => ({
   name: BUILDINGS[id].name,
   description: BUILDINGS[id].description,
   cost: BUILDINGS[id].cost,
+  group: 'Camp',
+  tier: 1,
 }));
 
 export function entriesFor(tab: PaletteTab): PaletteEntry[] {

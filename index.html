@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#12232e" />
+    <meta name="theme-color" content="#0b1016" />
     <title>CCgame — Island</title>
     <!-- The island itself, inline: a linked icon is what stops the browser
          asking for /favicon.ico, and the bundle makes no other request. -->
@@ -13,54 +13,73 @@
     <canvas id="stage"></canvas>
 
     <div id="ui">
+      <!-- Top left: the player's own vitals -->
+      <section class="vitals panel">
+        <div class="level-ring" id="level-ring" title="Level — the ring fills with experience">
+          <div class="level" id="level">1</div>
+        </div>
+        <div class="bars">
+          <div class="bar-row">
+            <i class="bar-icon hp-icon" data-icon="heart"></i>
+            <div class="bar hp"><div class="fill" id="hp-fill"></div><span id="hp-text">100 / 100</span></div>
+          </div>
+          <div class="bar-row">
+            <i class="bar-icon xp-icon" data-icon="star"></i>
+            <div class="bar xp"><div class="fill" id="xp-fill"></div><span id="xp-text">0 / 8</span></div>
+          </div>
+        </div>
+      </section>
+
       <!-- Top: what phase we are in and how long it lasts -->
-      <header class="topbar">
+      <header class="topbar panel" id="topbar">
         <div class="phase" id="phase">
-          <span class="phase-icon" id="phase-icon">☀</span>
+          <div class="phase-dial">
+            <i class="phase-sun" data-icon="sun"></i>
+            <i class="phase-moon" data-icon="moon"></i>
+          </div>
           <div class="phase-text">
             <strong id="phase-name">Day</strong>
             <span id="phase-sub">Night 1 approaching</span>
           </div>
+          <b class="phase-time" id="phase-time">0s</b>
         </div>
         <div class="phase-track"><div class="phase-fill" id="phase-fill"></div></div>
       </header>
 
-      <!-- Left: the player's own vitals -->
-      <section class="vitals">
-        <div class="level" id="level">1</div>
-        <div class="bars">
-          <div class="bar hp"><div class="fill" id="hp-fill"></div><span id="hp-text">100 / 100</span></div>
-          <div class="bar xp"><div class="fill" id="xp-fill"></div><span id="xp-text">0 / 8</span></div>
-        </div>
-      </section>
-
-      <!-- Bottom left: carried resources at a glance -->
-      <section class="pouch" id="pouch"></section>
+      <!-- Top right: carried resources at a glance -->
+      <section class="pouch panel hidden" id="pouch"></section>
 
       <!-- Bottom right: controls -->
       <section class="actions">
         <button class="action" id="btn-build" title="Build (B)">
-          <span>🔨</span><small>Build</small>
+          <i data-icon="hammer"></i><small>Build</small><kbd>B</kbd>
         </button>
         <button class="action" id="btn-bag" title="Bag (Tab)">
-          <span>🎒</span><small>Bag</small>
+          <i data-icon="bag"></i><small>Bag</small><kbd>Tab</kbd>
         </button>
         <button class="action dash" id="btn-dash" title="Dash (Space)">
-          <span>💨</span><small>Dash</small>
+          <i data-icon="dash"></i><small>Dash</small><kbd>Space</kbd>
           <div class="cd" id="dash-cd"></div>
         </button>
         <button class="action" id="btn-menu" title="Menu (Esc)">
-          <span>☰</span><small>Menu</small>
+          <i data-icon="menu"></i><small>Menu</small><kbd>Esc</kbd>
         </button>
       </section>
 
       <!-- Quick slots: what a number key places -->
-      <section class="hotbar" id="hotbar"></section>
+      <section class="hotbar panel" id="hotbar"></section>
+
+      <!-- The movement stick, drawn where the thumb lands -->
+      <div class="stick hidden" id="stick"><div class="stick-knob" id="stick-knob"></div></div>
 
       <!-- Build mode palette -->
-      <section class="buildbar hidden" id="buildbar">
-        <div class="buildbar-tabs" id="buildbar-tabs"></div>
+      <section class="buildbar panel hidden" id="buildbar">
+        <div class="buildbar-head">
+          <div class="buildbar-tabs" id="buildbar-tabs"></div>
+          <button class="icon-btn" id="buildbar-close" title="Close (B)"><i data-icon="close"></i></button>
+        </div>
         <div class="buildbar-items" id="buildbar-items"></div>
+        <div class="buildbar-detail" id="buildbar-detail"></div>
         <div class="buildbar-hint">
           <span><kbd>R</kbd> rotate</span>
           <span><kbd>X</kbd> / right-click removes</span>
@@ -71,7 +90,8 @@
 
       <!-- Level-up draft -->
       <div class="modal hidden" id="levelup">
-        <div class="modal-inner">
+        <div class="modal-inner levelup-inner">
+          <div class="levelup-badge"><i data-icon="star"></i></div>
           <p class="eyebrow">Level up</p>
           <h2 id="levelup-title">Choose an upgrade</h2>
           <div class="offers" id="offers"></div>
@@ -81,31 +101,39 @@
       <!-- Inventory: the bag on its own, or the bag beside a container -->
       <div class="modal hidden" id="inv">
         <div class="modal-inner inv-inner">
-          <p class="eyebrow" id="inv-eyebrow">Carrying</p>
-          <h2 id="inv-title">Your bag</h2>
+          <header class="sheet-head">
+            <div class="sheet-icon hidden" id="inv-icon"></div>
+            <div class="sheet-title">
+              <p class="eyebrow" id="inv-eyebrow">Carrying</p>
+              <h2 id="inv-title">Your bag</h2>
+            </div>
+            <button class="icon-btn" id="inv-close" title="Close (Tab / Esc)"><i data-icon="close"></i></button>
+          </header>
           <p class="blurb hidden" id="inv-blurb"></p>
 
           <section class="inv-panel hidden" id="inv-container">
-            <div class="inv-block">
-              <div class="inv-head">
-                <b id="inv-input-label">Stored</b>
-                <span class="inv-head-tail">
-                  <button class="mini-btn" id="inv-sort-input">Sort</button>
-                  <button class="mini-btn" id="inv-take-all">Take all</button>
-                </span>
+            <div class="inv-flow">
+              <div class="inv-block">
+                <div class="inv-head">
+                  <b id="inv-input-label">Stored</b>
+                  <span class="inv-head-tail">
+                    <button class="mini-btn" id="inv-sort-input"><i data-icon="sort"></i>Sort</button>
+                    <button class="mini-btn" id="inv-take-all">Take all</button>
+                  </span>
+                </div>
+                <div class="slots" id="inv-input-grid"></div>
               </div>
-              <div class="slots" id="inv-input-grid"></div>
-            </div>
-            <div class="craft-bar hidden" id="inv-progress">
-              <div class="craft-fill" id="inv-progress-fill"></div>
-            </div>
-            <div class="inv-block hidden" id="inv-output">
-              <div class="inv-head"><b>Out</b><span>Made here</span></div>
-              <div class="slots out" id="inv-output-grid"></div>
+              <div class="craft-bar hidden" id="inv-progress">
+                <div class="craft-fill" id="inv-progress-fill"></div>
+              </div>
+              <div class="inv-block hidden" id="inv-output">
+                <div class="inv-head"><b>Out</b><span>Made here</span></div>
+                <div class="slots out" id="inv-output-grid"></div>
+              </div>
             </div>
           </section>
 
-          <div class="offers" id="inv-recipes"></div>
+          <div class="offers recipes" id="inv-recipes"></div>
 
           <section class="inv-panel">
             <div class="inv-block">
@@ -113,7 +141,7 @@
                 <b>Your bag</b>
                 <span class="inv-head-tail">
                   <span id="inv-bag-note"></span>
-                  <button class="mini-btn" id="inv-sort-bag">Sort</button>
+                  <button class="mini-btn" id="inv-sort-bag"><i data-icon="sort"></i>Sort</button>
                 </span>
               </div>
               <div class="slots" id="inv-bag-grid"></div>
@@ -125,7 +153,6 @@
             <kbd>shift</kbd>-click sends it across &middot; <kbd>double-click</kbd> gathers
             every loose stack of it
           </p>
-          <button class="ghost-btn" id="inv-close">Close</button>
         </div>
         <div class="carried hidden" id="inv-carried"></div>
       </div>
@@ -134,15 +161,15 @@
 
       <!-- Pause / in-game menu -->
       <div class="modal hidden" id="pause">
-        <div class="modal-inner">
+        <div class="modal-inner pause-inner">
           <p class="eyebrow" id="pause-name">Island</p>
           <h2>Paused</h2>
           <p class="blurb" id="pause-sub">The island waits.</p>
-          <section id="pause-sound"></section>
           <div class="start-row">
-            <button class="primary-btn" id="pause-resume">Resume</button>
+            <button class="primary-btn" id="pause-resume"><i data-icon="play"></i>Resume</button>
             <button class="ghost-btn" id="pause-quit">Save &amp; quit to menu</button>
           </div>
+          <section id="pause-sound"></section>
         </div>
       </div>
     </div>
@@ -151,46 +178,80 @@
     <div class="menu" id="menu">
       <div class="menu-inner">
         <header class="menu-head">
-          <p class="eyebrow">CCgame</p>
-          <h1>The Island</h1>
+          <div class="logo">
+            <svg class="logo-mark" viewBox="0 0 64 64" aria-hidden="true">
+              <defs>
+                <radialGradient id="lg-sea" cx="50%" cy="40%" r="60%">
+                  <stop offset="0" stop-color="#3a93bd" />
+                  <stop offset="1" stop-color="#1d4a6b" />
+                </radialGradient>
+              </defs>
+              <circle cx="32" cy="32" r="30" fill="url(#lg-sea)" />
+              <path d="M10 38c4-10 12-16 22-16s18 6 22 16c-6 6-14 9-22 9s-16-3-22-9z" fill="#e2cf9c" />
+              <path d="M14 36c4-8 10-12 18-12s14 4 18 12c-5 4-11 6-18 6s-13-2-18-6z" fill="#7fb469" />
+              <path d="M22 34l6-10 6 10z" fill="#4f8f4a" />
+              <path d="M31 33l5-8 5 8z" fill="#5da055" />
+              <rect x="38" y="27" width="7" height="7" rx="1.5" fill="#8c7263" />
+              <rect x="40" y="23" width="2.5" height="5" fill="#6b574b" />
+              <circle cx="41.3" cy="20" r="1.8" fill="#dfe3e8" opacity=".7" />
+              <path d="M18 44h28" stroke="#8a939f" stroke-width="2.4" stroke-linecap="round" />
+              <circle cx="26" cy="44" r="1.6" fill="#e8b64c" />
+              <circle cx="34" cy="44" r="1.6" fill="#c3ccd6" />
+            </svg>
+            <div>
+              <p class="eyebrow">CCgame</p>
+              <h1>The Island</h1>
+            </div>
+          </div>
           <p class="blurb">
-            Gather by day. Survive the night. Every island is its own save.
+            Gather by hand, then automate everything. Belts, furnaces, machines &mdash; and a campfire
+            to come home to when night falls.
           </p>
         </header>
 
         <div class="menu-actions">
-          <button class="primary-btn" id="menu-continue">Continue</button>
-          <button class="ghost-btn" id="menu-new">New game</button>
+          <button class="primary-btn big" id="menu-continue">Continue</button>
+          <button class="ghost-btn" id="menu-new"><i data-icon="plus"></i>New island</button>
         </div>
         <p class="menu-note" id="menu-note"></p>
 
-        <label class="toggle">
+        <label class="switch">
           <input type="checkbox" id="opt-peaceful" />
-          <span>New island: peaceful &mdash; no night raids, just the factory</span>
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+          <span class="switch-text">
+            <b>Peaceful island</b>
+            <small>No night raids &mdash; the factory is the whole game. Applies to new islands.</small>
+          </span>
         </label>
-
-        <section id="menu-sound"></section>
-
-        <div class="menu-secondary">
-          <button class="ghost-btn" id="menu-join" disabled>Join a game</button>
-          <span class="menu-hint">Someone else&rsquo;s island &mdash; arrives with multiplayer.</span>
-        </div>
 
         <section class="saves" id="saves">
           <h2 class="saves-title">Your islands</h2>
           <div class="save-list" id="save-list"></div>
         </section>
 
-        <div class="keys">
-          <span><kbd>WASD</kbd> move</span>
-          <span><kbd>Space</kbd> dash</span>
-          <span><kbd>E</kbd> / hold click to gather</span>
-          <span><kbd>B</kbd> build</span>
-          <span><kbd>1</kbd>&ndash;<kbd>8</kbd> quick slots</span>
-          <span><kbd>R</kbd> rotate</span>
-          <span><kbd>Tab</kbd> bag</span>
-          <span><kbd>M</kbd> mute</span>
-          <span><kbd>Esc</kbd> menu</span>
+        <details class="menu-fold">
+          <summary><i data-icon="sound"></i>Sound</summary>
+          <section id="menu-sound"></section>
+        </details>
+
+        <details class="menu-fold">
+          <summary><i data-icon="keys"></i>Controls</summary>
+          <div class="keys">
+            <span><kbd>WASD</kbd> move</span>
+            <span><kbd>Space</kbd> dash</span>
+            <span><kbd>E</kbd> / hold click to gather</span>
+            <span><kbd>B</kbd> build</span>
+            <span><kbd>1</kbd>&ndash;<kbd>8</kbd> quick slots</span>
+            <span><kbd>R</kbd> rotate</span>
+            <span><kbd>Tab</kbd> bag</span>
+            <span><kbd>M</kbd> mute</span>
+            <span><kbd>Esc</kbd> menu</span>
+          </div>
+        </details>
+
+        <div class="menu-secondary">
+          <button class="ghost-btn small" id="menu-join" disabled><i data-icon="users"></i>Join a game</button>
+          <span class="menu-hint">Someone else&rsquo;s island &mdash; arrives with multiplayer.</span>
         </div>
       </div>
     </div>

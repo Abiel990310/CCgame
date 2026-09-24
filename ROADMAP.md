@@ -58,6 +58,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Inserter reach and filters | Data rows on the machine table, not new machine types | `MachineDef.reach` is what makes the long arm a row rather than a system, and `Machine.filter` sits beside the recipe so both arms take one. A third arm, or a filtered one of any length, costs a table entry. |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
+| Interface look | One visual language, SVG icons, art baked from the world's own drawings | Emoji icons rendered as a different picture on every platform, so the HUD never looked like one thing. Icons are inline SVG (`src/ui/icons.ts`), and the hotbar and palette show each piece baked from the canvas drawing the world uses (`src/render/pieces.ts`), so a slot looks like what it places. Still zero requests and system fonts only. |
+| Machine art | A static body sprite per type and facing, with only moving parts drawn live | The 3/4-view blocks are a dozen fills each; drawing them per frame cost about 45% more than the flat boxes they replaced on a full screen. Baking shadow, block, deck, port and tier marks once brought it back level with the old art. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Save contents | Derive what the seed decides; store only what play changed | Scenery was 109 kB of a 110 kB save and `createWorld` already rebuilds it from the seed, exactly as terrain is. Nodes are regenerated on load and only the chopped and cleared ones are written, which is also why worldgen changing under an existing island would move its scenery. |
 | Save layout | One entry per part of the island, grouped by how often it changes | A header, the scenery, and the factory. A section whose text has not moved is not written again, so standing still costs the header alone instead of the whole world. |
@@ -165,6 +167,9 @@ detail behind the factory entries is in
 
 ### Bugs
 
+- [ ] On a phone the build palette covers the column of action buttons, so
+      Build and Bag cannot be pressed while it is open. The palette has its own
+      close button, but the Bag being unreachable while building is odd.
 - [ ] Ore never depletes. `shared/sim/ore.ts` says in a comment that a finite
       patch is what pushes a player outward, but the grid stores only a kind
       index and `stepMiner` never decrements it. One miner supplies an island
@@ -370,6 +375,15 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Save cards on the menu show a generic island badge. A tiny minimap of
+      the actual island, rendered once on save, would make islands tell apart.
+- [ ] The player character and mobs are still the original simple shapes; they
+      are now the least polished art on screen next to the new machines.
+- [ ] The menu could open on a short scripted flyover of your factory rather
+      than a slow drift around where you stood.
+- [ ] Machine status lights distinguish working, waiting and blocked in the
+      renderer only. A "show me every blocked machine" toggle would use the
+      same rule to find the bottleneck in a big base.
 - [ ] The save header is written every 8 seconds even when nothing happened,
       since `tick` always moves. Skipping it while the player is idle and
       nothing is running would make a paused island cost nothing at all.
@@ -420,6 +434,9 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] The UI revamp was verified in headless Chromium at 1440x900, iPhone 13
+      portrait and landscape. Real phones (notch, safe areas, iOS Safari's
+      backdrop blur) and a small laptop screen have not been tried.
 - [ ] **Nobody has actually listened to the game.** The audio layer was verified
       in headless Chromium by tapping the master bus with an analyser — which
       proves sound is rendered, that mute silences it and that gameplay drives

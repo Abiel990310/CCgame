@@ -1,19 +1,23 @@
 import { ITEMS } from '@shared/data/items';
 import { CYCLE } from '@shared/sim/constants';
-import { hasAll } from '@shared/sim/inventory';
+import { countItem, hasAll } from '@shared/sim/inventory';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { ItemId, Machine, Player, World } from '@shared/sim/types';
+import type { ItemId, ItemStack, Machine, Player, World } from '@shared/sim/types';
 import { audio } from '../audio';
 import { itemIconVar } from '../render/items';
+import { pieceIconVar } from '../render/pieces';
+import { icon } from './icons';
 import { InventoryScreen } from './inventory';
 import { SoundPanel } from './sound';
 import {
+  GROUPS,
   TABS,
   entriesFor,
   entryFor,
   selectionKey,
   tabOf,
   type BuildSelection,
+  type PaletteEntry,
   type PaletteTab,
 } from './palette';
 import {
@@ -54,12 +58,13 @@ export interface HudCallbacks {
  */
 export class Hud {
   private els = {
-    topbar: $<HTMLElement>('phase').parentElement as HTMLElement,
-    phaseIcon: $('phase-icon'),
+    topbar: $('topbar'),
     phaseName: $('phase-name'),
+    phaseTime: $('phase-time'),
     phaseSub: $('phase-sub'),
     phaseFill: $('phase-fill'),
     level: $('level'),
+    levelRing: $('level-ring'),
     hpFill: $('hp-fill'),
     hpText: $('hp-text'),
     xpFill: $('xp-fill'),
@@ -69,6 +74,10 @@ export class Hud {
     buildbar: $('buildbar'),
     buildTabs: $('buildbar-tabs'),
     buildItems: $('buildbar-items'),
+    buildDetail: $('buildbar-detail'),
+    buildClose: $<HTMLButtonElement>('buildbar-close'),
+    stick: $('stick'),
+    stickKnob: $('stick-knob'),
     btnBuild: $<HTMLButtonElement>('btn-build'),
     btnBag: $<HTMLButtonElement>('btn-bag'),
     btnDash: $<HTMLButtonElement>('btn-dash'),
@@ -96,6 +105,10 @@ export class Hud {
   private offerKey = '';
   private pouchKey = '';
   private hotbarKey = '';
+  private detailKey = '';
+  /** The palette entry under the pointer, shown in the detail strip instead of the selection. */
+  private hovered: PaletteEntry | null = null;
+  private pouchCounts = new Map<string, number>();
   /** What each quick slot places. A client preference, saved on every change. */
   private hotbar: HotbarBinding[] = loadHotbar();
 
@@ -116,6 +129,10 @@ export class Hud {
     }
 
     this.els.btnBuild.addEventListener('click', () => this.callbacks.onToggleBuild());
+    this.els.buildClose.addEventListener('click', () => {
+      audio.play('click');
+      this.callbacks.onToggleBuild();
+    });
     this.els.btnBag.addEventListener('click', () => this.callbacks.onToggleBag());
     this.els.btnDash.addEventListener('click', () => this.callbacks.onDash());
     this.els.btnMenu.addEventListener('click', () => this.callbacks.onTogglePause());
@@ -202,8 +219,9 @@ export class Hud {
     for (const tab of TABS) {
       const button = document.createElement('button');
       button.className = `tab${tab.id === this.tab ? ' on' : ''}`;
-      button.textContent = tab.label;
+      button.innerHTML = `${icon(tab.id === 'factory' ? 'gear' : 'leaf')}${tab.label}`;
       button.addEventListener('click', () => {
+        audio.play('click');
         this.showTab(tab.id);
         // Switching tabs selects that tab's first entry, so the ghost is valid.
         const first = entriesFor(this.tab)[0];
@@ -222,20 +240,61 @@ export class Hud {
 
   private buildPalette(): void {
     this.els.buildItems.innerHTML = '';
-    for (const entry of entriesFor(this.tab)) {
-      const button = document.createElement('button');
-      button.className = 'build-option';
-      button.dataset.key = selectionKey(entry.selection);
-      button.title = entry.description;
-      button.innerHTML = `<b>${entry.name}</b><em>${entry.cost
-        .map((c) => `${c.count} ${ITEMS[c.id].name}`)
-        .join(' · ')}</em>`;
-      button.addEventListener('click', () => {
-        audio.play('click');
-        this.select(entry.selection);
-      });
-      this.els.buildItems.appendChild(button);
+    const entries = entriesFor(this.tab);
+    const groups = GROUPS.filter((g) => entries.some((e) => e.group === g));
+    this.els.buildItems.classList.toggle('single', groups.length === 1);
+
+    for (const group of groups) {
+      const column = document.createElement('section');
+      column.className = 'pal-group';
+      column.innerHTML = groups.length > 1 ? `<h3>${group}</h3>` : '';
+      const list = document.createElement('div');
+      list.className = 'pal-list';
+      column.appendChild(list);
+
+      for (const entry of entries.filter((e) => e.group === group)) {
+        const key = selectionKey(entry.selection);
+        const button = document.createElement('button');
+        button.className = 'build-option';
+        button.dataset.key = key;
+        button.title = entry.description;
+        const tier = entry.tier > 1 ? `<span class="tier t${entry.tier}">Mk${entry.tier}</span>` : '';
+        button.innerHTML =
+          `<i class="piece" style="background-image:${pieceIconVar(key)}"></i>${tier}` +
+          `<b>${entry.name}</b>${costHtml(entry.cost)}`;
+        button.addEventListener('click', () => {
+          audio.play('click');
+          this.select(entry.selection);
+        });
+        button.addEventListener('pointerenter', () => {
+          this.hovered = entry;
+        });
+        button.addEventListener('pointerleave', () => {
+          if (this.hovered === entry) this.hovered = null;
+        });
+        list.appendChild(button);
+      }
+      this.els.buildItems.appendChild(column);
     }
+    this.detailKey = '';
+  }
+
+  /** The strip under the palette: what the hovered or selected piece is and costs. */
+  private paintDetail(player: Player): void {
+    const entry = this.hovered ?? entryFor(this.selection);
+    if (!entry) return;
+    const key = `${selectionKey(entry.selection)}:${entry.cost
+      .map((c) => (countItem(player, c.id) >= c.count ? 1 : 0))
+      .join('')}`;
+    if (key === this.detailKey) return;
+    this.detailKey = key;
+
+    this.els.buildDetail.innerHTML =
+      `<i class="piece" style="background-image:${pieceIconVar(selectionKey(entry.selection))}"></i>` +
+      `<div><b></b><p></p></div>${costHtml(entry.cost, player)}`;
+    // Descriptions are table text; set as text so they can never be markup.
+    (this.els.buildDetail.querySelector('b') as HTMLElement).textContent = entry.name;
+    (this.els.buildDetail.querySelector('p') as HTMLElement).textContent = entry.description;
   }
 
   private select(selection: BuildSelection): void {
@@ -271,7 +330,9 @@ export class Hud {
       cells[i].title = entry
         ? `${entry.name} — ${entry.description}`
         : `Empty — select a piece and press shift+${i + 1}`;
-      cells[i].innerHTML = `<kbd>${i + 1}</kbd><b>${entry ? entry.name : '—'}</b>`;
+      cells[i].dataset.name = entry ? entry.name : '';
+      const art = binding && entry ? `<i class="piece" style="background-image:${pieceIconVar(selectionKey(binding))}"></i>` : '';
+      cells[i].innerHTML = `${art}<kbd>${i + 1}</kbd>`;
     }
   }
 
@@ -358,7 +419,27 @@ export class Hud {
     this.updateOffers(player);
     this.updateHotbar(player);
     this.inventory.update(player, this.liveMachine(world));
-    if (this.buildMode) this.updateBuildAffordability(player);
+    if (this.buildMode) {
+      this.updateBuildAffordability(player);
+      this.paintDetail(player);
+    }
+  }
+
+  /** The on-screen stick, drawn under the thumb that is steering. */
+  updateStick(stick: { active: boolean; origin: { x: number; y: number }; pos: { x: number; y: number } }): void {
+    this.els.stick.classList.toggle('hidden', !stick.active);
+    if (!stick.active) return;
+    const reach = 34;
+    let dx = stick.pos.x - stick.origin.x;
+    let dy = stick.pos.y - stick.origin.y;
+    const length = Math.hypot(dx, dy);
+    if (length > reach) {
+      dx = (dx / length) * reach;
+      dy = (dy / length) * reach;
+    }
+    this.els.stick.style.left = `${stick.origin.x}px`;
+    this.els.stick.style.top = `${stick.origin.y}px`;
+    this.els.stickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
   }
 
   /** Re-resolve the open machine each frame, so removing it closes the screen. */
@@ -374,18 +455,21 @@ export class Hud {
     const seconds = Math.max(0, Math.ceil(world.phaseTime));
 
     this.els.topbar.classList.toggle('night', night);
-    this.els.phaseIcon.textContent = night ? '🌙' : '☀';
-    this.els.phaseName.textContent = night ? `Night ${world.nightIndex}` : 'Day';
+    this.els.phaseName.textContent = night ? `Night ${world.nightIndex}` : `Day ${world.nightIndex + 1}`;
     this.els.phaseSub.textContent = night
       ? world.peaceful
-        ? `${seconds}s until dawn · all quiet`
-        : `${seconds}s until dawn · ${world.mobs.length} out there`
-      : `Night ${world.nightIndex + 1} in ${seconds}s`;
+        ? 'All quiet until dawn'
+        : `${world.mobs.length} out there · until dawn`
+      : world.peaceful
+        ? 'A peaceful island'
+        : `Until night ${world.nightIndex + 1}`;
+    this.els.phaseTime.textContent = formatSeconds(seconds);
     this.els.phaseFill.style.width = `${(world.phaseTime / total) * 100}%`;
   }
 
   private updateVitals(player: Player): void {
     this.els.level.textContent = String(player.level);
+    this.els.levelRing.style.setProperty('--p', String(Math.min(1, player.xp / player.xpToNext)));
     const hp = Math.max(0, Math.round(player.hp));
     this.els.hpFill.style.width = `${(hp / player.maxHp) * 100}%`;
     this.els.hpText.textContent = `${hp} / ${player.maxHp}`;
@@ -403,14 +487,18 @@ export class Hud {
     this.pouchKey = key;
 
     this.els.pouch.innerHTML = '';
+    this.els.pouch.classList.toggle('hidden', totals.size === 0);
     for (const [id, count] of totals) {
       const def = ITEMS[id as keyof typeof ITEMS];
       const chip = document.createElement('div');
-      chip.className = 'chip';
-      chip.innerHTML = `<i class="dot icon" style="background-image:${itemIconVar(id as ItemId)}"></i>${count}`;
-      chip.title = def.name;
+      chip.className = 'res';
+      // A count that just went up flashes, so a haul registers without reading.
+      if (count > (this.pouchCounts.get(id) ?? Infinity)) chip.classList.add('bump');
+      chip.innerHTML = `<i class="res-icon" style="background-image:${itemIconVar(id as ItemId)}"></i>${formatCount(count)}`;
+      chip.title = `${def.name} — ${count}`;
       this.els.pouch.appendChild(chip);
     }
+    this.pouchCounts = totals;
   }
 
   private updateDash(player: Player): void {
@@ -459,4 +547,33 @@ export class Hud {
       button.classList.toggle('poor', entry ? !hasAll(player, entry.cost) : false);
     }
   }
+}
+
+/**
+ * A cost as the items themselves. Given a player, each ingredient they are
+ * short of is marked, so "why can't I place this" is answered on the card.
+ */
+function costHtml(cost: ItemStack[], player?: Player): string {
+  const parts = cost.map((c) => {
+    const short = player ? countItem(player, c.id) < c.count : false;
+    return (
+      `<span class="${short ? 'short' : ''}" title="${ITEMS[c.id].name}">` +
+      `<i style="background-image:${itemIconVar(c.id)}"></i>${c.count}</span>`
+    );
+  });
+  return `<span class="cost">${parts.join('')}</span>`;
+}
+
+function formatSeconds(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Counts past four digits are abbreviated so a chip never grows wider than its icon. */
+function formatCount(n: number): string {
+  if (n < 10000) return String(n);
+  if (n < 1000000) return `${Math.floor(n / 100) / 10}k`;
+  return `${Math.floor(n / 100000) / 10}m`;
 }

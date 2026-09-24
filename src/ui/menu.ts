@@ -1,5 +1,6 @@
 import { audio } from '../audio';
 import { SoundPanel } from './sound';
+import { icon } from './icons';
 import {
   createSlot,
   deleteSlot,
@@ -64,10 +65,12 @@ export class MainMenu {
     this.sound.refresh();
     this.render();
     this.els.root.classList.remove('hidden');
+    document.body.classList.add('in-menu');
   }
 
   close(): void {
     this.els.root.classList.add('hidden');
+    document.body.classList.remove('in-menu');
   }
 
   private startNew(): void {
@@ -86,7 +89,11 @@ export class MainMenu {
     const saves = listSaves();
     const recent = lastPlayed() ?? saves[0] ?? null;
 
-    this.els.continue.textContent = recent ? `Continue — ${recent.name}` : 'Start your first island';
+    // The island name is player text, so it goes in as text and never as markup.
+    this.els.continue.innerHTML = `${icon('play')}<span></span>`;
+    (this.els.continue.querySelector('span') as HTMLElement).textContent = recent
+      ? `Continue ${recent.name}`
+      : 'Start your first island';
     this.els.new.classList.toggle('hidden', saves.length === 0);
     this.els.note.textContent = recent
       ? `${describeAge(recent.updatedAt)} · night ${recent.night} · level ${recent.level}`
@@ -100,6 +107,10 @@ export class MainMenu {
   private card(slot: SaveSlot): HTMLElement {
     const card = document.createElement('article');
     card.className = 'save-card';
+
+    const thumb = document.createElement('div');
+    thumb.className = 'save-thumb';
+    card.appendChild(thumb);
 
     const title = document.createElement('button');
     title.className = 'save-open';
@@ -117,7 +128,8 @@ export class MainMenu {
 
     const rename = document.createElement('button');
     rename.className = 'save-tool';
-    rename.textContent = 'Rename';
+    rename.innerHTML = icon('pencil');
+    rename.title = 'Rename';
     rename.addEventListener('click', () => {
       audio.play('click');
       this.beginRename(card, slot);
@@ -125,7 +137,11 @@ export class MainMenu {
 
     const remove = document.createElement('button');
     remove.className = 'save-tool danger';
-    remove.textContent = this.armedDelete === slot.id ? 'Really delete?' : 'Delete';
+    const armed = this.armedDelete === slot.id;
+    if (armed) remove.classList.add('armed');
+    if (armed) remove.textContent = 'Delete?';
+    else remove.innerHTML = icon('trash');
+    remove.title = armed ? 'Click again to delete this island for good' : 'Delete';
     remove.addEventListener('click', () => {
       audio.play(this.armedDelete === slot.id ? 'removed' : 'denied');
       if (this.armedDelete === slot.id) {

@@ -20,7 +20,7 @@ import { UI, rgba } from './palette';
 import { GroundMesh } from './terrain';
 import { setItemScale } from './items';
 import { polygon } from './shapes';
-import { drawBelt, drawBeltItems, drawMachine } from './factory';
+import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFactoryScale } from './factory';
 import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
 
 /** How far past the viewport the pre-scaled ground reaches, in device pixels. */
@@ -113,6 +113,7 @@ export class Renderer {
     }
     ctx.setTransform(scale, 0, 0, scale, originX, originY);
     setItemScale(scale);
+    setFactoryScale(scale);
 
     const view = this.camera.bounds();
     const visible = (p: Vec2, pad = 0): boolean =>
@@ -172,7 +173,7 @@ export class Renderer {
       ghost?.kind === 'grid' &&
       removal.tx === ghost.tx &&
       removal.ty === ghost.ty;
-    if (ghost && !covered) this.drawGhost(world, ghost);
+    if (ghost && !covered) this.drawGhost(world, ghost, time);
     if (removal) this.drawRemoval(removal);
 
     this.effects.draw(ctx);
@@ -419,7 +420,7 @@ export class Renderer {
     ctx.restore();
   }
 
-  private drawGhost(world: World, ghost: GhostPreview): void {
+  private drawGhost(world: World, ghost: GhostPreview, time: number): void {
     const ctx = this.ctx;
     const tint = ghost.valid ? UI.good : UI.danger;
 
@@ -441,18 +442,26 @@ export class Renderer {
 
     const { x, y } = tileCenter(ghost.tx, ghost.ty);
     ctx.beginPath();
-    ctx.roundRect(x - TILE / 2 + 2, y - TILE / 2 + 2, TILE - 4, TILE - 4, 4);
+    ctx.roundRect(x - TILE / 2 + 1, y - TILE / 2 + 1, TILE - 2, TILE - 2, 5);
     ctx.fill();
+    ctx.globalAlpha = 1;
     ctx.stroke();
 
-    // An arrow on the ghost so facing is obvious before anything is committed.
+    // The piece itself, half there, so what lands is what was previewed —
+    // facing, output port and all.
+    ctx.globalAlpha = 0.62;
+    if (ghost.what === 'belt') drawBeltAt(ctx, x, y, ghost.dir, time);
+    else drawMachine(ctx, previewMachine(ghost.what, ghost.tx, ghost.ty, ghost.dir), time);
+    ctx.globalAlpha = 1;
+
+    // An arrow beyond the tile so facing is obvious before anything is committed.
     ctx.translate(x, y);
     ctx.rotate(dirAngle(ghost.dir));
     ctx.fillStyle = tint;
     ctx.beginPath();
-    ctx.moveTo(TILE * 0.3, 0);
-    ctx.lineTo(TILE * 0.06, -TILE * 0.17);
-    ctx.lineTo(TILE * 0.06, TILE * 0.17);
+    ctx.moveTo(TILE * 0.78, 0);
+    ctx.lineTo(TILE * 0.6, -TILE * 0.14);
+    ctx.lineTo(TILE * 0.6, TILE * 0.14);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
