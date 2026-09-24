@@ -12,14 +12,15 @@ import type {
   ItemId,
   Machine,
   MachineId,
+  OreKind,
   Player,
   ResourceNode,
   Slot,
   World,
 } from '@shared/sim/types';
-import { FACTORY_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
+import { FACTORY_SUFFIX, ORE_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
 
-const VERSION = 4;
+const VERSION = 5;
 
 /**
  * The header: everything that moves on every single save. Small enough that
@@ -80,12 +81,27 @@ type PackedMachine = [
   PackedSlot[],
   /** An inserter's filter. Absent on a row packed before filters existed. */
   (ItemId | null)?,
+  /**
+   * What a miner is pulling up. Absent in version 4, where ore was endless.
+   * It sits after the filter because islands already carry rows packed with
+   * the filter at that position.
+   */
+  (OreKind | null)?,
 ];
 
 interface FactorySection {
   belts: PackedBelt[];
   machines: PackedMachine[];
 }
+
+/**
+ * The ground miners have eaten into, as tile key to ore left. Only tiles that
+ * differ from what the seed generates are in it, so a young island costs a
+ * handful of entries and a long-running one still costs far less than the
+ * whole grid. A save with no section at all is one whose patches are full,
+ * which is exactly what every island made before version 5 is.
+ */
+type OreSection = Record<number, number>;
 
 /**
  * Phase 2 persistence: one island split across three localStorage entries,
@@ -122,7 +138,17 @@ export function saveWorld(world: World, slot: string): boolean {
   // fully written, rather than a header promising a factory that is not there.
   if (!writeSection(slot, SCENERY_SUFFIX, packScenery(world))) return false;
   if (!writeSection(slot, FACTORY_SUFFIX, packFactory(world))) return false;
+  if (!writeSection(slot, ORE_SUFFIX, minedTiles(world))) return false;
   return writeSection(slot, '', file);
+}
+
+/** The tiles miners have taken from, diffed against what the seed generated. */
+function minedTiles(world: World): OreSection {
+  const out: OreSection = {};
+  for (let i = 0; i < world.oreLeft.length; i++) {
+    if (world.oreLeft[i] !== world.oreMax[i]) out[i] = world.oreLeft[i];
+  }
+  return out;
 }
 
 export function loadWorld(slot: string): World | null {
@@ -162,6 +188,7 @@ export function loadWorld(slot: string): World | null {
       .filter((m) => m.type in MACHINES)
       .map(loadMachine);
 
+    applyMinedTiles(world, readSection<OreSection>(slot, ORE_SUFFIX));
     // The tile index is derived state, so rebuild it rather than storing it.
     rebuildGrid(world);
     // Older islands were built before scenery blocked placement, so they can
@@ -307,6 +334,7 @@ function packMachine(machine: Machine): PackedMachine {
     packSlots(machine.input),
     packSlots(machine.output),
     machine.filter,
+    machine.ore,
   ];
 }
 
@@ -322,6 +350,9 @@ function unpackMachine(packed: PackedMachine): Machine {
     input: unpackSlots(packed[7]),
     output: unpackSlots(packed[8]),
     filter: packed[9] ?? null,
+    // A miner packed before ore ran out never recorded a kind; the simulation
+    // reads it back off its own tile on the next tick.
+    ore: packed[10] ?? null,
     // Recomputed by the factory system on the first tick after a load.
     stalled: false,
   };
@@ -331,6 +362,19 @@ function packFactory(world: World): FactorySection {
   return { belts: world.belts.map(packBelt), machines: world.machines.map(packMachine) };
 }
 
+function applyMinedTiles(world: World, mined: OreSection | null): void {
+  if (!mined) return;
+  for (const [key, left] of Object.entries(mined)) {
+    const i = Number(key);
+    if (!Number.isInteger(i) || i < 0 || i >= world.oreLeft.length) continue;
+    // Clamp against what the seed generates: a hand-edited save cannot mint ore,
+    // and a tile the generator no longer fills cannot come back holding some.
+    const amount = Math.max(0, Math.min(world.oreMax[i], Math.floor(left) || 0));
+    world.oreLeft[i] = amount;
+    if (amount === 0) world.ore[i] = 0;
+  }
+}
+
 /** Machine storage is a fixed grid too, sized by the machine's own definition. */
 function loadMachine(machine: Machine): Machine {
   const def = MACHINES[machine.type];
@@ -338,6 +382,8 @@ function loadMachine(machine: Machine): Machine {
     ...machine,
     // An island saved before filters existed simply has none.
     filter: loadFilter(machine),
+    // Version 3 and older stored machines whole, and none of them had this.
+    ore: machine.ore ?? null,
     input: normalizeSlots(machine.input, def.inputSlots, def.slotSize),
     output: normalizeSlots(machine.output, def.outputSlots, def.slotSize),
   };

@@ -1,11 +1,12 @@
 import { ITEMS, ITEM_ORDER } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
+import { minerOreLeft } from '@shared/sim/ore';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import { totalIn } from '@shared/sim/slots';
 import { audio } from '../audio';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { ItemId, Machine, Player, Slot } from '@shared/sim/types';
+import type { ItemId, Machine, Player, Slot, World } from '@shared/sim/types';
 import { itemIconVar } from '../render/items';
 
 export interface InventoryCallbacks {
@@ -209,7 +210,7 @@ export class InventoryScreen {
     }
   }
 
-  update(player: Player, machine: Machine | null): void {
+  update(player: Player, machine: Machine | null, world: World): void {
     if (!this.open) return;
     // The machine object is re-read every frame: removing it while its screen
     // is open must close the screen rather than show a ghost.
@@ -226,6 +227,9 @@ export class InventoryScreen {
     }
 
     if (machine) this.updateProgress(machine);
+    if (machine && MACHINES[machine.type].family === 'miner') {
+      this.updateMinerOre(world, machine);
+    }
     this.updatePanel(machine);
   }
 
@@ -277,6 +281,18 @@ export class InventoryScreen {
     const fraction = duration > 0 ? Math.min(1, machine.progress / duration) : 0;
     this.els.progressFill.style.width = `${fraction * 100}%`;
     this.els.progress.classList.toggle('stalled', machine.stalled);
+  }
+
+  /**
+   * A miner has no recipe to show, so its blurb carries the one number that
+   * matters instead: how much is left under it before it has to move.
+   */
+  private updateMinerOre(world: World, machine: Machine): void {
+    const left = minerOreLeft(world, machine);
+    this.els.blurb.textContent =
+      left > 0
+        ? `${left.toLocaleString()} ore left within reach.`
+        : 'The ground here is worked out. Move it to a fresh patch.';
   }
 
   /**
