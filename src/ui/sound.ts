@@ -88,5 +88,7 @@ export class SoundPanel {
       const bus = (el as HTMLElement).dataset.bus as Bus;
       el.textContent = `${Math.round(volumes[bus] * 100)}`;
     }
+    // The filled part of each track, which a range input cannot style alone.
+    for (const [bus, input] of this.sliders) input.style.setProperty('--v', `${Math.round(volumes[bus] * 100)}%`);
   }
 }
