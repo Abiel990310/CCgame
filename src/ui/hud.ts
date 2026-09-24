@@ -357,7 +357,7 @@ export class Hud {
     this.updateDash(player);
     this.updateOffers(player);
     this.updateHotbar(player);
-    this.inventory.update(player, this.liveMachine(world));
+    this.inventory.update(player, this.liveMachine(world), world);
     if (this.buildMode) this.updateBuildAffordability(player);
   }
 

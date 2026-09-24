@@ -19,7 +19,7 @@ import {
   splitterAccepts,
 } from '../factory';
 import { tileCenter } from '../grid';
-import { oreAt } from '../ore';
+import { minerSource, oreAt, takeOre } from '../ore';
 import { addToSlots, countIn, roomFor, slotCap, takeFromSlots } from '../slots';
 import type { Belt, ItemId, ItemStack, Machine, Slot, World } from '../types';
 
@@ -153,9 +153,22 @@ export function stepMachines(world: World, dt: number): void {
 /** Seconds a tier 1 miner takes to extract one ore; speed divides it. */
 export const MINE_TIME = 1.2;
 
+/**
+ * A miner works the ground it stands on and the ring around it, and the ore is
+ * finite: it goes dark once everything in reach has been pulled up, which is
+ * what eventually moves a factory out to a fresh patch.
+ */
 function stepMiner(world: World, machine: Machine, dt: number): void {
-  const ore = oreAt(world.ore, machine.tx, machine.ty);
+  // Islands saved before ore ran out have miners that never recorded a kind.
+  machine.ore ??= oreAt(world.ore, machine.tx, machine.ty);
+  const ore = machine.ore;
   if (!ore) {
+    machine.stalled = true;
+    return;
+  }
+
+  const source = minerSource(world, machine, ore);
+  if (!source) {
     machine.stalled = true;
     return;
   }
@@ -171,6 +184,7 @@ function stepMiner(world: World, machine: Machine, dt: number): void {
   if (machine.progress < MINE_TIME) return;
 
   machine.progress -= MINE_TIME;
+  if (!takeOre(world, source.tx, source.ty)) return;
   addToSlots(machine.output, ore, 1, def.slotSize);
   announce(world, machine, ore);
 }

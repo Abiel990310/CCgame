@@ -161,12 +161,13 @@ describe('saving an island', () => {
   it('rewrites only the sections that moved', () => {
     const world = island();
     saveWorld(world, SLOT);
-    expect(new Set(writes).size).toBe(3);
+    // The header, the scenery, the factory and the ground the miners have taken.
+    expect(new Set(writes).size).toBe(4);
 
     writes.length = 0;
     world.tick += 240;
     saveWorld(world, SLOT);
-    // Nothing was built and nothing was chopped, so only the header moved.
+    // Nothing was built, chopped or mined, so only the header moved.
     expect(writes).toEqual([slotKey(SLOT)]);
 
     writes.length = 0;

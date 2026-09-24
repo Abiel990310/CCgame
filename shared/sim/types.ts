@@ -224,6 +224,12 @@ export interface Machine {
   recipe: string | null;
   /** Inserters only: the one item this arm will move, or null for anything. */
   filter: ItemId | null;
+  /**
+   * What a miner is pulling up, remembered rather than read off its own tile:
+   * once that tile runs dry the miner keeps working the ring around it, and it
+   * must not start mixing a neighbouring patch's ore into the same output.
+   */
+  ore: OreKind | null;
   /** Seconds of crafting accumulated toward the current recipe. */
   progress: number;
   /** Fixed grids, sized by the machine's `inputSlots` and `outputSlots`. */
@@ -259,6 +265,14 @@ export interface World {
   camp: Vec2;
   /** Row-major ore grid; 0 means no ore. Parallel to `terrain`. */
   ore: Uint8Array;
+  /**
+   * Ore left in each tile, parallel to `ore`. Patches are finite: a tile that
+   * reaches zero has its entry in `ore` cleared too, so everything that only
+   * asks what a tile holds keeps working without knowing about amounts.
+   */
+  oreLeft: Uint16Array;
+  /** What each tile held when the island was made, so a save can store a diff. */
+  oreMax: Uint16Array;
   belts: Belt[];
   machines: Machine[];
   /**
@@ -292,4 +306,5 @@ export type SimEvent =
   | { kind: 'phase'; phase: Phase; nightIndex: number }
   | { kind: 'playerHit'; playerId: number; amount: number }
   | { kind: 'downed'; playerId: number }
-  | { kind: 'built'; pos: Vec2; type: BuildingId };
+  | { kind: 'built'; pos: Vec2; type: BuildingId }
+  | { kind: 'oreChanged'; tx: number; ty: number };

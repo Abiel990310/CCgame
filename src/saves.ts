@@ -38,8 +38,9 @@ const EMPTY: SaveIndex = { version: 1, lastPlayed: null, slots: [] };
  */
 export const SCENERY_SUFFIX = '.w';
 export const FACTORY_SUFFIX = '.f';
+export const ORE_SUFFIX = '.o';
 /** Every entry one slot occupies, the header's own key first. */
-export const SLOT_SUFFIXES = ['', SCENERY_SUFFIX, FACTORY_SUFFIX] as const;
+export const SLOT_SUFFIXES = ['', SCENERY_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX] as const;
 
 /** Where one slot's world data lives. */
 export function slotKey(id: string): string {

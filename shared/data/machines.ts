@@ -43,7 +43,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     family: 'miner',
     tier: 1,
     name: 'Miner',
-    description: 'Place on an ore patch. Pulls ore out on its own, forever.',
+    description: 'Place on an ore patch. Works the ground around it until the ore is gone.',
     cost: [
       { id: 'wood', count: 10 },
       { id: 'stone', count: 10 },
@@ -103,7 +103,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     family: 'miner',
     tier: 2,
     name: 'Steel Miner',
-    description: 'A steel drill on the same patch. Twice the ore, one tile.',
+    description: 'A steel drill on the same ground. Twice the ore, and it runs out twice as fast.',
     cost: [
       { id: 'steelPlate', count: 12 },
       { id: 'gear', count: 10 },
@@ -123,7 +123,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     family: 'miner',
     tier: 3,
     name: 'Electric Miner',
-    description: 'Four ore for every one the first drill pulled, off one patch.',
+    description: 'Four ore for every one the first drill pulled, and a patch that lasts a quarter as long.',
     cost: [
       { id: 'steelPlate', count: 20 },
       { id: 'motor', count: 6 },

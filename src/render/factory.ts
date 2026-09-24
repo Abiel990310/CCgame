@@ -22,23 +22,31 @@ const ORE_COLORS: Record<OreKind, string> = {
  * fill produces hard square edges across a patch that read as rendering
  * artefacts; soft circular shading plus rocks reads as an actual deposit.
  */
+/**
+ * `band` is how full the tile still is, 1 to 4. A worked-out tile keeps fewer
+ * pebbles and a fainter stain, which is what lets a patch be read at a glance
+ * rather than by opening every miner on it.
+ */
 export function drawOreTile(
   ctx: CanvasRenderingContext2D,
   tx: number,
   ty: number,
   kind: OreKind,
+  band = 4,
 ): void {
   const { x, y } = tileCenter(tx, ty);
   const color = ORE_COLORS[kind];
 
   // Circles overlap between neighbouring tiles, so a patch has no visible grid.
-  ctx.fillStyle = rgba(color, 0.22);
+  ctx.fillStyle = rgba(color, 0.085 + band * 0.034);
   ctx.beginPath();
   ctx.arc(x, y, TILE * 0.62, 0, Math.PI * 2);
   ctx.fill();
 
   // Deterministic pebble placement so a patch never shimmers between frames.
-  for (let i = 0; i < 5; i++) {
+  // Pebbles are dropped from the end of that fixed sequence as the tile runs
+  // down, so the ones that remain never jump about.
+  for (let i = 0; i < band + 1; i++) {
     const hx = ((tx * 73856093) ^ (ty * 19349663) ^ (i * 83492791)) >>> 0;
     const ox = ((hx % 1000) / 1000 - 0.5) * TILE * 0.82;
     const oy = (((hx >> 10) % 1000) / 1000 - 0.5) * TILE * 0.82;
