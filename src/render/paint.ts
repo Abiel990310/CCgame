@@ -127,6 +127,11 @@ export function setFlash(amount: number): void {
   flash = Math.max(0, Math.min(1, amount));
 }
 
+/** The flash currently set, for art that bakes itself and must key on it. */
+export function paintFlash(): number {
+  return flash;
+}
+
 function mix(hex: string, amount: number): string {
   const n = parseInt(hex.slice(1), 16);
   const r = (n >> 16) & 255;

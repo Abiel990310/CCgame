@@ -2,9 +2,11 @@ import { MOBS } from '@shared/data/mobs';
 import type { Mob, Player } from '@shared/sim/types';
 import {
   INK,
+  blitCached,
   capsule,
   fillInk,
   litFill,
+  paintFlash,
   rand,
   setFlash,
   softShadow,
@@ -16,7 +18,8 @@ import {
  * The people and creatures of the island.
  *
  * These are drawn live rather than baked, because every one of them animates
- * and there are only ever a few dozen on screen. Each is built from limbs and
+ * and there are only ever a few dozen on screen. The brute is the exception
+ * (see `drawBrute`): it costs as much as the rest put together. Each is built from limbs and
  * shaded masses the way a sprite artist would block one out: a dark outline,
  * light from the upper left, and a pose that changes with what it is doing.
  */
@@ -818,20 +821,44 @@ function drawWisp(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
   }
 }
 
+/**
+ * A brute is some twenty shaded, outlined shapes, so it is the one creature
+ * baked rather than traced: its whole pose is one phase of its stride (or of
+ * its idle breathing), a facing and a hit flash, which is few enough frames to
+ * keep. Tracing it live cost most of a raid's frame on a CPU-drawn canvas.
+ */
 function drawBrute(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
-  const def = MOBS.brute;
-  const r = def.radius;
-  const { x, y } = mob.pos;
+  const r = MOBS.brute.radius;
   const face = heading(mob);
   const moving = Math.hypot(mob.vel.x, mob.vel.y) > 3;
-  const gait = time * (moving ? 5.5 : 1.5) + mob.seed;
-  const stomp = moving ? Math.abs(Math.sin(gait)) * 2 : Math.sin(time * 1.6) * 0.5;
-  const feet = y + r * 0.45;
+  const cycle = moving ? time * 5.5 + mob.seed : time * 1.6;
+  const turn = (((cycle / (Math.PI * 2)) % 1) + 1) % 1;
+  const step = Math.floor(turn * BRUTE_FRAMES);
+  const flip = face.x < 0;
+  const flashed = paintFlash() > 0;
+  const feet = mob.pos.y + r * 0.45;
+  blitCached(
+    ctx,
+    `brute:${moving ? 1 : 0}:${step}:${flip ? 1 : 0}:${flashed ? 1 : 0}`,
+    mob.pos.x,
+    feet,
+    { left: r * 1.7, right: r * 1.7, top: r * 2.7, bottom: r * 0.8 },
+    (c) => drawBrutePose(c, moving, ((step + 0.5) / BRUTE_FRAMES) * Math.PI * 2, flip),
+  );
+}
 
-  softShadow(ctx, x, feet, r * 1.35, 0.42);
+const BRUTE_FRAMES = 24;
 
-  ctx.translate(x, feet);
-  if (face.x < 0) ctx.scale(-1, 1);
+/** The brute standing at the origin (its feet), `phase` through its stride or breath. */
+function drawBrutePose(ctx: CanvasRenderingContext2D, moving: boolean, phase: number, flip: boolean): void {
+  const def = MOBS.brute;
+  const r = def.radius;
+  const gait = phase;
+  const stomp = moving ? Math.abs(Math.sin(gait)) * 2 : Math.sin(phase) * 0.5;
+
+  softShadow(ctx, 0, 0, r * 1.35, 0.42);
+
+  if (flip) ctx.scale(-1, 1);
 
   const hide = tone(def.accent, -0.1);
   const plate = '#5b5f6a';

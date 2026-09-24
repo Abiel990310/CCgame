@@ -386,6 +386,9 @@ detail behind the factory entries is in
       and small canvases for eyes and name tags that are hidden when empty.
       A camp with 12 lamps at night went from 48 to 80 fps headless. Browsers
       without `plus-lighter` still paint the night into the canvas.
+- [x] Brutes are baked per stride phase (24 a cycle), facing and hit flash:
+      forty on screen went from 27 to 133 fps headless. Crawlers (about
+      0.3 ms each on a CPU canvas) and slimes are still traced live.
 - [ ] **Move drawing to WebGL** (decided 2026-09-24, Abiel asked for the game
       to look and run like a Steam game). Profiled on the live build: the
       simulation, HUD and lighting maths cost under 1 ms a frame; the rest is
