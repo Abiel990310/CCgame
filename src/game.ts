@@ -1,7 +1,7 @@
 import { BUILDINGS } from '@shared/data/buildings';
 import { BELT_COST, MACHINES } from '@shared/data/machines';
 import { ITEMS } from '@shared/data/items';
-import { TICK_DT } from '@shared/sim/constants';
+import { CAMP, TICK_DT } from '@shared/sim/constants';
 import {
   buildingAt,
   placeBuilding,
@@ -472,9 +472,12 @@ export class Game {
     }
 
     // Camp pieces are not on the factory grid, so they need their own pass.
+    const target = buildingAt(this.world, pos);
+    const damaged = target?.type === 'wall' && target.level < CAMP.wallHp;
     const result = removeBuildingAt(this.world, this.self, pos);
     if (result === 'removed') {
-      this.hud.toast('Removed', 'good');
+      // Say why the refund came up short, or it reads as materials going missing.
+      this.hud.toast(damaged ? 'Removed. Damaged walls refund only what is left of them' : 'Removed', 'good');
       this.requestSave();
       return;
     }
