@@ -203,6 +203,8 @@ export interface Player {
   /** The stack held on the pointer while rearranging. Saved, so it is never lost. */
   cursor: Slot;
   weapons: WeaponState[];
+  /** Level-up perks taken, by id, and how many times. Absent on older islands. */
+  perks?: Record<string, number>;
   stats: PlayerStats;
   dashCd: number;
   dashTime: number;

@@ -1,6 +1,7 @@
 import { MOBS } from '../../data/mobs';
 import { WEAPONS, weaponDamage, weaponRate, type WeaponDef } from '../../data/weapons';
-import { COMBAT, PLAYER } from '../constants';
+import { CAMP, COMBAT, PLAYER } from '../constants';
+import { masteryId, perk } from '../perks';
 import { distance, distanceSq, normalize } from '../math';
 import { grantXp, nextFloat } from '../progression';
 import { researchBonuses } from '../research';
@@ -45,10 +46,11 @@ function pickTarget(
   world: World,
   player: Player,
   def: WeaponDef,
+  range: number,
   incoming: Map<number, number>,
   taken: Set<number>,
 ): Mob | null {
-  const rangeSq = def.range * def.range;
+  const rangeSq = range * range;
   const eligible: Mob[] = [];
   for (const mob of world.mobs) {
     if (mob.hp <= 0 || taken.has(mob.id)) continue;
@@ -71,7 +73,7 @@ function pickTarget(
     if (def.targeting === 'toughest') {
       key = mob.hp - (incoming.get(mob.id) ?? 0) + near;
     } else if (def.targeting === 'line') {
-      key = lineScore(world, player.pos, mob.pos, def.range, def.pierce + 1) + near;
+      key = lineScore(world, player.pos, mob.pos, range, def.pierce + 1) + near;
     }
     if (key > bestKey) {
       best = mob;
@@ -95,24 +97,40 @@ function nearestMob(world: World, player: Player, range: number): Mob | null {
   return best;
 }
 
+/** Damage perks that depend on when and where the player is fighting. */
+function situational(world: World, player: Player): number {
+  let f = 1;
+  if (world.phase === 'night') f *= 1 + 0.15 * perk(player, 'nightOwl');
+  const guard = perk(player, 'campGuard');
+  if (guard > 0 && distance(player.pos, world.camp) <= CAMP.defendRadius) f *= 1 + 0.25 * guard;
+  return f;
+}
+
 /** Weapons fire themselves — the player only ever chooses where to stand. */
 export function stepWeapons(world: World, player: Player, dt: number): void {
   if (player.downed > 0) return;
 
   const incoming = incomingDamage(world);
-  const forged = researchBonuses(world).damage;
+  const boost = researchBonuses(world).damage * situational(world, player);
+  const reach = 1 + 0.1 * perk(player, 'keenEye');
+  const speedUp = 1 + 0.15 * perk(player, 'swift');
+  const extraPierce = perk(player, 'piercing');
+  const crit = 0.08 * perk(player, 'lucky');
+  const critHit = 2 + 0.5 * perk(player, 'brutal');
 
   for (const weapon of player.weapons) {
     const def = WEAPONS[weapon.id];
     weapon.cooldown -= dt;
     if (weapon.cooldown > 0) continue;
 
-    const damage = weaponDamage(weapon.id, weapon.level) * player.stats.damage * forged;
+    const mastered = perk(player, masteryId(weapon.id)) > 0;
+    const range = def.range * reach;
+    const damage = weaponDamage(weapon.id, weapon.level) * player.stats.damage * boost * (mastered ? 1.5 : 1);
     const shots = 1 + player.stats.multishot;
     const taken = new Set<number>();
     const targets: Mob[] = [];
     for (let i = 0; i < shots; i++) {
-      const target = pickTarget(world, player, def, incoming, taken);
+      const target = pickTarget(world, player, def, range, incoming, taken);
       if (!target) break;
       targets.push(target);
       taken.add(target.id);
@@ -122,7 +140,7 @@ export function stepWeapons(world: World, player: Player, dt: number): void {
     // Everything in range is already as good as dead: keep firing at the
     // nearest anyway, since a mob that dodges the shots in flight survives them.
     if (targets.length === 0) {
-      const fallback = nearestMob(world, player, def.range);
+      const fallback = nearestMob(world, player, range);
       if (fallback) targets.push(fallback);
     }
 
@@ -132,7 +150,7 @@ export function stepWeapons(world: World, player: Player, dt: number): void {
       continue;
     }
 
-    const rate = weaponRate(weapon.id, weapon.level) * player.stats.fireRate;
+    const rate = weaponRate(weapon.id, weapon.level) * player.stats.fireRate * (mastered ? 1.25 : 1);
     weapon.cooldown = 1 / Math.max(0.05, rate);
 
     // One event per volley, not per projectile: multishot is one bowstring.
@@ -146,18 +164,22 @@ export function stepWeapons(world: World, player: Player, dt: number): void {
       const base = normalize({ x: target.pos.x - player.pos.x, y: target.pos.y - player.pos.y });
       const cos = Math.cos(offset);
       const sin = Math.sin(offset);
+      // Only rolled for a player who can crit, so everyone else's RNG stream is untouched.
+      const hit = crit > 0 && nextFloat(world) < crit ? damage * critHit : damage;
+      const speed = def.speed * speedUp;
       world.projectiles.push({
         id: world.nextId++,
         pos: { ...player.pos },
         vel: {
-          x: (base.x * cos - base.y * sin) * def.speed,
-          y: (base.x * sin + base.y * cos) * def.speed,
+          x: (base.x * cos - base.y * sin) * speed,
+          y: (base.x * sin + base.y * cos) * speed,
         },
-        damage,
-        life: COMBAT.projectileLife,
+        damage: hit,
+        // Faster shots and longer reach travel as far as they aim.
+        life: COMBAT.projectileLife * Math.max(1, reach / speedUp),
         ownerId: player.id,
         weapon: weapon.id,
-        pierce: def.pierce,
+        pierce: def.pierce + extraPierce,
         targetId: spare < 0 ? target.id : undefined,
       });
     }
@@ -183,9 +205,20 @@ export function stepProjectiles(world: World, dt: number): void {
         if (mob.hp <= 0 || p.struck?.includes(mob.id)) continue;
         if (distance(mob.pos, p.pos) > MOBS[mob.type].radius + 4) continue;
 
-        if (def.chill) mob.chill = Math.max(mob.chill ?? 0, def.chill);
+        const owner = world.players.get(p.ownerId);
+        const chill = Math.max(def.chill ?? 0, owner && perk(owner, 'frostbite') ? 0.35 : 0);
+        if (chill > 0) mob.chill = Math.max(mob.chill ?? 0, chill);
+        const shove = owner ? perk(owner, 'heavy') * 90 : 0;
+        if (shove > 0 && !MOBS[mob.type].bossEvery) {
+          const away = normalize(p.vel);
+          mob.vel.x += away.x * shove;
+          mob.vel.y += away.y * shove;
+        }
         damageMob(world, mob, p.damage, p.ownerId);
-        if (def.splash) splash(world, mob, p.pos, def.splash, p.damage * 0.5, p.ownerId);
+        if (def.splash) {
+          const wider = 1 + 0.25 * (owner ? perk(owner, 'volatile') : 0);
+          splash(world, mob, p.pos, def.splash * wider, p.damage * 0.5, p.ownerId);
+        }
         // Whatever it hits, it is no longer on its way to its target.
         p.targetId = undefined;
         if (p.pierce > 0) {
@@ -231,12 +264,17 @@ export function damageMob(world: World, mob: Mob, amount: number, sourceId: numb
   mob.hitFlash = 0.12;
   world.events.push({ kind: 'hit', pos: { ...mob.pos }, amount: Math.round(dealt) });
 
+  const killer = world.players.get(sourceId);
+  if (mob.hp > 0 && killer && !def.bossEvery && perk(killer, 'executioner') && mob.hp < mob.maxHp * 0.08) mob.hp = 0;
   if (mob.hp > 0) return;
 
   world.events.push({ kind: 'mobDied', pos: { ...mob.pos }, type: mob.type });
 
-  const killer = world.players.get(sourceId);
-  if (killer) grantXp(world, killer, def.xp);
+  if (killer) {
+    grantXp(world, killer, def.xp);
+    const heal = perk(killer, 'vampiric');
+    if (heal > 0 && killer.downed === 0) killer.hp = Math.min(killer.maxHp, killer.hp + heal);
+  }
 
   if (def.splits) {
     for (let i = 0; i < def.splits.count; i++) {
@@ -251,7 +289,7 @@ export function damageMob(world: World, mob: Mob, amount: number, sourceId: numb
 
   // Orbs the killer still has to walk over — movement stays the main verb.
   const orbs = def.loot?.orbs ?? 1 + Math.floor(nextFloat(world) * 2);
-  const essence = def.loot?.essence ?? 0.25;
+  const essence = (def.loot?.essence ?? 0.25) * (1 + 0.3 * (killer ? perk(killer, 'essenceSense') : 0));
   const scatter = def.loot ? 320 : 140;
   for (let i = 0; i < orbs; i++) {
     world.pickups.push({
@@ -269,14 +307,15 @@ export function damageMob(world: World, mob: Mob, amount: number, sourceId: numb
 export function damagePlayer(world: World, player: Player, amount: number): void {
   if (player.invuln > 0 || player.downed > 0) return;
 
+  amount = Math.max(1, amount - perk(player, 'padded'));
   player.hp -= amount;
-  player.invuln = PLAYER.invulnAfterHit;
+  player.invuln = PLAYER.invulnAfterHit * (1 + 0.5 * perk(player, 'reinforced'));
   player.hitFlash = 0.18;
   world.events.push({ kind: 'playerHit', playerId: player.id, amount });
 
   if (player.hp <= 0) {
     player.hp = 0;
-    player.downed = PLAYER.reviveSeconds;
+    player.downed = PLAYER.reviveSeconds * Math.pow(0.7, perk(player, 'secondWind'));
     world.events.push({ kind: 'downed', playerId: player.id });
   }
 }

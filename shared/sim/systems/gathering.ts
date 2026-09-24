@@ -4,8 +4,9 @@ import { distanceSq } from '../math';
 import { toolSpeed } from '../crafting';
 import { nodeSpotTaken } from '../nodes';
 import { nextFloat } from '../progression';
+import { perk } from '../perks';
 import { researchBonuses } from '../research';
-import type { ItemId, Player, PlayerInput, ResourceNode, World } from '../types';
+import type { ItemId, Player, PlayerInput, ResourceKind, ResourceNode, World } from '../types';
 
 export function findNearestNode(world: World, player: Player): ResourceNode | null {
   const reach = PLAYER.interactRadius;
@@ -38,6 +39,9 @@ export function rollDrop(world: World, kind: ResourceNode['kind']): { item: Item
   return { item: fallback.item, count: fallback.count };
 }
 
+/** The perk that speeds up each kind of harvest; bushes have none. */
+const KNACK: Record<ResourceKind, string> = { tree: 'lumberjack', rock: 'prospector', fish: 'angler', bush: '' };
+
 export function stepGathering(
   world: World,
   player: Player,
@@ -60,7 +64,8 @@ export function stepGathering(
 
   const tool = toolSpeed(player, RESOURCES[target.kind].tool);
   const research = researchBonuses(world).gather;
-  player.gatherProgress += (dt / GATHER.baseSeconds) * player.stats.gatherSpeed * tool * research;
+  const knack = 1 + 0.4 * perk(player, KNACK[target.kind]);
+  player.gatherProgress += (dt / GATHER.baseSeconds) * player.stats.gatherSpeed * tool * research * knack;
   if (player.gatherProgress < 1) return;
 
   player.gatherProgress -= 1;
@@ -69,6 +74,9 @@ export function stepGathering(
 
   const def = RESOURCES[target.kind];
   const drop = rollDrop(world, target.kind);
+  // Only rolled for a player who has the perk, so nobody else's RNG stream moves.
+  const forager = perk(player, 'forager');
+  const count = forager > 0 && nextFloat(world) < 0.15 * forager ? drop.count * 2 : drop.count;
 
   world.pickups.push({
     id: world.nextId++,
@@ -78,7 +86,7 @@ export function stepGathering(
       y: (nextFloat(world) - 0.5) * 110,
     },
     item: drop.item,
-    count: drop.count,
+    count,
     xp: def.xp,
     settle: 0.35,
   });
