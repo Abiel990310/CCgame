@@ -23,7 +23,8 @@ export function findNearestNode(world: World, player: Player): ResourceNode | nu
   return best;
 }
 
-function rollDrop(world: World, kind: ResourceNode['kind']): { item: ItemId; count: number } {
+/** One pick from a node's weighted drop table. A fish trap rolls the same one. */
+export function rollDrop(world: World, kind: ResourceNode['kind']): { item: ItemId; count: number } {
   const drops = RESOURCES[kind].drops;
   const total = drops.reduce((sum, d) => sum + d.weight, 0);
   let roll = nextFloat(world) * total;

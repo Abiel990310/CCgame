@@ -1,10 +1,10 @@
 import type { TechDef, TechEffectKind } from '../data/techs';
-import { TECHS, TECH_BY_ID, techCycles } from '../data/techs';
+import { TECHS, TECH_BY_ID, UNLOCKED_BY, techCycles } from '../data/techs';
 import { grantXp } from './progression';
-import type { Research, World } from './types';
+import type { MachineId, Research, World } from './types';
 
 export function newResearch(): Research {
-  return { current: null, progress: {}, levels: {} };
+  return { current: null, progress: {}, levels: {}, unlockedAll: false };
 }
 
 /** How many times a tech has been completed. One-shot techs are 0 or 1. */
@@ -15,6 +15,17 @@ export function techLevel(world: World, id: string): number {
 /** True when every prerequisite is finished, so this tech can be worked on. */
 export function isAvailable(world: World, def: TechDef): boolean {
   return def.requires.every((id) => techLevel(world, id) > 0);
+}
+
+/**
+ * True when this island may build the machine. Enforced here rather than in
+ * the palette, so a server running the same code refuses a locked piece
+ * whatever a client claims to have on its bar.
+ */
+export function isUnlocked(world: World, id: MachineId): boolean {
+  if (world.research.unlockedAll) return true;
+  const tech = UNLOCKED_BY.get(id);
+  return !tech || techLevel(world, tech.id) > 0;
 }
 
 /** True when there is nothing left to gain from it. Repeatable techs never are. */
@@ -80,7 +91,7 @@ export function researchBonuses(world: World): ResearchBonuses {
   const bonuses = { ...NONE };
   for (const def of TECHS) {
     const level = techLevel(world, def.id);
-    if (level > 0) bonuses[def.effect.kind] += def.effect.amount * level;
+    if (level > 0 && def.effect) bonuses[def.effect.kind] += def.effect.amount * level;
   }
   return bonuses;
 }

@@ -22,7 +22,14 @@ import type {
 } from '@shared/sim/types';
 import { FACTORY_SUFFIX, ORE_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
 
-const VERSION = 5;
+const VERSION = 6;
+
+/**
+ * The first version whose islands earn their machines through research. Every
+ * island saved before it was built with the whole palette on offer, and keeps
+ * it.
+ */
+const GATED_SINCE = 6;
 
 /**
  * The header: everything that moves on every single save. Small enough that
@@ -45,7 +52,10 @@ interface SaveFile {
   rngState: number;
   players: Player[];
   peaceful: boolean;
-  /** Version 5 and newer. An older island has researched nothing. */
+  /**
+   * Version 5 and newer. An older island has researched nothing. From version
+   * 6 it also says whether the island predates the gated palette.
+   */
   research?: World['research'];
   /** Version 3 and older only. */
   nodes?: ResourceNode[];
@@ -181,7 +191,7 @@ export function loadWorld(slot: string): World | null {
     world.nightIndex = file.nightIndex;
     world.nextId = file.nextId;
     world.rngState = file.rngState;
-    world.research = loadResearch(file.research);
+    world.research = loadResearch(file.research, file.version);
 
     const scenery = readSection<ScenerySection>(slot, SCENERY_SUFFIX);
     // An older island carried its scenery in the header; a version 4 one has
@@ -227,10 +237,15 @@ export function loadWorld(slot: string): World | null {
 /**
  * Research read back defensively: a tech that no longer exists is dropped
  * rather than left pointing the island's labs at nothing, and a level or a
- * cycle count that is not a number is read as none.
+ * cycle count that is not a number is read as none. An island from before the
+ * palette was gated keeps every machine it could already build.
  */
-function loadResearch(raw: World['research'] | undefined): World['research'] {
+function loadResearch(
+  raw: World['research'] | undefined,
+  version: number,
+): World['research'] {
   const research = newResearch();
+  research.unlockedAll = version < GATED_SINCE || raw?.unlockedAll === true;
   if (!raw || typeof raw !== 'object') return research;
 
   for (const [id, level] of Object.entries(raw.levels ?? {})) {

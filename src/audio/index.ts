@@ -305,6 +305,8 @@ const PRODUCED_SOUND = {
   chest: 'slot',
   splitter: 'slot',
   lab: null,
+  // A trap landing a catch is the rod's sound, since it is the rod's catch.
+  fishTrap: 'gathered',
 } as const satisfies Record<MachineFamily, SoundId | null>;
 
 export type { SoundId };

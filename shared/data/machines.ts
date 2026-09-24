@@ -24,6 +24,8 @@ export interface MachineDef {
   tier: number;
   /** True when the machine must be placed on an ore tile. */
   needsOre: boolean;
+  /** True when the machine must stand on land that touches water. */
+  needsShore?: boolean;
   /** True when the player picks which recipe it runs. */
   choosesRecipe: boolean;
   /**
@@ -316,7 +318,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     accent: '#9fe3ff',
     // One slot per kind of pack, so a full belt of one can never crowd out
     // the others the way a shared grid would.
-    inputSlots: 3,
+    inputSlots: 4,
     outputSlots: 0,
     slotSize: 50,
     speed: 1,
@@ -349,6 +351,29 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     // exactly as it could before the flag existed.
     storage: true,
   },
+  fishTrap: {
+    id: 'fishTrap',
+    family: 'fishTrap',
+    tier: 1,
+    name: 'Fish Trap',
+    description: 'Set on a shoreline. Hauls up fish, and now and then essence, onto a belt.',
+    cost: [
+      { id: 'wood', count: 20 },
+      { id: 'fiber', count: 10 },
+      { id: 'ironPlate', count: 5 },
+    ],
+    color: '#6b5a44',
+    accent: '#5fb8d8',
+    inputSlots: 0,
+    outputSlots: 2,
+    slotSize: 50,
+    speed: 1,
+    needsOre: false,
+    needsShore: true,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+  },
 };
 
 /** Palette order: each family in tier order, storage and logistics last. */
@@ -367,12 +392,19 @@ export const MACHINE_ORDER: MachineId[] = [
   'longInserter',
   'splitter',
   'lab',
+  'fishTrap',
 ];
 
 export const BELT_COST: ItemStack[] = [
   { id: 'wood', count: 1 },
   { id: 'stone', count: 1 },
 ];
+
+/**
+ * Seconds a fish trap takes per catch. What it catches is the fishing spot's
+ * own drop table, so a trap is a rod that nobody has to hold.
+ */
+export const TRAP_TIME = 6;
 
 /** Tiles per second an item travels along a belt. */
 export const BELT_SPEED = 1.6;

@@ -1,8 +1,8 @@
-import type { ItemId, ItemStack } from '../sim/types';
+import type { ItemId, ItemStack, MachineId } from '../sim/types';
 
 /**
  * What a completed tech makes better. Every one is a multiplier the simulation
- * reads each tick, so a tech never unlocks a new system — it makes the factory
+ * reads each tick: a tech never unlocks a new system, it makes the factory
  * that already exists worth more per tile, which is what keeps a late-game
  * island rebuilding itself rather than running out of things to want.
  */
@@ -20,8 +20,17 @@ export interface TechDef {
   time: number;
   /** Techs that must be finished first. */
   requires: string[];
-  /** Added to the multiplier per completed level: 0.25 is +25%. */
-  effect: { kind: TechEffectKind; amount: number };
+  /**
+   * Added to the multiplier per completed level: 0.25 is +25%. Absent on a
+   * tech whose whole reward is what it unlocks.
+   */
+  effect?: { kind: TechEffectKind; amount: number };
+  /**
+   * Machines the build palette offers once this is finished. A machine no tech
+   * names is there from the start, so a new tier is gated by adding its id
+   * here rather than by touching the palette.
+   */
+  unlocks?: MachineId[];
   /** XP every player on the island earns per cycle. */
   xp: number;
   /** Researchable forever, each level dearer than the last. */
@@ -43,6 +52,7 @@ export const TECHS: TechDef[] = [
     time: 4,
     requires: [],
     effect: { kind: 'mining', amount: 0.25 },
+    unlocks: ['minerMk2'],
     xp: 5,
   },
   {
@@ -54,6 +64,7 @@ export const TECHS: TechDef[] = [
     time: 4,
     requires: ['automation'],
     effect: { kind: 'belt', amount: 0.25 },
+    unlocks: ['splitter', 'longInserter'],
     xp: 6,
   },
   {
@@ -65,6 +76,7 @@ export const TECHS: TechDef[] = [
     time: 5,
     requires: ['automation'],
     effect: { kind: 'crafting', amount: 0.25 },
+    unlocks: ['furnaceMk2', 'assemblerMk2'],
     xp: 8,
   },
   {
@@ -107,6 +119,38 @@ export const TECHS: TechDef[] = [
     xp: 14,
   },
   {
+    id: 'angling',
+    name: 'Angling',
+    description:
+      'Nets and floats for a trap that fishes the shoreline by itself, essence and all.',
+    inputs: [{ id: 'researchPack', count: 1 }],
+    cycles: 15,
+    time: 4,
+    requires: ['automation'],
+    unlocks: ['fishTrap'],
+    xp: 6,
+  },
+  {
+    // The top of the tree, and the one tech a pack of essence buys. A peaceful
+    // island has no wisps, so the fish trap is its whole road here and has to
+    // be reachable from the first tier of research.
+    id: 'resonance',
+    name: 'Resonance',
+    description:
+      'Essence tuned into a motor. Electric miners, electric furnaces and industrial assemblers.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+      { id: 'resonancePack', count: 1 },
+    ],
+    cycles: 40,
+    time: 8,
+    requires: ['roboticArms', 'labAutomation', 'angling'],
+    effect: { kind: 'crafting', amount: 0.1 },
+    unlocks: ['minerMk3', 'furnaceMk3', 'assemblerMk3'],
+    xp: 30,
+  },
+  {
     id: 'deepDrilling',
     name: 'Deep Drilling',
     description:
@@ -141,6 +185,11 @@ export const TECHS: TechDef[] = [
 ];
 
 export const TECH_BY_ID = new Map(TECHS.map((t) => [t.id, t]));
+
+/** The tech that puts each gated machine on the palette. */
+export const UNLOCKED_BY = new Map<MachineId, TechDef>(
+  TECHS.flatMap((t) => (t.unlocks ?? []).map((id) => [id, t] as const)),
+);
 
 /**
  * Every item any tech consumes. A lab accepts these and nothing else, whatever

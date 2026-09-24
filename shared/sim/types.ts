@@ -32,7 +32,8 @@ export type ItemId =
   // Consumed by labs
   | 'researchPack'
   | 'logicPack'
-  | 'powerPack';
+  | 'powerPack'
+  | 'resonancePack';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -191,7 +192,8 @@ export type MachineFamily =
   | 'chest'
   | 'inserter'
   | 'splitter'
-  | 'lab';
+  | 'lab'
+  | 'fishTrap';
 
 export type MachineId =
   | MachineFamily
@@ -263,6 +265,13 @@ export interface Research {
   progress: Record<string, number>;
   /** Times each tech has been completed. A repeatable tech counts up. */
   levels: Record<string, number>;
+  /**
+   * True on an island that was built before the palette was gated, so every
+   * machine stays buildable there whatever it has researched. Taking away a
+   * piece someone already built a factory out of breaks the promise that
+   * nothing on an island is ever lost.
+   */
+  unlockedAll: boolean;
 }
 
 export interface World {

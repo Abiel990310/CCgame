@@ -79,6 +79,13 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   },
   logicPack: { id: 'logicPack', name: 'Logic Pack', color: '#5fbf7a', stack: 999, shape: 'flask' },
   powerPack: { id: 'powerPack', name: 'Power Pack', color: '#6f8cf0', stack: 999, shape: 'flask' },
+  resonancePack: {
+    id: 'resonancePack',
+    name: 'Resonance Pack',
+    color: '#b58cf0',
+    stack: 999,
+    shape: 'flask',
+  },
 };
 
 /** Every item in table order, which is the order an item picker offers them. */
