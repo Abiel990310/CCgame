@@ -1,7 +1,7 @@
 import { BUILDINGS } from '@shared/data/buildings';
 import { BELT_COST, MACHINES } from '@shared/data/machines';
 import { ITEMS } from '@shared/data/items';
-import { TICK_DT } from '@shared/sim/constants';
+import { CAMP, TICK_DT } from '@shared/sim/constants';
 import {
   buildingAt,
   placeBuilding,
@@ -29,6 +29,7 @@ import {
   setFilter,
   setRecipe,
   setSideFilter,
+  upgradeTarget,
 } from '@shared/sim/factory';
 import { rotate, tileCenter, toTile } from '@shared/sim/grid';
 import { chooseUpgrade } from '@shared/sim/progression';
@@ -48,6 +49,7 @@ import { addPlayer, createWorld } from '@shared/sim/world';
 import { audio } from './audio';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview, type RemovalPreview } from './render/renderer';
+import { Interpolator } from './render/interpolate';
 import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { SlotLock, type EvictReason } from './tablock';
@@ -78,6 +80,7 @@ export class Game {
   private hud: Hud;
 
   private accumulator = 0;
+  private readonly interpolator = new Interpolator();
   private lastFrame = 0;
   private saveTimer = SAVE_INTERVAL;
   private running = false;
@@ -399,7 +402,15 @@ export class Game {
 
     const what = selection.kind === 'belt' ? 'belt' : selection.id;
     const valid = factoryPlacementError(this.world, this.self, what, tx, ty) === null;
-    return { kind: 'grid', what, tx, ty, dir: this.buildDir, valid };
+    // An upgrade keeps the facing of the machine it replaces, so the ghost does too.
+    const replacing = what === 'belt' ? null : upgradeTarget(this.world, what, tx, ty);
+    const dir = replacing ? replacing.dir : this.buildDir;
+    return { kind: 'grid', what, tx, ty, dir, valid };
+  }
+
+  private isUpgrade(ghost: GhostPreview | null): boolean {
+    if (ghost?.kind !== 'grid' || ghost.what === 'belt') return false;
+    return upgradeTarget(this.world, ghost.what, ghost.tx, ghost.ty) !== null;
   }
 
   /**
@@ -471,8 +482,10 @@ export class Game {
     const error = factoryPlacementError(this.world, this.self, what, tx, ty);
 
     if (error === null) {
+      const replacing = what === 'belt' ? null : upgradeTarget(this.world, what, tx, ty);
       if (what === 'belt') placeBelt(this.world, this.self, tx, ty, this.buildDir);
       else placeMachine(this.world, this.self, what, tx, ty, this.buildDir);
+      if (replacing) this.hud.toast(`Upgraded to ${MACHINES[replacing.type].name}`, 'good');
       this.requestSave();
       return;
     }
@@ -520,9 +533,12 @@ export class Game {
     }
 
     // Camp pieces are not on the factory grid, so they need their own pass.
+    const target = buildingAt(this.world, pos);
+    const damaged = target?.type === 'wall' && target.level < CAMP.wallHp;
     const result = removeBuildingAt(this.world, this.self, pos);
     if (result === 'removed') {
-      this.hud.toast('Removed', 'good');
+      // Say why the refund came up short, or it reads as materials going missing.
+      this.hud.toast(damaged ? 'Removed. Damaged walls refund only what is left of them' : 'Removed', 'good');
       this.requestSave();
       return;
     }
@@ -555,7 +571,9 @@ export class Game {
     // Inspecting a machine should not also swing the pickaxe at it.
     if (this.hud.isInventoryOpen) this.input.takeClick();
     const ghost = this.ghost();
-    const removal = this.removalTarget();
+    // Hovering a machine with its next tier selected is an upgrade, not a
+    // demolition, so the removal outline would be a false warning.
+    const removal = this.isUpgrade(ghost) ? null : this.removalTarget();
     this.tryPlace(ghost);
 
     // Placing, removing and anything else driven straight from the UI announces
@@ -584,6 +602,7 @@ export class Game {
       let ticks = 0;
       while (this.accumulator >= TICK_DT && ticks++ < 8) {
         this.accumulator -= TICK_DT;
+        this.interpolator.capture(this.world);
         step(this.world, inputs);
         // Before the flush: the cosmetic layers empty the buffer.
         this.announceResearch();
@@ -599,12 +618,22 @@ export class Game {
     }
 
     this.renderer.effects.update(elapsed);
-    this.renderer.camera.follow(this.self.pos, elapsed);
-    // The ear rides the camera, not the player: what you can see is what you
-    // should be able to hear.
-    audio.listenFrom(this.renderer.camera.pos, this.renderer.camera.width / this.renderer.camera.zoom);
+    // Everything from here to `restore` sees positions blended between the
+    // last two ticks, the camera included: following the raw position would
+    // put the tick rate straight back into the scroll.
+    const alpha = Math.min(this.accumulator / TICK_DT, 1);
+    this.interpolator.apply(this.world, alpha);
+    try {
+      this.renderer.camera.follow(this.self.pos, elapsed);
+      // The ear rides the camera, not the player: what you can see is what you
+      // should be able to hear.
+      audio.listenFrom(this.renderer.camera.pos, this.renderer.camera.width / this.renderer.camera.zoom);
+      const time = this.world.time - (1 - alpha) * TICK_DT;
+      this.renderer.render(this.world, this.selfId, time, ghost, removal);
+    } finally {
+      this.interpolator.restore();
+    }
     audio.update(this.world, elapsed);
-    this.renderer.render(this.world, this.selfId, this.world.time, ghost, removal);
     this.hud.update(this.world, this.self);
   }
 
