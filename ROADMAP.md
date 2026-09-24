@@ -63,7 +63,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Research | Packs belted into labs, owned by the world | Research is the first thing the factory feeds rather than the player, so an unlock is a throughput problem: a second lab is worth exactly what a second furnace is. It belongs to the island, not a player, because a lab is a building and multiplayer will have several people feeding one tree. |
 | Tech effects | Multipliers, plus unlocks for the tiers above the first | Every tier-1 machine is there from minute one and a tech still makes the factory you built worth more, but Mk2, Mk3 and the logistics sidegrades are earned. The two repeatable techs stay pure multipliers, so the curve still never ends. |
 | Palette gating | Enforced in `placeMachine`, listed as `unlocks` on the tech row | The gate is a data row like everything else, and the simulation refuses a locked piece so a future server does not have to trust the client's palette. Locked pieces stay visible on the palette, showing the tech that opens them. |
-| Gated palette on old islands | Grandfathered: an island saved before version 6 keeps every machine | "Nothing is lost" is a pillar. `Research.unlockedAll` records it, so the island stays unlocked after it is saved again. |
+| Gated palette on old islands | Grandfathered: an island saved before version 7 keeps every machine | "Nothing is lost" is a pillar. `Research.unlockedAll` records it, so the island stays unlocked after it is saved again. |
 | Essence and peaceful worlds | The top tech takes a Resonance Pack (circuit + essence); a researched Fish Trap catches essence on a shoreline | Essence also drops from night wisps, which a peaceful island never sees. The trap rolls the fishing spot's own drop table, so peaceful reaches the top of the tree by fishing alone and raid worlds get a second source. |
 | Research XP | Every lab cycle levels up every player | Gathering by hand was the only source of XP, so automating the island slowed the character down and a peaceful world barely levelled at all. |
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
@@ -75,6 +75,9 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Quick slots | Bound in `localStorage`, not in the save | The bar says how one person likes their tools arranged, not what is true of an island. Keeping it out of the world means no save version, and one bar across every island — which is what someone who arranges it once expects. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
+| Worldgen | Versioned as part of the save contract | Saves hold only differences from what the seed grows, so they mean nothing against a different generator. `WORLDGEN` is recorded in every save and guarded by a fingerprint test; an island from an older generation gets today's ground rather than deltas laid over land they do not describe. |
+| Tabs | Last to open an island owns it | Every tab holds the whole island and saves it wholesale, so two writers corrupt each other. An owner record beside the slot is the rule; a broadcast asks the old tab to save before the new one reads. |
+| Fuel | A separate fuel grid on burners, spent per recipe-second | Coal is also a steel and battery ingredient, so it could not share the recipe grid without starving one or the other; a burner keeps `FUEL_RESERVE` in hand before letting coal through to the recipe. Burning per unit of work rather than per second makes every craft cost the same coal in every tier. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
@@ -198,10 +201,15 @@ detail behind the factory entries is in
       `Sec-Fetch-Dest: script`, though curl for the same URL is fine. Serving
       `dist/` with `python3 -m http.server` works. Costs a session twenty
       minutes if nobody says so.
-- [ ] Two tabs open on the same island overwrite each other, and now the
-      skipped-write cache can make one of them skip a section the other has
-      already replaced. Harmless today because nobody is told they can play in
-      two tabs, but it is a real way to lose a factory.
+- [x] Two tabs open on the same island overwrote each other, and the
+      skipped-write cache could make one skip a section the other had already
+      replaced. Now whoever opens an island last owns it: the other tab saves,
+      hands it over and returns to the menu saying why, and never writes to it
+      again unless it is opened there once more.
+- [ ] In a browser without `BroadcastChannel` the tab losing an island is
+      told only through storage, so it cannot save first, and for the instant
+      before it sees the new owner it could still autosave over the new tab.
+      Every current browser has the channel.
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
       right-click only, so on a phone a misplaced belt is permanent. Now that
       removal is build-mode only, the fix belongs in the build bar: a remove
@@ -244,9 +252,11 @@ detail behind the factory entries is in
       reserves room for what a line needs rather than filling with one item.
 - [ ] **Copy settings between machines** — a bank of filtered arms means
       setting the same filter a dozen times by hand.
-- [ ] **Fuel slots** — tier-2 furnaces and assemblers burn coal off a belt.
+- [x] **Fuel slots** — tier-2 furnaces and assemblers burn coal off a belt.
       Every furnace bank then needs two input belts, which roughly doubles the
-      interest of a layout.
+      interest of a layout. Tier 3 burns coal too until power exists; one coal
+      pays for 8 recipe-seconds in every tier, so four plates. `fuelSlots` and
+      `FUEL_VALUE` in `machines.ts` are the whole knob.
 - [ ] **Generator and power radius** — tier-3 machines draw power instead of
       fuel; a brown-out slows machines proportionally rather than stopping them.
 - [x] **Storage and logistics tiers** — a steel chest with more slots and a fast
@@ -317,10 +327,14 @@ detail behind the factory entries is in
       it now blocks the four tiles that meet there rather than one. Snapping it
       to a tile centre on world creation would hand three of them back, but it
       moves the camp for every existing save.
-- [ ] Regenerating scenery from the seed means changing `populateNodes` or
-      terrain generation moves the trees on islands people already have. Worth
-      a generation counter in the save, so a changed worldgen can be spotted
-      rather than silently rearranging someone's island.
+- [x] Regenerating scenery from the seed meant a change to worldgen could
+      silently move the trees on existing islands. Saves now record `WORLDGEN`,
+      a fingerprint test fails if what a seed grows changes without raising it,
+      and an island from an older generation takes the new ground whole and
+      keeps only what was built, with a toast saying so.
+- [ ] Raising `WORLDGEN` still resets the trees and ore of every older island.
+      Keeping the old generator callable by generation would let them keep
+      their ground; worth doing the first time worldgen actually changes.
 - [ ] A busy factory still rewrites every belt and machine each save, because
       one belt item moving makes the whole section's text differ. Fine at a few
       hundred belts; if the section gets big, split it per chunk of the map.
@@ -443,6 +457,11 @@ detail behind the factory entries is in
 - [ ] Nothing but research yet needs essence in bulk. A late camp piece or the
       megaproject could ask for it too, so fishing stays worth automating
       after resonance is done.
+- [ ] Wood as a weak fuel (a row in `FUEL_VALUE`), so a steel furnace can be
+      lit before the first coal miner is down.
+- [ ] Inserters that feed a burner's fuel from a neighbouring burner, the way
+      Factorio chains burner inserters, so a furnace row needs one coal belt
+      at the end rather than one past every furnace.
 - [ ] Save cards on the menu show a generic island badge. A tiny minimap of
       the actual island, rendered once on save, would make islands tell apart.
 - [ ] The player character and mobs are still the original simple shapes; they
@@ -532,8 +551,13 @@ detail behind the factory entries is in
       about one catch in six, every 6 seconds. One trap is about 24 minutes of
       essence, which is untested against how the rest of that tier feels.
 - [ ] Old islands load with every machine unlocked, verified in the browser on
-      a rewritten version 5 save. Not yet tried against a real island saved on
+      a rewritten version 6 save. Not yet tried against a real island saved on
       the live site before this change.
+- [ ] Coal cost of burners. One coal per four plates means a Mk2 furnace bank
+      eats a quarter as much coal as it makes plates; nobody has played a coal
+      patch dry against it yet.
+- [ ] Old islands: Steel and Electric furnaces and assemblers built before fuel
+      existed load with an empty fuel slot and stop until coal reaches them.
 - [ ] The UI revamp was verified in headless Chromium at 1440x900, iPhone 13
       portrait and landscape. Real phones (notch, safe areas, iOS Safari's
       backdrop blur) and a small laptop screen have not been tried.

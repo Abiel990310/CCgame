@@ -262,6 +262,14 @@ export interface Machine {
   filters?: (ItemId | null)[];
   /** Splitter only: which of the two sides the next item is offered to. */
   turn?: number;
+  /** Burners only: the fuel grid, sized by the machine's `fuelSlots`. */
+  fuel?: Slot[];
+  /**
+   * Burners only: seconds of recipe work left from the fuel already burned.
+   * Kept apart from the grid so a craft paid for by one coal does not need a
+   * second one the moment the grid is empty.
+   */
+  heat?: number;
 }
 
 /**
