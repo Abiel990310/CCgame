@@ -28,6 +28,7 @@ import {
   removeAt,
   setFilter,
   setRecipe,
+  setSideFilter,
 } from '@shared/sim/factory';
 import { rotate, tileCenter, toTile } from '@shared/sim/grid';
 import { chooseUpgrade } from '@shared/sim/progression';
@@ -128,6 +129,7 @@ export class Game {
       removeAt,
       setRecipe,
       setFilter,
+      setSideFilter,
       machineAt,
       clickSlot,
       quickMove,

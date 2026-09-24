@@ -34,6 +34,9 @@ export interface MachineDef {
   reach: number;
 }
 
+/** Items a splitter holds while waiting for a side to take them. */
+export const SPLITTER_BUFFER = 4;
+
 export const MACHINES: Record<MachineId, MachineDef> = {
   miner: {
     id: 'miner',
@@ -280,6 +283,27 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 2,
   },
+  splitter: {
+    id: 'splitter',
+    family: 'splitter',
+    tier: 1,
+    name: 'Splitter',
+    description: 'Takes one belt in and feeds the tiles either side of it, turn by turn.',
+    cost: [
+      { id: 'wood', count: 6 },
+      { id: 'ironPlate', count: 3 },
+    ],
+    color: '#4c5a6b',
+    accent: '#8fe0b4',
+    // A short buffer, so a splitter smooths a line rather than metering it.
+    inputSlots: 1,
+    outputSlots: 0,
+    slotSize: SPLITTER_BUFFER,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+  },
 };
 
 /** Palette order: each family in tier order, storage and logistics last. */
@@ -296,6 +320,7 @@ export const MACHINE_ORDER: MachineId[] = [
   'chest',
   'inserter',
   'longInserter',
+  'splitter',
 ];
 
 export const BELT_COST: ItemStack[] = [

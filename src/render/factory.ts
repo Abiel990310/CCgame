@@ -1,7 +1,9 @@
+import { ITEMS } from '@shared/data/items';
 import type { MachineDef } from '@shared/data/machines';
 import { BELT_SPEED, INSERTER_SWING, MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TILE } from '@shared/sim/constants';
+import { filterOf } from '@shared/sim/factory';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
 import type { Belt, Machine, OreKind } from '@shared/sim/types';
@@ -224,6 +226,46 @@ function drawMachineFace(
       ctx.fill();
       break;
     }
+    case 'splitter': {
+      // The T is the whole explanation of the piece: one way in, two arms out.
+      ctx.save();
+      ctx.translate(x, y - TILE * 0.04);
+      ctx.rotate(dirAngle(machine.dir));
+
+      ctx.strokeStyle = shift(accent, -55);
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-TILE * 0.3, 0);
+      ctx.lineTo(0, 0);
+      ctx.moveTo(0, -TILE * 0.3);
+      ctx.lineTo(0, TILE * 0.3);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+
+      // Left is side 0, right is side 1 — the same order the screen shows them.
+      // A filtered side wears the item's own colour, which is how a sorter is
+      // read at a glance; the outline is what keeps a dark item like coal from
+      // disappearing into the casing.
+      for (const side of [0, 1]) {
+        const away = side === 0 ? -1 : 1;
+        const filter = filterOf(machine, side);
+        ctx.beginPath();
+        ctx.moveTo(0, away * TILE * 0.44);
+        ctx.lineTo(-TILE * 0.13, away * TILE * 0.22);
+        ctx.lineTo(TILE * 0.13, away * TILE * 0.22);
+        ctx.closePath();
+        ctx.fillStyle = filter ? ITEMS[filter].color : accent;
+        ctx.fill();
+        if (filter) {
+          ctx.strokeStyle = 'rgba(236, 242, 248, 0.75)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+      break;
+    }
     case 'chest': {
       ctx.fillStyle = accent;
       ctx.fillRect(x - TILE * 0.08, y - TILE * 0.24, TILE * 0.16, TILE * 0.18);
@@ -369,8 +411,9 @@ function drawProgress(
   y: number,
 ): void {
   const def = MACHINES[machine.type];
-  // A chest has no cycle, and an inserter's arm already is its progress bar.
-  if (def.family === 'chest' || def.family === 'inserter') return;
+  // A chest has no cycle, an inserter's arm already is its progress bar, and a
+  // splitter passes items straight through.
+  if (def.family === 'chest' || def.family === 'inserter' || def.family === 'splitter') return;
 
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   const duration =

@@ -180,7 +180,13 @@ export type OreKind = 'ironOre' | 'copperOre' | 'coal';
  * recipes, its tick and its silhouette, so anything that switches on the kind
  * of machine switches on this rather than on the type.
  */
-export type MachineFamily = 'miner' | 'furnace' | 'assembler' | 'chest' | 'inserter';
+export type MachineFamily =
+  | 'miner'
+  | 'furnace'
+  | 'assembler'
+  | 'chest'
+  | 'inserter'
+  | 'splitter';
 
 export type MachineId =
   | MachineFamily
@@ -231,6 +237,13 @@ export interface Machine {
   output: Slot[];
   /** True when the machine could not run last tick, for the renderer. */
   stalled: boolean;
+  /**
+   * Splitter only: the item each output side takes, left first. A null side
+   * takes anything. Absent on every other machine, so saves stay small.
+   */
+  filters?: (ItemId | null)[];
+  /** Splitter only: which of the two sides the next item is offered to. */
+  turn?: number;
 }
 
 export interface World {
