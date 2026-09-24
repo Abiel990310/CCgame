@@ -114,3 +114,27 @@ describe('saving an island with inserters on it', () => {
     expect(loadWorld('c')!.machines[0].filter).toBe(null);
   });
 });
+
+describe('saving a chest with filtered slots', () => {
+  it('brings its filters back, slot for slot', () => {
+    const world = createWorld(7, true);
+    const chest = machine('chest', 40, 30);
+    chest.filters = [null, 'coal', null, null, null, null, null, 'gear'];
+    world.machines.push(chest);
+
+    expect(saveWorld(world, 'a')).toBe(true);
+    expect(loadWorld('a')!.machines[0].filters).toEqual(chest.filters);
+  });
+
+  it('gives a chest saved before filters one open filter per slot', () => {
+    const world = createWorld(7, true);
+    world.machines.push(machine('chest', 40, 30));
+
+    expect(saveWorld(world, 'b')).toBe(true);
+    // An unfiltered chest writes nothing extra, exactly as older builds did.
+    const packed = JSON.parse(store.get(slotKey('b') + FACTORY_SUFFIX)!).machines[0];
+    expect(packed.length).toBe(11);
+    const loaded = loadWorld('b')!.machines[0];
+    expect(loaded.filters).toEqual(new Array(MACHINES.chest.inputSlots).fill(null));
+  });
+});

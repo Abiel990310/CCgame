@@ -69,6 +69,7 @@
           <span><kbd>X</kbd> / right-click removes</span>
           <span><kbd>1</kbd>&ndash;<kbd>8</kbd> quick slots</span>
           <span><kbd>shift</kbd>+<kbd>1</kbd>&ndash;<kbd>8</kbd> binds the selected piece</span>
+          <span><kbd>shift</kbd>+right-click copies a machine's settings, <kbd>shift</kbd>+click pastes</span>
         </div>
       </section>
 
@@ -87,6 +88,10 @@
           <p class="eyebrow" id="inv-eyebrow">Carrying</p>
           <h2 id="inv-title">Your bag</h2>
           <p class="blurb hidden" id="inv-blurb"></p>
+          <div class="inv-settings hidden" id="inv-settings">
+            <button class="mini-btn" id="inv-copy" title="Or shift-right-click the machine in the world">Copy settings</button>
+            <button class="mini-btn" id="inv-paste" title="Or shift-click the machine in the world">Paste settings</button>
+          </div>
           <p class="research-note hidden" id="inv-research"></p>
 
           <section class="inv-panel hidden" id="inv-container">
@@ -94,11 +99,16 @@
               <div class="inv-head">
                 <b id="inv-input-label">Stored</b>
                 <span class="inv-head-tail">
+                  <button class="mini-btn hidden" id="inv-filter-mode">Filter slots</button>
                   <button class="mini-btn" id="inv-sort-input">Sort</button>
                   <button class="mini-btn" id="inv-take-all">Take all</button>
                 </span>
               </div>
               <div class="slots" id="inv-input-grid"></div>
+              <p class="inv-filter-hint hidden" id="inv-filter-hint">
+                Click a slot holding an item to keep it for that item, or click with an item
+                in hand to keep it for what you hold. Click a kept slot empty-handed to open it up.
+              </p>
             </div>
             <div class="craft-bar hidden" id="inv-progress">
               <div class="craft-fill" id="inv-progress-fill"></div>

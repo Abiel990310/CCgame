@@ -179,6 +179,10 @@ detail behind the factory entries is in
 
 ### Bugs
 
+- [ ] The first click on a machine after closing another machine's screen with
+      Esc sometimes opens nothing; the second click works. Seen once while
+      driving copy and paste in a browser, not yet isolated.
+
 - [ ] `npm run preview` answers 404 to the browser's own request for the
       module bundle in this container — vite's preview server rejects
       `Sec-Fetch-Dest: script`, though curl for the same URL is fine. Serving
@@ -225,10 +229,16 @@ detail behind the factory entries is in
 - [ ] **Inserter tiers** — `MachineDef.speed` already multiplies the swing
       time, so a faster arm is a data row and nothing else. `reach` is now a
       data row too, so a longer one is as well.
-- [ ] **Filtered chest slots** — the same filter idea on a chest, so a buffer
+- [x] **Filtered chest slots** — the same filter idea on a chest, so a buffer
       reserves room for what a line needs rather than filling with one item.
-- [ ] **Copy settings between machines** — a bank of filtered arms means
-      setting the same filter a dozen times by hand.
+      Built: `Filter slots` in the chest screen, then the splitter's gesture on
+      a slot. A kept slot shows its item faintly while empty, is filled first,
+      refuses anything else from a belt or a hand, and keeps its place on Sort.
+- [x] **Copy settings between machines** — a bank of filtered arms means
+      setting the same filter a dozen times by hand. Built: shift+right-click
+      copies, shift+click pastes, or the buttons in the machine screen. Works
+      across tiers of one family: recipe, arm filter, splitter sides, chest
+      slot filters.
 - [ ] **Tech gating on the build palette** — start with miner, furnace and
       belt; everything else is earned. Today all four machines are available at
       minute one.
@@ -379,6 +389,15 @@ detail behind the factory entries is in
       chips, a splitter takes an item dropped on each side. They landed the
       same day in parallel. One gesture for both would be less to learn; the
       drop suits two sides, the chips suit browsing an unfamiliar item.
+      Chest slots took the splitter's drop, so the inserter's chips are now the
+      odd one out.
+- [ ] Copy and paste are shift-clicks with a mouse only. A touch player has the
+      buttons in the machine screen, which means opening every machine in a row.
+- [ ] Paste one machine at a time is still a click per arm. Shift-dragging across
+      a row to paste onto each machine the pointer crosses would make a bank one
+      gesture.
+- [ ] A chest slot kept for coal shows a dark ghost on a dark slot and is hard to
+      read. The ghost wants an outline or a lighter backdrop for dark items.
 - [ ] A splitter's sides cannot be filtered before it is placed, so every one
       is placed, opened and then set. A filter carried on the build selection
       would make a row of sorters one pass instead of two.

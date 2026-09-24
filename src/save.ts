@@ -91,8 +91,12 @@ type PackedMachine = [
    * the filter at that position.
    */
   (OreKind | null)?,
-  /** A splitter's two sides and whose turn it is; only a splitter has them. */
+  /**
+   * A splitter's two sides, or a chest's slot filters. Absent on a chest packed
+   * before chests had filters, and on a chest with none set.
+   */
   ((ItemId | null)[])?,
+  /** Whose turn it is on a splitter; nothing else has one. */
   number?,
 ];
 
@@ -376,6 +380,10 @@ function packMachine(machine: Machine): PackedMachine {
     packed[11] = machine.filters ?? [null, null];
     packed[12] = machine.turn ?? 0;
   }
+  // A chest nobody has filtered writes nothing extra, which is most chests.
+  if (MACHINES[machine.type].family === 'chest' && machine.filters?.some((f) => f !== null)) {
+    packed[11] = machine.filters;
+  }
   return packed;
 }
 
@@ -402,6 +410,7 @@ function unpackMachine(packed: PackedMachine): Machine {
     machine.filters = packed[11] ?? [null, null];
     machine.turn = packed[12] ?? 0;
   }
+  if (MACHINES[machine.type]?.family === 'chest' && packed[11]) machine.filters = packed[11];
   return machine;
 }
 
@@ -444,6 +453,14 @@ function loadMachine(machine: Machine): Machine {
       return item && item in ITEMS ? item : null;
     });
     loaded.turn = machine.turn === 1 ? 1 : 0;
+  }
+  // A chest has one filter per slot, whatever its grid was when it was saved.
+  if (def.family === 'chest') {
+    const saved = machine.filters ?? [];
+    loaded.filters = loaded.input.map((_, i) => {
+      const item = saved[i];
+      return item && item in ITEMS ? item : null;
+    });
   }
   return loaded;
 }

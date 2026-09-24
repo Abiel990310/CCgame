@@ -768,6 +768,41 @@ kbd {
   cursor: default;
 }
 
+.mini-btn.on {
+  border-color: var(--gold);
+  background: rgba(232, 182, 76, 0.24);
+  color: var(--gold);
+}
+
+/* Copy and paste sit under the blurb: they are about the machine, not a grid. */
+.inv-settings {
+  display: flex;
+  gap: 6px;
+  margin: -4px 0 10px;
+}
+
+/* A chest slot kept for one item. Empty, it shows that item as a ghost. */
+.islot.kept {
+  border-style: dashed;
+  border-color: rgba(232, 182, 76, 0.6);
+}
+
+.islot.reserved .item {
+  opacity: 0.3;
+  filter: grayscale(0.6);
+}
+
+.slots.filtering .islot {
+  cursor: cell;
+  box-shadow: inset 0 0 0 1px rgba(232, 182, 76, 0.25);
+}
+
+.inv-filter-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+
 .slots {
   display: grid;
   grid-template-columns: repeat(8, 1fr);

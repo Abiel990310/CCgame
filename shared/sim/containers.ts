@@ -1,9 +1,10 @@
 import { MACHINES } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { isResearchPack } from '../data/techs';
-import { isSplitter, setSideFilter, splitterAccepts } from './factory';
+import { hasSlotFilters, isSplitter, setSideFilter, setSlotFilter, splitterAccepts } from './factory';
 import { giveOrDrop } from './inventory';
-import { addToSlots, slotCap, sortSlots, takeFromSlots } from './slots';
+import { addToSlots, slotCap, slotTakes, sortSlots, takeFromSlots } from './slots';
+import type { SlotFilters } from './slots';
 import type { ItemId, Machine, Player, Slot, World } from './types';
 
 /**
@@ -20,7 +21,8 @@ import type { ItemId, Machine, Player, Slot, World } from './types';
 /**
  * `filter` is not storage. A splitter's two sides are shown as slots because
  * setting one is the same gesture as moving a stack: drop an item on a side to
- * point it at that item, click it empty-handed to open it up again.
+ * point it at that item, click it empty-handed to open it up again. A chest's
+ * slots take the same gesture with `filter` naming the slot by its index.
  */
 export type SlotArea = 'bag' | 'input' | 'output' | 'filter';
 
@@ -48,13 +50,28 @@ function capIn(machine: Machine | null, area: SlotArea, id: ItemId): number {
   return slotCap(id, MACHINES[machine.type].slotSize);
 }
 
-/** Whether the player may put this item into that area by hand. */
-export function accepts(machine: Machine | null, area: SlotArea, id: ItemId): boolean {
+/** The slot filters a hand has to respect in one area, if it has any. */
+function filtersIn(machine: Machine | null, area: SlotArea): SlotFilters | undefined {
+  if (!machine || area !== 'input' || !hasSlotFilters(machine)) return undefined;
+  return machine.filters;
+}
+
+/**
+ * Whether the player may put this item into that area by hand. With `index`,
+ * whether it may go into that one slot, which a chest's filters can refuse.
+ */
+export function accepts(
+  machine: Machine | null,
+  area: SlotArea,
+  id: ItemId,
+  index?: number,
+): boolean {
+  if (index !== undefined && !slotTakes(filtersIn(machine, area), index, id)) return false;
   if (area === 'bag') return true;
   if (!machine) return false;
   // The output side is what the machine made; taking from it is fine, filling it is not.
   if (area === 'output') return false;
-  if (area === 'filter') return isSplitter(machine);
+  if (area === 'filter') return isSplitter(machine) || hasSlotFilters(machine);
 
   const def = MACHINES[machine.type];
   if (def.inputSlots === 0) return false;
@@ -85,8 +102,14 @@ export function clickSlot(
   // A side is set from what is in hand and cleared by an empty one, so the
   // click never takes the item: a filter is a label, not a stored stack.
   if (ref.area === 'filter') {
-    if (machineId === null || !machine || !isSplitter(machine)) return false;
-    return setSideFilter(world, machineId, ref.index, player.cursor?.id ?? null);
+    if (machineId === null || !machine) return false;
+    if (isSplitter(machine)) {
+      return setSideFilter(world, machineId, ref.index, player.cursor?.id ?? null);
+    }
+    if (hasSlotFilters(machine)) {
+      return setSlotFilter(world, machineId, ref.index, slotFilterFor(machine, ref.index, player));
+    }
+    return false;
   }
 
   const slots = slotsFor(player, machine, ref.area);
@@ -97,7 +120,7 @@ export function clickSlot(
 
   if (!cursor) return pickUp(player, slots, ref.index, button);
   if (slot && slot.id === cursor.id) return stackTogether(player, machine, slots, ref, button);
-  if (!accepts(machine, ref.area, cursor.id)) return false;
+  if (!accepts(machine, ref.area, cursor.id, ref.index)) return false;
 
   const cap = capIn(machine, ref.area, cursor.id);
 
@@ -113,6 +136,20 @@ export function clickSlot(
   slots[ref.index] = cursor;
   player.cursor = slot;
   return true;
+}
+
+/**
+ * What a filter click on a chest slot sets it to. A held item names the item,
+ * as it does on a splitter's side. Empty-handed, the click keeps the slot for
+ * whatever it already holds, and a second click opens it up again, so a chest
+ * already laid out by hand is filtered one click per slot.
+ */
+function slotFilterFor(machine: Machine, index: number, player: Player): ItemId | null {
+  if (player.cursor) return player.cursor.id;
+  const current = machine.filters?.[index] ?? null;
+  const held = machine.input[index]?.id ?? null;
+  if (held !== null && held !== current) return held;
+  return null;
 }
 
 function pickUp(player: Player, slots: Slot[], index: number, button: ClickButton): boolean {
@@ -144,7 +181,7 @@ function stackTogether(
   const cursor = player.cursor!;
   const slot = slots[ref.index]!;
 
-  if (accepts(machine, ref.area, cursor.id)) {
+  if (accepts(machine, ref.area, cursor.id, ref.index)) {
     const room = capIn(machine, ref.area, cursor.id) - slot.count;
     const moved = Math.min(button === 'right' ? 1 : cursor.count, room);
     if (moved <= 0) return false;
@@ -191,7 +228,13 @@ export function quickMove(
 
   if (ref.area === 'bag') {
     if (!machine || !accepts(machine, 'input', slot.id)) return false;
-    const moved = addToSlots(machine.input, slot.id, slot.count, MACHINES[machine.type].slotSize);
+    const moved = addToSlots(
+      machine.input,
+      slot.id,
+      slot.count,
+      MACHINES[machine.type].slotSize,
+      filtersIn(machine, 'input'),
+    );
     if (moved === 0) return false;
     takeOut(slots, ref.index, moved);
     return true;
@@ -248,7 +291,7 @@ export function sortArea(
   const machine = machineById(world, machineId);
   const slots = slotsFor(player, machine, area);
   if (!slots) return false;
-  return sortSlots(slots, maxIn(machine, area));
+  return sortSlots(slots, maxIn(machine, area), filtersIn(machine, area));
 }
 
 /**
@@ -275,6 +318,8 @@ export function gatherStacks(
 
   const target = slots[ref.index];
   if (!target) return false;
+  // A stack left in a slot now kept for something else is not grown.
+  if (!slotTakes(filtersIn(machine, ref.area), ref.index, target.id)) return false;
 
   let room = capIn(machine, ref.area, target.id) - target.count;
   if (room <= 0) return false;

@@ -111,7 +111,8 @@ describe('saving an island', () => {
     const player = [...world.players.values()][0];
 
     const splitter = placeMachine(world, player, 'splitter', SITE.tx, SITE.ty, 2)!;
-    const plain = placeMachine(world, player, 'chest', SITE.tx + 1, SITE.ty, 0)!;
+    // A chest has filters too, one per slot, so the plain machine is a furnace.
+    const plain = placeMachine(world, player, 'furnace', SITE.tx + 1, SITE.ty, 0)!;
     expect(setSideFilter(world, splitter.id, 1, 'copperOre')).toBe(true);
     splitter.turn = 1;
 

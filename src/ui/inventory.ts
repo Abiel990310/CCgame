@@ -15,8 +15,8 @@ import {
 import { totalIn } from '@shared/sim/slots';
 import { audio } from '../audio';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import { filterOf } from '@shared/sim/factory';
-import type { ItemId, Machine, Player, Slot, World } from '@shared/sim/types';
+import { filterOf, hasSettings, hasSlotFilters } from '@shared/sim/factory';
+import type { ItemId, Machine, MachineFamily, Player, Slot, World } from '@shared/sim/types';
 import { itemIconVar } from '../render/items';
 
 export interface InventoryCallbacks {
@@ -32,6 +32,9 @@ export interface InventoryCallbacks {
   onSetResearch: (techId: string) => void;
   /** Restrict an inserter to one item, or clear it with null. */
   onSetFilter: (machineId: number, item: ItemId | null) => void;
+  /** Lift this machine's settings, or put the copied ones on it. */
+  onCopySettings: (machineId: number) => void;
+  onPasteSettings: (machineId: number) => void;
   onClose: () => void;
 }
 
@@ -68,6 +71,11 @@ export class InventoryScreen {
     progress: HTMLElement;
     progressFill: HTMLElement;
     takeAll: HTMLButtonElement;
+    filterMode: HTMLButtonElement;
+    filterHint: HTMLElement;
+    settings: HTMLElement;
+    copy: HTMLButtonElement;
+    paste: HTMLButtonElement;
     sortInput: HTMLButtonElement;
     sortBag: HTMLButtonElement;
     recipes: HTMLElement;
@@ -87,6 +95,13 @@ export class InventoryScreen {
   /** Signature of what is drawn, so the DOM is only touched when it changes. */
   private painted = '';
   private recipeKey = '';
+  /**
+   * While on, a click on a chest slot sets its filter instead of moving items.
+   * A mode rather than a modifier, so it is discoverable and works by touch.
+   */
+  private filtering = false;
+  /** Which family the copied settings fit, or null when nothing is copied. */
+  private clipboard: MachineFamily | null = null;
 
   constructor(private callbacks: InventoryCallbacks) {
     this.root = must('inv');
@@ -104,6 +119,11 @@ export class InventoryScreen {
       progress: must('inv-progress'),
       progressFill: must('inv-progress-fill'),
       takeAll: must<HTMLButtonElement>('inv-take-all'),
+      filterMode: must<HTMLButtonElement>('inv-filter-mode'),
+      filterHint: must('inv-filter-hint'),
+      settings: must('inv-settings'),
+      copy: must<HTMLButtonElement>('inv-copy'),
+      paste: must<HTMLButtonElement>('inv-paste'),
       sortInput: must<HTMLButtonElement>('inv-sort-input'),
       sortBag: must<HTMLButtonElement>('inv-sort-bag'),
       recipes: must('inv-recipes'),
@@ -127,6 +147,16 @@ export class InventoryScreen {
       audio.play('click');
       this.callbacks.onTakeAll();
     });
+    this.els.filterMode.addEventListener('click', () => {
+      audio.play('click');
+      this.setFiltering(!this.filtering);
+    });
+    this.els.copy.addEventListener('click', () => {
+      if (this.machine) this.callbacks.onCopySettings(this.machine.id);
+    });
+    this.els.paste.addEventListener('click', () => {
+      if (this.machine) this.callbacks.onPasteSettings(this.machine.id);
+    });
     this.els.sortInput.addEventListener('click', () => {
       audio.play('click');
       this.callbacks.onSort('input');
@@ -143,6 +173,7 @@ export class InventoryScreen {
     // Double-click gathers. The two clicks under it have already picked the
     // stack up and put it back, so the slot is exactly as it was.
     this.root.addEventListener('dblclick', (e) => {
+      if (this.filtering) return;
       const ref = refAt(e.target);
       if (ref) this.callbacks.onGather(ref);
     });
@@ -169,6 +200,28 @@ export class InventoryScreen {
     this.pressRef = null;
     this.root.classList.remove('hidden');
     this.layout(machine);
+    this.setFiltering(false);
+  }
+
+  setClipboard(family: MachineFamily | null): void {
+    this.clipboard = family;
+    this.paintPaste();
+  }
+
+  private setFiltering(on: boolean): void {
+    this.filtering = on && !!this.machine && hasSlotFilters(this.machine);
+    this.els.filterMode.textContent = this.filtering ? 'Done' : 'Filter slots';
+    this.els.filterMode.classList.toggle('on', this.filtering);
+    this.els.inputGrid.classList.toggle('filtering', this.filtering);
+    this.els.filterHint.classList.toggle('hidden', !this.filtering);
+    this.painted = '';
+  }
+
+  /** Paste is offered only where the copied settings would actually go. */
+  private paintPaste(): void {
+    const machine = this.machine;
+    const fits = !!machine && this.clipboard === MACHINES[machine.type].family;
+    this.els.paste.disabled = !fits;
   }
 
   hide(): void {
@@ -230,6 +283,9 @@ export class InventoryScreen {
       def.inputSlots < 2 || def.family === 'splitter',
     );
     this.els.filterBlock.classList.toggle('hidden', def.family !== 'splitter');
+    this.els.filterMode.classList.toggle('hidden', !hasSlotFilters(machine));
+    this.els.settings.classList.toggle('hidden', !hasSettings(machine));
+    this.paintPaste();
 
     this.buildGrid('input', def.inputSlots);
     this.buildGrid('output', def.outputSlots);
@@ -313,13 +369,13 @@ export class InventoryScreen {
     const cursor = player.cursor ? `${player.cursor.id}x${player.cursor.count}` : '-';
     const held = machine ? `${slots(machine.input)}|${slots(machine.output)}` : '';
     const sides = machine?.filters?.join(',') ?? '';
-    return `${slots(player.inventory)}|${held}|${cursor}|${sides}`;
+    return `${slots(player.inventory)}|${held}|${cursor}|${sides}|${this.filtering}`;
   }
 
   private paint(player: Player, machine: Machine | null): void {
     this.paintGrid('bag', player.inventory);
     if (machine) {
-      this.paintGrid('input', machine.input);
+      this.paintGrid('input', machine.input, hasSlotFilters(machine) ? machine.filters : undefined);
       this.paintGrid('output', machine.output);
       if (MACHINES[machine.type].family === 'splitter') this.paintSides(machine);
       const stored = totalIn(machine.input) + totalIn(machine.output);
@@ -332,9 +388,11 @@ export class InventoryScreen {
     this.paintCarried(player);
   }
 
-  private paintGrid(area: SlotArea, slots: Slot[]): void {
+  private paintGrid(area: SlotArea, slots: Slot[], filters?: (ItemId | null)[]): void {
     const grid = this.grids.find((g) => g.area === area)!;
-    for (let i = 0; i < grid.cells.length; i++) paintSlot(grid.cells[i], slots[i] ?? null);
+    for (let i = 0; i < grid.cells.length; i++) {
+      paintSlot(grid.cells[i], slots[i] ?? null, filters?.[i] ?? null);
+    }
   }
 
   private paintSides(machine: Machine): void {
@@ -508,6 +566,16 @@ export class InventoryScreen {
       return;
     }
 
+    // Filtering, a chest slot takes the splitter's gesture: the click sets a
+    // label and moves nothing, so there is no drag to follow either.
+    if (this.filtering && ref.area === 'input') {
+      event.preventDefault();
+      this.pressRef = null;
+      audio.play('click');
+      this.callbacks.onSlotAction({ area: 'filter', index: ref.index }, 'left', false);
+      return;
+    }
+
     event.preventDefault();
     this.pressRef = ref;
     this.pressAt = { x: event.clientX, y: event.clientY };
@@ -547,17 +615,28 @@ function refAt(target: EventTarget | null): SlotRef | null {
   return { area: cell.dataset.area as SlotArea, index: Number(cell.dataset.index) };
 }
 
-function paintSlot(cell: HTMLElement, slot: Slot): void {
+/**
+ * One slot. `filter` is the item a chest slot is kept for: an empty kept slot
+ * shows that item faintly, so a chest's layout reads before anything arrives.
+ */
+function paintSlot(cell: HTMLElement, slot: Slot, filter: ItemId | null = null): void {
+  cell.classList.toggle('kept', filter !== null);
+  cell.classList.toggle('reserved', filter !== null && !slot);
+  const kept = filter ? ` Kept for ${ITEMS[filter].name}.` : '';
+
   if (!slot) {
-    cell.className = cell.className.replace(/ filled\b/, '');
-    cell.innerHTML = '';
-    cell.removeAttribute('title');
+    cell.classList.remove('filled');
+    cell.innerHTML = filter
+      ? `<i class="item" style="background-image:${itemIconVar(filter)}"></i>`
+      : '';
+    if (filter) cell.title = kept.trim();
+    else cell.removeAttribute('title');
     return;
   }
 
   const def = ITEMS[slot.id];
-  if (!cell.className.includes(' filled')) cell.className += ' filled';
-  cell.title = `${def.name} — ${slot.count}`;
+  cell.classList.add('filled');
+  cell.title = `${def.name} — ${slot.count}.${kept}`;
   cell.innerHTML =
     `<i class="item" style="background-image:${itemIconVar(slot.id)}"></i>` +
     `<b>${slot.count}</b>`;
