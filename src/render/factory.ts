@@ -332,7 +332,8 @@ function drawMachineDeck(ctx: CanvasRenderingContext2D, def: MachineDef, x: numb
         ctx.lineTo(x + TILE * 0.42, ly);
       }
       ctx.stroke();
-      ctx.fillStyle = '#5b4a3a';
+      // Bands take the chest's own colour, so a steel chest is not wood-banded.
+      ctx.fillStyle = shift(def.color, -58);
       ctx.fillRect(x - TILE * 0.3, y + TILE * TOP, 3, TILE * (BASE - TOP));
       ctx.fillRect(x + TILE * 0.3 - 3, y + TILE * TOP, 3, TILE * (BASE - TOP));
       ctx.fillStyle = accent;
