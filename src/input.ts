@@ -52,6 +52,12 @@ export class InputManager {
 
   pointer: Vec2 = { x: 0, y: 0 };
   pointerDown = false;
+  /**
+   * A mouse resting over the world rather than over a panel. Hover cards need
+   * it: a touch has no hover, and a pointer that has moved onto the HUD should
+   * not keep describing whatever was last under it.
+   */
+  hovering = false;
   clicked = false;
 
   constructor(private target: HTMLElement) {
@@ -93,7 +99,9 @@ export class InputManager {
     this.target.addEventListener('pointermove', (e) => {
       const rect = this.target.getBoundingClientRect();
       this.pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      this.hovering = e.pointerType !== 'touch';
     });
+    this.target.addEventListener('pointerleave', () => (this.hovering = false));
     // Right-click removes, so the browser menu must not fight it.
     this.target.addEventListener('contextmenu', (e) => e.preventDefault());
 

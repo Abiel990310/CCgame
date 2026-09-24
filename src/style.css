@@ -2148,6 +2148,32 @@ kbd {
   }
 }
 
+/*
+ * Tablets in portrait and narrow windows: the centred phase panel would touch
+ * the vitals and the pouch would run into it, so the phase moves right and the
+ * pouch becomes one strip under the top row, as it is on a phone.
+ */
+@media (max-width: 900px) and (min-width: 641px) and (min-height: 481px) {
+  .topbar {
+    left: auto;
+    right: max(14px, env(safe-area-inset-right));
+    transform: none;
+  }
+  .pouch {
+    top: calc(max(14px, env(safe-area-inset-top)) + 82px);
+    left: max(14px, env(safe-area-inset-left));
+    right: max(14px, env(safe-area-inset-right));
+    max-width: none;
+    display: flex;
+    flex-wrap: wrap;
+    padding: 5px;
+    border-radius: 12px;
+  }
+  .toasts {
+    top: calc(max(14px, env(safe-area-inset-top)) + 136px);
+  }
+}
+
 /* ---------- Narrow screens: phones in portrait ---------- */
 
 @media (max-width: 640px) {
@@ -2287,11 +2313,15 @@ kbd {
     font-size: 8px;
   }
 
+  /* Narrower than the screen so the control column stays reachable beside it. */
   .buildbar {
     bottom: calc(max(12px, env(safe-area-inset-bottom)) + 62px);
-    width: calc(100vw - 24px);
+    left: max(12px, env(safe-area-inset-left));
+    transform: none;
+    width: calc(100vw - 90px);
     max-height: 56vh;
     padding: 8px;
+    animation: none;
   }
   .buildbar-items {
     display: flex;
@@ -2399,6 +2429,7 @@ kbd {
   }
   .buildbar {
     left: max(14px, env(safe-area-inset-left));
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 72px);
     transform: none;
     width: min(760px, calc(100vw - 300px));
     max-height: calc(100vh - 170px);
@@ -2429,5 +2460,174 @@ kbd {
   }
   .buildbar-detail {
     display: none;
+  }
+}
+
+/* ---------- World hover card and gather prompt ---------- */
+
+#tip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  width: max-content;
+  min-width: 190px;
+  max-width: 260px;
+  padding: 10px 12px 11px;
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow), var(--rim);
+  backdrop-filter: blur(6px);
+  font-size: 12.5px;
+  pointer-events: none;
+}
+
+#tip[hidden],
+#prompt[hidden] {
+  display: none;
+}
+
+#tip header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 7px;
+}
+
+#tip h4 {
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+}
+
+.tip-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--well) center / 82% no-repeat;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.tip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+}
+
+.tip-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.tip-status.good {
+  color: var(--good);
+}
+
+.tip-status.warn {
+  color: var(--gold);
+}
+
+.tip-status.bad {
+  color: var(--danger);
+}
+
+.tip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 3px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink-dim);
+}
+
+.tip-row b {
+  color: var(--ink);
+  font-weight: 700;
+  text-align: right;
+}
+
+.tip-meter {
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background: var(--well);
+  overflow: hidden;
+}
+
+.tip-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--good);
+}
+
+.tip-meter.bad i {
+  background: var(--danger);
+}
+
+.tip-hint {
+  margin-top: 7px;
+  color: var(--ink-dim);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+#prompt {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px 4px 4px;
+  border-radius: 99px;
+  background: rgba(16, 20, 27, 0.82);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: prompt-in 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+
+#prompt .cap {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #fff6e0, #e9d6ae);
+  color: #2a2418;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 2px 0 #a88f5c, inset 0 1px 0 #fff;
+}
+
+#prompt .cap.tap {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@keyframes prompt-in {
+  from {
+    opacity: 0;
+    margin-top: 6px;
   }
 }

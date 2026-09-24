@@ -61,6 +61,10 @@ import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { SlotLock, type EvictReason } from './tablock';
 import { Hud } from './ui/hud';
+import { Inspector } from './ui/inspect';
+
+/** A finger has no hover and no E key, so its prompts say so. */
+const COARSE = matchMedia('(pointer: coarse)');
 
 const SAVE_INTERVAL = 8;
 /**
@@ -102,11 +106,13 @@ export class Game {
    * than the island, so it is neither saved nor shared.
    */
   private clipboard: MachineSettings | null = null;
+  private inspector: Inspector;
   private lock = new SlotLock((slot, reason) => this.evict(slot, reason));
 
   constructor(canvas: HTMLCanvasElement, private callbacks: GameCallbacks) {
     this.renderer = new Renderer(canvas);
     this.input = new InputManager(canvas);
+    this.inspector = new Inspector(document.getElementById('ui') ?? document.body);
     this.hud = new Hud({
       onChooseUpgrade: (id) => this.chooseUpgrade(id),
       onToggleBuild: () => this.toggleBuild(),
@@ -729,6 +735,15 @@ export class Game {
     audio.update(this.world, elapsed);
     this.hud.update(this.world, this.self);
     this.hud.updateStick(this.input.stickState);
+    this.inspector.update({
+      world: this.world,
+      self: this.self,
+      camera: this.renderer.camera,
+      pointer: this.input.pointer,
+      hovering: this.input.hovering,
+      busy: paused || this.hud.isBuildMode || this.hud.isInventoryOpen,
+      touch: COARSE.matches,
+    });
   }
 
   /** A finished tech is a milestone, and the only sign a lab gives of one. */
