@@ -85,6 +85,8 @@ engine is deliberately small and generic; the content is data.
 | A mob | `shared/data/mobs.ts` |
 | A weapon | `shared/data/weapons.ts` |
 | A tech | `shared/data/techs.ts` |
+| A workbench tool | `shared/data/crafting.ts`, plus its row (with `tool`) in `shared/data/items.ts` |
+| A machine made at the workbench | `crafted: true` on its row, and its id in `CraftedMachineId` |
 | Which tech unlocks a machine | `unlocks` on its row in `shared/data/techs.ts` |
 | A level-up upgrade | `shared/data/upgrades.ts` |
 | A camp building | `shared/data/buildings.ts` |

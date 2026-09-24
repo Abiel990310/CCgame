@@ -378,7 +378,7 @@ export interface World {
 export type SimEvent =
   | { kind: 'hit'; pos: Vec2; amount: number }
   | { kind: 'shot'; pos: Vec2; weapon: WeaponId }
-  | { kind: 'collected'; pos: Vec2; item: ItemId | null }
+  | { kind: 'collected'; pos: Vec2; item: ItemId | null; count: number; playerId: number }
   | { kind: 'produced'; pos: Vec2; machine: MachineId; item: ItemId }
   | { kind: 'placed'; pos: Vec2; what: MachineId | 'belt' }
   | { kind: 'removed'; pos: Vec2 }

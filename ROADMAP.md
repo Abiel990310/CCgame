@@ -69,6 +69,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
 | Interface look | One visual language, SVG icons, art baked from the world's own drawings | Emoji icons rendered as a different picture on every platform, so the HUD never looked like one thing. Icons are inline SVG (`src/ui/icons.ts`), and the hotbar and palette show each piece baked from the canvas drawing the world uses (`src/render/pieces.ts`), so a slot looks like what it places. Still zero requests and system fonts only. |
 | World art | Outlined, lit, illustrated characters and scenery; ground as a soft colour field plus hand-placed detail | Abiel asked (2026-09-24) for a serious game look rather than flat low-poly blobs. Everything is still procedural canvas, zero requests. Trees, rocks, bushes and camp pieces bake per variant at device scale (`src/render/paint.ts` `blitCached`), so a detailed forest draws faster than the blobs did; characters draw live because they animate. The ground is one small colour bitmap per island, resampled once, with biome edges jittered by noise but the coastline kept within a few pixels of the real shore. |
+| Workbench crafting | Tools and every advanced machine are crafted at a workbench into the bag; placing a crafted machine spends that item | Abiel (2026-09-24): buying higher-tier items straight off the build bar made no sense. Belts, tier-1 miners, furnaces, assemblers, chests, inserters and the fish trap are still built from materials so the start stays quick. A crafted machine is one flag on its row (`crafted: true`), its `cost` becomes the recipe, and `placementCost` is the one place that knows; removing it returns the machine, not the materials. Crafting is instant and happens beside a bench (`WORKBENCH_REACH`). |
+| Tools | Carried, not equipped: the best tool of a kind in the bag multiplies that kind of gathering | No equip slot to forget and no save field: a tool is an `ITEMS` row with a `tool` entry. |
 | Machine art | A static body sprite per type and facing, with only moving parts drawn live | The 3/4-view blocks are a dozen fills each; drawing them per frame cost about 45% more than the flat boxes they replaced on a full screen. Baking shadow, block, deck, port and tier marks once brought it back level with the old art. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Save contents | Derive what the seed decides; store only what play changed | Scenery was 109 kB of a 110 kB save and `createWorld` already rebuilds it from the seed, exactly as terrain is. Nodes are regenerated on load and only the chopped and cleared ones are written, which is also why worldgen changing under an existing island would move its scenery. |
@@ -197,9 +199,13 @@ detail behind the factory entries is in
 - [ ] The first click on a machine after closing another machine's screen with
       Esc sometimes opens nothing; the second click works. Seen once while
       driving copy and paste in a browser, not yet isolated.
-- [ ] On a phone the build palette covers the column of action buttons, so
-      Build and Bag cannot be pressed while it is open. The palette has its own
-      close button, but the Bag being unreachable while building is odd.
+- [x] On a phone the build palette covers the column of action buttons, so
+      Build and Bag cannot be pressed while it is open. The palette is now
+      narrower than the screen and the buttons stay beside it.
+- [x] On a portrait tablet (810px) the vitals, phase and pouch panels overlapped.
+      Between 641px and 900px the phase moves right and the pouch becomes a
+      strip under the top row. A landscape phone's palette also sat 2px over the
+      hotbar.
 - [ ] `npm run preview` answers 404 to the browser's own request for the
       module bundle in this container — vite's preview server rejects
       `Sec-Fetch-Dest: script`, though curl for the same URL is fine. Serving
@@ -222,8 +228,9 @@ detail behind the factory entries is in
       handler in `src/input.ts` returns early for `pointerType === 'touch'`, so
       `takeClick()` never fires and a phone cannot build or inspect a machine.
 - [ ] Touch has no rotate, so every belt placed on a phone would face one way.
-- [ ] The phase bar and the vitals panel overlap on a phone. At 390px wide the
-      vitals card covers the Day/Night readout entirely.
+- [x] The phase bar and the vitals panel overlap on a phone. At 390px wide the
+      vitals card covers the Day/Night readout entirely. No longer overlapping
+      at 390px as of 2026-09-24 (measured in Chromium at iPhone 13 size).
 - [ ] Shift-clicking a large stack into a two-slot machine fills **both** input
       slots with one ingredient, so the second ingredient can never get in and
       the machine deadlocks until you take some back out by hand. Belts are
@@ -319,6 +326,12 @@ detail behind the factory entries is in
       up while playing rather than only under a profiler.
 
 ### Changes
+
+- [ ] Loot popups ("+2 Wood") show for every player's pickups. Filter them by
+      the event's `playerId` when multiplayer lands.
+- [ ] A bench prompt shows whenever a player stands within reach of a
+      workbench, which at a busy camp may be most of the time. Consider hiding
+      it after the first few uses.
 
 - [x] Saving serialised the whole island every 8 seconds — about 110 kB of JSON
       on a barely-built one. Scenery is now regenerated from the seed and only
@@ -471,6 +484,15 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] The player swings the same plain axe and pick whatever tier is in the
+      bag. Tint the head by the best tool carried, so an upgrade shows.
+- [ ] Crafting is instant. A short craft time with a queue at the bench would
+      make a big order of machines feel like work being done.
+- [ ] Tools never wear out. Durability would make tools a steady sink for
+      iron and steel instead of a one-off purchase.
+- [ ] Hover cards could show a machine's rate (items a minute) once the
+      production ledger exists.
+
 - [ ] Fish trap tiers, or a trap that catches more essence at night, so the
       essence line scales like the ore lines do instead of by sheer count.
 - [ ] Nothing but research yet needs essence in bulk. A late camp piece or the
@@ -574,6 +596,9 @@ detail behind the factory entries is in
       a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
 
 ### Needs testing
+
+- [ ] Opening the workbench by tapping its Craft prompt on a real phone (it was
+      only driven with Playwright's iPhone emulation).
 
 - [ ] Ground repaint cost on a real phone. A full repaint (a zoom, a resize)
       takes about 13 ms longer than the old triangle mesh in headless

@@ -62,7 +62,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   gold: { id: 'gold', name: 'Gold', color: '#e8b64c', stack: 999, shape: 'nugget' },
   essence: { id: 'essence', name: 'Essence', color: '#b58cf0', stack: 999, shape: 'orb' },
 
-  ironOre: { id: 'ironOre', name: 'Iron Ore', color: '#7f93aa', stack: 999, shape: 'chunk' },
+  ironOre: { id: 'ironOre', name: 'Iron Ore', color: '#7391b6', stack: 999, shape: 'chunk' },
   copperOre: { id: 'copperOre', name: 'Copper Ore', color: '#c28356', stack: 999, shape: 'chunk' },
   coal: { id: 'coal', name: 'Coal', color: '#4a4a52', stack: 999, shape: 'chunk' },
 

@@ -25,7 +25,7 @@ interface OreStyle {
 }
 
 const STYLE: Record<OreKind, OreStyle> = {
-  ironOre: { bed: '#4d4f58', rim: '#33353d', lump: '#7f93aa', light: '#bccbdc', glint: '#f2f8ff', fleck: '#c0673f' },
+  ironOre: { bed: '#4a4f5c', rim: '#31353f', lump: '#7391b6', light: '#b6cbe6', glint: '#f2f8ff', fleck: '#c0673f' },
   copperOre: { bed: '#5e4632', rim: '#3d2c1f', lump: '#cf7f45', light: '#f3b27a', glint: '#fff0dc', fleck: '#4fae94' },
   coal: { bed: '#2c2c33', rim: '#18181d', lump: '#3a3a45', light: '#666b80', glint: '#b9c3e0', fleck: '#23232a' },
 };
