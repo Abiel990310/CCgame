@@ -199,6 +199,9 @@ detail behind the factory entries is in
 
 ### Bugs
 
+- [ ] The game gets very laggy near the campfire. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [ ] The overlapping HUD panels are still showing after the UI revamp. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+
 - [ ] The first click on a machine after closing another machine's screen with
       Esc sometimes opens nothing; the second click works. Seen once while
       driving copy and paste in a browser, not yet isolated.
@@ -249,6 +252,12 @@ detail behind the factory entries is in
 
 
 ### New features
+
+- [ ] A much bigger map, so the island feels like an open world rather than one
+      screen of forest. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [ ] A big content pass across every system (recipes, machines, techs, goals,
+      mobs, camp) aimed at tens to hundreds of hours of play over the next
+      weeks. *On hold until Abiel confirms multiplayer works (2026-09-24).*
 
 - [x] **Splitter** — one input, two outputs, alternating, with an optional
       filter per side. Built as a T: whatever feeds it goes out to the tiles on
