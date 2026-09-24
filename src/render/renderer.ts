@@ -30,15 +30,12 @@ import {
   type Tool,
 } from './entities';
 import { UI, rgba } from './palette';
-import { GroundMesh } from './terrain';
+import { GroundCache } from './groundcache';
 import { setItemScale } from './items';
 import { setPaintScale } from './paint';
 import { polygon } from './shapes';
 import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFactoryScale } from './factory';
 import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
-
-/** How far past the viewport the pre-scaled ground reaches, in device pixels. */
-const GROUND_MARGIN = 320;
 
 /** How much coarser than the screen, in CSS pixels, the night's lights are gathered. */
 const LIGHT_DOWNSCALE = 4;
@@ -53,27 +50,8 @@ export class Renderer {
   readonly camera = new Camera();
   readonly effects = new Effects();
   private ctx: CanvasRenderingContext2D;
-  private mesh: GroundMesh | null = null;
-  private groundTerrain: Uint8Array | null = null;
+  private ground = new GroundCache();
   private dpr = 1;
-  /**
-   * The island, pre-scaled to the zoom it is actually shown at, covering the
-   * viewport plus a margin. Redrawn only when the camera walks off the edge of
-   * it, so the common frame blits it one-to-one instead of painting the mesh
-   * every time.
-   */
-  private ground: HTMLCanvasElement | null = null;
-  private groundCtx: CanvasRenderingContext2D | null = null;
-  private groundX = 0;
-  private groundY = 0;
-  private groundScale = 0;
-  /**
-   * Tiles whose ore has visibly changed since the last frame, packed as tile
-   * keys. Ore is baked into the cached ground, so a patch thinning has to be
-   * repainted there — but only the tiles that changed, since repainting the
-   * whole cache costs as much as a zoom.
-   */
-  private oreDirty: number[] = [];
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
   private visibleBelts: Belt[] = [];
   private visibleMachines: Machine[] = [];
@@ -130,22 +108,13 @@ export class Renderer {
     const originX = Math.round((width / 2 + shakeX) * this.dpr - this.camera.pos.x * scale);
     const originY = Math.round((height / 2 + shakeY) * this.dpr - this.camera.pos.y * scale);
 
-    this.ensureGround(world);
-    this.repaintOre(world);
-    if (this.ground) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(
-        this.ground,
-        originX + this.groundX * this.groundScale,
-        originY + this.groundY * this.groundScale,
-      );
-    }
+    const view = this.camera.bounds();
+    this.ground.draw(ctx, world, view, scale, originX, originY);
     ctx.setTransform(scale, 0, 0, scale, originX, originY);
     setItemScale(scale);
     setFactoryScale(scale);
     setPaintScale(scale);
 
-    const view = this.camera.bounds();
     const visible = (p: Vec2, pad = 0): boolean =>
       p.x >= view.minX - pad && p.x <= view.maxX + pad && p.y >= view.minY - pad && p.y <= view.maxY + pad;
 
@@ -231,146 +200,11 @@ export class Renderer {
     }
   }
 
-  /**
-   * Keep the pre-scaled ground covering the view. With a margin this wide the
-   * cache only runs out about once a second while walking, and when it does it
-   * scrolls and paints the strip that came in rather than the whole thing.
-   */
-  private ensureGround(world: World): void {
-    if (this.mesh === null || this.mesh.seed !== world.seed) {
-      this.mesh = new GroundMesh(world.seed);
-    }
-    // A different island under the same camera — the menu's backdrop, then
-    // the game — must not keep the old island's ground and scroll the new one
-    // in beside it at the edges.
-    if (this.groundTerrain !== world.terrain) {
-      this.groundTerrain = world.terrain;
-      this.groundScale = 0;
-    }
-
-    const scale = this.camera.zoom * this.dpr;
-    const w = Math.ceil(this.camera.width * this.dpr) + GROUND_MARGIN * 2;
-    const h = Math.ceil(this.camera.height * this.dpr) + GROUND_MARGIN * 2;
-
-    if (!this.ground || this.ground.width !== w || this.ground.height !== h) {
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      this.ground = canvas;
-      this.groundCtx = canvas.getContext('2d', { alpha: false });
-      this.groundScale = 0;
-    }
-    const ctx = this.groundCtx;
-    if (!ctx) return;
-
-    const coverW = w / scale;
-    const coverH = h / scale;
-    const halfW = this.camera.width / 2 / this.camera.zoom;
-    const halfH = this.camera.height / 2 / this.camera.zoom;
-    if (
-      this.groundScale === scale &&
-      this.camera.pos.x - halfW >= this.groundX &&
-      this.camera.pos.x + halfW <= this.groundX + coverW &&
-      this.camera.pos.y - halfH >= this.groundY &&
-      this.camera.pos.y + halfH <= this.groundY + coverH
-    ) {
-      return;
-    }
-
-    const prevX = this.groundX;
-    const prevY = this.groundY;
-    const sameScale = this.groundScale === scale;
-
-    // Land the cache's own origin on a whole device pixel, so blitting it is a
-    // straight copy rather than a resample.
-    this.groundX = Math.round((this.camera.pos.x - coverW / 2) * scale) / scale;
-    this.groundY = Math.round((this.camera.pos.y - coverH / 2) * scale) / scale;
-    this.groundScale = scale;
-
-    const dx = Math.round((prevX - this.groundX) * scale);
-    const dy = Math.round((prevY - this.groundY) * scale);
-
-    // Walking shifts the cache by a fraction of its own size, so slide what is
-    // still good and paint only the edges that have come into view. Zooming
-    // changes every pixel of it, and that is the case that repaints the lot.
-    if (sameScale && Math.abs(dx) < w && Math.abs(dy) < h) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(ctx.canvas, dx, dy);
-      if (dx !== 0) this.paintGround(world, dx > 0 ? 0 : w + dx, 0, Math.abs(dx), h);
-      if (dy !== 0) {
-        this.paintGround(world, dx > 0 ? dx : 0, dy > 0 ? 0 : h + dy, w - Math.abs(dx), Math.abs(dy));
-      }
-      return;
-    }
-
-    this.paintGround(world, 0, 0, w, h);
-    // Everything in the cache has just been drawn from the live ore grid.
-    this.oreDirty.length = 0;
-  }
-
-  /**
-   * Take the ore changes the simulation reported this tick. Nothing is painted
-   * here: the cache may still be about to scroll or be rebuilt entirely.
-   */
+  /** Take the ore changes the simulation reported; the ground cache repaints what they touch. */
   noteEvents(events: SimEvent[]): void {
     for (const event of events) {
-      if (event.kind === 'oreChanged') this.oreDirty.push(tileKey(event.tx, event.ty));
+      if (event.kind === 'oreChanged') this.ground.oreChanged(event.tx, event.ty);
     }
-  }
-
-  /**
-   * Redraw the cached ground under tiles whose ore has thinned or run out. The
-   * clip in `paintGround` is what makes this safe to do a tile at a time, and a
-   * tile of margin covers the ore stain and pebbles that spill onto neighbours.
-   */
-  private repaintOre(world: World): void {
-    if (this.oreDirty.length === 0 || !this.ground || this.groundScale === 0) return;
-
-    const scale = this.groundScale;
-    for (const key of this.oreDirty) {
-      const tx = key % MAP_TILES;
-      const ty = (key - tx) / MAP_TILES;
-      const left = Math.floor((tx * TILE - TILE - this.groundX) * scale);
-      const top = Math.floor((ty * TILE - TILE - this.groundY) * scale);
-      const size = Math.ceil(TILE * 3 * scale) + 2;
-
-      // Off the edge of the cache is not a problem: whatever scrolls in later
-      // is painted from the ore grid as it stands then.
-      const x = Math.max(0, left);
-      const y = Math.max(0, top);
-      const w = Math.min(this.ground.width, left + size) - x;
-      const h = Math.min(this.ground.height, top + size) - y;
-      if (w > 0 && h > 0) this.paintGround(world, x, y, w, h);
-    }
-    this.oreDirty.length = 0;
-  }
-
-  /**
-   * Repaint one rectangle of the ground cache, given in its own device pixels.
-   * The clip is what makes a partial repaint safe: the mesh reaches a tile past
-   * whatever it is asked for, and shore foam and ore are drawn with alpha, so
-   * letting it spill onto cache that is already right would darken it twice.
-   */
-  private paintGround(world: World, x: number, y: number, w: number, h: number): void {
-    const ctx = this.groundCtx;
-    if (!ctx || !this.mesh || w <= 0 || h <= 0) return;
-    const scale = this.groundScale;
-
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.beginPath();
-    ctx.rect(x, y, w, h);
-    ctx.clip();
-    ctx.fillStyle = '#12232e';
-    ctx.fillRect(x, y, w, h);
-    ctx.setTransform(scale, 0, 0, scale, -this.groundX * scale, -this.groundY * scale);
-    this.mesh.paint(ctx, world.terrain, world.ore, world.oreLeft, {
-      x: this.groundX + x / scale,
-      y: this.groundY + y / scale,
-      w: w / scale,
-      h: h / scale,
-    });
-    ctx.restore();
   }
 
   /**

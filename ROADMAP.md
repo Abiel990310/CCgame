@@ -214,8 +214,11 @@ detail behind the factory entries is in
       resolution. Headless, 2x screen: a fresh camp by day went from 37 to 98
       fps, a camp with 12 lamps at night from 20 to 47. Full notes under
       Changes, "Move drawing to WebGL".
-- [ ] Walking stutters: each strip of ground that scrolls into the cache costs
-      35 to 95 ms to paint on a 2x screen (headless), a few times a second.
+- [x] Walking stuttered: scrolling the one big ground cache copied it onto
+      itself and painted the incoming strip, 35 to 95 ms a few times a second
+      on a 2x screen. The ground is now fixed 4-tile chunks (`groundcache.ts`)
+      painted once and a couple ahead of the view each frame; walking went from
+      about 15 frames over 33 ms per 12 s to none.
 - [ ] The overlapping HUD panels are still showing after the UI revamp. *On hold until Abiel confirms multiplayer works (2026-09-24).*
 - [x] Co-op: "Lost the matchmaking service" when the broker's socket dropped,
       which also threw a guest out of a game that no longer needed it. The
@@ -531,10 +534,10 @@ detail behind the factory entries is in
       with nearly the same name, in the same palette, two tabs apart.
 - [ ] Camp placement keeps scenery away with a fixed 14px clearance while
       regrowth uses each node's real radius. Two numbers for one question.
-- [ ] The ground cache is still the biggest allocation in the client: 29 MB at
-      `devicePixelRatio` 2 on a 1280×800 viewport, set by `GROUND_MARGIN`. A
-      smaller margin shrinks it but makes the cache scroll more often; worth
-      tuning against a real phone rather than by guesswork.
+- [ ] The ground cache keeps the chunks in view plus two rings around it,
+      roughly 40 MB at `devicePixelRatio` 2 on a 1280×800 viewport. One ring
+      would halve it at the cost of more painting while walking; worth tuning
+      against a real phone.
 - [ ] The camera now snaps to whole device pixels, which is what lets the
       ground cache blit without resampling. Walking advances it in 4- and
       5-pixel steps where it used to be a continuous 4.29, so motion is
