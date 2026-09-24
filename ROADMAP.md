@@ -292,11 +292,13 @@ detail behind the factory entries is in
       split into a header, scenery and factory so a section that has not moved
       is not rewritten. A 101 kB island measured in a browser now writes 1.4 kB,
       and standing still writes only the 1 kB header.
-- [ ] Nothing on the factory grid blocks movement. `collideBuildings` in
+- [x] Nothing on the factory grid blocks movement. `collideBuildings` in
       `shared/sim/systems/movement.ts` walks `world.buildings` only, so players
       and mobs pass straight through furnaces, chests and miners. Walking over
       a belt is fine; walking through an assembler is not, and a mob taking the
-      shortcut through a machine bank ignores the wall line entirely.
+      shortcut through a machine bank ignores the wall line entirely. Fixed:
+      a `solid` flag on each machine row; every machine blocks players and
+      mobs over its whole tile, belts and splitters stay walkable.
 - [ ] The campfire stands on the map's exact centre, which is a tile corner, so
       it now blocks the four tiles that meet there rather than one. Snapping it
       to a tile centre on world creation would hand three of them back, but it
@@ -414,6 +416,12 @@ detail behind the factory entries is in
       frame to feed the depth sort. Pooling them would cut the GC churn.
 
 ### Ideas
+
+- [ ] Mobs only bite players and walls, and have no pathing, so a raid that
+      meets a machine bank presses against it and slides along. Letting them
+      chew on machines would make the factory part of the defence line.
+- [ ] Inserters block movement like every other machine. If a dense build
+      makes that feel cramped, an inserter is the one to make walkable next.
 
 - [ ] A splitter that prefers the emptier side over strict alternation. Turn
       by turn is right while both sides flow; when one backs up the rotation
