@@ -42,6 +42,8 @@ export const CAMP = {
   /** Mobs path toward the camp; it is the anchor of the whole island. */
   defendRadius: 150,
   buildRadius: 260,
+  /** Chips a mob has to take out of a wall before it falls. */
+  wallHp: 4,
 } as const;
 
 export const GATHER = {

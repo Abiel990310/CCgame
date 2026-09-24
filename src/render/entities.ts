@@ -2,7 +2,7 @@ import { BUILDINGS } from '@shared/data/buildings';
 import { ITEMS, RESOURCES } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
 import { WEAPONS } from '@shared/data/weapons';
-import { PLAYER } from '@shared/sim/constants';
+import { CAMP, PLAYER } from '@shared/sim/constants';
 import { hash2 } from '@shared/sim/rng';
 import type {
   Building,
@@ -131,9 +131,9 @@ export function drawBuilding(
       break;
     }
     case 'wall': {
-      const hurt = building.level < 4;
+      const hurt = building.level < CAMP.wallHp;
       facetedBlob(ctx, x, y - 8, def.radius, 6, building.id, hurt ? '#8b939d' : def.color, 0.18);
-      if (hurt) meter(ctx, x, y + 8, 24, 3, building.level / 4, UI.danger);
+      if (hurt) meter(ctx, x, y + 8, 24, 3, building.level / CAMP.wallHp, UI.danger);
       break;
     }
     case 'chest': {

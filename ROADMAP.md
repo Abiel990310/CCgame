@@ -74,6 +74,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
 | Dependencies | Zero runtime deps, zero external requests | Nothing to leak, nothing to break when a CDN does. |
 | Audio | Synthesised in Web Audio, never sampled | A sound pack would be the first file the page ever fetched, and the first thing between a load and a playable island. It also means the music can be generated rather than looped, which matters when someone is on the same island for hours. Sounds are a data table (`src/audio/sounds.ts`) like every other kind of content. |
+| Rendering between ticks | Draw moving things blended between their last two tick positions, one tick behind the sim | The sim ticks at 30 Hz and screens refresh at 60 or more; drawing raw positions showed each one for two frames or more, so walking read as 10–15 fps. Lives in `src/render/interpolate.ts`, never in `shared/`. The same blend is what multiplayer needs for other players. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -291,11 +292,13 @@ detail behind the factory entries is in
       split into a header, scenery and factory so a section that has not moved
       is not rewritten. A 101 kB island measured in a browser now writes 1.4 kB,
       and standing still writes only the 1 kB header.
-- [ ] Nothing on the factory grid blocks movement. `collideBuildings` in
+- [x] Nothing on the factory grid blocks movement. `collideBuildings` in
       `shared/sim/systems/movement.ts` walks `world.buildings` only, so players
       and mobs pass straight through furnaces, chests and miners. Walking over
       a belt is fine; walking through an assembler is not, and a mob taking the
-      shortcut through a machine bank ignores the wall line entirely.
+      shortcut through a machine bank ignores the wall line entirely. Fixed:
+      a `solid` flag on each machine row; every machine blocks players and
+      mobs over its whole tile, belts and splitters stay walkable.
 - [ ] The campfire stands on the map's exact centre, which is a tile corner, so
       it now blocks the four tiles that meet there rather than one. Snapping it
       to a tile centre on world creation would hand three of them back, but it
@@ -353,9 +356,13 @@ detail behind the factory entries is in
 - [ ] The inventory screen leaves the world running behind it, which is right
       for watching a furnace but means a night can start while you sort a
       chest. Worth deciding deliberately rather than by default.
-- [ ] A wall chipped to 1 hit point refunds its full cost, so taking it down
-      and putting it back is a free repair. Walls want a repair action, or a
-      refund that scales with the damage taken.
+- [x] A wall chipped to 1 hit point refunds its full cost, so taking it down
+      and putting it back is a free repair. Settled by scaling the refund with
+      the hit points left, rounded down: a wall on its last point gives back
+      one wood and no stone.
+- [ ] Walls could take a repair action in build mode that spends the missing
+      share of their cost, so a chipped line is fixed in place rather than
+      pulled and rebuilt one wall at a time.
 - [x] The removal highlight only shows in build mode, so a right-click on the
       open island is still aimed blind. Settled by making removal a build-mode
       action: outside it the cursor opens a machine, so a demolition outline on
@@ -400,6 +407,8 @@ detail behind the factory entries is in
       5-pixel steps where it used to be a continuous 4.29, so motion is
       quantised by well under a pixel. If it ever reads as judder on a
       high-refresh screen, this is the reason.
+      Checked with interpolation in place: at 60 fps the scene now advances
+      5, 5, 5, 6 device pixels per frame, a one-pixel wobble, so it stays.
 - [ ] `resize()` caps `devicePixelRatio` at 2, so a retina display rasterises
       four times the pixels every frame. Worth revisiting if lag is reported on
       one.
@@ -412,6 +421,11 @@ detail behind the factory entries is in
       lower-tier machine of that family the cursor crosses is swapped.
 - [ ] Show an upgrade's net cost in the palette tooltip (new cost minus the
       refund), since the refund is what makes Mk1 to Mk2 cheaper than it looks.
+- [ ] Mobs only bite players and walls, and have no pathing, so a raid that
+      meets a machine bank presses against it and slides along. Letting them
+      chew on machines would make the factory part of the defence line.
+- [ ] Inserters block movement like every other machine. If a dense build
+      makes that feel cramped, an inserter is the one to make walkable next.
 - [ ] A splitter that prefers the emptier side over strict alternation. Turn
       by turn is right while both sides flow; when one backs up the rotation
       still offers it first every other item and only then falls through.
@@ -478,6 +492,9 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Movement smoothing was measured at 60 fps in headless Chromium (the player
+      now moves every frame instead of every other one). Not yet watched on a
+      120 Hz screen or a phone, where the old stutter would have been worst.
 - [ ] Research rates are guesses. The first tech is 20 cycles at 4s, packs cost
       a gear and a copper plate each, and the repeatable techs double in price
       per level. None of it has been played, only driven.
