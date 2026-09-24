@@ -454,6 +454,7 @@ kbd {
 .phase-text strong {
   font-size: 15px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .phase-text span {
@@ -496,10 +497,22 @@ kbd {
 
 /* ---------- Pouch ---------- */
 
-.pouch {
+/*
+ * The top-right corner is a stack, not a set of guessed offsets: the resource
+ * pouch and anything that joins it (the co-op chip) flow one under the other,
+ * so a pouch that grows a row pushes the rest down instead of sliding under it.
+ */
+.corner-right {
   position: absolute;
   top: max(14px, env(safe-area-inset-top));
   right: max(14px, env(safe-area-inset-right));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.pouch {
   display: grid;
   grid-template-columns: repeat(4, auto);
   gap: 4px;
@@ -2147,10 +2160,13 @@ kbd {
     right: max(14px, env(safe-area-inset-right));
     transform: none;
   }
-  .pouch {
+  .corner-right {
     top: calc(max(14px, env(safe-area-inset-top)) + 82px);
     left: max(14px, env(safe-area-inset-left));
     right: max(14px, env(safe-area-inset-right));
+  }
+  .pouch {
+    align-self: stretch;
     max-width: none;
     display: flex;
     flex-wrap: wrap;
@@ -2237,11 +2253,21 @@ kbd {
     height: 4px;
   }
 
+  /* The smallest phones have ~120px for the phase: the dial goes, the words stay on one line. */
+  @media (max-width: 380px) {
+    .phase-dial {
+      display: none;
+    }
+  }
+
   /* Resources become one strip under the top row, scrolled sideways. */
-  .pouch {
+  .corner-right {
     top: calc(max(14px, env(safe-area-inset-top)) + 60px);
     left: max(12px, env(safe-area-inset-left));
     right: max(12px, env(safe-area-inset-right));
+  }
+  .pouch {
+    align-self: stretch;
     max-width: none;
     display: flex;
     overflow-x: auto;
@@ -2829,6 +2855,10 @@ kbd {
   }
   .toasts {
     top: calc(max(14px, env(safe-area-inset-top)) + 214px);
+  }
+  /* Centred, so an equal margin each side keeps them off the button column. */
+  .toast {
+    max-width: calc(100vw - 150px);
   }
 }
 
