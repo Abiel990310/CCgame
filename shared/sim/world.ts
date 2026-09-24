@@ -1,5 +1,5 @@
 import { RESOURCES } from '../data/items';
-import { CYCLE, MAP_CENTER, MAP_TILES, PLAYER, TILE } from './constants';
+import { CYCLE, MAP_CENTER, MAP_TILES, PLAYER, TILE, setMapTiles } from './constants';
 import { makeRng } from './rng';
 import { isShore, isWalkable, terrainAtIndex, generateTerrain } from './terrain';
 import { generateOre, oreAt } from './ore';
@@ -7,6 +7,7 @@ import type { Player, ResourceKind, Vec2, World } from './types';
 import { xpForLevel } from './progression';
 import { newResearch } from './research';
 import { newInventory } from './inventory';
+import { EXPLORE_RADIUS, reveal } from './explore';
 
 export function createPlayer(id: number, name: string, pos: Vec2): Player {
   return {
@@ -56,18 +57,27 @@ export function createPlayer(id: number, name: string, pos: Vec2): Player {
  * stop applying an older island's scenery and ore deltas to ground they no
  * longer describe.
  */
-export const WORLDGEN = 1;
+export const WORLDGEN = 2;
 
-export function createWorld(seed = 12345, peaceful = false): World {
-  const terrain = generateTerrain(seed);
+/**
+ * How many tiles across each generation's island is. Generation 1 is the
+ * first small island; an island keeps its generation, so it keeps its size.
+ */
+export const WORLDGEN_TILES: Record<number, number> = { 1: 96, 2: 256 };
+
+export function createWorld(seed = 12345, peaceful = false, worldgen = WORLDGEN): World {
+  setMapTiles(WORLDGEN_TILES[worldgen] ?? WORLDGEN_TILES[WORLDGEN]);
+  const terrain = generateTerrain(seed, worldgen);
   const camp: Vec2 = { x: MAP_CENTER, y: MAP_CENTER };
-  const ore = generateOre(terrain, seed);
+  const ore = generateOre(terrain, seed, worldgen);
 
   const world: World = {
     tick: 0,
     time: 0,
     seed,
+    worldgen,
     terrain,
+    explored: new Uint8Array(terrain.length),
     phase: 'day',
     // Start past the dawn blend so a new island opens in clear daylight.
     phaseTime: CYCLE.daySeconds - CYCLE.twilightSeconds,
@@ -97,6 +107,8 @@ export function createWorld(seed = 12345, peaceful = false): World {
 
   world.buildings.push({ id: world.nextId++, type: 'campfire', pos: { ...camp }, level: 1 });
   populateNodes(world);
+  // The home clearing is known from the start, so the map is never blank.
+  reveal(world, camp.x, camp.y, EXPLORE_RADIUS + 4);
   return world;
 }
 

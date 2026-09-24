@@ -42,8 +42,8 @@ beforeEach(() => {
   forgetSlot(SLOT);
 });
 
-function island(seed = 4242): World {
-  const world = createWorld(seed, true);
+function island(seed = 4242, worldgen = WORLDGEN): World {
+  const world = createWorld(seed, true, worldgen);
   const player = addPlayer(world, 'You');
   for (const item of ['wood', 'stone', 'ironPlate'] as ItemId[]) addItem(player, item, 900);
 
@@ -166,8 +166,9 @@ describe('saving an island', () => {
   it('rewrites only the sections that moved', () => {
     const world = island();
     saveWorld(world, SLOT);
-    // The header, the scenery, the factory and the ground the miners have taken.
-    expect(new Set(writes).size).toBe(4);
+    // The header, the scenery, the factory, the ground the miners have taken
+    // and what the player has seen.
+    expect(new Set(writes).size).toBe(5);
 
     writes.length = 0;
     world.tick += 240;
@@ -226,8 +227,9 @@ describe('older saves', () => {
     );
   }
 
+  // A save from before the split predates worldgen 2, so it grew the small island.
   it('loads an island written before the split', () => {
-    const world = island();
+    const world = island(4242, 1);
     const player = [...world.players.values()][0];
     placeMachine(world, player, 'chest', SITE.tx, SITE.ty, 1);
     placeBelt(world, player, SITE.tx + 1, SITE.ty, 1);
@@ -246,7 +248,7 @@ describe('older saves', () => {
   });
 
   it('turns an old island into the new format on its next save', () => {
-    const world = island();
+    const world = island(4242, 1);
     world.nodes[5].charges = 1;
     writeLegacy(world);
 

@@ -1,16 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { addItem } from '@shared/sim/inventory';
-import { addPlayer, createWorld } from '@shared/sim/world';
+import { WORLDGEN, WORLDGEN_TILES, addPlayer, createWorld } from '@shared/sim/world';
+import { MAP_TILES } from '@shared/sim/constants';
 import type { World } from '@shared/sim/types';
 import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from '../save';
 import { slotKey } from '../saves';
-
-// Pretend worldgen has moved on since generation 1, which is the only way to
-// load an island grown by an older one while there has only ever been one.
-vi.mock('@shared/sim/world', async (original) => ({
-  ...(await original<typeof import('@shared/sim/world')>()),
-  WORLDGEN: 2,
-}));
 
 const SLOT = 'old-ground';
 
@@ -30,9 +24,10 @@ function firstOreTile(world: World): number {
   return world.ore.findIndex((kind) => kind !== 0);
 }
 
-describe('an island grown by an older worldgen', () => {
-  it('takes the new ground whole and keeps what was built', () => {
-    const world = createWorld(4242, true);
+describe('islands from every worldgen', () => {
+  it('regrows an older island with its own generator, size and all', () => {
+    // A generation 1 island, saved and then loaded by today's game.
+    const world = createWorld(4242, true, 1);
     const player = addPlayer(world, 'You');
     addItem(player, 'wood', 50);
     addItem(player, 'stone', 50);
@@ -42,20 +37,21 @@ describe('an island grown by an older worldgen', () => {
     const tile = firstOreTile(world);
     world.oreLeft[tile] = 3;
     saveWorld(world, SLOT);
+    expect(JSON.parse(store.get(slotKey(SLOT))!).worldgen).toBe(1);
 
-    // Rewrite it as an island saved under generation 1.
-    const header = JSON.parse(store.get(slotKey(SLOT))!);
-    expect(header.worldgen).toBe(2);
-    header.worldgen = 1;
-    store.set(slotKey(SLOT), JSON.stringify(header));
+    // Something else grows a new-generation island in between, as the menu does.
+    createWorld(99);
+    expect(MAP_TILES).toBe(WORLDGEN_TILES[WORLDGEN]);
 
     const notes: LoadNotes = {};
     const back = loadWorld(SLOT, notes)!;
-    expect(notes.regenerated).toBe(true);
-    // The old deltas are not laid over ground they do not describe.
-    expect(back.nodes.some((n) => n.id === felled.id)).toBe(true);
-    expect(back.oreLeft[tile]).toBe(back.oreMax[tile]);
-    // Buildings, the bag and progress are the player's, not the generator's.
+    expect(notes.regenerated).toBe(false);
+    expect(back.worldgen).toBe(1);
+    expect(MAP_TILES).toBe(WORLDGEN_TILES[1]);
+    expect(back.terrain.length).toBe(WORLDGEN_TILES[1] ** 2);
+    // Its own deltas land on the ground they were written against.
+    expect(back.nodes.some((n) => n.id === felled.id)).toBe(false);
+    expect(back.oreLeft[tile]).toBe(3);
     expect(back.buildings.length).toBe(world.buildings.length);
     expect([...back.players.values()][0].inventory).toEqual(player.inventory);
   });
