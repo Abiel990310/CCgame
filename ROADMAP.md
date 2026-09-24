@@ -337,9 +337,11 @@ detail behind the factory entries is in
 - [ ] A filtered arm reads only the front item of the belt it watches, so a
       full belt of the wrong item parks it even when its item is two places
       back. Correct for one lane; worth revisiting if belts ever carry sides.
-- [ ] Weapons only ever fire at the nearest mob, so a forty-mob night sounds
-      exactly like a one-mob night. Noticed while balancing combat audio; it is
-      a combat-feel question, not an audio one.
+- [x] Weapons only ever fire at the nearest mob, so a forty-mob night sounds
+      exactly like a one-mob night. Now each weapon has a targeting rule
+      (sling nearest, bow toughest, spark scatter, thorn most crowded line),
+      shots skip mobs already doomed by damage in flight, and multishot gives
+      each projectile its own target.
 - [ ] The factory hum counts machines within earshot every 0.3s by scanning
       every machine and belt on the island. Fine at hundreds; if a base ever
       reaches thousands it wants the same spatial index the renderer will need.
@@ -472,8 +474,16 @@ detail behind the factory entries is in
       between facets; growing the triangle about its centroid by 6% instead
       draws the same picture for a third of the cost.
 
+- [ ] Weapons aim at where a mob is, not where it will be, so fast mobs
+      (crawlers, wisps) dodge shots and keep their in-flight damage reserved
+      until those shots expire. Leading the target would fix both.
+- [ ] Let the player pick a weapon's targeting rule, or offer a rule change as
+      a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
+
 ### Needs testing
 
+- [ ] Whether the new targeting rules feel right on a real night: the bow now
+      ignores slimes while a brute is in range, and spark picks at random.
 - [ ] Research rates are guesses. The first tech is 20 cycles at 4s, packs cost
       a gear and a copper plate each, and the repeatable techs double in price
       per level. None of it has been played, only driven.
