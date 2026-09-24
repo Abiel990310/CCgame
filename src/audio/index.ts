@@ -1,5 +1,6 @@
+import { MACHINES } from '@shared/data/machines';
 import { TILE } from '@shared/sim/constants';
-import type { MachineId, SimEvent, Vec2, World } from '@shared/sim/types';
+import type { MachineFamily, SimEvent, Vec2, World } from '@shared/sim/types';
 import { Ambience } from './ambience';
 import { Music } from './music';
 import { SOUNDS, type SoundDef, type SoundId } from './sounds';
@@ -252,7 +253,7 @@ export class GameAudio {
           this.play('collected', { pos: event.pos });
           break;
         case 'produced': {
-          const sound = PRODUCED_SOUND[event.machine];
+          const sound = PRODUCED_SOUND[MACHINES[event.machine].family];
           if (sound) this.play(sound, { pos: event.pos });
           break;
         }
@@ -289,8 +290,12 @@ const SHOT_SOUND = {
   thorn: 'shotThorn',
 } as const satisfies Record<string, SoundId>;
 
-/** A chest never produces, but the table has to cover every machine. */
-/** A lab consumes rather than produces, so it has no production sound yet. */
+/**
+ * A chest never produces, but the table has to cover every family. Tiers are
+ * keyed by family on purpose: a steel furnace is a furnace, and a row per tier
+ * would be five more sounds saying the same thing. A lab consumes rather than
+ * produces, so it has no production sound yet.
+ */
 const PRODUCED_SOUND = {
   miner: 'mined',
   furnace: 'smelted',
@@ -298,7 +303,7 @@ const PRODUCED_SOUND = {
   inserter: 'slot',
   chest: 'slot',
   lab: null,
-} as const satisfies Record<MachineId, SoundId | null>;
+} as const satisfies Record<MachineFamily, SoundId | null>;
 
 export type { SoundId };
 

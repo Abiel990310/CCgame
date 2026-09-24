@@ -1,4 +1,4 @@
-import { ITEMS } from '@shared/data/items';
+import { ITEMS, ITEM_ORDER } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
 import { TECHS, TECH_BY_ID } from '@shared/data/techs';
@@ -14,7 +14,7 @@ import {
 import { totalIn } from '@shared/sim/slots';
 import { audio } from '../audio';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { Machine, Player, Slot, World } from '@shared/sim/types';
+import type { ItemId, Machine, Player, Slot, World } from '@shared/sim/types';
 import { itemIconVar } from '../render/items';
 
 export interface InventoryCallbacks {
@@ -28,6 +28,8 @@ export interface InventoryCallbacks {
   onSetRecipe: (machineId: number, recipeId: string) => void;
   /** Point every lab on the island at a tech. Research belongs to the world. */
   onSetResearch: (techId: string) => void;
+  /** Restrict an inserter to one item, or clear it with null. */
+  onSetFilter: (machineId: number, item: ItemId | null) => void;
   onClose: () => void;
 }
 
@@ -183,15 +185,29 @@ export class InventoryScreen {
     }
 
     const def = MACHINES[machine.type];
-    const lab = machine.type === 'lab';
-    this.els.eyebrow.textContent = lab ? 'Research' : def.choosesRecipe ? 'Machine' : 'Storage';
+    const lab = def.family === 'lab';
+    const arm = def.family === 'inserter';
+    this.els.eyebrow.textContent = lab
+      ? 'Research'
+      : def.choosesRecipe
+        ? 'Machine'
+        : arm
+          ? 'Arm'
+          : 'Storage';
     this.els.title.textContent = def.name;
     this.els.blurb.textContent = def.description;
     this.els.blurb.classList.remove('hidden');
     this.els.container.classList.remove('hidden');
 
-    // A chest's grid is its whole point, so it is not labelled "In".
-    this.els.inputLabel.textContent = lab ? 'Packs' : def.choosesRecipe ? 'In' : 'Stored';
+    // A chest's grid is its whole point, so it is not labelled "In". An
+    // inserter's one slot is the hand, holding whatever is mid-swing.
+    this.els.inputLabel.textContent = lab
+      ? 'Packs'
+      : def.choosesRecipe
+        ? 'In'
+        : arm
+          ? 'Holding'
+          : 'Stored';
     this.els.inputGrid.parentElement?.classList.toggle('hidden', def.inputSlots === 0);
     this.els.outputBlock.classList.toggle('hidden', def.outputSlots === 0);
     // A lab has a cycle like a crafter does, even though it chooses no recipe.
@@ -239,8 +255,8 @@ export class InventoryScreen {
     }
 
     if (machine) this.updateProgress(machine);
-    if (machine?.type === 'lab') this.updateResearchNote(world);
-    this.updateRecipes(world, machine);
+    if (machine && MACHINES[machine.type].family === 'lab') this.updateResearchNote(world);
+    this.updatePanel(world, machine);
   }
 
   private signature(player: Player, machine: Machine | null): string {
@@ -284,10 +300,10 @@ export class InventoryScreen {
 
   private updateProgress(machine: Machine): void {
     const def = MACHINES[machine.type];
-    if (!def.choosesRecipe && machine.type !== 'lab') return;
+    if (!def.choosesRecipe && def.family !== 'lab') return;
 
     const duration =
-      machine.type === 'lab'
+      def.family === 'lab'
         ? (machine.recipe ? (TECH_BY_ID.get(machine.recipe)?.time ?? 0) : 0)
         : this.craftDuration(machine, def.speed);
     const fraction = duration > 0 ? Math.min(1, machine.progress / duration) : 0;
@@ -311,25 +327,37 @@ export class InventoryScreen {
     if (this.els.research.innerHTML !== text) this.els.research.innerHTML = text;
   }
 
-  private updateRecipes(world: World, machine: Machine | null): void {
+  /**
+   * The panel under the slots: recipes for a machine that crafts, the item
+   * filter for an inserter, the tech tree for a lab. Each is rebuilt only when
+   * what it shows changes.
+   */
+  private updatePanel(world: World, machine: Machine | null): void {
     const def = machine ? MACHINES[machine.type] : null;
-    const key = !machine || !def
+    const key = !machine
       ? ''
-      : machine.type === 'lab'
+      : def?.family === 'lab'
         ? `lab:${researchKey(world)}`
-        : def.choosesRecipe
-          ? `${machine.id}:${machine.recipe}`
+        : def?.choosesRecipe
+          ? `recipe:${machine.id}:${machine.recipe}`
+          : def?.family === 'inserter'
+            ? `filter:${machine.id}:${machine.filter}`
           : '';
     if (key === this.recipeKey) return;
     this.recipeKey = key;
 
+    this.els.recipes.classList.toggle('filters', key.startsWith('filter:'));
     this.els.recipes.innerHTML = '';
-    if (!machine || !def) return;
-    if (machine.type === 'lab') {
+    if (!machine) return;
+    if (def?.family === 'lab') {
       this.paintTechs(world);
       return;
     }
-    if (!def.choosesRecipe) return;
+    if (def?.family === 'inserter') {
+      this.paintFilters(machine);
+      return;
+    }
+    if (!def?.choosesRecipe) return;
 
     for (const recipe of recipesFor(machine.type)) {
       const button = document.createElement('button');
@@ -371,9 +399,38 @@ export class InventoryScreen {
 
       button.innerHTML =
         `<b>${name}</b><span>${tech.description}<br>${cost} · ${tech.time}s · ${state}</span>`;
-      button.addEventListener('click', () => this.callbacks.onSetResearch(tech.id));
+      button.addEventListener('click', () => {
+        audio.play('click');
+        this.callbacks.onSetResearch(tech.id);
+      });
       this.els.recipes.appendChild(button);
     }
+  }
+
+  /**
+   * One chip per item, plus "Anything". Every item is offered rather than a
+   * curated list, because anything a player can carry can end up in a chest
+   * and so can end up as the one thing an arm should pull out of it.
+   */
+  private paintFilters(machine: Machine): void {
+    const head = document.createElement('p');
+    head.className = 'filter-head';
+    head.textContent = 'Move only';
+    this.els.recipes.appendChild(head);
+
+    const chip = (item: ItemId | null): void => {
+      const button = document.createElement('button');
+      button.className = `offer chip${machine.filter === item ? ' on' : ''}`;
+      const icon = item
+        ? `<span class="chip-icon"><i class="item" style="background-image:${itemIconVar(item)}"></i></span>`
+        : '<span class="chip-icon any"></span>';
+      button.innerHTML = `${icon}<b>${item ? ITEMS[item].name : 'Anything'}</b>`;
+      button.addEventListener('click', () => this.callbacks.onSetFilter(machine.id, item));
+      this.els.recipes.appendChild(button);
+    };
+
+    chip(null);
+    for (const item of ITEM_ORDER) chip(item);
   }
 
   private onPointerDown(event: PointerEvent): void {

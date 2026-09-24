@@ -81,6 +81,9 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   powerPack: { id: 'powerPack', name: 'Power Pack', color: '#6f8cf0', stack: 999, shape: 'flask' },
 };
 
+/** Every item in table order, which is the order an item picker offers them. */
+export const ITEM_ORDER = Object.keys(ITEMS) as ItemId[];
+
 export interface ResourceDef {
   kind: ResourceKind;
   name: string;

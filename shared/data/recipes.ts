@@ -1,3 +1,4 @@
+import { MACHINES } from './machines';
 import type { ItemStack, MachineId } from '../sim/types';
 
 export interface Recipe {
@@ -139,8 +140,14 @@ export const RECIPES: Recipe[] = [
 
 export const RECIPE_BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
 
+/**
+ * A recipe is written once, against the tier 1 machine of its family. A steel
+ * furnace runs the furnace rows, so a new tier costs one machine row and no
+ * recipe rows at all.
+ */
 export function recipesFor(machine: MachineId): Recipe[] {
-  return RECIPES.filter((r) => r.machine === machine);
+  const family = MACHINES[machine].family;
+  return RECIPES.filter((r) => r.machine === family);
 }
 
 /** Seconds per craft after the machine's speed multiplier. */

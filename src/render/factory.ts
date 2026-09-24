@@ -1,3 +1,4 @@
+import type { MachineDef } from '@shared/data/machines';
 import { BELT_SPEED, INSERTER_SWING, MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TECH_BY_ID } from '@shared/data/techs';
@@ -125,7 +126,7 @@ export function drawMachine(
   const def = MACHINES[machine.type];
   const { x, y } = tileCenter(machine.tx, machine.ty);
 
-  if (machine.type === 'inserter') {
+  if (def.family === 'inserter') {
     drawInserter(ctx, machine, x, y);
     return;
   }
@@ -142,7 +143,8 @@ export function drawMachine(
   ctx.roundRect(x - TILE * 0.44, y + TILE * 0.14, TILE * 0.88, TILE * 0.22, 5);
   ctx.fill();
 
-  drawMachineFace(ctx, machine, def.accent, time, x, y);
+  drawMachineFace(ctx, machine, def, time, x, y);
+  drawTierPips(ctx, def, x, y);
   drawOutputNub(ctx, machine, x, y);
 
   if (machine.stalled) {
@@ -161,17 +163,21 @@ export function drawMachine(
 function drawMachineFace(
   ctx: CanvasRenderingContext2D,
   machine: Machine,
-  accent: string,
+  def: MachineDef,
   time: number,
   x: number,
   y: number,
 ): void {
   const running = !machine.stalled;
+  const accent = def.accent;
+  // A faster tier animates faster, so a Mk3 reads as working harder than the
+  // Mk1 beside it without having to open either one.
+  const rate = time * def.speed;
 
-  switch (machine.type) {
+  switch (def.family) {
     case 'miner': {
       // A drill head that only turns while the miner is actually working.
-      const spin = running ? time * 3 : 0;
+      const spin = running ? rate * 3 : 0;
       ctx.save();
       ctx.translate(x, y - TILE * 0.06);
       ctx.rotate(spin);
@@ -190,7 +196,7 @@ function drawMachineFace(
       break;
     }
     case 'furnace': {
-      const glow = running ? 0.65 + Math.sin(time * 7) * 0.25 : 0.12;
+      const glow = running ? 0.65 + Math.sin(rate * 7) * 0.25 : 0.12;
       ctx.fillStyle = rgba(accent, glow);
       ctx.beginPath();
       ctx.roundRect(x - TILE * 0.2, y - TILE * 0.22, TILE * 0.4, TILE * 0.3, 3);
@@ -198,7 +204,7 @@ function drawMachineFace(
       break;
     }
     case 'assembler': {
-      const arm = running ? Math.sin(time * 4) * TILE * 0.12 : 0;
+      const arm = running ? Math.sin(rate * 4) * TILE * 0.12 : 0;
       ctx.strokeStyle = accent;
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -249,6 +255,9 @@ function drawMachineFace(
  *
  * The post is deliberately darker and bluer than the island's rock, which it
  * would otherwise be mistaken for wherever a line crosses stone.
+ *
+ * A long arm sweeps across two tiles rather than one, which is the only thing
+ * on screen that says how far it reaches.
  */
 function drawInserter(
   ctx: CanvasRenderingContext2D,
@@ -256,13 +265,15 @@ function drawInserter(
   x: number,
   y: number,
 ): void {
-  const def = MACHINES.inserter;
+  const def = MACHINES[machine.type];
   const hand = machine.input[0];
   // Empty-handed, the arm rests back over its source, waiting.
   const swing = hand ? Math.min(machine.progress / INSERTER_SWING, 1) : 0;
   const angle = dirAngle(machine.dir);
   // -1 is fully back over the source tile, +1 fully forward over the target.
-  const along = (swing * 2 - 1) * TILE * 0.5;
+  // The hand stops half a tile short of the far tile's centre, so a long arm
+  // visibly clears the tile it reaches over instead of resting on top of it.
+  const along = (swing * 2 - 1) * TILE * (def.reach - 0.5);
   const pivotY = y - TILE * 0.22;
   const handX = x + Math.cos(angle) * along;
   const handY = pivotY + Math.sin(angle) * along;
@@ -294,6 +305,19 @@ function drawInserter(
   ctx.arc(x, pivotY, 3.2, 0, Math.PI * 2);
   ctx.fill();
 
+  // A filtered arm carries a chip of what it is set to, so a bank of arms
+  // taking different items out of one chest can be told apart without
+  // opening every one of them.
+  if (machine.filter) {
+    // A pale plate behind it, because the darkest items in the table are
+    // nearly the colour of the post and would otherwise leave no chip at all.
+    ctx.fillStyle = '#e4e9f2';
+    ctx.beginPath();
+    ctx.roundRect(x - TILE * 0.13, y + TILE * 0.06, TILE * 0.26, TILE * 0.2, 3);
+    ctx.fill();
+    drawItemSprite(ctx, x, y + TILE * 0.16, TILE * 0.09, machine.filter);
+  }
+
   // The carried item goes on last: mid-swing the hand is over the post, and an
   // item that blinks out of sight halfway across looks like a dropped one.
   if (hand) {
@@ -303,6 +327,30 @@ function drawInserter(
     ctx.fill();
 
     drawItemSprite(ctx, handX, handY, 5.2, hand.id);
+  }
+}
+
+/**
+ * Tier marks along the top edge: one chevron per tier above the first. Tiers
+ * share a silhouette on purpose — a furnace should still read as a furnace —
+ * so the pips are what tells a bank of Mk2s from a bank of Mk3s at a glance.
+ */
+function drawTierPips(
+  ctx: CanvasRenderingContext2D,
+  def: MachineDef,
+  x: number,
+  y: number,
+): void {
+  if (def.tier < 2) return;
+
+  const marks = def.tier - 1;
+  const width = 5;
+  const left = x - ((marks - 1) * width) / 2;
+  ctx.fillStyle = def.accent;
+  for (let i = 0; i < marks; i++) {
+    ctx.beginPath();
+    ctx.roundRect(left + i * width - 1.6, y - TILE * 0.46, 3.2, 4.4, 1.4);
+    ctx.fill();
   }
 }
 
@@ -331,13 +379,16 @@ function drawOutputNub(
  * so this stays right however far up the tech tree the island is.
  */
 function cycleLength(machine: Machine): number {
-  if (machine.type === 'miner') return MINE_TIME;
-  if (machine.type === 'lab') {
+  const def = MACHINES[machine.type];
+  // A miner's speed scales how fast progress climbs toward MINE_TIME, so the
+  // bar is out of MINE_TIME whatever the tier.
+  if (def.family === 'miner') return MINE_TIME;
+  if (def.family === 'lab') {
     const tech = machine.recipe ? TECH_BY_ID.get(machine.recipe) : null;
     return tech ? tech.time : 0;
   }
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
-  return recipe ? craftTime(recipe, MACHINES[machine.type].speed) : 0;
+  return recipe ? craftTime(recipe, def.speed) : 0;
 }
 
 function drawProgress(
@@ -346,8 +397,9 @@ function drawProgress(
   x: number,
   y: number,
 ): void {
+  const def = MACHINES[machine.type];
   // A chest has no cycle, and an inserter's arm already is its progress bar.
-  if (machine.type === 'chest' || machine.type === 'inserter') return;
+  if (def.family === 'chest' || def.family === 'inserter') return;
 
   const duration = cycleLength(machine);
   if (duration <= 0 || machine.progress <= 0) return;

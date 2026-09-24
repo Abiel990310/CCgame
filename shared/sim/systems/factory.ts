@@ -75,12 +75,12 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
   // An inserter's input slot is its hand, not a hopper: it fills that itself
   // from the tile behind it. Refusing here is also what stops two inserters
   // facing each other from passing one item back and forth forever.
-  if (machine.type === 'inserter') return false;
+  if (def.family === 'inserter') return false;
 
   // A lab takes research packs and nothing else, whatever is being researched
   // at this moment: a line is free to stockpile the packs the next tech will
   // want rather than backing up every time one finishes.
-  if (machine.type === 'lab') {
+  if (def.family === 'lab') {
     if (!isResearchPack(item)) return false;
     if (!ingredientFits(machine.input, def, RESEARCH_PACKS.length, item)) return false;
     return addToSlots(machine.input, item, 1, def.slotSize) === 1;
@@ -132,7 +132,9 @@ export function stepMachines(world: World, dt: number): void {
   const bonus = researchBonuses(world);
 
   for (const machine of world.machines) {
-    switch (machine.type) {
+    // Dispatch on the family, not the type: a steel furnace is a furnace that
+    // runs faster, and every tier added later should stay that cheap.
+    switch (MACHINES[machine.type].family) {
       case 'miner':
         stepMiner(world, machine, dt, bonus);
         break;
@@ -154,7 +156,10 @@ export function stepMachines(world: World, dt: number): void {
   }
 }
 
-/** Seconds a miner takes to extract one ore. The renderer reads it too. */
+/**
+ * Seconds a tier 1 miner takes to extract one ore; speed divides it. Exported
+ * because the renderer's progress bar has to agree with it.
+ */
 export const MINE_TIME = 1.2;
 
 function stepMiner(world: World, machine: Machine, dt: number, bonus: ResearchBonuses): void {
@@ -164,7 +169,7 @@ function stepMiner(world: World, machine: Machine, dt: number, bonus: ResearchBo
     return;
   }
 
-  const def = MACHINES.miner;
+  const def = MACHINES[machine.type];
   if (roomFor(machine.output, ore, def.slotSize) < 1) {
     machine.stalled = true;
     return;
@@ -203,10 +208,10 @@ function announce(world: World, machine: Machine, item: ItemId): void {
  * dropping what it grabbed.
  */
 function stepInserter(world: World, machine: Machine, dt: number, bonus: ResearchBonuses): void {
-  const def = MACHINES.inserter;
+  const def = MACHINES[machine.type];
 
   if (machine.input[0] === null) {
-    const grabbed = grabFromBehind(world, machine);
+    const grabbed = grabFromBehind(world, machine, def.reach);
     if (grabbed === null) {
       // Nothing within reach is idle, not stalled — a red light on every
       // inserter waiting on a slow line would drown out real blockages.
@@ -222,7 +227,7 @@ function stepInserter(world: World, machine: Machine, dt: number, bonus: Researc
   if (machine.progress < INSERTER_SWING) return;
 
   const hand = machine.input[0];
-  if (!hand || !dropInFront(world, machine, hand.id)) {
+  if (!hand || !dropInFront(world, machine, hand.id, def.reach)) {
     // Arm extended over a full destination: hold the item and show it.
     machine.stalled = true;
     return;
@@ -232,21 +237,26 @@ function stepInserter(world: World, machine: Machine, dt: number, bonus: Researc
   machine.progress = 0;
 }
 
-/** Take one item out of whatever sits behind the inserter. */
-function grabFromBehind(world: World, machine: Machine): ItemId | null {
-  const { tx, ty } = inputTile(machine);
+/**
+ * Take one item out of whatever sits behind the inserter, `reach` tiles back.
+ * A filtered arm takes only what it is set to and leaves the rest where it is,
+ * which is what lets one mixed chest or one shared belt feed several lines.
+ */
+function grabFromBehind(world: World, machine: Machine, reach: number): ItemId | null {
+  const { tx, ty } = inputTile(machine, reach);
 
   const belt = beltAt(world, tx, ty);
   if (belt) {
-    // The item nearest the belt's output end is the one within reach.
+    // The item nearest the belt's output end is the one within reach. A
+    // filtered arm does not dig past it: anything else keeps riding by.
     const front = belt.items[0];
-    if (!front) return null;
+    if (!front || !wanted(machine, front.item)) return null;
     belt.items.shift();
     return front.item;
   }
 
   const source = machineAt(world, tx, ty);
-  if (!source || source.type === 'inserter') return null;
+  if (!source || MACHINES[source.type].family === 'inserter') return null;
 
   // A machine with an output side gives from there and nowhere else, so an
   // inserter cannot steal the ore a furnace is waiting to smelt. A chest has
@@ -257,7 +267,7 @@ function grabFromBehind(world: World, machine: Machine): ItemId | null {
   const from = sourceDef.outputSlots > 0 ? source.output : source.input;
 
   for (const slot of from) {
-    if (slot && slot.count > 0) {
+    if (slot && slot.count > 0 && wanted(machine, slot.id)) {
       takeStack(from, slot.id, 1);
       return slot.id;
     }
@@ -265,9 +275,14 @@ function grabFromBehind(world: World, machine: Machine): ItemId | null {
   return null;
 }
 
+/** An unfiltered inserter moves anything; a filtered one moves its one item. */
+function wanted(machine: Machine, item: ItemId): boolean {
+  return machine.filter === null || machine.filter === item;
+}
+
 /** Put the held item into the belt or machine the inserter faces. */
-function dropInFront(world: World, machine: Machine, item: ItemId): boolean {
-  const { tx, ty } = outputTile(machine);
+function dropInFront(world: World, machine: Machine, item: ItemId, reach: number): boolean {
+  const { tx, ty } = outputTile(machine, reach);
 
   const belt = beltAt(world, tx, ty);
   if (belt) return pushOntoBelt(belt, item);
@@ -289,7 +304,9 @@ function stepCrafter(
     return;
   }
 
-  const duration = craftTime(recipe, def.speed * bonus.crafting);
+  // Research speeds up how fast a craft advances rather than shortening it,
+  // the same as a miner's, so every progress bar can keep reading the base time.
+  const duration = craftTime(recipe, def.speed);
 
   // Only consume inputs once, at the moment a craft starts.
   if (machine.progress === 0) {
@@ -301,7 +318,7 @@ function stepCrafter(
   }
 
   machine.stalled = false;
-  machine.progress += dt;
+  machine.progress += dt * bonus.crafting;
   if (machine.progress < duration) return;
 
   machine.progress = 0;
@@ -321,7 +338,7 @@ function stepCrafter(
  * so a cycle can never be finished against a tech it was not paid for.
  */
 function stepLab(world: World, machine: Machine, dt: number, bonus: ResearchBonuses): void {
-  const def = MACHINES.lab;
+  const def = MACHINES[machine.type];
   const tech = activeTech(world);
 
   if (machine.recipe !== null && machine.recipe !== tech?.id) refundCycle(machine);
@@ -360,7 +377,7 @@ function refundCycle(machine: Machine): void {
   machine.progress = 0;
   if (!previous) return;
 
-  const { slotSize } = MACHINES.lab;
+  const { slotSize } = MACHINES[machine.type];
   for (const input of previous.inputs) {
     addToSlots(machine.input, input.id, input.count, slotSize);
   }

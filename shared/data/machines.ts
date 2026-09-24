@@ -1,4 +1,4 @@
-import type { ItemStack, MachineId } from '../sim/types';
+import type { ItemStack, MachineFamily, MachineId } from '../sim/types';
 
 export interface MachineDef {
   id: MachineId;
@@ -14,10 +14,24 @@ export interface MachineDef {
   slotSize: number;
   /** Multiplies recipe time; a faster machine is a later-tier upgrade. */
   speed: number;
+  /**
+   * The machine whose recipe rows this one runs. A tier 1 machine names
+   * itself, so a steel furnace smelts everything a stone furnace does without
+   * the recipe table gaining a row per tier.
+   */
+  family: MachineFamily;
+  /** 1, 2 or 3. Drawn as pips, so a tier is readable out on the island. */
+  tier: number;
   /** True when the machine must be placed on an ore tile. */
   needsOre: boolean;
   /** True when the player picks which recipe it runs. */
   choosesRecipe: boolean;
+  /**
+   * Tiles an arm reaches on each side, over whatever sits in between; 0 for
+   * every family but the inserter. It is what separates the two arms, so a
+   * longer reach is a data row rather than a second system.
+   */
+  reach: number;
   /**
    * True when the machine holds items for anyone to take back out. An inserter
    * empties storage through its input grid, because a chest has no output side;
@@ -29,6 +43,8 @@ export interface MachineDef {
 export const MACHINES: Record<MachineId, MachineDef> = {
   miner: {
     id: 'miner',
+    family: 'miner',
+    tier: 1,
     name: 'Miner',
     description: 'Place on an ore patch. Pulls ore out on its own, forever.',
     cost: [
@@ -43,10 +59,13 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: true,
     choosesRecipe: false,
+    reach: 0,
     storage: false,
   },
   furnace: {
     id: 'furnace',
+    family: 'furnace',
+    tier: 1,
     name: 'Furnace',
     description: 'Smelts ore into plates. Feed it coal as well and it makes steel.',
     cost: [
@@ -61,10 +80,13 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: true,
+    reach: 0,
     storage: false,
   },
   assembler: {
     id: 'assembler',
+    family: 'assembler',
+    tier: 1,
     name: 'Assembler',
     description: 'Combines plates into parts. Where the chains start branching.',
     cost: [
@@ -79,10 +101,143 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: true,
+    reach: 0,
+    storage: false,
+  },
+  minerMk2: {
+    id: 'minerMk2',
+    family: 'miner',
+    tier: 2,
+    name: 'Steel Miner',
+    description: 'A steel drill on the same patch. Twice the ore, one tile.',
+    cost: [
+      { id: 'steelPlate', count: 12 },
+      { id: 'gear', count: 10 },
+    ],
+    color: '#79879b',
+    accent: '#ffcf6b',
+    inputSlots: 0,
+    outputSlots: 2,
+    slotSize: 50,
+    speed: 2,
+    needsOre: true,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+  },
+  minerMk3: {
+    id: 'minerMk3',
+    family: 'miner',
+    tier: 3,
+    name: 'Electric Miner',
+    description: 'Four ore for every one the first drill pulled, off one patch.',
+    cost: [
+      { id: 'steelPlate', count: 20 },
+      { id: 'motor', count: 6 },
+      { id: 'advancedCircuit', count: 4 },
+    ],
+    color: '#5d6b8c',
+    accent: '#7fd4ff',
+    inputSlots: 0,
+    outputSlots: 3,
+    slotSize: 50,
+    speed: 4,
+    needsOre: true,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+  },
+  furnaceMk2: {
+    id: 'furnaceMk2',
+    family: 'furnace',
+    tier: 2,
+    name: 'Steel Furnace',
+    description: 'Smelts at double speed, and holds enough to ride out a gap.',
+    cost: [
+      { id: 'steelPlate', count: 12 },
+      { id: 'stone', count: 20 },
+    ],
+    color: '#7d7a72',
+    accent: '#ffb74a',
+    inputSlots: 4,
+    outputSlots: 2,
+    slotSize: 50,
+    speed: 2,
+    needsOre: false,
+    choosesRecipe: true,
+    reach: 0,
+    storage: false,
+  },
+  furnaceMk3: {
+    id: 'furnaceMk3',
+    family: 'furnace',
+    tier: 3,
+    name: 'Electric Furnace',
+    description: 'Four stone furnaces in one tile. Steel banks stop sprawling.',
+    cost: [
+      { id: 'steelPlate', count: 20 },
+      { id: 'motor', count: 8 },
+      { id: 'advancedCircuit', count: 6 },
+    ],
+    color: '#6d7686',
+    accent: '#7fd4ff',
+    inputSlots: 6,
+    outputSlots: 3,
+    slotSize: 50,
+    speed: 4,
+    needsOre: false,
+    choosesRecipe: true,
+    reach: 0,
+    storage: false,
+  },
+  assemblerMk2: {
+    id: 'assemblerMk2',
+    family: 'assembler',
+    tier: 2,
+    name: 'Assembler Mk2',
+    description: 'Builds the same parts twice as fast, with room for both inputs.',
+    cost: [
+      { id: 'steelPlate', count: 12 },
+      { id: 'gear', count: 10 },
+      { id: 'circuit', count: 6 },
+    ],
+    color: '#5f7391',
+    accent: '#8fe0c0',
+    inputSlots: 4,
+    outputSlots: 2,
+    slotSize: 50,
+    speed: 2,
+    needsOre: false,
+    choosesRecipe: true,
+    reach: 0,
+    storage: false,
+  },
+  assemblerMk3: {
+    id: 'assemblerMk3',
+    family: 'assembler',
+    tier: 3,
+    name: 'Industrial Assembler',
+    description: 'The end of the ladder: four times the output of the first one.',
+    cost: [
+      { id: 'steelPlate', count: 25 },
+      { id: 'motor', count: 12 },
+      { id: 'advancedCircuit', count: 10 },
+    ],
+    color: '#55617f',
+    accent: '#d48cff',
+    inputSlots: 6,
+    outputSlots: 2,
+    slotSize: 50,
+    speed: 4,
+    needsOre: false,
+    choosesRecipe: true,
+    reach: 0,
     storage: false,
   },
   chest: {
     id: 'chest',
+    family: 'chest',
+    tier: 1,
     name: 'Storage Chest',
     description: 'Accepts anything from a belt. An inserter is how it comes back out.',
     cost: [{ id: 'wood', count: 12 }],
@@ -94,10 +249,13 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: false,
+    reach: 0,
     storage: true,
   },
   inserter: {
     id: 'inserter',
+    family: 'inserter',
+    tier: 1,
     name: 'Inserter',
     description: 'Reaches behind itself and loads what it finds into the tile ahead.',
     cost: [
@@ -113,10 +271,37 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: false,
+    reach: 1,
+    storage: false,
+  },
+  longInserter: {
+    id: 'longInserter',
+    family: 'inserter',
+    // A sidegrade rather than a rung: it reaches further, not faster.
+    tier: 1,
+    name: 'Long Inserter',
+    description: 'Reaches two tiles, so it loads a machine from across a belt.',
+    cost: [
+      { id: 'wood', count: 6 },
+      { id: 'ironPlate', count: 4 },
+      { id: 'gear', count: 2 },
+    ],
+    color: '#3f3a57',
+    accent: '#c3a2ff',
+    inputSlots: 1,
+    outputSlots: 0,
+    slotSize: 1,
+    // The longer arm has further to travel, so it is the slower of the two.
+    speed: 0.8,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 2,
     storage: false,
   },
   lab: {
     id: 'lab',
+    family: 'lab',
+    tier: 1,
     name: 'Lab',
     description: 'Eats research packs off a belt. Every cycle it finishes levels you up.',
     cost: [
@@ -134,16 +319,25 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     speed: 1,
     needsOre: false,
     choosesRecipe: false,
+    reach: 0,
     storage: false,
   },
 };
 
+/** Palette order: each family in tier order, storage and logistics last. */
 export const MACHINE_ORDER: MachineId[] = [
   'miner',
+  'minerMk2',
+  'minerMk3',
   'furnace',
+  'furnaceMk2',
+  'furnaceMk3',
   'assembler',
+  'assemblerMk2',
+  'assemblerMk3',
   'chest',
   'inserter',
+  'longInserter',
   'lab',
 ];
 

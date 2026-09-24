@@ -16,6 +16,7 @@ import type {
   OreKind,
   Player,
   Slot,
+  Vec2,
   World,
 } from '../types';
 import { addPlayer, createWorld } from '../world';
@@ -42,7 +43,17 @@ export function bench(seed = 2026): Bench {
 
   // Enough of everything the machines cost, so placement never fails for want
   // of materials.
-  for (const item of ['wood', 'stone', 'ironPlate'] as ItemId[]) addItem(player, item, 900);
+  const stock: ItemId[] = [
+    'wood',
+    'stone',
+    'ironPlate',
+    'steelPlate',
+    'gear',
+    'circuit',
+    'motor',
+    'advancedCircuit',
+  ];
+  for (const item of stock) addItem(player, item, 900);
 
   const grass = TERRAIN_ORDER.indexOf('grass');
   for (let ty = BENCH.ty; ty < BENCH.ty + BENCH.height; ty++) {
@@ -52,18 +63,16 @@ export function bench(seed = 2026): Bench {
     }
   }
 
-  // Scenery is generated before the strip is flattened, so a tree can be left
-  // standing in the middle of the bench — and placement refuses to bury one.
-  // Clearing them is what makes every tile of the bench buildable, rather than
-  // the ones this seed happened to leave empty.
-  world.nodes = world.nodes.filter((node) => !onBench(node.pos.x, node.pos.y));
+  // Scenery blocks placement, and the generator scatters it over these tiles
+  // too — which would make where a layout fits a property of the seed again.
+  world.nodes = world.nodes.filter((node) => !onBench(node.pos));
 
   return { world, player };
 }
 
-function onBench(x: number, y: number): boolean {
-  const tx = Math.floor(x / TILE);
-  const ty = Math.floor(y / TILE);
+function onBench(pos: Vec2): boolean {
+  const tx = Math.floor(pos.x / TILE);
+  const ty = Math.floor(pos.y / TILE);
   return (
     tx >= BENCH.tx &&
     tx < BENCH.tx + BENCH.width &&

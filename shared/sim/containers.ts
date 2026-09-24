@@ -52,7 +52,7 @@ export function accepts(machine: Machine | null, area: SlotArea, id: ItemId): bo
   const def = MACHINES[machine.type];
   if (def.inputSlots === 0) return false;
   // A lab is loaded by hand on the same terms a belt loads it: packs only.
-  if (machine.type === 'lab') return isResearchPack(id);
+  if (def.family === 'lab') return isResearchPack(id);
   // A chest takes anything; a crafter only takes what its recipe actually uses.
   if (!def.choosesRecipe) return true;
 

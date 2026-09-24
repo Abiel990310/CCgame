@@ -179,7 +179,22 @@ export type Direction = 0 | 1 | 2 | 3;
 
 export type OreKind = 'ironOre' | 'copperOre' | 'coal';
 
-export type MachineId = 'miner' | 'furnace' | 'assembler' | 'chest' | 'inserter' | 'lab';
+/**
+ * What a machine fundamentally is. Every tier of a machine shares its family's
+ * recipes, its tick and its silhouette, so anything that switches on the kind
+ * of machine switches on this rather than on the type.
+ */
+export type MachineFamily = 'miner' | 'furnace' | 'assembler' | 'chest' | 'inserter' | 'lab';
+
+export type MachineId =
+  | MachineFamily
+  | 'minerMk2'
+  | 'minerMk3'
+  | 'furnaceMk2'
+  | 'furnaceMk3'
+  | 'assemblerMk2'
+  | 'assemblerMk3'
+  | 'longInserter';
 
 /** One item riding a belt tile, positioned 0..1 along its length. */
 export interface BeltItem {
@@ -205,6 +220,8 @@ export interface Machine {
   dir: Direction;
   /** Chosen recipe, or null for machines that have no choice to make. */
   recipe: string | null;
+  /** Inserters only: the one item this arm will move, or null for anything. */
+  filter: ItemId | null;
   /** Seconds of crafting accumulated toward the current recipe. */
   progress: number;
   /** Fixed grids, sized by the machine's `inputSlots` and `outputSlots`. */
