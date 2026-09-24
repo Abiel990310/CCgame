@@ -334,6 +334,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: false,
     reach: 0,
+    solid: true,
     storage: true,
   },
   fastInserter: {
@@ -358,6 +359,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: false,
     reach: 1,
+    solid: true,
     storage: false,
   },
   stackInserter: {
@@ -382,6 +384,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     needsOre: false,
     choosesRecipe: false,
     reach: 1,
+    solid: true,
     storage: false,
   },
   lab: {
