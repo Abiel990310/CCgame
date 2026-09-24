@@ -579,6 +579,33 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     generates: 900,
     solid: true,
   },
+  solar: {
+    id: 'solar',
+    crafted: true,
+    family: 'solar',
+    tier: 1,
+    name: 'Solar Panel',
+    description:
+      'Power without coal, but only while the sun is up. A field of them carries a base through the day and leaves the engines for the night.',
+    cost: [
+      { id: 'steelPlate', count: 5 },
+      { id: 'copperPlate', count: 10 },
+      { id: 'advancedCircuit', count: 2 },
+    ],
+    color: '#3d4a66',
+    accent: '#7fb8ff',
+    inputSlots: 0,
+    outputSlots: 0,
+    slotSize: 1,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+    fuelSlots: 0,
+    generates: 60,
+    solid: true,
+  },
   pole: {
     id: 'pole',
     family: 'pole',
@@ -628,6 +655,7 @@ export const MACHINE_ORDER: MachineId[] = [
   'lab',
   'fishTrap',
   'generator',
+  'solar',
   'pole',
 ];
 

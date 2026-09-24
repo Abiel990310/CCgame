@@ -46,6 +46,7 @@ const FAMILY_GROUP: Record<MachineFamily, (typeof GROUPS)[number]> = {
   chest: 'Storage',
   fishTrap: 'Extraction',
   generator: 'Power',
+  solar: 'Power',
   pole: 'Power',
 };
 

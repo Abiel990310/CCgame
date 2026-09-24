@@ -3,6 +3,7 @@ import { WEAPONS, weaponDamage, weaponRate, type WeaponDef } from '../../data/we
 import { COMBAT, PLAYER } from '../constants';
 import { distance, distanceSq, normalize } from '../math';
 import { grantXp, nextFloat } from '../progression';
+import { researchBonuses } from '../research';
 import type { Mob, Player, Vec2, World } from '../types';
 
 /** Radians between multishot projectiles that have no target of their own. */
@@ -98,13 +99,14 @@ export function stepWeapons(world: World, player: Player, dt: number): void {
   if (player.downed > 0) return;
 
   const incoming = incomingDamage(world);
+  const forged = researchBonuses(world).damage;
 
   for (const weapon of player.weapons) {
     const def = WEAPONS[weapon.id];
     weapon.cooldown -= dt;
     if (weapon.cooldown > 0) continue;
 
-    const damage = weaponDamage(weapon.id, weapon.level) * player.stats.damage;
+    const damage = weaponDamage(weapon.id, weapon.level) * player.stats.damage * forged;
     const shots = 1 + player.stats.multishot;
     const taken = new Set<number>();
     const targets: Mob[] = [];

@@ -336,8 +336,9 @@ function describePower(world: World, machine: Machine): Card {
       : { text: 'No engine on this line', tone: 'warn' };
   } else {
     const used = Math.min(net.demand, net.supply);
-    rows.push(['Supply', `${net.supply} kW`], ['Demand', `${net.demand} kW`]);
+    rows.push(['Supply', `${Math.round(net.supply)} kW`], ['Demand', `${Math.round(net.demand)} kW`]);
     if (def.generates && outOfFuel(machine)) status = { text: 'Out of fuel', tone: 'bad' };
+    else if (def.generates && def.fuelSlots === 0 && machine.stalled) status = { text: 'Dark until morning', tone: 'warn' };
     else if (net.supply === 0) status = { text: 'No engine running', tone: 'bad' };
     else if (net.satisfaction < 1) status = { text: `Overloaded: ${Math.round(net.satisfaction * 100)}% speed`, tone: 'bad' };
     else if (net.demand === 0) status = { text: 'Idle', tone: 'warn' };

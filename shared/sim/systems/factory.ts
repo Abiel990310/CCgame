@@ -141,7 +141,7 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
  * Make sure a burner has heat for the work ahead, burning one item of fuel from
  * its grid when the last has run out. Machines with no fuel grid always can.
  */
-function stoke(machine: Machine): boolean {
+function stoke(machine: Machine, fuelBonus = 1): boolean {
   if (!machine.fuel) return true;
   if ((machine.heat ?? 0) > 0) return true;
 
@@ -149,7 +149,7 @@ function stoke(machine: Machine): boolean {
     const value = slot ? FUEL_VALUE[slot.id] ?? 0 : 0;
     if (slot && value > 0) {
       takeStack(machine.fuel, slot.id, 1);
-      machine.heat = (machine.heat ?? 0) + value;
+      machine.heat = (machine.heat ?? 0) + value * fuelBonus;
       return true;
     }
   }
@@ -231,7 +231,8 @@ export function stepMachines(world: World, dt: number): void {
         stepTrap(world, machine, dt);
         break;
       case 'generator':
-        // `stepPower` runs engines on a network; one no pole reaches is idle.
+      case 'solar':
+        // `stepPower` runs generators on a network; one no pole reaches is idle.
         if (!powerNetOf(world, machine)) machine.stalled = true;
         break;
       case 'pole':
@@ -544,7 +545,7 @@ function stepCrafter(
     }
     // A burner with nothing to burn keeps its ingredients in the grid rather
     // than swallowing them into a craft it cannot run.
-    if (!stoke(machine)) {
+    if (!stoke(machine, bonus.fuel)) {
       machine.stalled = true;
       return;
     }
@@ -552,7 +553,7 @@ function stepCrafter(
   }
 
   // Running dry mid-craft pauses it; the progress is kept for when coal arrives.
-  if (!stoke(machine)) {
+  if (!stoke(machine, bonus.fuel)) {
     machine.stalled = true;
     return;
   }

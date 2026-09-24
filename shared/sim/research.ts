@@ -97,7 +97,18 @@ export function nextTech(world: World): TechDef | null {
 
 export type ResearchBonuses = Record<TechEffectKind, number>;
 
-const NONE: ResearchBonuses = { mining: 1, crafting: 1, belt: 1, inserter: 1, lab: 1, xp: 1 };
+const NONE: ResearchBonuses = {
+  mining: 1,
+  crafting: 1,
+  belt: 1,
+  inserter: 1,
+  lab: 1,
+  xp: 1,
+  gather: 1,
+  damage: 1,
+  fuel: 1,
+  power: 1,
+};
 
 /**
  * Every completed tech as one multiplier per effect. Summed over `TECHS` rather

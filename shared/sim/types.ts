@@ -29,11 +29,14 @@ export type ItemId =
   | 'battery'
   | 'motor'
   | 'advancedCircuit'
+  | 'pipe'
+  | 'engineUnit'
   // Consumed by labs
   | 'researchPack'
   | 'logicPack'
   | 'powerPack'
   | 'resonancePack'
+  | 'engineeringPack'
   // Crafted at the workbench
   | ToolItemId
   | CraftedMachineId;
@@ -66,7 +69,8 @@ export type CraftedMachineId =
   | 'stackInserter'
   | 'lab'
   | 'splitter'
-  | 'generator';
+  | 'generator'
+  | 'solar';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -238,6 +242,7 @@ export type MachineFamily =
   | 'lab'
   | 'fishTrap'
   | 'generator'
+  | 'solar'
   | 'pole';
 
 export type MachineId =
