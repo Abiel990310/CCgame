@@ -1,6 +1,6 @@
 import { MACHINES } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
-import { setFilter, splitterAccepts } from './factory';
+import { isSplitter, setFilter, splitterAccepts } from './factory';
 import { giveOrDrop } from './inventory';
 import { addToSlots, slotCap, sortSlots, takeFromSlots } from './slots';
 import type { ItemId, Machine, Player, Slot, World } from './types';
@@ -53,12 +53,12 @@ export function accepts(machine: Machine | null, area: SlotArea, id: ItemId): bo
   if (!machine) return false;
   // The output side is what the machine made; taking from it is fine, filling it is not.
   if (area === 'output') return false;
-  if (area === 'filter') return machine.type === 'splitter';
+  if (area === 'filter') return isSplitter(machine);
 
   const def = MACHINES[machine.type];
   if (def.inputSlots === 0) return false;
   // Handing a splitter something neither side would route only jams it.
-  if (machine.type === 'splitter') return splitterAccepts(machine, id);
+  if (def.family === 'splitter') return splitterAccepts(machine, id);
   // A chest takes anything; a crafter only takes what its recipe actually uses.
   if (!def.choosesRecipe) return true;
 
@@ -82,7 +82,7 @@ export function clickSlot(
   // A side is set from what is in hand and cleared by an empty one, so the
   // click never takes the item: a filter is a label, not a stored stack.
   if (ref.area === 'filter') {
-    if (machineId === null || machine?.type !== 'splitter') return false;
+    if (machineId === null || !machine || !isSplitter(machine)) return false;
     return setFilter(world, machineId, ref.index, player.cursor?.id ?? null);
   }
 

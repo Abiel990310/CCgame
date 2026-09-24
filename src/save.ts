@@ -310,7 +310,7 @@ function packMachine(machine: Machine): PackedMachine {
   ];
 
   // Only a splitter has sides, so only a splitter pays for them in the file.
-  if (machine.type === 'splitter') {
+  if (MACHINES[machine.type].family === 'splitter') {
     packed[9] = machine.filters ?? [null, null];
     packed[10] = machine.turn ?? 0;
   }
@@ -332,7 +332,7 @@ function unpackMachine(packed: PackedMachine): Machine {
     stalled: false,
   };
 
-  if (machine.type === 'splitter') {
+  if (MACHINES[machine.type]?.family === 'splitter') {
     machine.filters = packed[9] ?? [null, null];
     machine.turn = packed[10] ?? 0;
   }
@@ -354,7 +354,7 @@ function loadMachine(machine: Machine): Machine {
 
   // A splitter always has exactly two sides. A filter naming an item that no
   // longer exists opens back up rather than refusing everything forever.
-  if (loaded.type === 'splitter') {
+  if (def.family === 'splitter') {
     const saved = machine.filters ?? [];
     loaded.filters = [0, 1].map((i) => {
       const item = saved[i];

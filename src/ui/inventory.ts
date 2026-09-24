@@ -185,7 +185,7 @@ export class InventoryScreen {
     // splitter's single slot is a queue rather than a shelf.
     this.els.inputLabel.textContent = def.choosesRecipe
       ? 'In'
-      : machine.type === 'splitter'
+      : def.family === 'splitter'
         ? 'Passing through'
         : 'Stored';
     this.els.inputGrid.parentElement?.classList.toggle('hidden', def.inputSlots === 0);
@@ -195,13 +195,13 @@ export class InventoryScreen {
     // A splitter's buffer is a queue of one item; there is nothing to tidy.
     this.els.sortInput.classList.toggle(
       'hidden',
-      def.inputSlots < 2 || machine.type === 'splitter',
+      def.inputSlots < 2 || def.family === 'splitter',
     );
-    this.els.filterBlock.classList.toggle('hidden', machine.type !== 'splitter');
+    this.els.filterBlock.classList.toggle('hidden', def.family !== 'splitter');
 
     this.buildGrid('input', def.inputSlots);
     this.buildGrid('output', def.outputSlots);
-    if (machine.type === 'splitter') this.buildFilters();
+    if (def.family === 'splitter') this.buildFilters();
   }
 
   /**
@@ -285,7 +285,7 @@ export class InventoryScreen {
     if (machine) {
       this.paintGrid('input', machine.input);
       this.paintGrid('output', machine.output);
-      if (machine.type === 'splitter') this.paintFilters(machine);
+      if (MACHINES[machine.type].family === 'splitter') this.paintFilters(machine);
       const stored = totalIn(machine.input) + totalIn(machine.output);
       this.els.takeAll.disabled = stored === 0;
       this.els.takeAll.textContent = stored === 0 ? 'Empty' : `Take all (${stored})`;

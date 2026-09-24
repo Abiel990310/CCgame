@@ -106,14 +106,14 @@ export function placeMachine(
     ty,
     dir,
     // A miner's "recipe" is whatever it is standing on; everything else is chosen.
-    recipe: type === 'miner' ? null : defaultRecipe(type),
+    recipe: def.family === 'miner' ? null : defaultRecipe(type),
     progress: 0,
     input: makeSlots(def.inputSlots),
     output: makeSlots(def.outputSlots),
     stalled: false,
   };
   // Only a splitter carries sides, so nothing else pays for the fields.
-  if (type === 'splitter') {
+  if (def.family === 'splitter') {
     machine.filters = [null, null];
     machine.turn = 0;
   }
@@ -172,7 +172,7 @@ export function setRecipe(world: World, machineId: number, recipeId: string): bo
   if (!MACHINES[machine.type].choosesRecipe) return false;
 
   const recipe = RECIPE_BY_ID.get(recipeId);
-  if (!recipe || recipe.machine !== machine.type) return false;
+  if (!recipe || recipe.machine !== MACHINES[machine.type].family) return false;
 
   machine.recipe = recipeId;
   machine.progress = 0;
@@ -210,6 +210,11 @@ export function sideTiles(entity: { tx: number; ty: number; dir: Direction }): [
   ];
 }
 
+/** Keyed on the family, so a faster splitter tier would need no changes here. */
+export function isSplitter(machine: Machine): boolean {
+  return MACHINES[machine.type].family === 'splitter';
+}
+
 /** The item a splitter's side is set to take, or null when it takes anything. */
 export function filterOf(machine: Machine, side: number): ItemId | null {
   return machine.filters?.[side] ?? null;
@@ -234,7 +239,7 @@ export function setFilter(
   item: ItemId | null,
 ): boolean {
   const machine = world.machines.find((m) => m.id === machineId);
-  if (!machine || machine.type !== 'splitter') return false;
+  if (!machine || !isSplitter(machine)) return false;
   if (side !== 0 && side !== 1) return false;
 
   const filters = machine.filters ?? [null, null];
