@@ -135,4 +135,16 @@ describe('filtered chest slots', () => {
     advance(b.world, 30);
     expect(held(target, 'ironPlate')).toBe(20);
   });
+
+  it('carry over to a steel chest built on top, with the new slots open', () => {
+    const { b, box } = chest(7);
+    setSlotFilter(b.world, box.id, 3, 'coal');
+    for (const cost of MACHINES.steelChest.cost) addItem(b.player, cost.id, cost.count);
+    const upgraded = put(b, 'steelChest', box.tx, box.ty, 0) as Machine;
+
+    expect(upgraded.id).toBe(box.id);
+    expect(upgraded.filters).toHaveLength(MACHINES.steelChest.inputSlots);
+    expect(upgraded.filters?.[3]).toBe('coal');
+    expect(upgraded.filters?.filter((f) => f !== null)).toEqual(['coal']);
+  });
 });

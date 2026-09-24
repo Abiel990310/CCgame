@@ -1,3 +1,4 @@
+import { MACHINES } from '@shared/data/machines';
 import { TILE } from '@shared/sim/constants';
 import type { Vec2, World } from '@shared/sim/types';
 import { noiseBuffer } from './synth';
@@ -168,7 +169,7 @@ export class Ambience {
     let moving = 0;
 
     for (const machine of world.machines) {
-      if (machine.stalled || machine.type === 'chest') continue;
+      if (machine.stalled || MACHINES[machine.type].family === 'chest') continue;
       const dx = machine.tx * TILE + TILE / 2 - camera.x;
       const dy = machine.ty * TILE + TILE / 2 - camera.y;
       if (dx * dx + dy * dy < EARSHOT * EARSHOT) running++;
