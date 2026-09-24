@@ -158,7 +158,7 @@ describe('saving an island with burners on it', () => {
 
   it('gives a burner saved before fuel existed an empty grid', () => {
     const world = createWorld(7, true);
-    world.machines.push(machine('assemblerMk3', 30, 30));
+    world.machines.push(machine('assemblerMk2', 30, 30));
     saveWorld(world, 'b');
 
     // A row packed before fuel stops at the splitter fields or earlier.

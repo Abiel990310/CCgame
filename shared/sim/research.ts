@@ -28,6 +28,24 @@ export function isUnlocked(world: World, id: MachineId): boolean {
   return !tech || techLevel(world, tech.id) > 0;
 }
 
+/**
+ * Mark every prerequisite of a finished tech as finished too. A tech added to
+ * the tree later, beneath one an island has already researched, would
+ * otherwise sit locked under it and take back machines already standing.
+ */
+export function backfillPrerequisites(research: Research): void {
+  const pending = Object.keys(research.levels).filter((id) => (research.levels[id] ?? 0) > 0);
+  while (pending.length > 0) {
+    const def = TECH_BY_ID.get(pending.pop()!);
+    for (const id of def?.requires ?? []) {
+      if ((research.levels[id] ?? 0) > 0) continue;
+      research.levels[id] = 1;
+      delete research.progress[id];
+      pending.push(id);
+    }
+  }
+}
+
 /** True when there is nothing left to gain from it. Repeatable techs never are. */
 export function isFinished(world: World, def: TechDef): boolean {
   return !def.repeatable && techLevel(world, def.id) > 0;

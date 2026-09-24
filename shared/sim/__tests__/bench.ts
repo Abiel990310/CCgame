@@ -39,7 +39,7 @@ export interface Bench {
   player: Player;
 }
 
-export function bench(seed = 2026): Bench {
+export function bench(seed = 2026, powered = false): Bench {
   const world = createWorld(seed, true);
   const player = addPlayer(world, 'line-tester');
   // A bench tests how machines behave, not whether the island has earned
@@ -57,6 +57,7 @@ export function bench(seed = 2026): Bench {
     'circuit',
     'motor',
     'advancedCircuit',
+    'wire',
   ];
   for (const item of stock) addItem(player, item, 900);
   // Later tiers are made at a workbench before they can be placed; the bench
@@ -77,7 +78,45 @@ export function bench(seed = 2026): Bench {
   // too — which would make where a layout fits a property of the seed again.
   world.nodes = world.nodes.filter((node) => !onBench(node.pos));
 
-  return { world, player };
+  const b = { world, player };
+  if (powered) electrify(b);
+  return b;
+}
+
+/**
+ * Ring the bench with a power network whose engine never runs dry, so an
+ * electric machine anywhere on it works at full speed. It all stands outside
+ * the strip, leaving every bench tile free for the layout under test. Power
+ * itself has its own tests, which build their networks by hand on an
+ * unpowered bench.
+ */
+function electrify(b: Bench): void {
+  const { world } = b;
+  const grass = TERRAIN_ORDER.indexOf('grass');
+  const clear = (tx: number, ty: number): void => {
+    world.terrain[tileKey(tx, ty)] = grass;
+    world.ore[tileKey(tx, ty)] = 0;
+    world.nodes = world.nodes.filter(
+      (n) => Math.floor(n.pos.x / TILE) !== tx || Math.floor(n.pos.y / TILE) !== ty,
+    );
+  };
+
+  const spots: Array<[number, number]> = [[BENCH.tx - 1, BENCH.ty + 4]];
+  for (let tx = BENCH.tx - 1; tx <= BENCH.tx + BENCH.width; tx += 7) {
+    spots.push([tx, BENCH.ty - 1], [tx, BENCH.ty + BENCH.height]);
+  }
+  for (const [tx, ty] of spots) {
+    clear(tx, ty);
+    placeMachine(world, b.player, 'pole', tx, ty, 0);
+  }
+
+  // A steam engine on a one-tile pond beside the bench.
+  const engine = { tx: BENCH.tx - 3, ty: BENCH.ty + 4 };
+  clear(engine.tx, engine.ty);
+  world.terrain[tileKey(engine.tx - 1, engine.ty)] = TERRAIN_ORDER.indexOf('water');
+  const generator = placeMachine(world, b.player, 'generator', engine.tx, engine.ty, 0);
+  expect(generator, 'bench engine').not.toBe(null);
+  generator!.heat = 1e9;
 }
 
 function onBench(pos: Vec2): boolean {
