@@ -188,6 +188,9 @@ describe('fuel by hand', () => {
   it('hands the fuel back when the machine is picked up', () => {
     const b = bench();
     const machine = furnace(b, 'furnaceMk2', 7);
+    // The bench fills the bag nearly to the brim; leave room for the coal.
+    const full = b.player.inventory.map((slot, i) => (slot ? i : -1)).filter((i) => i >= 0);
+    b.player.inventory[full[full.length - 1]] = null;
     const before = countItem(b.player, 'coal');
 
     expect(removeAt(b.world, b.player, machine.tx, machine.ty)).toBe(true);

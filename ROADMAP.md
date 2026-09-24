@@ -292,6 +292,14 @@ detail behind the factory entries is in
 
 ### New features
 
+- [x] A longer tech tree: Toolmaking (hand gathering), Firebox Design (every
+      coal does more), Weaponsmithing and repeatable Ballistics (damage),
+      High-Pressure Steam and repeatable Grid Capacity (generator output),
+      and Solar Power. A new Engineering Pack (plate → pipe → engine unit +
+      circuit) drives the power-era techs. Solar panels make 60 kW by day with
+      no fuel. The goal chain runs on past tier 2 through steel, logic packs,
+      Electricity, a steam engine, a powered machine and engineering packs.
+
 - [x] A much bigger map, so the island feels like an open world rather than one
       screen of forest. New islands are a 256-tile mainland (seven times the
       area) with lakes, highlands and richer ore towards the coast; islands
@@ -566,12 +574,14 @@ detail behind the factory entries is in
 
 ### Ideas
 
-- [ ] Power: a solar panel or wind turbine tier that needs no coal, and an
-      accumulator that stores surplus for the night.
+- [ ] Power: an accumulator that stores daytime solar surplus for the night.
 - [ ] Power: a production-stats panel per network (supply, demand, coal per
       minute over time).
-- [ ] Goals: extend the chain past tier 2 with "research Electricity" and
-      "power an electric machine".
+- [ ] A fourth pack tier whose ingredients need three lines into one
+      Mk2 assembler, so the jump from Mk1 assemblers is forced by a recipe.
+- [ ] Research effects on the player: max health, move speed.
+- [ ] The test bench fills the bag nearly full, so a test that refunds items
+      can find no room; give the bench a bigger bag or fewer stacks.
 
 - [ ] A corner minimap on the HUD, drawn from the same image as the island map.
 - [ ] Index scenery nodes by tile bucket. The mainland has 6–9k nodes and

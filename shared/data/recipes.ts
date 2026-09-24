@@ -104,6 +104,25 @@ export const RECIPES: Recipe[] = [
     outputs: [{ id: 'advancedCircuit', count: 1 }],
   },
   {
+    id: 'pipe',
+    name: 'Pipe',
+    machine: 'assembler',
+    time: 1,
+    inputs: [{ id: 'ironPlate', count: 1 }],
+    outputs: [{ id: 'pipe', count: 1 }],
+  },
+  {
+    id: 'engineUnit',
+    name: 'Engine Unit',
+    machine: 'assembler',
+    time: 10,
+    inputs: [
+      { id: 'steelPlate', count: 1 },
+      { id: 'pipe', count: 2 },
+    ],
+    outputs: [{ id: 'engineUnit', count: 1 }],
+  },
+  {
     id: 'researchPack',
     name: 'Research Pack',
     machine: 'assembler',
@@ -149,6 +168,17 @@ export const RECIPES: Recipe[] = [
       { id: 'essence', count: 1 },
     ],
     outputs: [{ id: 'resonancePack', count: 1 }],
+  },
+  {
+    id: 'engineeringPack',
+    name: 'Engineering Pack',
+    machine: 'assembler',
+    time: 14,
+    inputs: [
+      { id: 'engineUnit', count: 1 },
+      { id: 'circuit', count: 1 },
+    ],
+    outputs: [{ id: 'engineeringPack', count: 1 }],
   },
 ];
 

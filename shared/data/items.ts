@@ -88,6 +88,8 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     stack: 999,
     shape: 'chip',
   },
+  pipe: { id: 'pipe', name: 'Pipe', color: '#a9b4bf', stack: 999, shape: 'log' },
+  engineUnit: { id: 'engineUnit', name: 'Engine Unit', color: '#c8923e', stack: 999, shape: 'motor' },
 
   researchPack: {
     id: 'researchPack',
@@ -102,6 +104,13 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     id: 'resonancePack',
     name: 'Resonance Pack',
     color: '#b58cf0',
+    stack: 999,
+    shape: 'flask',
+  },
+  engineeringPack: {
+    id: 'engineeringPack',
+    name: 'Engineering Pack',
+    color: '#e8a24a',
     stack: 999,
     shape: 'flask',
   },
