@@ -37,11 +37,15 @@ import {
   setRecipe,
   setSideFilter,
   upgradeTarget,
+  beltAt,
+  turnAt,
 } from '@shared/sim/factory';
-import { rotate, tileCenter, toTile } from '@shared/sim/grid';
+import { rotate, step1, tileCenter, tileKey, toTile } from '@shared/sim/grid';
 import { chooseUpgrade } from '@shared/sim/progression';
 import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
 import { setResearch } from '@shared/sim/research';
+import { GOAL_BY_ID } from '@shared/data/goals';
+import { GoalTracker } from './ui/goals';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
 import { craft, craftError, nearWorkbench } from '@shared/sim/crafting';
@@ -92,6 +96,7 @@ export class Game {
   private renderer: Renderer;
   private input: InputManager;
   private hud: Hud;
+  private goals: GoalTracker;
 
   private accumulator = 0;
   private readonly interpolator = new Interpolator();
@@ -111,6 +116,8 @@ export class Game {
   private clipboard: MachineSettings | null = null;
   private inspector: Inspector;
   private workbench: WorkbenchScreen;
+  /** The line being laid while the button is held: the last tile and what went down. */
+  private drag: { tx: number; ty: number; laid: Set<number> } | null = null;
   private lock = new SlotLock((slot, reason) => this.evict(slot, reason));
 
   constructor(canvas: HTMLCanvasElement, private callbacks: GameCallbacks) {
@@ -147,6 +154,8 @@ export class Game {
       onGather: (ref) => this.gatherInto(ref),
       onCloseInventory: () => this.closeInventory(),
     });
+
+    this.goals = new GoalTracker(document.getElementById('ui')!);
 
     this.world = createWorld(Date.now() & 0xffff);
     window.addEventListener('resize', () => this.renderer.resize());
@@ -467,7 +476,8 @@ export class Game {
   private handleActions(): void {
     // Build keys must not reach the world through an open screen: pressing X
     // while sorting a chest should not also demolish whatever is behind it.
-    const blocked = this.hud.isInventoryOpen || this.hud.isPauseOpen || this.workbench.isOpen;
+    const blocked =
+      this.hud.isInventoryOpen || this.hud.isPauseOpen || this.hud.isDraftOpen || this.workbench.isOpen;
 
     for (const action of this.input.drainActions()) {
       // A quick slot picks what to place, so it also turns build mode on; the
@@ -492,9 +502,11 @@ export class Game {
       if (action === 'remove' && !blocked) this.tryRemove();
       if (action === 'copy' && !blocked) this.copyFrom(this.machineUnderCursor());
       if (action === 'paste' && !blocked) this.pasteOnto(this.machineUnderCursor());
+      if (action === 'upgrade' && !blocked) this.hud.openDraft();
       if (action === 'cancel') {
         // Esc backs out of whatever is open, and opens the menu when nothing is.
-        if (this.hud.isPauseOpen) this.togglePause();
+        if (this.hud.isDraftOpen) this.hud.closeDraft();
+        else if (this.hud.isPauseOpen) this.togglePause();
         else if (this.workbench.isOpen) this.closeCrafting();
         else if (this.hud.isBuildMode || this.hud.isInventoryOpen) {
           this.hud.setBuildMode(false);
@@ -579,8 +591,62 @@ export class Game {
       return;
     }
 
-    if (ghost.kind === 'building') this.placeCampBuilding(ghost);
-    else this.placeFactory(ghost);
+    if (ghost.kind === 'building') {
+      this.placeCampBuilding(ghost);
+      return;
+    }
+    const placed = this.placeFactory(ghost);
+    if (placed) this.input.cancelHold();
+    // A press on a piece already down still starts a line from it, which is
+    // how a finished belt gets extended.
+    this.drag = { tx: ghost.tx, ty: ghost.ty, laid: placed ? new Set([tileKey(ghost.tx, ghost.ty)]) : new Set() };
+  }
+
+  /**
+   * Holding the button (or a finger) and sweeping lays a line, one piece per
+   * tile crossed. A belt line faces the way it is being drawn, which is also
+   * the only way a phone gets to choose a belt's direction.
+   */
+  private dragPlace(ghost: GhostPreview | null): void {
+    const drag = this.drag;
+    if (!drag) return;
+    if (!this.input.pointerDown || !ghost || ghost.kind !== 'grid') {
+      this.drag = null;
+      return;
+    }
+    let dx = ghost.tx - drag.tx;
+    let dy = ghost.ty - drag.ty;
+    if (dx === 0 && dy === 0) return;
+
+    // Follow one axis at a time, like a belt would, so a diagonal sweep makes
+    // a staircase of connected belts instead of a scatter.
+    let guard = 0;
+    while ((dx !== 0 || dy !== 0) && guard++ < 24) {
+      const dir: Direction =
+        Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 0 : 2) : dy > 0 ? 1 : 3;
+      if (ghost.what === 'belt') {
+        this.buildDir = dir;
+        // The belt the line starts from only now learns which way it runs.
+        if (drag.laid.has(tileKey(drag.tx, drag.ty)) || beltAt(this.world, drag.tx, drag.ty)) {
+          turnAt(this.world, drag.tx, drag.ty, dir);
+        }
+      }
+      const next = step1(drag.tx, drag.ty, dir);
+      drag.tx = next.tx;
+      drag.ty = next.ty;
+      const error = factoryPlacementError(this.world, this.self, ghost.what, next.tx, next.ty);
+      if (error === null) {
+        this.placeFactory({ ...ghost, tx: next.tx, ty: next.ty });
+        drag.laid.add(tileKey(next.tx, next.ty));
+      } else if (error === 'cost') {
+        this.placeFactory({ ...ghost, tx: next.tx, ty: next.ty });
+        this.drag = null;
+        return;
+      }
+      dx = ghost.tx - drag.tx;
+      dy = ghost.ty - drag.ty;
+    }
+    this.requestSave();
   }
 
   private placeCampBuilding(ghost: Extract<GhostPreview, { kind: 'building' }>): void {
@@ -602,7 +668,8 @@ export class Game {
     this.hud.toast(messages[error], 'warn');
   }
 
-  private placeFactory(ghost: Extract<GhostPreview, { kind: 'grid' }>): void {
+  /** Place the selected piece, or say why not. True when something went down. */
+  private placeFactory(ghost: Extract<GhostPreview, { kind: 'grid' }>): boolean {
     const { what, tx, ty } = ghost;
     const error = factoryPlacementError(this.world, this.self, what, tx, ty);
 
@@ -612,8 +679,24 @@ export class Game {
       else placeMachine(this.world, this.self, what, tx, ty, this.buildDir);
       if (replacing) this.hud.toast(`Upgraded to ${MACHINES[replacing.type].name}`, 'good');
       this.requestSave();
-      return;
+      return true;
     }
+
+    // Placing a belt on a belt turns it: to the chosen direction with a mouse,
+    // a quarter turn per tap with a finger, which has no R key.
+    const existing = what === 'belt' && error === 'occupied' ? beltAt(this.world, tx, ty) : null;
+    if (existing) {
+      const dir = this.input.isTouch ? rotate(existing.dir) : this.buildDir;
+      // A finger that stays down removes the belt anyway, so the hold is
+      // left armed: turning something about to go costs nothing.
+      if (turnAt(this.world, tx, ty, dir)) {
+        this.buildDir = dir;
+        this.requestSave();
+      }
+      return false;
+    }
+    // A finger resting on a piece is about to remove it, not to be told off.
+    if (error === 'occupied' && this.input.isTouch) return false;
 
     const cost = what === 'belt' ? BELT_COST : placementCost(what);
     const messages: Record<NonNullable<typeof error>, string> = {
@@ -632,6 +715,7 @@ export class Game {
     };
     audio.play('denied');
     this.hud.toast(messages[error], 'warn');
+    return false;
   }
 
   private costMessage(cost: ItemStack[]): string {
@@ -737,21 +821,23 @@ export class Game {
 
     this.handleActions();
 
-    const paused = this.self.pendingUpgrades > 0 || this.hud.isPauseOpen;
+    const paused = this.hud.isDraftOpen || this.hud.isPauseOpen;
     // Inspecting a machine should not also swing the pickaxe at it.
     if (this.hud.isInventoryOpen || this.workbench.isOpen) this.input.takeClick();
     const ghost = this.ghost();
     // Hovering a machine with its next tier selected is an upgrade, not a
     // demolition, so the removal outline would be a false warning.
     const removal = this.isUpgrade(ghost) ? null : this.removalTarget();
+    this.input.buildMode = this.hud.isBuildMode;
     this.tryPlace(ghost);
+    this.dragPlace(ghost);
 
     // Placing, removing and anything else driven straight from the UI announces
     // itself outside the tick, and `step` empties the buffer before the loop
     // below ever reads it — so drain what has built up since the last frame.
     this.flush();
 
-    // A pending level-up freezes the world, so the draft is never a panic.
+    // An open level-up draft freezes the world, so choosing is never a panic.
     if (!paused) {
       this.accumulator += elapsed;
       const raw = this.input.sample();
@@ -776,6 +862,7 @@ export class Game {
         step(this.world, inputs);
         // Before the flush: the cosmetic layers empty the buffer.
         this.announceResearch();
+        this.announceGoals();
         this.flush();
         this.announcePhase();
       }
@@ -805,7 +892,9 @@ export class Game {
     }
     audio.update(this.world, elapsed);
     this.hud.update(this.world, this.self);
+    this.goals.update(this.world, this.self, elapsed, this.input.isTouch);
     this.hud.updateStick(this.input.stickState);
+    this.hud.foldPalette(this.hud.isBuildMode && this.input.hovering);
     // A raid can shove the player off the bench; the screen goes with them.
     if (this.workbench.isOpen && !nearWorkbench(this.world, this.self)) this.closeCrafting();
     this.workbench.update(this.world, this.self);
@@ -837,6 +926,25 @@ export class Game {
         const names = tech.unlocks.map((id) => MACHINES[id].name).join(', ');
         this.hud.toast(`New on the build palette: ${names}`, 'good');
       }
+      this.requestSave();
+    }
+  }
+
+  /** Goals and level-ups are said once, and the tracker makes way for the next goal. */
+  private announceGoals(): void {
+    for (const event of this.world.events) {
+      // The first level-up in a queue says how to spend it; the ring's badge
+      // counts any that follow, so a busy lab does not chatter.
+      if (event.kind === 'levelUp' && event.playerId === this.selfId && this.self.pendingUpgrades === 1) {
+        const how = this.input.isTouch ? 'Tap your level' : 'Press U';
+        this.hud.toast(`Level ${event.level}! ${how} to pick an upgrade`, 'good');
+        continue;
+      }
+      if (event.kind !== 'goal' || event.playerId !== this.selfId) continue;
+      const done = GOAL_BY_ID.get(event.goal);
+      const next = event.next ? GOAL_BY_ID.get(event.next) : null;
+      if (done) this.hud.toast(next ? `Goal done: ${done.title}` : 'Every goal done. The island is yours to grow.', 'good');
+      this.goals.completed();
       this.requestSave();
     }
   }

@@ -733,7 +733,8 @@ kbd {
   left: 50%;
   transform: translateX(-50%);
   width: min(980px, calc(100vw - 28px));
-  max-height: calc(100vh - 220px);
+  /* Clear of the vitals and the goal tracker under them; the list scrolls. */
+  max-height: calc(100vh - 300px);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2170,7 +2171,10 @@ kbd {
     border-radius: 12px;
   }
   .toasts {
-    top: calc(max(14px, env(safe-area-inset-top)) + 136px);
+    top: calc(max(14px, env(safe-area-inset-top)) + 240px);
+  }
+  #ui .goal {
+    top: calc(max(14px, env(safe-area-inset-top)) + 128px);
   }
 }
 
@@ -2821,5 +2825,36 @@ kbd {
   .craft-card {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* Folded while the mouse is out placing: tabs and the selected piece only. */
+.buildbar.folded .buildbar-items,
+.buildbar.folded .buildbar-hint {
+  display: none;
+}
+
+/* Phones in portrait: the goal sits under the resource strip, toasts under it. */
+@media (max-width: 640px) {
+  /* By id: progress.css loads after this file and sets its own phone top. */
+  #ui .goal {
+    top: calc(max(14px, env(safe-area-inset-top)) + 100px);
+  }
+  .toasts {
+    top: calc(max(14px, env(safe-area-inset-top)) + 214px);
+  }
+}
+
+/* A landscape phone has no room for the goal beside an open palette. */
+@media (max-height: 480px) {
+  #ui:has(#buildbar:not(.hidden)) .goal {
+    display: none;
+  }
+}
+
+/* An open palette on a phone reaches up to the goal; its title is enough then. */
+@media (max-width: 640px) {
+  #ui:has(#buildbar:not(.hidden)) .goal-hint {
+    display: none;
   }
 }

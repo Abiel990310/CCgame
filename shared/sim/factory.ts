@@ -248,6 +248,23 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
   return true;
 }
 
+/**
+ * Face a placed belt or machine another way, free. Dragging a belt line
+ * decides its direction only once the second tile is reached, so the first
+ * belt has to be turned after it is down; the items riding it keep their place.
+ */
+export function turnAt(world: World, tx: number, ty: number, dir: Direction): boolean {
+  const entity = world.grid.get(tileKey(tx, ty));
+  if (entity === undefined || entity.dir === dir) return false;
+  entity.dir = dir;
+  world.events.push({
+    kind: 'placed',
+    pos: tileCenter(tx, ty),
+    what: 'items' in entity ? 'belt' : entity.type,
+  });
+  return true;
+}
+
 function drop<T>(list: T[], entity: T): void {
   const index = list.indexOf(entity);
   if (index >= 0) list.splice(index, 1);

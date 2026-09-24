@@ -11,6 +11,11 @@ const MOVE_KEYS: Record<string, Vec2> = {
   ArrowRight: { x: 1, y: 0 },
 };
 
+/** How long a still finger rests on a piece in build mode before removing it. */
+const HOLD_TO_REMOVE_MS = 550;
+/** How far a finger can wander and still count as holding still. */
+const HOLD_SLOP_PX = 12;
+
 /** The quick slots, 1-indexed exactly as they are labelled on screen. */
 export type HotbarKey = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
@@ -24,6 +29,7 @@ export type ActionKey =
   | 'copy'
   | 'paste'
   | 'craft'
+  | 'upgrade'
   | `hotbar${HotbarKey}`
   | `bind${HotbarKey}`;
 
@@ -60,6 +66,14 @@ export class InputManager {
    */
   hovering = false;
   clicked = false;
+  /**
+   * Set by the game each frame. In build mode a finger is a cursor: a tap
+   * places, a drag lays a line, and holding still removes what is under it.
+   */
+  buildMode = false;
+  private touched = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  /** The finger acting as the build cursor, and when it could become a hold. */
+  private buildTouch: { id: number; origin: Vec2; timer: number } | null = null;
 
   constructor(private target: HTMLElement) {
     this.bind();
@@ -71,7 +85,7 @@ export class InputManager {
       // Typing a save name is not a move order.
       if (e.target instanceof HTMLInputElement) return;
       // Let the browser keep its own shortcuts; only claim game keys.
-      const claimed = ['Space', 'KeyE', 'KeyB', 'KeyR', 'KeyX', 'KeyM', 'Tab', 'Escape'];
+      const claimed = ['Space', 'KeyE', 'KeyB', 'KeyR', 'KeyX', 'KeyM', 'KeyU', 'Tab', 'Escape'];
       if (e.code in MOVE_KEYS || claimed.includes(e.code)) e.preventDefault();
 
       // A number picks a quick slot; with shift it binds the selected piece to
@@ -92,6 +106,7 @@ export class InputManager {
       if (e.code === 'KeyX') this.pending.push('remove');
       if (e.code === 'KeyM') this.pending.push('mute');
       if (e.code === 'KeyC') this.pending.push('craft');
+      if (e.code === 'KeyU') this.pending.push('upgrade');
       if (e.code === 'Tab') this.pending.push('inventory');
       if (e.code === 'Escape') this.pending.push('cancel');
     });
@@ -99,6 +114,9 @@ export class InputManager {
     window.addEventListener('blur', () => this.keys.clear());
 
     this.target.addEventListener('pointermove', (e) => {
+      // Fingers set the pointer from touch events, which know which finger is
+      // walking and which is pointing.
+      if (e.pointerType === 'touch') return;
       const rect = this.target.getBoundingClientRect();
       this.pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       this.hovering = e.pointerType !== 'touch';
@@ -108,6 +126,7 @@ export class InputManager {
     this.target.addEventListener('contextmenu', (e) => e.preventDefault());
 
     this.target.addEventListener('pointerdown', (e) => {
+      this.touched = e.pointerType === 'touch';
       if (e.pointerType === 'touch') return;
       // Shift with either button copies a machine's settings or pastes them,
       // the pair Factorio players already have in their hands.
@@ -135,14 +154,34 @@ export class InputManager {
       'touchstart',
       (e) => {
         const rect = this.target.getBoundingClientRect();
+        this.touched = true;
         for (const touch of Array.from(e.changedTouches)) {
           const x = touch.clientX - rect.left;
           const y = touch.clientY - rect.top;
-          // Left half drives the stick, right half is "do the thing".
-          if (x < rect.width / 2 && !this.stick.active) {
+          // Building keeps a narrower strip on the left for walking, so most of
+          // the screen can be pointed at.
+          const stickZone = this.buildMode ? rect.width * 0.3 : rect.width / 2;
+          if (this.buildMode && x >= stickZone && !this.buildTouch) {
+            this.pointer = { x, y };
+            this.pointerDown = true;
+            this.clicked = true;
+            const timer = window.setTimeout(() => {
+              if (!this.buildTouch || this.buildTouch.id !== touch.identifier) return;
+              this.pending.push('remove');
+              this.buildTouch.timer = 0;
+              this.pointerDown = false;
+            }, HOLD_TO_REMOVE_MS);
+            this.buildTouch = { id: touch.identifier, origin: { x, y }, timer };
+            continue;
+          }
+          // Left half drives the stick, right half is "do the thing": gather,
+          // or open the machine under the finger.
+          if (x < stickZone && !this.stick.active) {
             this.stick = { active: true, origin: { x, y }, pos: { x, y }, id: touch.identifier };
           } else {
             this.touchInteract = true;
+            this.pointer = { x, y };
+            this.clicked = true;
           }
         }
       },
@@ -154,8 +193,20 @@ export class InputManager {
       (e) => {
         const rect = this.target.getBoundingClientRect();
         for (const touch of Array.from(e.changedTouches)) {
+          const x = touch.clientX - rect.left;
+          const y = touch.clientY - rect.top;
+          if (this.buildTouch?.id === touch.identifier) {
+            const held = this.buildTouch;
+            // A finger that has moved is laying a line, not asking to remove.
+            if (held.timer && Math.hypot(x - held.origin.x, y - held.origin.y) > HOLD_SLOP_PX) {
+              window.clearTimeout(held.timer);
+              held.timer = 0;
+            }
+            if (this.pointerDown) this.pointer = { x, y };
+            continue;
+          }
           if (touch.identifier !== this.stick.id) continue;
-          this.stick.pos = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+          this.stick.pos = { x, y };
         }
       },
       { passive: true },
@@ -163,12 +214,28 @@ export class InputManager {
 
     const end = (e: TouchEvent): void => {
       for (const touch of Array.from(e.changedTouches)) {
-        if (touch.identifier === this.stick.id) this.stick.active = false;
+        if (this.buildTouch?.id === touch.identifier) {
+          window.clearTimeout(this.buildTouch.timer);
+          this.buildTouch = null;
+          this.pointerDown = false;
+        } else if (touch.identifier === this.stick.id) this.stick.active = false;
         else this.touchInteract = false;
       }
     };
     this.target.addEventListener('touchend', end, { passive: true });
     this.target.addEventListener('touchcancel', end, { passive: true });
+  }
+
+  /** The press just placed something, so holding it must not take it away. */
+  cancelHold(): void {
+    if (!this.buildTouch?.timer) return;
+    window.clearTimeout(this.buildTouch.timer);
+    this.buildTouch.timer = 0;
+  }
+
+  /** True when the last press came from a finger, so hints can say "tap". */
+  get isTouch(): boolean {
+    return this.touched;
   }
 
   /** Exposed so the HUD can draw the on-screen stick where the finger is. */

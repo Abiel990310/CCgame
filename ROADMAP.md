@@ -65,6 +65,9 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Palette gating | Enforced in `placeMachine`, listed as `unlocks` on the tech row | The gate is a data row like everything else, and the simulation refuses a locked piece so a future server does not have to trust the client's palette. Locked pieces stay visible on the palette, showing the tech that opens them. |
 | Gated palette on old islands | Grandfathered: an island saved before version 7 keeps every machine | "Nothing is lost" is a pillar. `Research.unlockedAll` records it, so the island stays unlocked after it is saved again. |
 | Essence and peaceful worlds | The top tech takes a Resonance Pack (circuit + essence); a researched Fish Trap catches essence on a shoreline | Essence also drops from night wisps, which a peaceful island never sees. The trap rolls the fishing spot's own drop table, so peaceful reaches the top of the tree by fishing alone and raid worlds get a second source. |
+| First-hour guidance | A chain of goals in `shared/data/goals.ts`, each a check on the island's state | A new player had no idea what to do first. A goal is met when the island is in that state, so one reached by the player's own route ticks off, and nothing needs a history the save does not keep. Checked once a second in the sim so a server can run it; an older island starts silently at its first unmet goal. |
+| Level-up draft | Queued behind a badge, opened by the player | Labs level players up in the background, and a draft that froze the island every few minutes punished building a factory. Only the open draft pauses. |
+| Drag to build | Holding the button lays a piece on every tile crossed; a belt faces the drag | Laying belts one click at a time was the most repeated action in the game, and on a phone dragging is the only natural way to say which way a belt runs. |
 | Research XP | Every lab cycle levels up every player | Gathering by hand was the only source of XP, so automating the island slowed the character down and a peaceful world barely levelled at all. |
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
 | Interface look | One visual language, SVG icons, art baked from the world's own drawings | Emoji icons rendered as a different picture on every platform, so the HUD never looked like one thing. Icons are inline SVG (`src/ui/icons.ts`), and the hotbar and palette show each piece baked from the canvas drawing the world uses (`src/render/pieces.ts`), so a slot looks like what it places. Still zero requests and system fonts only. |
@@ -220,14 +223,21 @@ detail behind the factory entries is in
       told only through storage, so it cannot save first, and for the instant
       before it sees the new owner it could still autosave over the new tab.
       Every current browser has the channel.
-- [ ] Touch has no way to remove anything. Removal is the `X` key and
-      right-click only, so on a phone a misplaced belt is permanent. Now that
-      removal is build-mode only, the fix belongs in the build bar: a remove
-      tool that arms the next tap.
-- [ ] Tapping the canvas in build mode places nothing. The `pointerdown`
-      handler in `src/input.ts` returns early for `pointerType === 'touch'`, so
-      `takeClick()` never fires and a phone cannot build or inspect a machine.
-- [ ] Touch has no rotate, so every belt placed on a phone would face one way.
+- [x] Touch had no way to remove anything. In build mode, holding a finger
+      still on a piece for half a second now removes it.
+- [x] Tapping the canvas placed nothing, so a phone could not build or inspect
+      a machine. A tap now places in build mode and opens a machine outside it.
+- [x] Touch had no rotate. A belt line faces the way it is dragged, and tapping
+      a placed belt turns it a quarter.
+- [ ] Machines still cannot be turned on a touchscreen: they face the last belt
+      direction. Dragging from a machine could turn it, the way a belt turns.
+- [x] On desktop at 1280x800 the build palette stays open over most of the
+      screen while placing, so there is little ground left to click on. It now
+      folds to its tabs and the selected piece while the mouse is out over the
+      island, and opens again when the mouse comes back.
+- [x] The goal tracker overlapped the resource strip on a phone and a portrait
+      tablet, and an open palette on a laptop. The goal now sits under the
+      strip, and the palette stops short of it.
 - [x] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely. No longer overlapping
       at 390px as of 2026-09-24 (measured in Chromium at iPhone 13 size).
@@ -371,10 +381,12 @@ detail behind the factory entries is in
       what stops two facing arms passing one item back and forth forever. The
       long inserter is the answer as intended: it reaches straight over an arm
       standing in the way.
-- [ ] A pending level-up freezes the whole world, and labs now grant XP
-      continuously, so a running factory interrupts itself with a draft card
-      every couple of minutes. Either the draft should not pause a factory that
-      the player is not touching, or level-ups should queue.
+- [x] A pending level-up froze the whole world, so a lab levelling you up
+      interrupted the factory every few minutes. Level-ups now queue on a
+      glowing badge on the level ring, opened with U or a tap; only the open
+      draft pauses the island.
+- [ ] Level-ups queued for a long time pile up unspent. A small reminder when
+      three or more are waiting, or at dawn, would stop them being forgotten.
 - [ ] The lab's body is nearly the assembler's blue-grey; the lit dome is what
       tells them apart. Fine beside each other, worth a second look in a dense
       base.
@@ -434,6 +446,9 @@ detail behind the factory entries is in
       odd one out.
 - [ ] Copy and paste are shift-clicks with a mouse only. A touch player has the
       buttons in the machine screen, which means opening every machine in a row.
+- [ ] Dragging now lays any piece in a line, one per tile crossed, so a row of
+      inserters or furnaces is one gesture. Worth checking that nobody lays a
+      row of miners by accident with a shaky click.
 - [ ] Paste one machine at a time is still a click per arm. Shift-dragging across
       a row to paste onto each machine the pointer crosses would make a bank one
       gesture.
@@ -492,6 +507,13 @@ detail behind the factory entries is in
       iron and steel instead of a one-off purchase.
 - [ ] Hover cards could show a machine's rate (items a minute) once the
       production ledger exists.
+- [ ] Carry the goal chain past the first Mk2 machine: steel, the logic pack,
+      resonance and, once it exists, the megaproject, so there is always a
+      named next step in the late game. Rows in `shared/data/goals.ts`.
+- [ ] Goals could pay in items as well as XP, such as a stack of belts for
+      the belt goal, which would also speed up a first factory.
+- [ ] A goal log in the pause menu listing goals done, so a returning player
+      can see how far the island has come.
 
 - [ ] Fish trap tiers, or a trap that catches more essence at night, so the
       essence line scales like the ore lines do instead of by sheer count.

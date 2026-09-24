@@ -70,6 +70,8 @@ export class Hud {
     phaseFill: $('phase-fill'),
     level: $('level'),
     levelRing: $('level-ring'),
+    vitals: document.querySelector<HTMLElement>('.vitals')!,
+    levelupLater: $<HTMLButtonElement>('levelup-later'),
     hpFill: $('hp-fill'),
     hpText: $('hp-text'),
     xpFill: $('xp-fill'),
@@ -109,6 +111,8 @@ export class Hud {
   private tab: PaletteTab = 'factory';
   private buildMode = false;
   private pauseOpen = false;
+  /** The level-up draft is opened by the player, never by the XP arriving. */
+  private draftOpen = false;
   /** Signature of the last rendered offer set, to avoid rebuilding every frame. */
   private offerKey = '';
   private pouchKey = '';
@@ -135,6 +139,12 @@ export class Hud {
     ]) {
       button.addEventListener('click', () => audio.play('click'));
     }
+
+    this.els.vitals.addEventListener('click', () => this.openDraft());
+    this.els.levelupLater.addEventListener('click', () => {
+      audio.play('close');
+      this.closeDraft();
+    });
 
     this.els.btnBuild.addEventListener('click', () => this.callbacks.onToggleBuild());
     this.els.buildClose.addEventListener('click', () => {
@@ -215,6 +225,17 @@ export class Hud {
 
   get isBuildMode(): boolean {
     return this.buildMode;
+  }
+
+  /**
+   * Fold the palette down to its tabs and the selected piece while the mouse
+   * is out over the island placing things, and open it again when the mouse
+   * comes back. Open in full it covered most of a laptop screen.
+   */
+  foldPalette(fold: boolean): void {
+    if (this.els.buildbar.classList.contains('folded') !== fold) {
+      this.els.buildbar.classList.toggle('folded', fold);
+    }
   }
 
   get isInventoryOpen(): boolean {
@@ -551,8 +572,28 @@ export class Hud {
     this.els.dashCd.style.transform = `scaleY(${fraction})`;
   }
 
+  get isDraftOpen(): boolean {
+    return this.draftOpen;
+  }
+
+  /** Open the level-up draft, if there is a level-up waiting. */
+  openDraft(): boolean {
+    if (this.draftOpen || !this.els.vitals.classList.contains('ready')) return false;
+    this.draftOpen = true;
+    audio.play('open');
+    return true;
+  }
+
+  closeDraft(): void {
+    this.draftOpen = false;
+  }
+
   private updateOffers(player: Player): void {
-    const showing = player.pendingUpgrades > 0 && player.offers.length > 0;
+    const waiting = player.pendingUpgrades > 0 && player.offers.length > 0;
+    if (!waiting) this.draftOpen = false;
+    this.els.vitals.classList.toggle('ready', waiting && !this.draftOpen);
+    this.els.levelRing.dataset.pending = player.pendingUpgrades > 1 ? `+${player.pendingUpgrades}` : '+1';
+    const showing = waiting && this.draftOpen;
     this.els.levelup.classList.toggle('hidden', !showing);
     if (!showing) {
       this.offerKey = '';

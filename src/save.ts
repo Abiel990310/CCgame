@@ -3,6 +3,7 @@ import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { TECH_BY_ID } from '@shared/data/techs';
 import { newResearch } from '@shared/sim/research';
+import { catchUpGoals } from '@shared/sim/goals';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
@@ -257,6 +258,9 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
       // compacted list, which reads back as the first N slots of the grid.
       player.inventory = normalizeSlots(player.inventory, INVENTORY_SLOTS);
       player.cursor = asStack(player.cursor);
+      // Goals arrived without a version bump: the field is simply missing on
+      // an older island, whose player starts at the first goal not yet met.
+      if (typeof player.goal !== 'number' || !(player.goal >= 0)) catchUpGoals(world, player);
     }
 
     // The freshly generated nodes are what the next save diffs against, and we
