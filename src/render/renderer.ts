@@ -9,6 +9,7 @@ import type {
   Direction,
   Machine,
   MachineId,
+  Player,
   SimEvent,
   Vec2,
   World,
@@ -19,15 +20,18 @@ import {
   drawBuilding,
   drawCampRing,
   drawMob,
+  drawMobGlow,
   drawPickup,
   drawPlayer,
   drawNode,
   drawPlayerSilhouette,
   drawProjectile,
+  type Tool,
 } from './entities';
 import { UI, rgba } from './palette';
 import { GroundMesh } from './terrain';
 import { setItemScale } from './items';
+import { setPaintScale } from './paint';
 import { polygon } from './shapes';
 import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFactoryScale } from './factory';
 import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
@@ -46,6 +50,7 @@ export class Renderer {
   readonly effects = new Effects();
   private ctx: CanvasRenderingContext2D;
   private mesh: GroundMesh | null = null;
+  private groundTerrain: Uint8Array | null = null;
   private dpr = 1;
   /**
    * The island, pre-scaled to the zoom it is actually shown at, covering the
@@ -131,6 +136,7 @@ export class Renderer {
     ctx.setTransform(scale, 0, 0, scale, originX, originY);
     setItemScale(scale);
     setFactoryScale(scale);
+    setPaintScale(scale);
 
     const view = this.camera.bounds();
     const visible = (p: Vec2, pad = 0): boolean =>
@@ -165,7 +171,8 @@ export class Renderer {
     }
     for (const player of world.players.values()) {
       if (!visible(player.pos, 60)) continue;
-      layers.push({ y: player.pos.y, draw: () => drawPlayer(ctx, player, time, player.id === selfId) });
+      const tool = toolFor(world, player);
+      layers.push({ y: player.pos.y, draw: () => drawPlayer(ctx, player, time, player.id === selfId, tool) });
     }
 
     // Painter's algorithm on Y — the whole reason the scene reads as 3/4 view.
@@ -181,7 +188,7 @@ export class Renderer {
       if (visible(projectile.pos, 30)) drawProjectile(ctx, projectile);
     }
 
-    this.drawOccludedSelf(world, selfId);
+    this.drawOccludedSelf(world, selfId, time);
     this.drawGatherHint(world, selfId);
     // The ghost over an occupied tile is red because of the very thing the
     // removal outline is showing, so only one of the two is drawn.
@@ -197,6 +204,18 @@ export class Renderer {
     ctx.restore();
 
     this.drawLighting(world, selfId, time);
+
+    // Eyes in the dark: drawn over the night layer so a raid gives itself away.
+    const darkness = nightDarkness(world);
+    if (darkness > 0.05 && world.mobs.length > 0) {
+      ctx.save();
+      ctx.setTransform(scale, 0, 0, scale, originX, originY);
+      ctx.globalCompositeOperation = 'lighter';
+      for (const mob of world.mobs) {
+        if (visible(mob.pos, 60)) drawMobGlow(ctx, mob, time, darkness);
+      }
+      ctx.restore();
+    }
   }
 
   /**
@@ -207,6 +226,13 @@ export class Renderer {
   private ensureGround(world: World): void {
     if (this.mesh === null || this.mesh.seed !== world.seed) {
       this.mesh = new GroundMesh(world.seed);
+    }
+    // A different island under the same camera — the menu's backdrop, then
+    // the game — must not keep the old island's ground and scroll the new one
+    // in beside it at the edges.
+    if (this.groundTerrain !== world.terrain) {
+      this.groundTerrain = world.terrain;
+      this.groundScale = 0;
     }
 
     const scale = this.camera.zoom * this.dpr;
@@ -406,7 +432,7 @@ export class Renderer {
    * Trees and buildings that sort in front of the player can swallow them whole.
    * Anything rooted just below the player with overlapping canopy counts.
    */
-  private drawOccludedSelf(world: World, selfId: number): void {
+  private drawOccludedSelf(world: World, selfId: number, time: number): void {
     const player = world.players.get(selfId);
     if (!player || player.downed > 0) return;
 
@@ -416,8 +442,8 @@ export class Renderer {
           n.charges > 0 &&
           n.kind === 'tree' &&
           n.pos.y > player.pos.y &&
-          n.pos.y - player.pos.y < 46 &&
-          Math.abs(n.pos.x - player.pos.x) < 26,
+          n.pos.y - player.pos.y < 62 &&
+          Math.abs(n.pos.x - player.pos.x) < 28,
       ) ||
       world.buildings.some(
         (b) =>
@@ -426,7 +452,7 @@ export class Renderer {
           Math.abs(b.pos.x - player.pos.x) < 24,
       );
 
-    if (occluded) drawPlayerSilhouette(this.ctx, player);
+    if (occluded) drawPlayerSilhouette(this.ctx, player, time, toolFor(world, player));
   }
 
   private drawGatherHint(world: World, selfId: number): void {
@@ -635,6 +661,23 @@ export type GhostPreview =
 export type RemovalPreview =
   | { kind: 'grid'; tx: number; ty: number; fixed: boolean }
   | { kind: 'building'; pos: Vec2; radius: number; fixed: boolean };
+
+/** What a player is holding while they harvest, from what they are working. */
+function toolFor(world: World, player: Player): Tool {
+  if (player.gatherNodeId === null) return null;
+  const node = world.nodes.find((n) => n.id === player.gatherNodeId);
+  if (!node) return null;
+  switch (node.kind) {
+    case 'tree':
+      return 'axe';
+    case 'rock':
+      return 'pick';
+    case 'fish':
+      return 'rod';
+    default:
+      return 'hand';
+  }
+}
 
 /** 0 at full day, 1 at deep night, eased across the twilight windows. */
 export function nightDarkness(world: World): number {

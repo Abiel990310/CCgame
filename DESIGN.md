@@ -142,11 +142,15 @@ queue; you pick a world and you are in it.
 
 ## Art direction
 
-**Low-poly inspired flat vector**, drawn procedurally to canvas: angular
-polygonal silhouettes, flat shading with a single implied light direction, soft
-gradients for ground and water, generous rounded UI. No sprite sheets, no image
+**Illustrated, outlined and lit**, drawn procedurally to canvas: every
+character, creature, tree and building carries a dark ink outline, is lit from
+the upper left and shaded on the far side, and stands on a soft contact
+shadow. The ground is painted rather than faceted: soft biome colour with
+grass, flowers, leaf litter, pebbles and a shelving sea over it. Characters
+animate (walk cycles, tool swings, hops, gaits). No sprite sheets, no image
 assets, no generated art — every shape is code, so it stays consistent and
-re-themeable.
+re-themeable. This replaced the original flat low-poly look in September 2026,
+when that read as cheap.
 
 Fallback if it does not read well in motion: hand-made pixel art.
 
