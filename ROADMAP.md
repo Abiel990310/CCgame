@@ -296,6 +296,15 @@ detail behind the factory entries is in
 
 ### New features
 
+- [x] Around fifty level-up upgrades (49): 26 perks you can stack up to a
+      cap (range, crits, armour, thorns, lifesteal, pierce, knockback, a
+      finisher, night and camp damage, dash, revive, day speed, map sight,
+      double harvests, per-resource gathering, more essence, a fourth
+      choice) and a mastery for each weapon once it is at its last level.
+      Rarer perks turn up less often; a perk taken again shows its numeral.
+- [ ] A small list of the perks you hold, in the bag screen, so a build is
+      readable after thirty levels.
+
 - [x] More to fight: the **Spitter** (night 4) keeps its distance and spits,
       the armoured **Shellback** (night 5) shrugs off weak hits, the **Mother
       Slime** (night 6) bursts into four slimes, and every fifth night a

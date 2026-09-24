@@ -1,5 +1,6 @@
 import { UPGRADES, toOffer } from '../data/upgrades';
 import { XP } from './constants';
+import { perk } from './perks';
 import type { Player, UpgradeOffer, World } from './types';
 
 export function xpForLevel(level: number): number {
@@ -20,19 +21,22 @@ export function grantXp(world: World, player: Player, amount: number): void {
   }
 }
 
-/** Draw a distinct set of currently-applicable upgrades, without replacement. */
+/** Draw a distinct set of currently-applicable upgrades, weighted, without replacement. */
 export function rollOffers(world: World, player: Player): UpgradeOffer[] {
   const pool = UPGRADES.filter((u) => u.available(player));
   const offers: UpgradeOffer[] = [];
-  const taken = new Set<string>();
+  const choices = XP.upgradeChoices + perk(player, 'insight');
 
-  let guard = 0;
-  while (offers.length < XP.upgradeChoices && taken.size < pool.length && guard++ < 200) {
-    const index = Math.floor(nextFloat(world) * pool.length);
-    const def = pool[index];
-    if (!def || taken.has(def.id)) continue;
-    taken.add(def.id);
-    offers.push(toOffer(def, player));
+  while (offers.length < choices && pool.length > 0) {
+    const total = pool.reduce((sum, u) => sum + (u.weight ?? 1), 0);
+    let roll = nextFloat(world) * total;
+    let index = 0;
+    while (index < pool.length - 1 && roll >= (pool[index].weight ?? 1)) {
+      roll -= pool[index].weight ?? 1;
+      index++;
+    }
+    offers.push(toOffer(pool[index], player));
+    pool.splice(index, 1);
   }
   return offers;
 }

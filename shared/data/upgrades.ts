@@ -1,3 +1,4 @@
+import { addPerk, masteryId, perk } from '../sim/perks';
 import type { Player, UpgradeOffer, WeaponId } from '../sim/types';
 import { WEAPONS } from './weapons';
 
@@ -8,6 +9,8 @@ export interface UpgradeDef {
   /** False when the upgrade has nothing left to give this player. */
   available: (player: Player) => boolean;
   apply: (player: Player) => void;
+  /** How often it turns up among the offers, against 1 for most. */
+  weight?: number;
 }
 
 const statUpgrade = (
@@ -17,7 +20,7 @@ const statUpgrade = (
   apply: (player: Player) => void,
 ): UpgradeDef => ({ id, title, description, available: () => true, apply });
 
-const WEAPON_MAX_LEVEL = 6;
+export const WEAPON_MAX_LEVEL = 6;
 const MAX_WEAPONS = 5;
 
 function weaponUpgrades(): UpgradeDef[] {
@@ -41,8 +44,88 @@ function weaponUpgrades(): UpgradeDef[] {
   });
 }
 
+/**
+ * A perk the systems read by id through `perk()`, taken up to `max` times.
+ * Its title gains a numeral from the second pick on.
+ */
+function perkUpgrade(
+  id: string,
+  title: string,
+  description: string,
+  max: number,
+  opts: { weight?: number; requires?: (p: Player) => boolean; apply?: (p: Player) => void } = {},
+): UpgradeDef {
+  return {
+    id,
+    title,
+    description,
+    weight: opts.weight,
+    available: (p) => perk(p, id) < max && (opts.requires?.(p) ?? true),
+    apply: (p) => {
+      addPerk(p, id);
+      opts.apply?.(p);
+    },
+  };
+}
+
+const owns = (id: WeaponId) => (p: Player): boolean => p.weapons.some((w) => w.id === id);
+
+/** Once a weapon is at its last level, it can be mastered: one last, big step. */
+function masteries(): UpgradeDef[] {
+  return (Object.keys(WEAPONS) as WeaponId[]).map((id) =>
+    perkUpgrade(masteryId(id), `${WEAPONS[id].name} Mastery`, 'Half again the damage, and a quarter faster.', 1, {
+      weight: 2,
+      requires: (p) => p.weapons.some((w) => w.id === id && w.level >= WEAPON_MAX_LEVEL),
+    }),
+  );
+}
+
+/** Perks: what a level buys once the plain stat boosts stop being interesting. */
+const PERKS: UpgradeDef[] = [
+  // Aim and weapons.
+  perkUpgrade('keenEye', 'Keen Eye', '+10% weapon range.', 5),
+  perkUpgrade('lucky', 'Lucky Strike', '+8% chance for a hit to crit for double.', 5),
+  perkUpgrade('brutal', 'Brutal', 'Critical hits deal another half again.', 3, { requires: (p) => perk(p, 'lucky') > 0 }),
+  perkUpgrade('piercing', 'Piercing', 'Every shot passes through one more.', 3, { weight: 0.6 }),
+  perkUpgrade('swift', 'Swift Shot', '+15% projectile speed.', 3),
+  perkUpgrade('heavy', 'Heavy Hand', 'Hits knock creatures back.', 3),
+  perkUpgrade('volatile', 'Volatile', 'Ember Pot bursts a quarter wider.', 3, { requires: owns('ember') }),
+  perkUpgrade('frostbite', 'Frostbite', 'Every hit from every weapon chills a little.', 1, { weight: 0.5 }),
+  perkUpgrade('executioner', 'Executioner', 'Finishes off anything but a boss below 8% health.', 1, { weight: 0.5 }),
+  perkUpgrade('nightOwl', 'Night Owl', '+15% damage at night.', 3),
+  perkUpgrade('campGuard', 'Camp Guard', '+25% damage near the campfire.', 2),
+  perkUpgrade('glassCannon', 'Glass Cannon', '+40% damage, but 25 less max health.', 1, {
+    weight: 0.4,
+    requires: (p) => p.maxHp > 60,
+    apply: (p) => {
+      p.stats.damage *= 1.4;
+      p.stats.maxHp -= 25;
+      p.maxHp -= 25;
+      p.hp = Math.min(p.hp, p.maxHp);
+    },
+  }),
+  // Staying alive.
+  perkUpgrade('padded', 'Padded Coat', 'Take 1 less damage from every hit.', 5),
+  perkUpgrade('bramble', 'Bramble Coat', 'Whatever bites you takes 8 damage back.', 4),
+  perkUpgrade('vampiric', 'Vampiric', 'Heal 1 for every kill.', 5),
+  perkUpgrade('reinforced', 'Reinforced', 'Half again as long unhittable after a hit.', 2),
+  perkUpgrade('secondWind', 'Second Wind', 'Get back up 30% sooner when downed.', 2),
+  perkUpgrade('recovery', 'Quick Recovery', 'Dash comes back 15% sooner.', 4),
+  // Getting about and gathering.
+  perkUpgrade('pathfinder', 'Pathfinder', '+12% move speed by day.', 2),
+  perkUpgrade('explorer', 'Explorer', 'See three tiles further on the map.', 3),
+  perkUpgrade('forager', 'Forager', '15% chance a harvest drops double.', 4),
+  perkUpgrade('lumberjack', 'Lumberjack', '+40% speed chopping trees.', 3),
+  perkUpgrade('prospector', 'Prospector', '+40% speed breaking rocks.', 3),
+  perkUpgrade('angler', 'Angler', '+40% speed fishing.', 3),
+  perkUpgrade('essenceSense', 'Essence Sense', 'Creatures drop essence 30% more often.', 4),
+  perkUpgrade('insight', 'Insight', 'See one more choice at every level-up.', 1, { weight: 0.5 }),
+];
+
 export const UPGRADES: UpgradeDef[] = [
   ...weaponUpgrades(),
+  ...masteries(),
+  ...PERKS,
   statUpgrade('dmg', 'Sharpened', '+15% damage.', (p) => {
     p.stats.damage *= 1.15;
   }),
@@ -74,13 +157,16 @@ export const UPGRADES: UpgradeDef[] = [
   }),
 ];
 
+const NUMERALS = ['', '', ' II', ' III', ' IV', ' V'];
+
 export function toOffer(def: UpgradeDef, player: Player): UpgradeOffer {
   const owned = def.id.startsWith('weapon:')
     ? player.weapons.find((w) => `weapon:${w.id}` === def.id)
     : undefined;
+  const next = perk(player, def.id) + 1;
   return {
     id: def.id,
-    title: owned ? `${def.title} Lv.${owned.level + 1}` : def.title,
+    title: owned ? `${def.title} Lv.${owned.level + 1}` : `${def.title}${NUMERALS[next] ?? ''}`,
     description: owned ? 'Upgrade this weapon.' : def.description,
   };
 }

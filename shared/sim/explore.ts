@@ -1,4 +1,5 @@
 import { MAP_TILES, TILE } from './constants';
+import { perk } from './perks';
 import type { World } from './types';
 
 /**
@@ -33,7 +34,9 @@ export function reveal(world: World, x: number, y: number, radius = EXPLORE_RADI
 
 export function stepExploration(world: World): void {
   if (world.tick % EXPLORE_TICKS !== 0) return;
-  for (const player of world.players.values()) reveal(world, player.pos.x, player.pos.y);
+  for (const player of world.players.values()) {
+    reveal(world, player.pos.x, player.pos.y, EXPLORE_RADIUS + 3 * perk(player, 'explorer'));
+  }
 }
 
 /** Share of the island's land a player has seen, from 0 to 1. */
