@@ -190,7 +190,30 @@ export function drawMachine(
   else drawBody(ctx, def, machine.dir, x, y);
   drawMachineLive(ctx, machine, def, time, x, y);
   drawStatusLight(ctx, machine, def, time, x, y);
+  if (outOfFuel(machine)) drawFuelSign(ctx, time, x, y);
   drawProgress(ctx, machine, x, y);
+}
+
+function outOfFuel(machine: Machine): boolean {
+  if (!machine.fuel || (machine.heat ?? 0) > 0) return false;
+  return machine.fuel.every((slot) => slot === null || slot.count <= 0);
+}
+
+/**
+ * The commonest reason a burner stops gets its own sign: a lump of coal in a
+ * red ring says what to bring without opening the machine.
+ */
+function drawFuelSign(ctx: CanvasRenderingContext2D, time: number, x: number, y: number): void {
+  const sx = x - TILE * 0.28;
+  const sy = y - TILE * 0.36;
+  ctx.globalAlpha = 0.7 + Math.sin(time * 5) * 0.3;
+  ctx.strokeStyle = UI.danger;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  drawItemSprite(ctx, sx, sy, 3.6, 'coal');
 }
 
 /**
@@ -493,6 +516,8 @@ function drawMachineLive(
 
 /** Stuck rather than waiting: every output slot taken, or a miner off its ore. */
 function isBlocked(machine: Machine, def: MachineDef): boolean {
+  // A burner with nothing to burn waits forever, not for the next delivery.
+  if (outOfFuel(machine)) return true;
   if (def.family === 'miner' && machine.output.every((s) => s === null)) return true;
   return machine.output.length > 0 && machine.output.every((s) => s !== null);
 }

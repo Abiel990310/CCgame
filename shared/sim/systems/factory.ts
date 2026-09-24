@@ -3,8 +3,11 @@ import {
   BELT_CAPACITY,
   BELT_ITEM_GAP,
   BELT_SPEED,
+  FUEL_RESERVE,
+  FUEL_VALUE,
   INSERTER_SWING,
   MACHINES,
+  isFuel,
 } from '../../data/machines';
 import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
 import { RESEARCH_PACKS, TECH_BY_ID, isResearchPack } from '../../data/techs';
@@ -101,11 +104,45 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
   // A machine only takes what its recipe actually uses; a chest takes anything.
   if (def.choosesRecipe) {
     const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
-    if (!recipe || !recipe.inputs.some((i) => i.id === item)) return false;
+    const ingredient = !!recipe && recipe.inputs.some((i) => i.id === item);
+
+    if (machine.fuel && isFuel(item)) {
+      // Fuel comes first up to a small reserve, then the recipe gets its share,
+      // then the fuel grid takes whatever is left: a steel furnace on one coal
+      // belt keeps burning and keeps smelting.
+      if (countIn(machine.fuel, item) < FUEL_RESERVE && addToSlots(machine.fuel, item, 1, def.slotSize) === 1) {
+        return true;
+      }
+      if (ingredient && ingredientFits(machine.input, def, recipe.inputs.length, item)) {
+        return addToSlots(machine.input, item, 1, def.slotSize) === 1;
+      }
+      return addToSlots(machine.fuel, item, 1, def.slotSize) === 1;
+    }
+
+    if (!recipe || !ingredient) return false;
     if (!ingredientFits(machine.input, def, recipe.inputs.length, item)) return false;
   }
 
   return addToSlots(machine.input, item, 1, def.slotSize) === 1;
+}
+
+/**
+ * Make sure a burner has heat for the work ahead, burning one item of fuel from
+ * its grid when the last has run out. Machines with no fuel grid always can.
+ */
+function stoke(machine: Machine): boolean {
+  if (!machine.fuel) return true;
+  if ((machine.heat ?? 0) > 0) return true;
+
+  for (const slot of machine.fuel) {
+    const value = slot ? FUEL_VALUE[slot.id] ?? 0 : 0;
+    if (slot && value > 0) {
+      takeStack(machine.fuel, slot.id, 1);
+      machine.heat = (machine.heat ?? 0) + value;
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -443,11 +480,28 @@ function stepCrafter(
       machine.stalled = true;
       return;
     }
+    // A burner with nothing to burn keeps its ingredients in the grid rather
+    // than swallowing them into a craft it cannot run.
+    if (!stoke(machine)) {
+      machine.stalled = true;
+      return;
+    }
     for (const input of recipe.inputs) takeStack(machine.input, input.id, input.count);
   }
 
+  // Running dry mid-craft pauses it; the progress is kept for when coal arrives.
+  if (!stoke(machine)) {
+    machine.stalled = true;
+    return;
+  }
+
   machine.stalled = false;
-  machine.progress += dt * bonus.crafting;
+  const step = dt * bonus.crafting;
+  machine.progress += step;
+  // Heat is spent in recipe seconds, so the same craft costs the same fuel in
+  // every tier. It may dip below zero by one tick's worth, which the next
+  // burn pays back, so no work is ever done for free.
+  if (machine.heat !== undefined) machine.heat -= step * def.speed;
   if (machine.progress < duration) return;
 
   machine.progress = 0;
