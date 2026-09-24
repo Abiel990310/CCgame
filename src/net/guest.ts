@@ -58,12 +58,16 @@ export class CoopGuest {
   /** Connect to a room and wait until our character is standing on the island. */
   static async join(code: string, name: string, token: string): Promise<CoopGuest> {
     let guest: CoopGuest | null = null;
-    const fail = (reason: string): void => guest?.end(reason);
+    // The broker only matters until we are in; after that its trouble is not ours.
+    const fail = (reason: string): void => {
+      if (guest?.joining) guest.end(reason);
+    };
     // A broker id of our own, unguessable, so nobody else can answer as us.
     const self = `${peerId(code)}-${crypto.getRandomValues(new Uint32Array(2)).join('')}`;
     const broker = new Broker(self, {
       onRelay: (type, _src, payload) => guest?.link.signal(type, payload),
       onFail: fail,
+      onExpire: () => fail('No game is open with that code'),
     });
     await broker.open();
     guest = new CoopGuest(broker, code, token, name);
@@ -139,8 +143,16 @@ export class CoopGuest {
       const arrived = this.arrived;
       this.arrived = null;
       this.failed = null;
+      // Once the channel is open the game runs browser to browser; keeping the
+      // broker would only let its hiccups end a game that no longer needs it.
+      this.broker.close();
       arrived();
     }
+  }
+
+  /** True until our character is on the island. */
+  get joining(): boolean {
+    return this.arrived !== null;
   }
 
   /** Ticks received and not yet played. */

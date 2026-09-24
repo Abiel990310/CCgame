@@ -351,7 +351,7 @@ export class Game {
         this.hud.toast(news, 'good');
         this.coop.setRoster(names);
       },
-      onTrouble: (reason) => this.hud.toast(`${reason}. Friends already here can stay; new ones cannot join.`, 'warn'),
+      onTrouble: (reason) => this.hud.toast(`${reason}. Friends already here keep playing.`, 'warn'),
     });
     // The island may have been closed while the room was opening.
     if (this.slot !== slot || !this.running) {
