@@ -1,6 +1,8 @@
 import { createWorld } from '@shared/sim/world';
 import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
+import { TECH_BY_ID } from '@shared/data/techs';
+import { newResearch } from '@shared/sim/research';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
@@ -43,6 +45,8 @@ interface SaveFile {
   rngState: number;
   players: Player[];
   peaceful: boolean;
+  /** Version 5 and newer. An older island has researched nothing. */
+  research?: World['research'];
   /** Version 3 and older only. */
   nodes?: ResourceNode[];
   buildings?: Building[];
@@ -134,6 +138,7 @@ export function saveWorld(world: World, slot: string): boolean {
     rngState: world.rngState,
     players: [...world.players.values()],
     peaceful: world.peaceful,
+    research: world.research,
   };
 
   // Sections go down before the header. Neither order is atomic, but this one
@@ -176,6 +181,7 @@ export function loadWorld(slot: string): World | null {
     world.nightIndex = file.nightIndex;
     world.nextId = file.nextId;
     world.rngState = file.rngState;
+    world.research = loadResearch(file.research);
 
     const scenery = readSection<ScenerySection>(slot, SCENERY_SUFFIX);
     // An older island carried its scenery in the header; a version 4 one has
@@ -216,6 +222,31 @@ export function loadWorld(slot: string): World | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Research read back defensively: a tech that no longer exists is dropped
+ * rather than left pointing the island's labs at nothing, and a level or a
+ * cycle count that is not a number is read as none.
+ */
+function loadResearch(raw: World['research'] | undefined): World['research'] {
+  const research = newResearch();
+  if (!raw || typeof raw !== 'object') return research;
+
+  for (const [id, level] of Object.entries(raw.levels ?? {})) {
+    if (TECH_BY_ID.has(id) && typeof level === 'number' && level > 0) {
+      research.levels[id] = Math.floor(level);
+    }
+  }
+  for (const [id, done] of Object.entries(raw.progress ?? {})) {
+    if (TECH_BY_ID.has(id) && typeof done === 'number' && done > 0) {
+      research.progress[id] = Math.floor(done);
+    }
+  }
+  if (typeof raw.current === 'string' && TECH_BY_ID.has(raw.current)) {
+    research.current = raw.current;
+  }
+  return research;
 }
 
 /** Forget everything remembered about a slot, so its next save writes in full. */

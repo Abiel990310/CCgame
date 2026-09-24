@@ -379,6 +379,38 @@ function motor(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, c
   outline(ctx, s, line);
 }
 
+/**
+ * A round-bottomed flask with a stopper. Research packs are the only items that
+ * are not a part or a material, and a silhouette nothing else on a belt shares
+ * is what says so at a glance.
+ */
+function flask(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  const { lit, shade, line } = tones(color);
+
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.26, y - s * 0.85);
+  ctx.lineTo(x - s * 0.26, y - s * 0.2);
+  ctx.arc(x, y + s * 0.26, s * 0.72, Math.PI * 1.22, Math.PI * 1.78, true);
+  ctx.lineTo(x + s * 0.26, y - s * 0.85);
+  ctx.closePath();
+  ctx.fillStyle = shade;
+  ctx.fill();
+  outline(ctx, s, line);
+
+  // The liquid catches the light on its left, the way every other shape does.
+  ctx.beginPath();
+  ctx.arc(x - s * 0.14, y + s * 0.2, s * 0.42, 0, Math.PI * 2);
+  ctx.fillStyle = lit;
+  ctx.fill();
+
+  if (s < 5) return;
+  ctx.beginPath();
+  ctx.roundRect(x - s * 0.34, y - s * 0.98, s * 0.68, s * 0.24, s * 0.08);
+  ctx.fillStyle = shift('#d8cbb0', 0);
+  ctx.fill();
+  outline(ctx, s, line);
+}
+
 const SHAPES: Record<ItemShape, ShapeFn> = {
   chunk,
   nugget,
@@ -394,6 +426,7 @@ const SHAPES: Record<ItemShape, ShapeFn> = {
   chip,
   cell,
   motor,
+  flask,
 };
 
 /**

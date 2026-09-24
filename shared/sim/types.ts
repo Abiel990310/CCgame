@@ -28,7 +28,11 @@ export type ItemId =
   | 'circuit'
   | 'battery'
   | 'motor'
-  | 'advancedCircuit';
+  | 'advancedCircuit'
+  // Consumed by labs
+  | 'researchPack'
+  | 'logicPack'
+  | 'powerPack';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -186,7 +190,8 @@ export type MachineFamily =
   | 'assembler'
   | 'chest'
   | 'inserter'
-  | 'splitter';
+  | 'splitter'
+  | 'lab';
 
 export type MachineId =
   | MachineFamily
@@ -246,6 +251,20 @@ export interface Machine {
   turn?: number;
 }
 
+/**
+ * What the island has learned. Research belongs to the world rather than to a
+ * player: a lab is a building, and once multiplayer lands everyone standing on
+ * the island is feeding the same tree.
+ */
+export interface Research {
+  /** The tech labs are working on, or null when nothing is queued. */
+  current: string | null;
+  /** Cycles banked toward each tech. Kept per tech, so switching loses nothing. */
+  progress: Record<string, number>;
+  /** Times each tech has been completed. A repeatable tech counts up. */
+  levels: Record<string, number>;
+}
+
 export interface World {
   tick: number;
   time: number;
@@ -282,6 +301,8 @@ export interface World {
    * rather than saved, since it is derived state.
    */
   grid: Map<number, Belt | Machine>;
+  /** Techs finished and the one being researched now. */
+  research: Research;
   /** When true this world has no night raids; the factory is the whole game. */
   peaceful: boolean;
   /** Spawn budget left to release during the current night. */
@@ -307,4 +328,5 @@ export type SimEvent =
   | { kind: 'playerHit'; playerId: number; amount: number }
   | { kind: 'downed'; playerId: number }
   | { kind: 'built'; pos: Vec2; type: BuildingId }
+  | { kind: 'research'; tech: string; level: number; next: string | null }
   | { kind: 'oreChanged'; tx: number; ty: number };

@@ -1,5 +1,6 @@
 import { MACHINES } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
+import { isResearchPack } from '../data/techs';
 import { isSplitter, setSideFilter, splitterAccepts } from './factory';
 import { giveOrDrop } from './inventory';
 import { addToSlots, slotCap, sortSlots, takeFromSlots } from './slots';
@@ -57,6 +58,8 @@ export function accepts(machine: Machine | null, area: SlotArea, id: ItemId): bo
 
   const def = MACHINES[machine.type];
   if (def.inputSlots === 0) return false;
+  // A lab is loaded by hand on the same terms a belt loads it: packs only.
+  if (def.family === 'lab') return isResearchPack(id);
   // Handing a splitter something neither side would route only jams it.
   if (def.family === 'splitter') return splitterAccepts(machine, id);
   // A chest takes anything; a crafter only takes what its recipe actually uses.

@@ -2,6 +2,7 @@ import { ITEMS } from '@shared/data/items';
 import type { MachineDef } from '@shared/data/machines';
 import { BELT_SPEED, INSERTER_SWING, MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
+import { TECH_BY_ID } from '@shared/data/techs';
 import { TILE } from '@shared/sim/constants';
 import { filterOf } from '@shared/sim/factory';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
@@ -273,6 +274,24 @@ function drawMachineFace(
       ctx.fillRect(x - TILE * 0.44, y - TILE * 0.08, TILE * 0.88, 3);
       break;
     }
+    case 'lab': {
+      // A lit dome with something rising through it. A lab has no output side
+      // and no moving arm, so the bubbles are the only sign it is working.
+      ctx.fillStyle = rgba(accent, running ? 0.5 : 0.14);
+      ctx.beginPath();
+      ctx.arc(x, y - TILE * 0.1, TILE * 0.24, Math.PI, 0);
+      ctx.fill();
+
+      ctx.fillStyle = rgba(accent, running ? 0.95 : 0.25);
+      for (let i = 0; i < 3; i++) {
+        const rise = running ? ((time * 0.6 + i / 3) % 1) : (i + 1) / 4;
+        const bx = x + Math.sin((i + 1) * 2.4 + time) * TILE * 0.09;
+        ctx.beginPath();
+        ctx.arc(bx, y - TILE * 0.04 - rise * TILE * 0.2, 1.8 + (1 - rise) * 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
   }
 }
 
@@ -404,6 +423,24 @@ function drawOutputNub(
   ctx.restore();
 }
 
+/**
+ * Seconds one cycle of this machine takes at its own base speed. Research
+ * multiplies how fast progress accumulates rather than shortening the cycle,
+ * so this stays right however far up the tech tree the island is.
+ */
+function cycleLength(machine: Machine): number {
+  const def = MACHINES[machine.type];
+  // A miner's speed scales how fast progress climbs toward MINE_TIME, so the
+  // bar is out of MINE_TIME whatever the tier.
+  if (def.family === 'miner') return MINE_TIME;
+  if (def.family === 'lab') {
+    const tech = machine.recipe ? TECH_BY_ID.get(machine.recipe) : null;
+    return tech ? tech.time : 0;
+  }
+  const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
+  return recipe ? craftTime(recipe, def.speed) : 0;
+}
+
 function drawProgress(
   ctx: CanvasRenderingContext2D,
   machine: Machine,
@@ -415,13 +452,7 @@ function drawProgress(
   // splitter passes items straight through.
   if (def.family === 'chest' || def.family === 'inserter' || def.family === 'splitter') return;
 
-  const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
-  const duration =
-    def.family === 'miner'
-      ? MINE_TIME / def.speed
-      : recipe
-        ? craftTime(recipe, def.speed)
-        : 0;
+  const duration = cycleLength(machine);
   if (duration <= 0 || machine.progress <= 0) return;
 
   meter(ctx, x, y + TILE * 0.4, TILE * 0.8, 3, machine.progress / duration, UI.xp);

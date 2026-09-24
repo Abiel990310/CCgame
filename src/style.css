@@ -185,6 +185,10 @@ body {
   background: linear-gradient(90deg, #6fc6f0, #97ddff);
 }
 
+.bar.research .fill {
+  background: linear-gradient(90deg, #7fb469, #b6e39a);
+}
+
 .bar span {
   position: relative;
   display: block;
@@ -829,6 +833,7 @@ kbd {
   filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.35));
 }
 
+
 /* The stack riding the pointer while it is being moved. */
 .carried {
   position: fixed;
@@ -894,6 +899,17 @@ kbd {
 
 .inv-inner .offers {
   margin-bottom: 12px;
+}
+
+.research-note {
+  margin: -4px 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+
+.research-note b {
+  color: var(--ink);
 }
 
 .filter-cell {

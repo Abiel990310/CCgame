@@ -21,7 +21,8 @@ export type ItemShape =
   | 'board'
   | 'chip'
   | 'cell'
-  | 'motor';
+  | 'motor'
+  | 'flask';
 
 export interface ItemDef {
   id: ItemId;
@@ -68,6 +69,16 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     stack: 999,
     shape: 'chip',
   },
+
+  researchPack: {
+    id: 'researchPack',
+    name: 'Research Pack',
+    color: '#e0574f',
+    stack: 999,
+    shape: 'flask',
+  },
+  logicPack: { id: 'logicPack', name: 'Logic Pack', color: '#5fbf7a', stack: 999, shape: 'flask' },
+  powerPack: { id: 'powerPack', name: 'Power Pack', color: '#6f8cf0', stack: 999, shape: 'flask' },
 };
 
 /** Every item in table order, which is the order an item picker offers them. */

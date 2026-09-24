@@ -59,6 +59,9 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Machine tiers | A tier is a data row: a family plus a speed multiplier | A steel furnace is a furnace that runs faster, so it points at the furnace's recipes rather than duplicating them. Adding a tier costs one row in `machines.ts` and no recipe rows, which is what keeps the engine small as the ladder grows. |
 | Inserter reach and filters | Data rows on the machine table, not new machine types | `MachineDef.reach` is what makes the long arm a row rather than a system, and `Machine.filter` sits beside the recipe so both arms take one. A third arm, or a filtered one of any length, costs a table entry. |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
+| Research | Packs belted into labs, owned by the world | Research is the first thing the factory feeds rather than the player, so an unlock is a throughput problem: a second lab is worth exactly what a second furnace is. It belongs to the island, not a player, because a lab is a building and multiplayer will have several people feeding one tree. |
+| Tech effects | Multipliers, never unlocks | Every machine stays available from minute one; a tech makes the factory you already built worth more. A tree of unlocks ends, and two of these repeat forever, so the curve does not. |
+| Research XP | Every lab cycle levels up every player | Gathering by hand was the only source of XP, so automating the island slowed the character down and a peaceful world barely levelled at all. |
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Save contents | Derive what the seed decides; store only what play changed | Scenery was 109 kB of a 110 kB save and `createWorld` already rebuilds it from the seed, exactly as terrain is. Nodes are regenerated on load and only the chopped and cleared ones are written, which is also why worldgen changing under an existing island would move its scenery. |
@@ -108,11 +111,19 @@ with steel and gears and a Mk3 bought with motors and advanced circuits, at
 double and quadruple speed. That is the recipe half of this phase; power itself
 is still ahead.
 
+Research is in too. A **Lab** eats research packs off a belt, and `TECHS` in
+`shared/data/techs.ts` is the tree it works through: three packs
+(research, logic, power) assembled from the existing chain, eight techs, and
+two of them repeatable forever. Every tech is a multiplier on machines that
+already exist — mining, crafting, belt and inserter speed, lab speed, research
+XP — so nothing is locked behind research and a finished tree still compounds.
+Each lab cycle grants XP to every player on the island, which is what stops
+automating your island from slowing your character down, and gives a peaceful
+world a levelling curve at last.
+
 - Power as a network: generators, poles, consumption per machine. Machines stop
   when supply runs short, which makes power a system rather than a cost.
 - Steel and resin: recipes six or more steps from raw ore.
-- A tech tree gated by **producing** items, not by killing things — production
-  is the verb this game rewards.
 - Belt tiers or not (see open questions).
 - Production statistics, so a player can find their own bottleneck. This is a
   core factory-game affordance, not a nicety.
@@ -147,8 +158,8 @@ Unresolved, and worth a deliberate answer rather than a default.
 
 - ~~**Do ore patches deplete?**~~ Answered: large but finite, in the decision
   log above. Revisit only if play shows the numbers are wrong.
-- **How is the tech tree gated** — by producing science items, or by cumulative
-  output?
+- ~~**How is the tech tree gated?**~~ Answered: by producing research packs and
+  belting them into labs, in the decision log above.
 - **Do belts get tiers** (faster belts), or does throughput scale only by adding
   parallel lines?
 - **How early do blueprints arrive?** They remove enormous tedium, but also
@@ -186,6 +197,11 @@ detail behind the factory entries is in
 - [ ] Touch has no rotate, so every belt placed on a phone would face one way.
 - [ ] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely.
+- [ ] Shift-clicking a large stack into a two-slot machine fills **both** input
+      slots with one ingredient, so the second ingredient can never get in and
+      the machine deadlocks until you take some back out by hand. Belts are
+      guarded against exactly this (one slot reserved per ingredient); hand
+      loading is not. Found driving a research line in a browser.
 
 
 ### New features
@@ -212,8 +228,6 @@ detail behind the factory entries is in
       reserves room for what a line needs rather than filling with one item.
 - [ ] **Copy settings between machines** — a bank of filtered arms means
       setting the same filter a dozen times by hand.
-- [ ] **Lab and a `TECHS` table** — research consumed as a belt-fed item flow
-      rather than bought from a shop, so every unlock is a throughput problem.
 - [ ] **Tech gating on the build palette** — start with miner, furnace and
       belt; everything else is earned. Today all four machines are available at
       minute one.
@@ -261,6 +275,8 @@ detail behind the factory entries is in
 - [ ] **Muffle the world behind an open modal** — a lowpass on the master bus
       while the pause or inventory screen is up, so the interface sits in front
       of the island rather than inside it.
+- [ ] **A sound for a finished research cycle**, and a different one for a
+      finished tech. A lab is the one machine whose output is invisible.
 - [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
       A crafted satchel is an obvious early sink and a reason to build a
       workbench.
@@ -291,10 +307,6 @@ detail behind the factory entries is in
 - [ ] A busy factory still rewrites every belt and machine each save, because
       one belt item moving makes the whole section's text differ. Fine at a few
       hundred belts; if the section gets big, split it per chunk of the map.
-- [ ] Lab consumption should grant XP to every player on the island. `grantXp`
-      fires only from gathering and mob kills today, which means automating
-      your island *slows your character down*. This also gives peaceful worlds
-      a levelling curve, which they currently lack.
 - [ ] Scale `waveBudget` off the highest research tier completed rather than
       the night index alone. Researching is a choice, so difficulty stays
       opt-in and building freely never punishes you.
@@ -305,6 +317,20 @@ detail behind the factory entries is in
       what stops two facing arms passing one item back and forth forever. The
       long inserter is the answer as intended: it reaches straight over an arm
       standing in the way.
+- [ ] A pending level-up freezes the whole world, and labs now grant XP
+      continuously, so a running factory interrupts itself with a draft card
+      every couple of minutes. Either the draft should not pause a factory that
+      the player is not touching, or level-ups should queue.
+- [ ] The lab's body is nearly the assembler's blue-grey; the lit dome is what
+      tells them apart. Fine beside each other, worth a second look in a dense
+      base.
+- [ ] Now that ore runs out, research could raise **ore per tile**, not only how
+      fast a drill works. Every tech today is speed, which empties a patch
+      sooner; a productivity tech would make each patch last longer instead,
+      and would be the natural second infinite research.
+- [ ] Research auto-advances to the first available tech when one finishes, so a
+      lab never idles. A visible queue the player orders themselves would be
+      better than a guess.
 - [ ] The world sizes every item the same: 5.2 for a belt or an inserter hand,
       6 for a ground drop. A wood log and a circuit board are not the same size
       in life, and `ItemDef` could carry a scale the way it carries a colour.
@@ -405,11 +431,12 @@ detail behind the factory entries is in
 - [ ] Peaceful worlds need a fishing-only route to the top research tier, since
       `essence` also drops from wisps at night. Otherwise peaceful is locked
       out of the endgame it suits best.
+- [ ] Research is already per world rather than per player, which is what will
+      make another player arriving unambiguously good. Worth revisiting whether
+      XP from a cycle should scale with how many people are on the island.
 - [ ] Item shapes could carry a second colour — a gear's bore, a battery's
       terminal — instead of deriving every tone from one hex. Worth it only if
       a tier adds items a single hue cannot keep apart.
-- [ ] Research shared per world rather than per player once multiplayer lands —
-      it is what makes another player arriving unambiguously good.
 - [ ] Grandfather existing saves as fully unlocked when the palette becomes
       tech-gated. "Nothing is lost" is a stated pillar.
 - [ ] Trains as a later flourish on top of port logistics, for the spectacle
@@ -447,6 +474,11 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Research rates are guesses. The first tech is 20 cycles at 4s, packs cost
+      a gear and a copper plate each, and the repeatable techs double in price
+      per level. None of it has been played, only driven.
+- [ ] Whether a lab is worth its cost (20 iron plate, 10 gears, 5 circuits) at
+      the point in a run where a player can first afford one.
 - [ ] Whether 800 ore in a patch's richest tile is the right number. It works
       out at roughly two hours of one miner over a nine-tile reach and hours
       for a whole patch, but no one has played far enough to feel it.
