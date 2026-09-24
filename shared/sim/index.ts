@@ -15,3 +15,4 @@ export { nightBudget } from './systems/mobs';
 export * from './grid';
 export * from './ore';
 export * from './factory';
+export * from './goals';

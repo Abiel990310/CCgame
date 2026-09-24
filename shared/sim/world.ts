@@ -22,6 +22,7 @@ export function createPlayer(id: number, name: string, pos: Vec2): Player {
     xpToNext: xpForLevel(1),
     pendingUpgrades: 0,
     offers: [],
+    goal: 0,
     inventory: newInventory(),
     cursor: null,
     weapons: [{ id: 'sling', level: 1, cooldown: 0 }],
