@@ -381,6 +381,11 @@ detail behind the factory entries is in
       machines and 600 belts on a 2x screen, went from 17 to 29 fps headless.
       What is left in a factory frame is each machine's live parts (drill,
       gears, smoke, lamp), traced every frame.
+- [x] Night is laid over the stage by the browser's compositor: a dark
+      sheet, the quarter-resolution light map added on with `plus-lighter`,
+      and small canvases for eyes and name tags that are hidden when empty.
+      A camp with 12 lamps at night went from 48 to 80 fps headless. Browsers
+      without `plus-lighter` still paint the night into the canvas.
 - [ ] **Move drawing to WebGL** (decided 2026-09-24, Abiel asked for the game
       to look and run like a Steam game). Profiled on the live build: the
       simulation, HUD and lighting maths cost under 1 ms a frame; the rest is

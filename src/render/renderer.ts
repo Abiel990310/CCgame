@@ -55,6 +55,21 @@ export class Renderer {
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
   private visibleBelts: Belt[] = [];
   private visibleMachines: Machine[] = [];
+  /**
+   * The night layers stacked over the stage, where the browser supports
+   * adding one layer onto another; see the constructor. Without them the night
+   * is painted into the stage canvas as before.
+   */
+  private night: {
+    dark: HTMLDivElement;
+    lights: HTMLCanvasElement;
+    lightsCtx: CanvasRenderingContext2D | null;
+    /** Eyes glow onto the night; name tags sit plainly over it. */
+    eyes: Overlay;
+    tags: Overlay;
+    /** The dark sheet's colour as last set, so the style is only touched on change. */
+    shade: string;
+  } | null = null;
   /** The night's lights, gathered at low resolution; see `drawLighting`. */
   private lights: HTMLCanvasElement | null = null;
   private lightsCtx: CanvasRenderingContext2D | null = null;
@@ -63,6 +78,30 @@ export class Renderer {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('2D canvas context unavailable');
     this.ctx = ctx;
+
+    // Night is laid over the scene by the browser's compositor rather than
+    // painted into it: a flat dark sheet, then the low-resolution light map
+    // stretched over everything and added on. Painting both into the canvas
+    // was a full-screen blend and a full-screen stretch every night frame.
+    if (typeof CSS !== 'undefined' && CSS.supports('mix-blend-mode', 'plus-lighter')) {
+      const dark = document.createElement('div');
+      const lights = document.createElement('canvas');
+      const eyes = new Overlay('plus-lighter');
+      const tags = new Overlay('normal');
+      for (const el of [dark, lights]) {
+        Object.assign(el.style, {
+          position: 'fixed',
+          inset: '0',
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          display: 'none',
+        });
+      }
+      lights.style.mixBlendMode = 'plus-lighter';
+      canvas.after(dark, lights, eyes.canvas, tags.canvas);
+      this.night = { dark, lights, lightsCtx: lights.getContext('2d'), eyes, tags, shade: '' };
+    }
   }
 
   resize(): void {
@@ -75,6 +114,10 @@ export class Renderer {
     this.camera.height = h;
     this.dpr = dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (this.night) {
+      this.night.eyes.resize(this.canvas.width, this.canvas.height);
+      this.night.tags.resize(this.canvas.width, this.canvas.height);
+    }
     // Zoom with viewport so a phone shows a sensible slice of the island.
     this.camera.zoom = clamp(Math.min(w, h) / 560, 1.15, 2.4);
   }
@@ -181,22 +224,29 @@ export class Renderer {
 
     this.drawLighting(world, selfId, time);
 
-    // Names stay readable after dark, so they go over the night layer.
-    ctx.save();
-    ctx.setTransform(scale, 0, 0, scale, originX, originY);
-    drawNameTags(ctx, world, selfId, visible);
-    ctx.restore();
+    // Names and eyes stay visible after dark, so they go over the night.
+    const darkness = nightDarkness(world);
+    const night = this.night;
+    const names = world.players.size > 1;
+    const tags = night ? night.tags.begin(names) : ctx;
+    if (names && tags) {
+      tags.save();
+      tags.setTransform(scale, 0, 0, scale, originX, originY);
+      drawNameTags(tags, world, selfId, visible);
+      tags.restore();
+    }
 
     // Eyes in the dark: drawn over the night layer so a raid gives itself away.
-    const darkness = nightDarkness(world);
-    if (darkness > 0.05 && world.mobs.length > 0) {
-      ctx.save();
-      ctx.setTransform(scale, 0, 0, scale, originX, originY);
-      ctx.globalCompositeOperation = 'lighter';
+    const glowing = darkness > 0.05 && world.mobs.length > 0;
+    const eyes = night ? night.eyes.begin(glowing) : ctx;
+    if (glowing && eyes) {
+      eyes.save();
+      eyes.setTransform(scale, 0, 0, scale, originX, originY);
+      eyes.globalCompositeOperation = 'lighter';
       for (const mob of world.mobs) {
-        if (visible(mob.pos, 60)) drawMobGlow(ctx, mob, time, darkness);
+        if (visible(mob.pos, 60)) drawMobGlow(eyes, mob, time, darkness);
       }
-      ctx.restore();
+      eyes.restore();
     }
   }
 
@@ -451,32 +501,60 @@ export class Renderer {
    */
   private drawLighting(world: World, selfId: number, time: number): void {
     const darkness = nightDarkness(world);
-    if (darkness <= 0.01) return;
+    const night = this.night;
+    if (darkness <= 0.01) {
+      if (night && night.shade !== '') {
+        night.shade = '';
+        night.dark.style.display = 'none';
+        night.lights.style.display = 'none';
+      }
+      return;
+    }
 
     const ctx = this.ctx;
     const { width, height } = this.camera;
 
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = `rgba(12, 18, 38, ${darkness * 0.72})`;
-    ctx.fillRect(0, 0, width, height);
+    const shade = `rgba(12, 18, 38, ${(darkness * 0.72).toFixed(3)})`;
+    if (night) {
+      if (night.shade !== shade) {
+        if (night.shade === '') {
+          night.dark.style.display = 'block';
+          night.lights.style.display = 'block';
+        }
+        night.shade = shade;
+        night.dark.style.backgroundColor = shade;
+      }
+    } else {
+      ctx.save();
+      ctx.fillStyle = shade;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    }
 
     // The lights are soft by nature, so they are gathered at a quarter of the
-    // screen's resolution and stretched over it in one blit. Filling each one's
-    // gradient across the full screen was most of a night frame in a camp
-    // with a few lamps.
+    // screen's resolution and stretched over it. Filling each one's gradient
+    // across the full screen was most of a night frame in a camp with a few
+    // lamps.
     const lw = Math.max(1, Math.ceil(width / LIGHT_DOWNSCALE));
     const lh = Math.max(1, Math.ceil(height / LIGHT_DOWNSCALE));
-    if (!this.lights || this.lights.width !== lw || this.lights.height !== lh) {
+    if (night) {
+      this.lights = night.lights;
+      this.lightsCtx = night.lightsCtx;
+    } else if (!this.lights) {
       this.lights = document.createElement('canvas');
-      this.lights.width = lw;
-      this.lights.height = lh;
       this.lightsCtx = this.lights.getContext('2d');
     }
+    const lights = this.lights;
     const lc = this.lightsCtx;
-    if (!lc) {
-      ctx.restore();
-      return;
+    if (!lights || !lc) return;
+    if (lights.width !== lw || lights.height !== lh) {
+      lights.width = lw;
+      lights.height = lh;
+      // Stretched by exactly the downscale, so a light sits where it was drawn.
+      if (night) {
+        lights.style.width = `${lw * LIGHT_DOWNSCALE}px`;
+        lights.style.height = `${lh * LIGHT_DOWNSCALE}px`;
+      }
     }
     lc.setTransform(1, 0, 0, 1, 0, 0);
     lc.globalCompositeOperation = 'source-over';
@@ -513,6 +591,8 @@ export class Renderer {
     for (const player of world.players.values()) {
       addLight(player.pos, 150, player.id === selfId ? 0.34 : 0.22, '#bcd8ff');
     }
+    // Laid over the stage, the map is stretched by the compositor and added on.
+    if (night) return;
 
     // Snapped to the light map's own pixels so the stretch lines up with it.
     const bx0 = Math.max(0, Math.floor(x0 / LIGHT_DOWNSCALE));
@@ -520,10 +600,11 @@ export class Renderer {
     const bx1 = Math.min(lw, Math.ceil(x1 / LIGHT_DOWNSCALE));
     const by1 = Math.min(lh, Math.ceil(y1 / LIGHT_DOWNSCALE));
     if (bx1 > bx0 && by1 > by0) {
+      ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(
-        this.lights,
+        lights,
         bx0,
         by0,
         bx1 - bx0,
@@ -533,8 +614,8 @@ export class Renderer {
         (bx1 - bx0) * LIGHT_DOWNSCALE,
         (by1 - by0) * LIGHT_DOWNSCALE,
       );
+      ctx.restore();
     }
-    ctx.restore();
   }
 }
 
@@ -592,4 +673,45 @@ export function nightDarkness(world: World): number {
   const into = CYCLE.nightSeconds - world.phaseTime;
   if (into < twilightSeconds) return into / twilightSeconds;
   return 1;
+}
+
+/**
+ * A full-screen canvas over the night for the few things drawn above it. It
+ * is hidden, and never cleared, while it has nothing to show, which is most of
+ * the time.
+ */
+class Overlay {
+  readonly canvas = document.createElement('canvas');
+  private ctx = this.canvas.getContext('2d');
+  private used = false;
+
+  constructor(blend: 'normal' | 'plus-lighter') {
+    Object.assign(this.canvas.style, {
+      position: 'fixed',
+      inset: '0',
+      width: '100%',
+      height: '100%',
+      pointerEvents: 'none',
+      display: 'none',
+      mixBlendMode: blend,
+    });
+  }
+
+  resize(width: number, height: number): void {
+    this.canvas.width = width;
+    this.canvas.height = height;
+    this.used = false;
+  }
+
+  /** Clear what the last frame left and show or hide the layer; null when hidden. */
+  begin(show: boolean): CanvasRenderingContext2D | null {
+    const ctx = this.ctx;
+    if (this.used && ctx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    if (show !== this.used) this.canvas.style.display = show ? 'block' : 'none';
+    this.used = show;
+    return show ? ctx : null;
+  }
 }
