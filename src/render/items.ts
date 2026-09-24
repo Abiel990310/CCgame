@@ -613,7 +613,12 @@ export function drawItemSprite(
   item: ItemId,
 ): void {
   const box = (size * 2) / FIT;
-  const px = Math.max(12, Math.ceil((box * worldScale) / 6) * 6);
+  // As with scenery in `blitCached`: under a plain scale, bake at exactly the
+  // size it lands on screen and copy it to a whole pixel, which skips the
+  // filtering a scaled or fractional blit costs on every item on every belt.
+  const m = ctx.getTransform();
+  const plain = m.b === 0 && m.c === 0 && m.a === m.d && m.a > 0;
+  const px = plain ? Math.max(4, Math.round(box * m.a)) : Math.max(12, Math.ceil((box * worldScale) / 6) * 6);
   const key = `${item}:${px}`;
 
   let sprite = sprites.get(key);
@@ -630,7 +635,13 @@ export function drawItemSprite(
     sprites.set(key, sprite);
   }
 
-  ctx.drawImage(sprite, x - box / 2, y - box / 2, box, box);
+  if (!plain) {
+    ctx.drawImage(sprite, x - box / 2, y - box / 2, box, box);
+    return;
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(sprite, Math.round(m.a * x + m.e - px / 2), Math.round(m.d * y + m.f - px / 2));
+  ctx.setTransform(m);
 }
 
 /**

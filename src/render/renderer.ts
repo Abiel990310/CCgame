@@ -40,6 +40,9 @@ import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
 /** How far past the viewport the pre-scaled ground reaches, in device pixels. */
 const GROUND_MARGIN = 320;
 
+/** How much coarser than the screen, in CSS pixels, the night's lights are gathered. */
+const LIGHT_DOWNSCALE = 4;
+
 /** Anything that needs depth sorting, collected once per frame. */
 interface Drawable {
   y: number;
@@ -74,6 +77,9 @@ export class Renderer {
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
   private visibleBelts: Belt[] = [];
   private visibleMachines: Machine[] = [];
+  /** The night's lights, gathered at low resolution; see `drawLighting`. */
+  private lights: HTMLCanvasElement | null = null;
+  private lightsCtx: CanvasRenderingContext2D | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -621,17 +627,48 @@ export class Renderer {
     ctx.fillStyle = `rgba(12, 18, 38, ${darkness * 0.72})`;
     ctx.fillRect(0, 0, width, height);
 
-    ctx.globalCompositeOperation = 'lighter';
+    // The lights are soft by nature, so they are gathered at a quarter of the
+    // screen's resolution and stretched over it in one blit. Filling each one's
+    // gradient across the full screen was most of a night frame in a camp
+    // with a few lamps.
+    const lw = Math.max(1, Math.ceil(width / LIGHT_DOWNSCALE));
+    const lh = Math.max(1, Math.ceil(height / LIGHT_DOWNSCALE));
+    if (!this.lights || this.lights.width !== lw || this.lights.height !== lh) {
+      this.lights = document.createElement('canvas');
+      this.lights.width = lw;
+      this.lights.height = lh;
+      this.lightsCtx = this.lights.getContext('2d');
+    }
+    const lc = this.lightsCtx;
+    if (!lc) {
+      ctx.restore();
+      return;
+    }
+    lc.setTransform(1, 0, 0, 1, 0, 0);
+    lc.globalCompositeOperation = 'source-over';
+    lc.clearRect(0, 0, lw, lh);
+    lc.setTransform(1 / LIGHT_DOWNSCALE, 0, 0, 1 / LIGHT_DOWNSCALE, 0, 0);
+    lc.globalCompositeOperation = 'lighter';
+
+    // Only the part of the screen some light reaches is stretched back over it.
+    let x0 = width;
+    let y0 = height;
+    let x1 = 0;
+    let y1 = 0;
     const addLight = (world_pos: Vec2, radius: number, strength: number, color: string): void => {
       const sx = (world_pos.x - this.camera.pos.x) * this.camera.zoom + width / 2;
       const sy = (world_pos.y - this.camera.pos.y) * this.camera.zoom + height / 2;
       const r = radius * this.camera.zoom;
       if (sx < -r || sy < -r || sx > width + r || sy > height + r) return;
-      const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+      x0 = Math.min(x0, sx - r);
+      y0 = Math.min(y0, sy - r);
+      x1 = Math.max(x1, sx + r);
+      y1 = Math.max(y1, sy + r);
+      const gradient = lc.createRadialGradient(sx, sy, 0, sx, sy, r);
       gradient.addColorStop(0, rgba(color, strength * darkness));
       gradient.addColorStop(1, rgba(color, 0));
-      ctx.fillStyle = gradient;
-      ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
+      lc.fillStyle = gradient;
+      lc.fillRect(sx - r, sy - r, r * 2, r * 2);
     };
 
     const flicker = 1 + Math.sin(time * 8) * 0.06;
@@ -641,6 +678,27 @@ export class Renderer {
     }
     for (const player of world.players.values()) {
       addLight(player.pos, 150, player.id === selfId ? 0.34 : 0.22, '#bcd8ff');
+    }
+
+    // Snapped to the light map's own pixels so the stretch lines up with it.
+    const bx0 = Math.max(0, Math.floor(x0 / LIGHT_DOWNSCALE));
+    const by0 = Math.max(0, Math.floor(y0 / LIGHT_DOWNSCALE));
+    const bx1 = Math.min(lw, Math.ceil(x1 / LIGHT_DOWNSCALE));
+    const by1 = Math.min(lh, Math.ceil(y1 / LIGHT_DOWNSCALE));
+    if (bx1 > bx0 && by1 > by0) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(
+        this.lights,
+        bx0,
+        by0,
+        bx1 - bx0,
+        by1 - by0,
+        bx0 * LIGHT_DOWNSCALE,
+        by0 * LIGHT_DOWNSCALE,
+        (bx1 - bx0) * LIGHT_DOWNSCALE,
+        (by1 - by0) * LIGHT_DOWNSCALE,
+      );
     }
     ctx.restore();
   }

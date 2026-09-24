@@ -207,7 +207,15 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] The game gets very laggy near the campfire. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [x] The game gets very laggy near the campfire. Not the campfire: the
+      island's centre is its thickest forest, and each tree was blitted at a
+      fractional pixel, so the rasteriser filtered every one. Sprites now land
+      on whole device pixels and night lights are gathered at quarter
+      resolution. Headless, 2x screen: a fresh camp by day went from 37 to 98
+      fps, a camp with 12 lamps at night from 20 to 47. Full notes under
+      Changes, "Move drawing to WebGL".
+- [ ] Walking stutters: each strip of ground that scrolls into the cache costs
+      35 to 95 ms to paint on a 2x screen (headless), a few times a second.
 - [ ] The overlapping HUD panels are still showing after the UI revamp. *On hold until Abiel confirms multiplayer works (2026-09-24).*
 - [x] Co-op: "Lost the matchmaking service" when the broker's socket dropped,
       which also threw a guest out of a game that no longer needed it. The
@@ -365,6 +373,19 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [ ] **Move drawing to WebGL** (decided 2026-09-24, Abiel asked for the game
+      to look and run like a Steam game). Profiled on the live build: the
+      simulation, HUD and lighting maths cost under 1 ms a frame; the rest is
+      Canvas 2D rasterising sprites, gradients and full-screen composites, and
+      everything past a fresh island (a factory, a night camp, a raid) still
+      sits at 12 to 30 fps on a 2x screen in headless Chromium. Canvas stays as
+      the art painter (every sprite is already baked into a bitmap); WebGL
+      becomes the compositor: one atlas, batched quads, the ground as one
+      texture with grain in a shader, lights and night as a shader pass. Hand
+      written, no library, so the bundle keeps zero dependencies. Rejected:
+      PixiJS (a dependency for what is a few hundred lines here) and a full
+      engine such as Godot or Unity (a rewrite of the sim and co-op in another
+      language for no visual gain the art cannot already give).
 - [x] Loot popups ("+2 Wood") show for every player's pickups. Filter them by
       the event's `playerId` when multiplayer lands. Done with co-op.
 - [ ] Co-op: the menu behind a guest who left still shows the friend's island
@@ -653,6 +674,8 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Frame rate near the camp on Abiel's own machine. Every number so far is
+      headless Chromium without a GPU, which rasterises canvas on the CPU.
 - [ ] Co-op across two real networks through the public PeerJS broker. It was
       driven with two browsers on one machine through a local copy of the same
       broker, because the test sandbox cannot reach `0.peerjs.com`.
