@@ -392,6 +392,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: false,
+    solid: true,
   },
 };
 
