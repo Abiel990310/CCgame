@@ -193,3 +193,21 @@ describe('fuel by hand', () => {
     expect(countItem(b.player, 'coal')).toBe(before + 7);
   });
 });
+
+describe('upgrading into a burner', () => {
+  it('gives a stone furnace upgraded in place a fuel slot, and keeps its fuel on Mk2 to Mk3', () => {
+    const b = bench();
+    const spot = at(18, 2);
+    const machine = put(b, 'furnace', spot.tx, spot.ty, 0) as Machine;
+    expect(machine.fuel).toBeUndefined();
+
+    put(b, 'furnaceMk2', spot.tx, spot.ty, 0);
+    expect(machine.type).toBe('furnaceMk2');
+    expect(machine.fuel).toEqual([null]);
+    expect(machine.heat).toBe(0);
+
+    fill(machine.fuel!, 'coal', 9);
+    put(b, 'furnaceMk3', spot.tx, spot.ty, 0);
+    expect(machine.fuel).toEqual([{ id: 'coal', count: 9 }]);
+  });
+});

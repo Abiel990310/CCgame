@@ -2,7 +2,7 @@ import { BELT_COST, MACHINES } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { buildingOnTile } from './building';
 import { giveOrDrop, payAll, hasAll } from './inventory';
-import { makeSlots } from './slots';
+import { makeSlots, normalizeSlots } from './slots';
 import { inBounds, opposite, rotate, step1, stepN, tileCenter, tileKey, turnLeft } from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
@@ -51,6 +51,12 @@ export function factoryPlacementError(
   ty: number,
 ): FactoryError {
   if (!inBounds(tx, ty)) return 'bounds';
+  // An upgrade stands where its predecessor already passed every tile check,
+  // including the ore one: a miner that has emptied its own tile still works
+  // the ring around it, and swapping in a faster drill must not strand it.
+  if (what !== 'belt' && upgradeTarget(world, what, tx, ty) !== null) {
+    return hasAll(player, MACHINES[what].cost) ? null : 'cost';
+  }
   if (world.grid.has(tileKey(tx, ty))) return 'occupied';
   if (!isWalkable(terrainAtIndex(world.terrain, tx, ty))) return 'terrain';
   // A tree buried under a belt keeps standing and keeps regrowing; clear it first.
@@ -96,6 +102,9 @@ export function placeMachine(
 ): Machine | null {
   if (factoryPlacementError(world, player, type, tx, ty) !== null) return null;
 
+  const existing = upgradeTarget(world, type, tx, ty);
+  if (existing) return upgradeMachine(world, player, existing, type);
+
   const def = MACHINES[type];
   if (!payAll(player, def.cost)) return null;
 
@@ -128,6 +137,55 @@ export function placeMachine(
   world.grid.set(tileKey(tx, ty), machine);
   world.events.push({ kind: 'placed', pos: tileCenter(tx, ty), what: type });
   clearFelledNodes(world);
+  return machine;
+}
+
+/**
+ * The machine a placement of `type` here would replace: one of the same family
+ * at a lower tier. Anything else on the tile is simply in the way.
+ */
+export function upgradeTarget(
+  world: World,
+  type: MachineId,
+  tx: number,
+  ty: number,
+): Machine | null {
+  const machine = machineAt(world, tx, ty);
+  if (!machine) return null;
+  const from = MACHINES[machine.type];
+  const to = MACHINES[type];
+  return from.family === to.family && to.tier > from.tier ? machine : null;
+}
+
+/**
+ * Swap a machine for a higher tier of its own family without taking it apart.
+ * The same object stays on the grid, so its id, its place in the tick order,
+ * its recipe, facing, filter and progress all carry over, and whatever is in
+ * its grids stays in the slots it was in. The old machine comes back as its
+ * cost, exactly as removing it would have given.
+ */
+function upgradeMachine(
+  world: World,
+  player: Player,
+  machine: Machine,
+  type: MachineId,
+): Machine | null {
+  const def = MACHINES[type];
+  if (!payAll(player, def.cost)) return null;
+  refund(world, player, MACHINES[machine.type].cost);
+
+  machine.type = type;
+  // A higher tier never has fewer slots, so every stack keeps its position.
+  machine.input = normalizeSlots(machine.input, def.inputSlots, def.slotSize);
+  machine.output = normalizeSlots(machine.output, def.outputSlots, def.slotSize);
+  // A stone furnace upgraded to steel becomes a burner, and starts cold.
+  if (def.fuelSlots > 0) {
+    machine.fuel = normalizeSlots(machine.fuel ?? [], def.fuelSlots, def.slotSize);
+    machine.heat ??= 0;
+  }
+  machine.stalled = false;
+
+  world.events.push({ kind: 'placed', pos: tileCenter(machine.tx, machine.ty), what: type });
   return machine;
 }
 

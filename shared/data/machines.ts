@@ -45,6 +45,11 @@ export interface MachineDef {
    * interesting to plan.
    */
   fuelSlots: number;
+  /**
+   * True when players and mobs bump into it. A splitter is part of a belt
+   * line, and belts are walkable so a factory never walls its owner in.
+   */
+  solid: boolean;
 }
 
 /**
@@ -92,6 +97,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 0,
+    solid: true,
   },
   furnace: {
     id: 'furnace',
@@ -114,6 +120,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 0,
+    solid: true,
   },
   assembler: {
     id: 'assembler',
@@ -136,6 +143,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 0,
+    solid: true,
   },
   minerMk2: {
     id: 'minerMk2',
@@ -158,6 +166,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 0,
+    solid: true,
   },
   minerMk3: {
     id: 'minerMk3',
@@ -181,6 +190,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 0,
+    solid: true,
   },
   furnaceMk2: {
     id: 'furnaceMk2',
@@ -203,6 +213,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 1,
+    solid: true,
   },
   furnaceMk3: {
     id: 'furnaceMk3',
@@ -226,6 +237,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 1,
+    solid: true,
   },
   assemblerMk2: {
     id: 'assemblerMk2',
@@ -249,6 +261,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 1,
+    solid: true,
   },
   assemblerMk3: {
     id: 'assemblerMk3',
@@ -272,6 +285,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 1,
+    solid: true,
   },
   chest: {
     id: 'chest',
@@ -291,6 +305,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: true,
     fuelSlots: 0,
+    solid: true,
   },
   inserter: {
     id: 'inserter',
@@ -314,6 +329,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 1,
     storage: false,
     fuelSlots: 0,
+    solid: true,
   },
   longInserter: {
     id: 'longInserter',
@@ -339,6 +355,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 2,
     storage: false,
     fuelSlots: 0,
+    solid: true,
   },
   lab: {
     id: 'lab',
@@ -364,6 +381,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 0,
+    solid: true,
   },
   splitter: {
     id: 'splitter',
@@ -389,6 +407,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     // exactly as it could before the flag existed.
     storage: true,
     fuelSlots: 0,
+    solid: false,
   },
 };
 
