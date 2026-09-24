@@ -166,8 +166,26 @@ export function drawMachine(
     ctx.fill();
     ctx.globalAlpha = 1;
   }
+  if (outOfFuel(machine)) {
+    // The commonest reason a burner stops, so it gets its own sign: a lump of
+    // coal in a red ring says what to bring without opening the machine.
+    const pulse = 0.7 + Math.sin(time * 5) * 0.3;
+    ctx.strokeStyle = UI.danger;
+    ctx.globalAlpha = pulse;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x - TILE * 0.28, y - TILE * 0.36, 5.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    drawItemSprite(ctx, x - TILE * 0.28, y - TILE * 0.36, 3.6, 'coal');
+  }
 
   drawProgress(ctx, machine, x, y);
+}
+
+function outOfFuel(machine: Machine): boolean {
+  if (!machine.fuel || (machine.heat ?? 0) > 0) return false;
+  return machine.fuel.every((slot) => slot === null || slot.count <= 0);
 }
 
 function drawMachineFace(

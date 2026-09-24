@@ -119,6 +119,10 @@ export function placeMachine(
     machine.filters = [null, null];
     machine.turn = 0;
   }
+  if (def.fuelSlots > 0) {
+    machine.fuel = makeSlots(def.fuelSlots);
+    machine.heat = 0;
+  }
 
   world.machines.push(machine);
   world.grid.set(tileKey(tx, ty), machine);
@@ -166,7 +170,7 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
 
   drop(world.machines, entity);
   refund(world, player, MACHINES[entity.type].cost);
-  for (const stack of [...entity.input, ...entity.output]) {
+  for (const stack of [...entity.input, ...entity.output, ...(entity.fuel ?? [])]) {
     if (stack) giveOrDrop(world, player, stack.id, stack.count);
   }
   return true;

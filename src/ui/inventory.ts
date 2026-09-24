@@ -1,5 +1,5 @@
 import { ITEMS, ITEM_ORDER } from '@shared/data/items';
-import { MACHINES } from '@shared/data/machines';
+import { FUEL_VALUE, MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
 import { TECHS, TECH_BY_ID } from '@shared/data/techs';
 import { minerOreLeft } from '@shared/sim/ore';
@@ -63,6 +63,9 @@ export class InventoryScreen {
     inputGrid: HTMLElement;
     filterBlock: HTMLElement;
     filterGrid: HTMLElement;
+    fuelBlock: HTMLElement;
+    fuelGrid: HTMLElement;
+    fuelNote: HTMLElement;
     outputBlock: HTMLElement;
     outputGrid: HTMLElement;
     progress: HTMLElement;
@@ -99,6 +102,9 @@ export class InventoryScreen {
       inputGrid: must('inv-input-grid'),
       filterBlock: must('inv-filters'),
       filterGrid: must('inv-filter-grid'),
+      fuelBlock: must('inv-fuel'),
+      fuelGrid: must('inv-fuel-grid'),
+      fuelNote: must('inv-fuel-note'),
       outputBlock: must('inv-output'),
       outputGrid: must('inv-output-grid'),
       progress: must('inv-progress'),
@@ -117,6 +123,7 @@ export class InventoryScreen {
     this.grids = [
       { area: 'input', el: this.els.inputGrid, cells: [] },
       { area: 'filter', el: this.els.filterGrid, cells: [] },
+      { area: 'fuel', el: this.els.fuelGrid, cells: [] },
       { area: 'output', el: this.els.outputGrid, cells: [] },
       { area: 'bag', el: this.els.bagGrid, cells: [] },
     ];
@@ -230,8 +237,10 @@ export class InventoryScreen {
       def.inputSlots < 2 || def.family === 'splitter',
     );
     this.els.filterBlock.classList.toggle('hidden', def.family !== 'splitter');
+    this.els.fuelBlock.classList.toggle('hidden', def.fuelSlots === 0);
 
     this.buildGrid('input', def.inputSlots);
+    this.buildGrid('fuel', def.fuelSlots);
     this.buildGrid('output', def.outputSlots);
     if (def.family === 'splitter') this.buildSides();
   }
@@ -300,6 +309,7 @@ export class InventoryScreen {
     }
 
     if (machine) this.updateProgress(machine);
+    if (machine?.fuel) this.updateFuelNote(machine);
     if (machine && MACHINES[machine.type].family === 'miner') {
       this.updateMinerOre(world, machine);
     }
@@ -311,7 +321,9 @@ export class InventoryScreen {
     const slots = (list: Slot[]): string =>
       list.map((s) => (s ? `${s.id}x${s.count}` : '-')).join(',');
     const cursor = player.cursor ? `${player.cursor.id}x${player.cursor.count}` : '-';
-    const held = machine ? `${slots(machine.input)}|${slots(machine.output)}` : '';
+    const held = machine
+      ? `${slots(machine.input)}|${slots(machine.output)}|${slots(machine.fuel ?? [])}`
+      : '';
     const sides = machine?.filters?.join(',') ?? '';
     return `${slots(player.inventory)}|${held}|${cursor}|${sides}`;
   }
@@ -321,8 +333,10 @@ export class InventoryScreen {
     if (machine) {
       this.paintGrid('input', machine.input);
       this.paintGrid('output', machine.output);
+      if (machine.fuel) this.paintGrid('fuel', machine.fuel);
       if (MACHINES[machine.type].family === 'splitter') this.paintSides(machine);
-      const stored = totalIn(machine.input) + totalIn(machine.output);
+      const stored =
+        totalIn(machine.input) + totalIn(machine.output) + totalIn(machine.fuel ?? []);
       this.els.takeAll.disabled = stored === 0;
       this.els.takeAll.textContent = stored === 0 ? 'Empty' : `Take all (${stored})`;
     }
@@ -364,6 +378,26 @@ export class InventoryScreen {
     const fraction = duration > 0 ? Math.min(1, machine.progress / duration) : 0;
     this.els.progressFill.style.width = `${fraction * 100}%`;
     this.els.progress.classList.toggle('stalled', machine.stalled);
+  }
+
+  /**
+   * How long the fuel lasts, counted in crafts of the chosen recipe rather than
+   * seconds, because crafts are the number a layout is planned by.
+   */
+  private updateFuelNote(machine: Machine): void {
+    const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
+    let heat = Math.max(0, machine.heat ?? 0);
+    for (const slot of machine.fuel ?? []) {
+      if (slot) heat += (FUEL_VALUE[slot.id] ?? 0) * slot.count;
+    }
+    const text =
+      heat <= 0
+        ? 'Out of fuel: feed it coal'
+        : recipe
+          ? `Enough for ${Math.floor(heat / recipe.time)} crafts`
+          : 'Fuelled';
+    if (this.els.fuelNote.textContent !== text) this.els.fuelNote.textContent = text;
+    this.els.fuelNote.classList.toggle('warn', heat <= 0);
   }
 
   private craftDuration(machine: Machine, speed: number): number {

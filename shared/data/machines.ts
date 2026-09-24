@@ -1,4 +1,4 @@
-import type { ItemStack, MachineFamily, MachineId } from '../sim/types';
+import type { ItemId, ItemStack, MachineFamily, MachineId } from '../sim/types';
 
 export interface MachineDef {
   id: MachineId;
@@ -38,7 +38,34 @@ export interface MachineDef {
    * a machine that consumes what it is fed must not be drained the same way.
    */
   storage: boolean;
+  /**
+   * Slots of fuel beside the recipe grid; 0 for a machine that runs on
+   * nothing. A burner stops the moment it runs dry, so a furnace bank needs a
+   * second line feeding it coal, which is most of what makes a layout
+   * interesting to plan.
+   */
+  fuelSlots: number;
 }
+
+/**
+ * Seconds of recipe work one item of fuel pays for, at speed 1. The burn rate
+ * follows the machine's work rate, so a faster tier eats fuel faster but every
+ * craft costs the same coal whatever it is made in: one coal smelts four plates.
+ */
+export const FUEL_VALUE: Partial<Record<ItemId, number>> = {
+  coal: 8,
+};
+
+export function isFuel(item: ItemId): boolean {
+  return (FUEL_VALUE[item] ?? 0) > 0;
+}
+
+/**
+ * A burner keeps this much fuel in hand before coal that a recipe also uses is
+ * let through to the ingredient grid, so one coal belt can feed a steel
+ * furnace both its fuel and its ingredient without either starving the other.
+ */
+export const FUEL_RESERVE = 5;
 
 /** Items a splitter holds while waiting for a side to take them. */
 export const SPLITTER_BUFFER = 4;
@@ -64,6 +91,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: false,
+    fuelSlots: 0,
   },
   furnace: {
     id: 'furnace',
@@ -85,6 +113,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    fuelSlots: 0,
   },
   assembler: {
     id: 'assembler',
@@ -106,6 +135,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    fuelSlots: 0,
   },
   minerMk2: {
     id: 'minerMk2',
@@ -127,6 +157,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: false,
+    fuelSlots: 0,
   },
   minerMk3: {
     id: 'minerMk3',
@@ -149,13 +180,14 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: false,
+    fuelSlots: 0,
   },
   furnaceMk2: {
     id: 'furnaceMk2',
     family: 'furnace',
     tier: 2,
     name: 'Steel Furnace',
-    description: 'Smelts at double speed, and holds enough to ride out a gap.',
+    description: 'Smelts at double speed, and holds enough to ride out a gap. Burns coal.',
     cost: [
       { id: 'steelPlate', count: 12 },
       { id: 'stone', count: 20 },
@@ -170,13 +202,14 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    fuelSlots: 1,
   },
   furnaceMk3: {
     id: 'furnaceMk3',
     family: 'furnace',
     tier: 3,
     name: 'Electric Furnace',
-    description: 'Four stone furnaces in one tile. Steel banks stop sprawling.',
+    description: 'Four stone furnaces in one tile. Steel banks stop sprawling. Burns coal.',
     cost: [
       { id: 'steelPlate', count: 20 },
       { id: 'motor', count: 8 },
@@ -192,13 +225,14 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    fuelSlots: 1,
   },
   assemblerMk2: {
     id: 'assemblerMk2',
     family: 'assembler',
     tier: 2,
     name: 'Assembler Mk2',
-    description: 'Builds the same parts twice as fast, with room for both inputs.',
+    description: 'Builds the same parts twice as fast, with room for both inputs. Burns coal.',
     cost: [
       { id: 'steelPlate', count: 12 },
       { id: 'gear', count: 10 },
@@ -214,13 +248,14 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    fuelSlots: 1,
   },
   assemblerMk3: {
     id: 'assemblerMk3',
     family: 'assembler',
     tier: 3,
     name: 'Industrial Assembler',
-    description: 'The end of the ladder: four times the output of the first one.',
+    description: 'The end of the ladder: four times the output of the first one. Burns coal.',
     cost: [
       { id: 'steelPlate', count: 25 },
       { id: 'motor', count: 12 },
@@ -236,6 +271,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
+    fuelSlots: 1,
   },
   chest: {
     id: 'chest',
@@ -254,6 +290,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: true,
+    fuelSlots: 0,
   },
   inserter: {
     id: 'inserter',
@@ -276,6 +313,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 1,
     storage: false,
+    fuelSlots: 0,
   },
   longInserter: {
     id: 'longInserter',
@@ -300,6 +338,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 2,
     storage: false,
+    fuelSlots: 0,
   },
   lab: {
     id: 'lab',
@@ -324,6 +363,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: false,
     reach: 0,
     storage: false,
+    fuelSlots: 0,
   },
   splitter: {
     id: 'splitter',
@@ -348,6 +388,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     // Its buffer is items in transit, not spent, so an arm may lift them out
     // exactly as it could before the flag existed.
     storage: true,
+    fuelSlots: 0,
   },
 };
 
