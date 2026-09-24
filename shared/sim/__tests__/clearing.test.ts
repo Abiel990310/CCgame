@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS } from '../../data/buildings';
 import { RESOURCES } from '../../data/items';
-import { GATHER, TILE } from '../constants';
+import { CAMP, GATHER, TILE } from '../constants';
 import { buildingAt, placeBuilding, removeBuildingAt } from '../building';
 import { factoryPlacementError, placeBelt, placeMachine } from '../factory';
 import { clearBuriedNodes, nodeOnTile } from '../nodes';
@@ -122,6 +122,35 @@ describe('removing camp buildings', () => {
     expect(removeBuildingAt(b.world, b.player, pos)).toBe('removed');
     expect(buildingAt(b.world, pos)).toBe(null);
     expect(countItem(b.player, 'wood')).toBe(wood);
+  });
+
+  it('refunds a chipped wall only for what is left of it', () => {
+    const b = bench();
+    const pos = { x: b.world.camp.x + 70, y: b.world.camp.y };
+    const wood = countItem(b.player, 'wood');
+    const stone = countItem(b.player, 'stone');
+
+    placeBuilding(b.world, b.player, 'wall', pos);
+    const wall = buildingAt(b.world, pos)!;
+    wall.level = CAMP.wallHp / 2;
+    removeBuildingAt(b.world, b.player, pos);
+
+    // Half its hit points gone, half its cost gone: rebuilding is not a free repair.
+    for (const entry of BUILDINGS.wall.cost) {
+      const before = entry.id === 'wood' ? wood : stone;
+      expect(countItem(b.player, entry.id)).toBe(before - entry.count + Math.floor(entry.count / 2));
+    }
+  });
+
+  it('gives no stone back for a wall on its last hit point', () => {
+    const b = bench();
+    const pos = { x: b.world.camp.x + 70, y: b.world.camp.y };
+    placeBuilding(b.world, b.player, 'wall', pos);
+    const stone = countItem(b.player, 'stone');
+
+    buildingAt(b.world, pos)!.level = 1;
+    removeBuildingAt(b.world, b.player, pos);
+    expect(countItem(b.player, 'stone')).toBe(stone);
   });
 
   it('finds the piece from anywhere within it, not just dead centre', () => {

@@ -354,9 +354,13 @@ detail behind the factory entries is in
 - [ ] The inventory screen leaves the world running behind it, which is right
       for watching a furnace but means a night can start while you sort a
       chest. Worth deciding deliberately rather than by default.
-- [ ] A wall chipped to 1 hit point refunds its full cost, so taking it down
-      and putting it back is a free repair. Walls want a repair action, or a
-      refund that scales with the damage taken.
+- [x] A wall chipped to 1 hit point refunds its full cost, so taking it down
+      and putting it back is a free repair. Settled by scaling the refund with
+      the hit points left, rounded down: a wall on its last point gives back
+      one wood and no stone.
+- [ ] Walls could take a repair action in build mode that spends the missing
+      share of their cost, so a chipped line is fixed in place rather than
+      pulled and rebuilt one wall at a time.
 - [x] The removal highlight only shows in build mode, so a right-click on the
       open island is still aimed blind. Settled by making removal a build-mode
       action: outside it the cursor opens a machine, so a demolition outline on
