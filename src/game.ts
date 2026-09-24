@@ -891,6 +891,8 @@ export class Game {
 
   private inspectUnderCursor(): void {
     const machine = this.machineUnderCursor();
+    // A pole holds nothing; its hover card already says all there is to know.
+    if (machine && MACHINES[machine.type].family === 'pole') return;
     if (machine) {
       this.hud.openInventory(machine);
       return;

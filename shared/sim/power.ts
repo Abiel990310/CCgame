@@ -22,7 +22,7 @@ export interface PowerNet {
 interface Layout {
   key: number;
   nets: PowerNet[];
-  /** Machine id to its net, for every generator and consumer a pole reaches. */
+  /** Machine id to its net, for every pole, and every generator and consumer one reaches. */
   netOf: Map<number, PowerNet>;
   /** The wires actually strung: the shortest that join each network. */
   wires: Array<[Machine, Machine]>;
@@ -97,6 +97,7 @@ function buildLayout(world: World, key: number): Layout {
       nets.push(net);
     }
     net.poles.push(pole);
+    netOf.set(pole.id, net);
 
     // The first pole to cover a machine claims it, in placement order, so a
     // machine between two separate networks always joins the same one.
@@ -196,14 +197,9 @@ export function powerFactor(world: World, machine: Machine): number {
   return layout(world).netOf.get(machine.id)?.satisfaction ?? 0;
 }
 
-/** The network a generator or electric machine is on, for the inspector. */
+/** The network a pole, generator or electric machine is on. */
 export function powerNetOf(world: World, machine: Machine): PowerNet | null {
   return layout(world).netOf.get(machine.id) ?? null;
-}
-
-/** The network a pole belongs to, found by walking the layout. */
-export function poleNet(world: World, pole: Machine): PowerNet | null {
-  return layout(world).nets.find((n) => n.poles.includes(pole)) ?? null;
 }
 
 /** The wires strung between poles, for the renderer. */

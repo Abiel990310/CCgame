@@ -128,6 +128,11 @@ export function drawMachine(
 
   if (def.family === 'inserter') {
     drawInserter(ctx, machine, x, y);
+    if (machine.unpowered) drawPowerSign(ctx, time, x, y);
+    return;
+  }
+  if (def.family === 'pole') {
+    drawPole(ctx, def, x, y);
     return;
   }
 
@@ -136,7 +141,79 @@ export function drawMachine(
   drawMachineLive(ctx, machine, def, time, x, y);
   drawStatusLight(ctx, machine, def, time, x, y);
   if (outOfFuel(machine)) drawFuelSign(ctx, time, x, y);
+  else if (machine.unpowered) drawPowerSign(ctx, time, x, y);
   drawProgress(ctx, machine, x, y);
+}
+
+/**
+ * An electric machine off its network, or on one that has gone dark, shows
+ * a bolt in the same red ring the fuel sign uses: the answer is a pole or an
+ * engine, not a delivery.
+ */
+function drawPowerSign(ctx: CanvasRenderingContext2D, time: number, x: number, y: number): void {
+  const sx = x - TILE * 0.28;
+  const sy = y - TILE * 0.36;
+  ctx.globalAlpha = 0.7 + Math.sin(time * 5) * 0.3;
+  ctx.fillStyle = 'rgba(12, 16, 22, 0.75)';
+  ctx.beginPath();
+  ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = UI.danger;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = UI.gold;
+  ctx.beginPath();
+  ctx.moveTo(sx + 1, sy - 4);
+  ctx.lineTo(sx - 2.5, sy + 0.6);
+  ctx.lineTo(sx - 0.2, sy + 0.6);
+  ctx.lineTo(sx - 1, sy + 4);
+  ctx.lineTo(sx + 2.5, sy - 0.8);
+  ctx.lineTo(sx + 0.2, sy - 0.8);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/** Height of a pole's crossarm above its tile centre, where wires meet it. */
+const POLE_TOP = TILE * 0.95;
+
+/**
+ * A pole is a post, not a block: a timber upright with a crossarm and two
+ * glass insulators. It stands tall enough that its wires clear the machines
+ * it runs between, which is also what makes a line of them readable.
+ */
+function drawPole(ctx: CanvasRenderingContext2D, def: MachineDef, x: number, y: number): void {
+  const foot = y + TILE * 0.3;
+  const top = y - POLE_TOP;
+  shadow(ctx, x + 3, foot + 1, TILE * 0.2, 0.28);
+
+  // A stone footing, then the post.
+  ctx.fillStyle = '#6d6a64';
+  ctx.beginPath();
+  ctx.ellipse(x, foot, 5, 2.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = shift(def.color, -26);
+  ctx.fillRect(x - 2.2, top, 4.4, foot - top);
+  ctx.fillStyle = shift(def.color, 18);
+  ctx.fillRect(x - 2.2, top, 1.4, foot - top);
+
+  // Crossarm and insulators.
+  ctx.fillStyle = shift(def.color, -10);
+  ctx.fillRect(x - 8, top + 2, 16, 3);
+  for (const ix of [-6.5, 6.5]) {
+    ctx.fillStyle = shift(def.accent, -30);
+    ctx.beginPath();
+    ctx.roundRect(x + ix - 1.8, top - 2.5, 3.6, 5, 1.2);
+    ctx.fill();
+    ctx.fillStyle = rgba('#ffffff', 0.55);
+    ctx.fillRect(x + ix - 1, top - 2, 1, 2.5);
+  }
+}
+
+/** Where a pole's wire attaches, in world coordinates. */
+export function poleTip(machine: Machine, side: -1 | 1): { x: number; y: number } {
+  const { x, y } = tileCenter(machine.tx, machine.ty);
+  return { x: x + side * 6.5, y: y - POLE_TOP - 1 };
 }
 
 export function outOfFuel(machine: Machine): boolean {
@@ -310,6 +387,35 @@ function drawMachineDeck(ctx: CanvasRenderingContext2D, def: MachineDef, x: numb
       ctx.fill();
       break;
     }
+    case 'generator': {
+      // A boiler drum lying across the deck, banded, with a stack at the back
+      // left and a pressure gauge on the drum's face.
+      const drumY = cy - TILE * 0.04;
+      ctx.fillStyle = shift(def.color, -30);
+      ctx.beginPath();
+      ctx.roundRect(x - TILE * 0.36, drumY - TILE * 0.17, TILE * 0.72, TILE * 0.34, TILE * 0.17);
+      ctx.fill();
+      ctx.fillStyle = shift(def.color, 22);
+      ctx.beginPath();
+      ctx.roundRect(x - TILE * 0.33, drumY - TILE * 0.15, TILE * 0.66, TILE * 0.12, TILE * 0.06);
+      ctx.fill();
+      ctx.fillStyle = shift(def.color, -52);
+      for (const bx of [-0.18, 0.12]) ctx.fillRect(x + TILE * bx, drumY - TILE * 0.17, 2, TILE * 0.34);
+      const chx = x - TILE * 0.27;
+      const chy = y - TILE * 0.36;
+      ctx.fillStyle = shift(def.color, -44);
+      ctx.fillRect(chx - 3.5, chy - 11, 7, 14);
+      ctx.fillStyle = shift(def.color, 6);
+      ctx.fillRect(chx - 4.5, chy - 12.5, 9, 2.5);
+      ctx.fillStyle = '#e8e2d2';
+      ctx.beginPath();
+      ctx.arc(x + TILE * 0.24, drumY + TILE * 0.02, 3.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = shift(def.color, -60);
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      break;
+    }
     case 'fishTrap': {
       // A square of open water let into the deck, for the float to sit on.
       ctx.fillStyle = shift(accent, -70);
@@ -465,6 +571,31 @@ function drawMachineLive(
       ctx.fill();
       break;
     }
+    case 'generator': {
+      // Steam from the stack and a needle that climbs while it has heat; a
+      // cold engine is still and its needle rests at zero.
+      const hot = !machine.stalled && (machine.heat ?? 0) > 0;
+      const gx = x + TILE * 0.24;
+      const gy = cy - TILE * 0.02;
+      const needle = hot ? -0.4 + Math.sin(time * 2.3) * 0.25 : -2.4;
+      ctx.strokeStyle = '#b8322c';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(gx, gy);
+      ctx.lineTo(gx + Math.cos(needle) * 2.8, gy + Math.sin(needle) * 2.8);
+      ctx.stroke();
+      if (!hot) break;
+      const chx = x - TILE * 0.27;
+      const chy = y - TILE * 0.36;
+      for (let i = 0; i < 4; i++) {
+        const t = (time * 0.7 + i / 4) % 1;
+        ctx.fillStyle = `rgba(236, 240, 244, ${0.45 * (1 - t)})`;
+        ctx.beginPath();
+        ctx.arc(chx + Math.sin(t * 4 + i) * 2.5 - t * 3, chy - 14 - t * 18, 2.4 + t * 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
     case 'lab': {
       // A glass dome with something rising through it. A lab has no output
       // side and no moving arm, so the bubbles are the only sign it is working.
@@ -498,6 +629,7 @@ function drawMachineLive(
 export function isBlocked(machine: Machine, def: MachineDef): boolean {
   // A burner with nothing to burn waits forever, not for the next delivery.
   if (outOfFuel(machine)) return true;
+  if (machine.unpowered) return true;
   if (def.family === 'miner' && machine.output.every((s) => s === null)) return true;
   return machine.output.length > 0 && machine.output.every((s) => s !== null);
 }
