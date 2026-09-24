@@ -1447,6 +1447,10 @@ kbd {
   color: var(--ink);
 }
 
+.inv-head span.warn {
+  color: var(--danger);
+}
+
 .filter-cell {
   display: grid;
   gap: 4px;

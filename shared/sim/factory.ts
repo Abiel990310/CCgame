@@ -131,6 +131,10 @@ export function placeMachine(
     machine.turn = 0;
   }
   if (def.family === 'chest') machine.filters = new Array<ItemId | null>(def.inputSlots).fill(null);
+  if (def.fuelSlots > 0) {
+    machine.fuel = makeSlots(def.fuelSlots);
+    machine.heat = 0;
+  }
 
   world.machines.push(machine);
   world.grid.set(tileKey(tx, ty), machine);
@@ -181,6 +185,11 @@ function upgradeMachine(
   if (def.family === 'chest') {
     machine.filters = machine.input.map((_, i) => machine.filters?.[i] ?? null);
   }
+  // A stone furnace upgraded to steel becomes a burner, and starts cold.
+  if (def.fuelSlots > 0) {
+    machine.fuel = normalizeSlots(machine.fuel ?? [], def.fuelSlots, def.slotSize);
+    machine.heat ??= 0;
+  }
   machine.stalled = false;
 
   world.events.push({ kind: 'placed', pos: tileCenter(machine.tx, machine.ty), what: type });
@@ -226,7 +235,7 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
 
   drop(world.machines, entity);
   refund(world, player, MACHINES[entity.type].cost);
-  for (const stack of [...entity.input, ...entity.output]) {
+  for (const stack of [...entity.input, ...entity.output, ...(entity.fuel ?? [])]) {
     if (stack) giveOrDrop(world, player, stack.id, stack.count);
   }
   return true;

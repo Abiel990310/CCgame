@@ -42,6 +42,9 @@ export const ORE_SUFFIX = '.o';
 /** Every entry one slot occupies, the header's own key first. */
 export const SLOT_SUFFIXES = ['', SCENERY_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX] as const;
 
+/** Which tab currently owns the slot; see `tablock.ts`. Not island data. */
+export const LOCK_SUFFIX = '.lock';
+
 /** Where one slot's world data lives. */
 export function slotKey(id: string): string {
   return SLOT_PREFIX + id;
@@ -232,6 +235,7 @@ export function deleteSlot(id: string): void {
   if (index.lastPlayed === id) index.lastPlayed = index.slots[0]?.id ?? null;
   writeIndex(index);
   for (const suffix of SLOT_SUFFIXES) remove(slotKey(id) + suffix);
+  remove(slotKey(id) + LOCK_SUFFIX);
 }
 
 /** "just now", "12m ago", "3d ago" — the menu's only time display. */

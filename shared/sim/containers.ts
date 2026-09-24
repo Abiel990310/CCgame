@@ -1,4 +1,4 @@
-import { MACHINES } from '../data/machines';
+import { MACHINES, isFuel } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { isResearchPack } from '../data/techs';
 import { hasSlotFilters, isSplitter, setSideFilter, setSlotFilter, splitterAccepts } from './factory';
@@ -24,7 +24,7 @@ import type { ItemId, Machine, Player, Slot, World } from './types';
  * point it at that item, click it empty-handed to open it up again. A chest's
  * slots take the same gesture with `filter` naming the slot by its index.
  */
-export type SlotArea = 'bag' | 'input' | 'output' | 'filter';
+export type SlotArea = 'bag' | 'input' | 'output' | 'filter' | 'fuel';
 
 export interface SlotRef {
   area: SlotArea;
@@ -41,6 +41,7 @@ export function machineById(world: World, id: number | null): Machine | null {
 function slotsFor(player: Player, machine: Machine | null, area: SlotArea): Slot[] | null {
   if (area === 'bag') return player.inventory;
   if (!machine || area === 'filter') return null;
+  if (area === 'fuel') return machine.fuel ?? null;
   return area === 'input' ? machine.input : machine.output;
 }
 
@@ -72,6 +73,7 @@ export function accepts(
   // The output side is what the machine made; taking from it is fine, filling it is not.
   if (area === 'output') return false;
   if (area === 'filter') return isSplitter(machine) || hasSlotFilters(machine);
+  if (area === 'fuel') return !!machine.fuel && isFuel(id);
 
   const def = MACHINES[machine.type];
   if (def.inputSlots === 0) return false;
@@ -227,14 +229,16 @@ export function quickMove(
   if (!slot) return false;
 
   if (ref.area === 'bag') {
-    if (!machine || !accepts(machine, 'input', slot.id)) return false;
-    const moved = addToSlots(
-      machine.input,
-      slot.id,
-      slot.count,
-      MACHINES[machine.type].slotSize,
-      filtersIn(machine, 'input'),
-    );
+    if (!machine) return false;
+    // Coal shift-clicked into a burner is fuel first; only what the fuel grid
+    // cannot hold goes on to the recipe, as it would off a belt.
+    const size = MACHINES[machine.type].slotSize;
+    let moved = 0;
+    for (const area of ['fuel', 'input'] as const) {
+      const target = slotsFor(player, machine, area);
+      if (!target || !accepts(machine, area, slot.id)) continue;
+      moved += addToSlots(target, slot.id, slot.count - moved, size, filtersIn(machine, area));
+    }
     if (moved === 0) return false;
     takeOut(slots, ref.index, moved);
     return true;
@@ -259,7 +263,7 @@ export function takeAll(world: World, player: Player, machineId: number): number
   if (!machine) return 0;
 
   let moved = 0;
-  for (const slots of [machine.output, machine.input]) {
+  for (const slots of [machine.output, machine.input, machine.fuel ?? []]) {
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i];
       if (!slot) continue;
@@ -369,7 +373,7 @@ export function withdraw(
   if (!machine) return 0;
 
   let left = count;
-  for (const slots of [machine.output, machine.input]) {
+  for (const slots of [machine.output, machine.input, machine.fuel ?? []]) {
     if (left <= 0) break;
     const available = Math.min(left, sumOf(slots, id));
     if (available <= 0) continue;

@@ -12,11 +12,11 @@ mountIcons();
 
 // The game boots into the menu; a slot is what turns it into a session.
 const menu: MainMenu = new MainMenu({
-  onPlay: (slot, peaceful) => game.enter(slot, peaceful),
+  onPlay: (slot, peaceful) => void game.enter(slot, peaceful),
 });
 const game = new Game(canvas, {
-  onQuit: () => {
-    menu.open();
+  onQuit: (notice) => {
+    menu.open(notice);
     game.showcase();
   },
 });

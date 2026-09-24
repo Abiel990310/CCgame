@@ -57,8 +57,9 @@ import { audio } from './audio';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview, type RemovalPreview } from './render/renderer';
 import { Interpolator } from './render/interpolate';
-import { forgetSlot, loadWorld, saveWorld } from './save';
+import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from './save';
 import { touchSlot, type SaveSlot } from './saves';
+import { SlotLock, type EvictReason } from './tablock';
 import { Hud } from './ui/hud';
 
 const SAVE_INTERVAL = 8;
@@ -72,8 +73,8 @@ const SAVE_DEBOUNCE = 2;
 const MAX_CATCHUP = 0.25;
 
 export interface GameCallbacks {
-  /** Hand control back to the main menu. */
-  onQuit: () => void;
+  /** Hand control back to the main menu, with a line to show there if any. */
+  onQuit: (notice?: string) => void;
 }
 
 export class Game {
@@ -101,6 +102,7 @@ export class Game {
    * than the island, so it is neither saved nor shared.
    */
   private clipboard: MachineSettings | null = null;
+  private lock = new SlotLock((slot, reason) => this.evict(slot, reason));
 
   constructor(canvas: HTMLCanvasElement, private callbacks: GameCallbacks) {
     this.renderer = new Renderer(canvas);
@@ -133,7 +135,11 @@ export class Game {
 
     this.world = createWorld(Date.now() & 0xffff);
     window.addEventListener('resize', () => this.renderer.resize());
-    window.addEventListener('beforeunload', () => this.persist());
+    window.addEventListener('beforeunload', () => {
+      const slot = this.slot;
+      this.persist();
+      if (slot) this.lock.release(slot.id);
+    });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.persist();
     });
@@ -171,18 +177,27 @@ export class Game {
   }
 
   /** Open a save slot: load its island, or generate one the first time. */
-  enter(slot: SaveSlot, peaceful = false): void {
+  async enter(slot: SaveSlot, peaceful = false): Promise<void> {
+    // Another tab playing this island gets to save before it is read, so the
+    // island is loaded as that tab left it rather than as of its last autosave.
+    await this.lock.claim(slot.id);
     this.slot = slot;
     // Saves skip a section whose text has not changed, so the record of what
     // this tab already wrote has to start empty for whatever slot is opened.
     forgetSlot(slot.id);
-    const loaded = loadWorld(slot.id);
+    const notes: LoadNotes = {};
+    const loaded = loadWorld(slot.id, notes);
 
     if (loaded) {
       this.world = loaded;
       const first = this.world.players.values().next().value as Player | undefined;
       this.selfId = first?.id ?? addPlayer(this.world, 'You').id;
-      this.hud.toast(`${slot.name} — night ${this.world.nightIndex} survived`, 'good');
+      this.hud.toast(
+        notes.regenerated
+          ? `${slot.name} — the land has been regrown; what you built is where you left it`
+          : `${slot.name} — night ${this.world.nightIndex} survived`,
+        notes.regenerated ? 'warn' : 'good',
+      );
     } else {
       this.world = createWorld(Date.now() & 0xffff, peaceful);
       this.selfId = addPlayer(this.world, 'You').id;
@@ -265,10 +280,37 @@ export class Game {
 
   private quitToMenu(): void {
     this.persist();
+    if (this.slot) this.lock.release(this.slot.id);
+    this.leave();
+    this.callbacks.onQuit();
+  }
+
+  private leave(): void {
     this.running = false;
     this.slot = null;
     this.hud.setPauseOpen(false);
-    this.callbacks.onQuit();
+    this.hud.setBuildMode(false);
+    this.hud.closeInventory();
+  }
+
+  /**
+   * Another tab has opened this island. Save what this one has if it is still
+   * allowed to, then step back to the menu: carrying on would mean two copies
+   * of one factory, each quietly overwriting the other.
+   */
+  private evict(slot: string, reason: EvictReason): void {
+    if (this.slot?.id !== slot) return;
+    const name = this.slot.name;
+    if (reason === 'handover') {
+      if (this.hud.isInventoryOpen) stowCursor(this.world, this.self);
+      this.persist();
+    }
+    this.leave();
+    this.callbacks.onQuit(
+      reason === 'handover'
+        ? `${name} was opened in another tab, so it was saved and closed here.`
+        : `${name} was opened in another tab, so it was closed here.`,
+    );
   }
 
   /** Read-only access for the debug handle above. */
@@ -343,6 +385,12 @@ export class Game {
 
   private persist(): void {
     if (!this.running || !this.slot) return;
+    // A tab that has lost the island must not write it, even once: its copy is
+    // older than the one the other tab is now playing and saving.
+    if (!this.lock.owns(this.slot.id)) {
+      this.evict(this.slot.id, 'taken');
+      return;
+    }
     if (!saveWorld(this.world, this.slot.id)) return;
     touchSlot(this.slot.id, {
       night: this.world.nightIndex,

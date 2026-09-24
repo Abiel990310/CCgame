@@ -5,7 +5,7 @@ import { placeMachine, setRecipe } from '../factory';
 import { countIn, totalIn } from '../slots';
 import type { Belt, ItemId, Machine, MachineId } from '../types';
 import { addPlayer } from '../world';
-import { advance, at, bench, fill, lay, plantOre, put } from './bench';
+import { advance, at, bench, fill, lay, plantOre, put, stoke } from './bench';
 
 const TIERED: MachineId[] = MACHINE_ORDER.filter((id) => MACHINES[id].tier > 1);
 
@@ -121,6 +121,7 @@ function smelted(type: MachineId, seconds: number): number {
   const machine = put(b, [type, 'ironPlate'], spot.tx, spot.ty, 0) as Machine;
   const def = MACHINES[type];
   fill(machine.input, 'ironOre', def.inputSlots * def.slotSize, def.slotSize);
+  stoke(machine);
   advance(b.world, seconds);
   return countIn(machine.output, 'ironPlate');
 }
@@ -157,6 +158,7 @@ describe('what a tier is worth', () => {
     const spot = at(8, 0);
     const machine = put(b, ['assemblerMk2', 'gear'], spot.tx, spot.ty, 0) as Machine;
     fill(machine.input, 'ironPlate', 80, MACHINES.assemblerMk2.slotSize);
+    stoke(machine);
 
     advance(b.world, 9);
     // 1.5s a gear at speed 2 is 0.75s, so six gears in nine seconds.
@@ -178,6 +180,7 @@ describe('a tiered line end to end', () => {
         'belt',
         'chest',
       ]);
+      stoke(parts[3] as Machine);
       advance(b.world, 40);
       return countIn((parts[5] as Machine).input, 'ironPlate');
     };
@@ -192,6 +195,7 @@ describe('a tiered line end to end', () => {
     const b = bench();
     const spot = at(10, 2);
     const machine = put(b, ['furnaceMk3', 'steelPlate'], spot.tx, spot.ty, 0) as Machine;
+    stoke(machine);
 
     // One belt carrying a saturating stream of iron must not take the grid.
     const feed = put(b, 'belt', spot.tx - 1, spot.ty, 0) as Belt;
