@@ -1,0 +1,132 @@
+/* ---------- Co-op: pause section, room chip, join screen ---------- */
+
+.coop-pause {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+.coop-blurb {
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 420px;
+}
+
+.coop-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.coop-input {
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--well);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 10px 14px;
+  outline: none;
+  min-width: 0;
+}
+
+.coop-input:focus {
+  border-color: var(--gold-line);
+}
+
+.coop-name {
+  width: 150px;
+}
+
+.coop-code,
+.coop-code-input {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  color: var(--gold);
+}
+
+.coop-code {
+  font-size: 34px;
+  padding: 6px 18px 6px 26px;
+  border-radius: 14px;
+  background: var(--gold-soft);
+  border: 1px solid var(--gold-line);
+  user-select: all;
+}
+
+.coop-code-input {
+  font-size: 26px;
+  text-align: center;
+  width: 210px;
+  text-transform: uppercase;
+}
+
+.coop-roster {
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.coop-error,
+.coop-status.bad {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.coop-join {
+  position: fixed;
+  z-index: 60;
+}
+
+.coop-join .blurb {
+  margin-bottom: 16px;
+}
+
+.coop-fields {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.coop-status {
+  min-height: 20px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.coop-chip {
+  position: absolute;
+  top: calc(max(14px, env(safe-area-inset-top)) + 64px);
+  right: var(--gap);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  pointer-events: auto;
+}
+
+.coop-chip b {
+  color: var(--gold);
+  letter-spacing: 0.14em;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.coop-chip .ico {
+  width: 15px;
+  height: 15px;
+  color: var(--gold);
+}
+
+.menu-actions .coop-join-btn .ico {
+  font-size: 16px;
+}

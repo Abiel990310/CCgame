@@ -13,7 +13,7 @@ Status, plan, and the decisions behind both. Updated as phases move.
 | 2 | Persistence in `localStorage` | ✅ Done |
 | 3 | Factory tiers 1–3: ore, miners, belts, furnaces, assemblers, chests | ✅ Done |
 | 4 | Factory tiers 4–5: power, steel, deeper chains, tech tree | Next |
-| 5 | Multiplayer: authoritative server, hostable worlds | Planned |
+| 5 | Multiplayer: co-op on the host's island (done); dedicated server worlds | In progress |
 | 6 | The long game: logistics, megaproject, blueprints, statistics | Planned |
 
 Live at <https://abiel990310.github.io/CCgame/>.
@@ -90,6 +90,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Dependencies | Zero runtime deps, zero external requests | Nothing to leak, nothing to break when a CDN does. |
 | Audio | Synthesised in Web Audio, never sampled | A sound pack would be the first file the page ever fetched, and the first thing between a load and a playable island. It also means the music can be generated rather than looped, which matters when someone is on the same island for hours. Sounds are a data table (`src/audio/sounds.ts`) like every other kind of content. |
 | Rendering between ticks | Draw moving things blended between their last two tick positions, one tick behind the sim | The sim ticks at 30 Hz and screens refresh at 60 or more; drawing raw positions showed each one for two frames or more, so walking read as 10–15 fps. Lives in `src/render/interpolate.ts`, never in `shared/`. The same blend is what multiplayer needs for other players. |
+| Co-op netcode | The host's browser runs the island; guests replay its ticks | Guests send what they press and click; the host applies it between ticks and sends every guest that tick's orders and inputs, so each copy of the deterministic sim takes the same step. A tick costs about 150 bytes where state snapshots would cost tens of kilobytes, and a fingerprint every second replaces a copy that drifts. Every click that changes the island is a `Command` in `shared/sim/commands.ts`. |
+| Co-op transport | WebRTC data channels, signalled through the public PeerJS broker | No server to run or pay for, on static hosting. The page talks to the broker only when someone hosts or joins, and speaks its protocol directly so there is still no runtime dependency. Friends' characters are saved on the host's side, beside the island. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -151,6 +153,12 @@ world a levelling curve at last.
 
 ## Phase 5 — multiplayer
 
+**Co-op is live.** The host opens their pause menu and chooses *Invite
+friends*; up to three friends choose *Join a friend* on the main menu and type
+the five-letter code, or open the invite link. The host's browser runs the
+island and owns the save; guests replay its ticks (see the decision log). What
+follows is the dedicated-server version the co-op path grows into.
+
 Architecture is already in place: `shared/` is deterministic and headless so the
 server can run the identical simulation.
 
@@ -201,6 +209,8 @@ detail behind the factory entries is in
 
 - [ ] The game gets very laggy near the campfire. *On hold until Abiel confirms multiplayer works (2026-09-24).*
 - [ ] The overlapping HUD panels are still showing after the UI revamp. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [ ] Co-op: when the host's tab goes to the background, browsers throttle its
+      timers and the island slows or stutters for everyone on it.
 
 - [ ] The first click on a machine after closing another machine's screen with
       Esc sometimes opens nothing; the second click works. Seen once while
@@ -258,6 +268,12 @@ detail behind the factory entries is in
 - [ ] A big content pass across every system (recipes, machines, techs, goals,
       mobs, camp) aimed at tens to hundreds of hours of play over the next
       weeks. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [ ] Co-op: predict a guest's own movement locally. A guest sees their own
+      steps one round trip late (under a tenth of a second on a good line).
+- [ ] Co-op: a TURN relay fallback, so friends on strict networks (some mobile
+      carriers, offices) can still connect. Needs a paid or self-hosted relay.
+- [ ] Co-op: a short chat line and a ping marker ("over here").
+- [ ] Co-op: a colour per player, so friends are told apart by more than name tags.
 
 - [x] **Splitter** — one input, two outputs, alternating, with an optional
       filter per side. Built as a T: whatever feeds it goes out to the tiles on
@@ -346,8 +362,10 @@ detail behind the factory entries is in
 
 ### Changes
 
-- [ ] Loot popups ("+2 Wood") show for every player's pickups. Filter them by
-      the event's `playerId` when multiplayer lands.
+- [x] Loot popups ("+2 Wood") show for every player's pickups. Filter them by
+      the event's `playerId` when multiplayer lands. Done with co-op.
+- [ ] Co-op: the menu behind a guest who left still shows the friend's island
+      rather than one of their own.
 - [ ] A bench prompt shows whenever a player stands within reach of a
       workbench, which at a busy camp may be most of the time. Consider hiding
       it after the first few uses.
@@ -508,6 +526,10 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Co-op: let the host hand the island to a guest when leaving, so the others
+      can keep playing (host migration).
+- [ ] Co-op: scale night raids with how many players are on the island.
+
 - [ ] The player swings the same plain axe and pick whatever tier is in the
       bag. Tint the head by the best tool carried, so an upgrade shows.
 - [ ] Crafting is instant. A short craft time with a queue at the bench would
@@ -627,6 +649,14 @@ detail behind the factory entries is in
       a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
 
 ### Needs testing
+
+- [ ] Co-op across two real networks through the public PeerJS broker. It was
+      driven with two browsers on one machine through a local copy of the same
+      broker, because the test sandbox cannot reach `0.peerjs.com`.
+- [ ] Co-op between different browsers (Chrome host, Safari or Firefox guest).
+      Engines may round `Math.sin` and friends differently; the fingerprint
+      check should catch the drift and resend the island, but how often it
+      fires is unmeasured.
 
 - [ ] Opening the workbench by tapping its Craft prompt on a real phone (it was
       only driven with Playwright's iPhone emulation).

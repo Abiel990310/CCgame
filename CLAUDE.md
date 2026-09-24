@@ -104,7 +104,9 @@ on purpose and should stay true as tiers are added.
 - **Comments explain why, not what.** Do not narrate the code.
 - **No runtime dependencies.** The bundle currently has zero, and zero external
   network requests. Do not add a font CDN, an analytics snippet, or a UI
-  library without asking. Keeping this true is a feature. **This is why every
+  library without asking. Keeping this true is a feature. The one exception is
+  co-op, which reaches a WebRTC signalling broker, and only once someone
+  chooses to host or join. **This is why every
   sound is synthesised** rather than sampled: a sound pack would be the first
   asset the page ever fetched.
 - **Imports**: client code uses the `@shared/*` alias; `shared/` uses relative
@@ -122,6 +124,12 @@ on purpose and should stay true as tiers are added.
   `shared/sim/slots.ts` rather than pushing onto them, and remember `loadWorld`
   resizes an old save's grids to whatever the tables now say. What the player
   may move where lives in `shared/sim/containers.ts`, not in the UI.
+- **Every click that changes the world is a `Command`** in
+  `shared/sim/commands.ts`, applied through `Game.act`. In co-op a guest's
+  world only changes by replaying the host's ticks, so a UI handler that calls
+  a mutating sim function directly works solo and silently desyncs friends.
+  `shared/sim/__tests__/netplay.test.ts` replays a host into a guest; extend it
+  when adding a command.
 - **Saves must stay backward compatible.** `loadWorld` accepts any version up
   to the current one and defaults the fields that version did not have. Raising
   `VERSION` without that is how you silently delete someone's island.

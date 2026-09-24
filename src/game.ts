@@ -1,4 +1,5 @@
 import { BUILDINGS } from '@shared/data/buildings';
+import { applyOrder, type Command } from '@shared/sim/commands';
 import { CRAFT_BY_ID } from '@shared/data/crafting';
 import { BELT_COST, MACHINES, placementCost } from '@shared/data/machines';
 import { ITEMS } from '@shared/data/items';
@@ -7,7 +8,6 @@ import {
   buildingAt,
   placeBuilding,
   placementError,
-  removeBuildingAt,
 } from '@shared/sim/building';
 import {
   clickSlot,
@@ -15,7 +15,6 @@ import {
   machineById,
   quickMove,
   sortArea,
-  stowCursor,
   takeAll,
   type ClickButton,
   type SlotArea,
@@ -38,17 +37,15 @@ import {
   setSideFilter,
   upgradeTarget,
   beltAt,
-  turnAt,
 } from '@shared/sim/factory';
 import { rotate, step1, tileCenter, tileKey, toTile } from '@shared/sim/grid';
-import { chooseUpgrade } from '@shared/sim/progression';
 import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
 import { setResearch } from '@shared/sim/research';
 import { GOAL_BY_ID } from '@shared/data/goals';
 import { GoalTracker } from './ui/goals';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
-import { craft, craftError, nearWorkbench } from '@shared/sim/crafting';
+import { craftError, nearWorkbench } from '@shared/sim/crafting';
 import type {
   Direction,
   MachineFamily,
@@ -66,6 +63,10 @@ import { Interpolator } from './render/interpolate';
 import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { SlotLock, type EvictReason } from './tablock';
+import { CoopGuest } from './net/guest';
+import { GuestBook } from './net/guests';
+import { CoopHost } from './net/host';
+import { CoopPanel, playerName } from './ui/coop';
 import { Hud } from './ui/hud';
 import { Inspector } from './ui/inspect';
 import { WorkbenchScreen } from './ui/workbench';
@@ -119,6 +120,11 @@ export class Game {
   /** The line being laid while the button is held: the last tile and what went down. */
   private drag: { tx: number; ty: number; laid: Set<number> } | null = null;
   private lock = new SlotLock((slot, reason) => this.evict(slot, reason));
+  /** Set while friends can join this island; the world here is the real one. */
+  private host: CoopHost | null = null;
+  /** Set while playing on a friend's island; the world here is a copy of theirs. */
+  private guest: CoopGuest | null = null;
+  private coop: CoopPanel;
 
   constructor(canvas: HTMLCanvasElement, private callbacks: GameCallbacks) {
     this.renderer = new Renderer(canvas);
@@ -134,13 +140,13 @@ export class Game {
       onToggleBuild: () => this.toggleBuild(),
       onSelect: () => this.hud.setBuildMode(true),
       onSetRecipe: (machineId, recipeId) => {
-        if (setRecipe(this.world, machineId, recipeId)) this.requestSave();
+        if (this.act({ k: 'recipe', machine: machineId, recipe: recipeId })) this.requestSave();
       },
       onSetResearch: (techId) => {
-        if (setResearch(this.world, techId)) this.requestSave();
+        if (this.act({ k: 'research', tech: techId })) this.requestSave();
       },
       onSetFilter: (machineId, item) => {
-        if (setFilter(this.world, machineId, item)) this.requestSave();
+        if (this.act({ k: 'filter', machine: machineId, item })) this.requestSave();
       },
       onToggleBag: () => this.toggleBag(),
       onDash: () => this.input.triggerDash(),
@@ -156,6 +162,20 @@ export class Game {
     });
 
     this.goals = new GoalTracker(document.getElementById('ui')!);
+    this.coop = new CoopPanel({
+      onHost: () => this.startHosting(),
+      onStopHosting: () => this.stopHosting('The host stopped inviting.'),
+    });
+
+    // A host's tab in the background gets no animation frames, and the island
+    // would stop for everyone on it. Timers still run there, if slowly.
+    window.setInterval(() => {
+      if (!document.hidden || !this.running || !this.host) return;
+      const now = performance.now();
+      const elapsed = Math.min((now - this.lastFrame) / 1000, 1.5);
+      this.lastFrame = now;
+      this.simulate(elapsed, EMPTY_INPUT, 50);
+    }, 100);
 
     this.world = createWorld(Date.now() & 0xffff);
     window.addEventListener('resize', () => this.renderer.resize());
@@ -231,6 +251,11 @@ export class Game {
       );
     }
 
+    this.begin();
+  }
+
+  /** Everything entering an island shares, however it was reached. */
+  private begin(): void {
     this.showcasing = false;
     // Whatever was pressed on the menu is not a move order.
     this.input.drainActions();
@@ -288,13 +313,15 @@ export class Game {
   }
 
   private togglePause(): void {
-    if (!this.slot) return;
+    if (!this.slot && !this.guest) return;
     const open = !this.hud.isPauseOpen;
     if (open) {
       this.closeInventory();
       this.persist();
       this.hud.setBuildMode(false);
-      this.hud.setPauseOpen(true, this.slot.name, `Night ${this.world.nightIndex} · saved just now`);
+      if (this.slot) this.hud.setPauseOpen(true, this.slot.name, `Night ${this.world.nightIndex} · saved just now`);
+      else this.hud.setPauseOpen(true, "A friend's island", `Night ${this.world.nightIndex} · the host keeps the save`);
+      this.coop.refreshPause();
     } else {
       // Coming back from a pause must not fast-forward the missed seconds.
       this.lastFrame = performance.now();
@@ -304,14 +331,77 @@ export class Game {
 
   private quitToMenu(): void {
     this.persist();
+    this.stopHosting('The host closed the island.');
+    if (this.guest) {
+      this.guest.leave();
+      this.guest = null;
+    }
     if (this.slot) this.lock.release(this.slot.id);
     this.leave();
     this.callbacks.onQuit();
   }
 
+  /** Open this island to friends, and show the code they join with. */
+  private async startHosting(): Promise<string> {
+    if (this.host) return this.host.code;
+    const slot = this.slot;
+    if (!slot) throw new Error('Open an island first');
+    const host = await CoopHost.open(new GuestBook(slot.id), {
+      onRoster: (names, news) => {
+        this.hud.toast(news, 'good');
+        this.coop.setRoster(names);
+      },
+      onTrouble: (reason) => this.hud.toast(`${reason}. Friends already here can stay; new ones cannot join.`, 'warn'),
+    });
+    // The island may have been closed while the room was opening.
+    if (this.slot !== slot || !this.running) {
+      host.close(this.world, 'The host closed the island.');
+      throw new Error('The island was closed');
+    }
+    this.host = host;
+    // Everyone sees a name over each head, so the host needs one too.
+    this.self.name = playerName();
+    this.coop.setHosting(host.code, host.names(this.world));
+    return host.code;
+  }
+
+  private stopHosting(reason: string): void {
+    const host = this.host;
+    if (!host) return;
+    this.host = null;
+    host.close(this.world, reason);
+    this.coop.setSolo();
+  }
+
+  /** Step onto a friend's island, as a copy of their world that follows theirs. */
+  async joinGame(code: string, name: string): Promise<void> {
+    const guest = await CoopGuest.join(code, name, guestToken());
+    guest.onEnd = (reason) => {
+      if (this.guest !== guest) return;
+      this.guest = null;
+      this.leave();
+      this.callbacks.onQuit(reason);
+    };
+    if (this.slot) {
+      this.persist();
+      this.stopHosting('The host closed the island.');
+      this.lock.release(this.slot.id);
+    }
+    this.guest = guest;
+    this.slot = null;
+    this.world = guest.world!;
+    this.selfId = guest.selfId!;
+    this.accumulator = 0;
+    this.interpolator.capture(this.world);
+    this.hud.toast('Joined your friend\'s island', 'good');
+    this.coop.setGuest(code, [...this.world.players.values()].map((p) => p.name));
+    this.begin();
+  }
+
   private leave(): void {
     this.running = false;
     this.slot = null;
+    this.coop.setSolo();
     this.hud.setPauseOpen(false);
     this.hud.setBuildMode(false);
     this.hud.closeInventory();
@@ -326,9 +416,10 @@ export class Game {
     if (this.slot?.id !== slot) return;
     const name = this.slot.name;
     if (reason === 'handover') {
-      if (this.hud.isInventoryOpen) stowCursor(this.world, this.self);
+      if (this.hud.isInventoryOpen) this.act({ k: 'stow' });
       this.persist();
     }
+    this.stopHosting('The host closed the island.');
     this.leave();
     this.callbacks.onQuit(
       reason === 'handover'
@@ -387,9 +478,9 @@ export class Game {
 
   private craftItem(id: string): void {
     const error = craftError(this.world, this.self, id);
-    if (error === null && craft(this.world, this.self, id)) {
-      const made = this.world.events.at(-1);
-      const name = made?.kind === 'crafted' ? ITEMS[made.item].name : 'it';
+    const recipe = CRAFT_BY_ID.get(id);
+    if (error === null && recipe && this.act({ k: 'craft', id })) {
+      const name = ITEMS[recipe.output].name;
       this.flush();
       this.workbench.pulse(id);
       this.hud.toast(`Crafted ${name}`, 'good');
@@ -416,35 +507,34 @@ export class Game {
   /** Closing always puts the held stack away, so a drag can never lose items. */
   private closeInventory(): void {
     if (!this.hud.isInventoryOpen) return;
-    stowCursor(this.world, this.self);
+    this.act({ k: 'stow' });
     this.hud.closeInventory();
     this.requestSave();
   }
 
   private moveItems(ref: SlotRef, button: ClickButton, quick: boolean): void {
     const machineId = this.hud.inspecting?.id ?? null;
-    if (quick) quickMove(this.world, this.self, machineId, ref);
-    else clickSlot(this.world, this.self, machineId, ref, button);
+    if (quick) this.act({ k: 'quick', machine: machineId, ref });
+    else this.act({ k: 'click', machine: machineId, ref, button });
   }
 
   private sortGrid(area: SlotArea): void {
     const machineId = this.hud.inspecting?.id ?? null;
-    if (sortArea(this.world, this.self, machineId, area)) this.requestSave();
+    if (this.act({ k: 'sort', machine: machineId, area })) this.requestSave();
     else this.hud.toast('Already tidy');
   }
 
   private gatherInto(ref: SlotRef): void {
     const machineId = this.hud.inspecting?.id ?? null;
-    if (gatherStacks(this.world, this.self, machineId, ref)) this.requestSave();
+    if (this.act({ k: 'gather', machine: machineId, ref })) this.requestSave();
   }
 
   private takeEverything(machineId: number): void {
-    const moved = takeAll(this.world, this.self, machineId);
-    if (moved === 0) this.hud.toast('No room in your bag', 'warn');
+    if (!this.act({ k: 'takeAll', machine: machineId })) this.hud.toast('No room in your bag', 'warn');
   }
 
   private chooseUpgrade(id: string): void {
-    if (chooseUpgrade(this.world, this.self, id)) this.requestSave();
+    if (this.act({ k: 'upgrade', id })) this.requestSave();
   }
 
   /**
@@ -465,7 +555,14 @@ export class Game {
       this.evict(this.slot.id, 'taken');
       return;
     }
-    if (!saveWorld(this.world, this.slot.id)) return;
+    const host = this.host;
+    // Friends' characters are kept beside the save, not in it, so a solo
+    // session never finds them standing idle at camp.
+    const own = host
+      ? { ...this.world, players: new Map([...this.world.players].filter(([id]) => !host.isGuest(id))) }
+      : this.world;
+    host?.keep(this.world);
+    if (!saveWorld(own, this.slot.id)) return;
     touchSlot(this.slot.id, {
       night: this.world.nightIndex,
       level: this.self.level,
@@ -628,7 +725,7 @@ export class Game {
         this.buildDir = dir;
         // The belt the line starts from only now learns which way it runs.
         if (drag.laid.has(tileKey(drag.tx, drag.ty)) || beltAt(this.world, drag.tx, drag.ty)) {
-          turnAt(this.world, drag.tx, drag.ty, dir);
+          this.act({ k: 'turn', tx: drag.tx, ty: drag.ty, dir });
         }
       }
       const next = step1(drag.tx, drag.ty, dir);
@@ -652,7 +749,7 @@ export class Game {
   private placeCampBuilding(ghost: Extract<GhostPreview, { kind: 'building' }>): void {
     const error = placementError(this.world, this.self, ghost.type, ghost.pos);
     if (error === null) {
-      placeBuilding(this.world, this.self, ghost.type, ghost.pos);
+      this.act({ k: 'building', type: ghost.type, x: ghost.pos.x, y: ghost.pos.y });
       this.requestSave();
       return;
     }
@@ -675,8 +772,8 @@ export class Game {
 
     if (error === null) {
       const replacing = what === 'belt' ? null : upgradeTarget(this.world, what, tx, ty);
-      if (what === 'belt') placeBelt(this.world, this.self, tx, ty, this.buildDir);
-      else placeMachine(this.world, this.self, what, tx, ty, this.buildDir);
+      if (what === 'belt') this.act({ k: 'belt', tx, ty, dir: this.buildDir });
+      else this.act({ k: 'machine', what, tx, ty, dir: this.buildDir });
       if (replacing) this.hud.toast(`Upgraded to ${MACHINES[replacing.type].name}`, 'good');
       this.requestSave();
       return true;
@@ -689,7 +786,7 @@ export class Game {
       const dir = this.input.isTouch ? rotate(existing.dir) : this.buildDir;
       // A finger that stays down removes the belt anyway, so the hold is
       // left armed: turning something about to go costs nothing.
-      if (turnAt(this.world, tx, ty, dir)) {
+      if (existing.dir !== dir && this.act({ k: 'turn', tx, ty, dir })) {
         this.buildDir = dir;
         this.requestSave();
       }
@@ -740,7 +837,10 @@ export class Game {
   private removeUnderCursor(): void {
     const pos = this.cursorWorld;
     const { tx, ty } = toTile(pos);
-    if (removeAt(this.world, this.self, tx, ty)) {
+    // Checked here rather than read off the result, because a guest's removal
+    // only happens once the host has applied it.
+    if (entityAt(this.world, tx, ty)) {
+      this.act({ k: 'remove', tx, ty });
       this.hud.toast('Removed', 'good');
       this.requestSave();
       return;
@@ -749,8 +849,9 @@ export class Game {
     // Camp pieces are not on the factory grid, so they need their own pass.
     const target = buildingAt(this.world, pos);
     const damaged = target?.type === 'wall' && target.level < CAMP.wallHp;
-    const result = removeBuildingAt(this.world, this.self, pos);
+    const result = !target ? 'none' : target.type === 'campfire' ? 'campfire' : 'removed';
     if (result === 'removed') {
+      this.act({ k: 'removeBuilding', x: pos.x, y: pos.y });
       // Say why the refund came up short, or it reads as materials going missing.
       this.hud.toast(damaged ? 'Removed. Damaged walls refund only what is left of them' : 'Removed', 'good');
       this.requestSave();
@@ -805,7 +906,7 @@ export class Game {
       this.hud.toast(`Those are ${familyName(copied.family)} settings`, 'warn');
       return;
     }
-    if (pasteSettings(this.world, machine.id, copied)) {
+    if (this.act({ k: 'paste', machine: machine.id, settings: copied })) {
       audio.play('click');
       this.hud.toast('Settings pasted', 'good');
       this.requestSave();
@@ -838,41 +939,19 @@ export class Game {
     this.flush();
 
     // An open level-up draft freezes the world, so choosing is never a panic.
-    if (!paused) {
-      this.accumulator += elapsed;
-      const raw = this.input.sample();
-      // Building mode repurposes the click, so suppress gathering while placing.
-      // An open inventory stops the player entirely: sorting a chest should not
-      // also walk you off it. The world keeps ticking behind it either way.
-      const playerInput: PlayerInput = this.hud.isInventoryOpen || this.workbench.isOpen
-        ? { move: { x: 0, y: 0 }, dash: false, interact: false }
-        : this.hud.isBuildMode
-          ? { ...raw, interact: false }
-          : raw;
-
-      const inputs = new Map<number, PlayerInput>([[this.selfId, playerInput]]);
-      for (const id of this.world.players.keys()) {
-        if (id !== this.selfId) inputs.set(id, EMPTY_INPUT);
-      }
-
-      let ticks = 0;
-      while (this.accumulator >= TICK_DT && ticks++ < 8) {
-        this.accumulator -= TICK_DT;
-        this.interpolator.capture(this.world);
-        step(this.world, inputs);
-        // Before the flush: the cosmetic layers empty the buffer.
-        this.announceResearch();
-        this.announceGoals();
-        this.flush();
-        this.announcePhase();
-      }
-
-      this.saveTimer -= elapsed;
-      if (this.saveTimer <= 0) {
-        this.saveTimer = SAVE_INTERVAL;
-        this.persist();
-      }
-    }
+    // With friends on the island nobody gets to stop the clock for everyone,
+    // so it only stops this player.
+    const raw = this.input.sample();
+    // Building mode repurposes the click, so suppress gathering while placing.
+    // An open inventory stops the player entirely: sorting a chest should not
+    // also walk you off it. The world keeps ticking behind it either way.
+    const playerInput: PlayerInput = paused || this.hud.isInventoryOpen || this.workbench.isOpen
+      ? { move: { x: 0, y: 0 }, dash: false, interact: false }
+      : this.hud.isBuildMode
+        ? { ...raw, interact: false }
+        : raw;
+    if (this.guest) this.simulateGuest(this.guest, elapsed, playerInput);
+    else if (!paused || this.host) this.simulate(elapsed, playerInput, 8);
 
     this.renderer.effects.update(elapsed);
     // Everything from here to `restore` sees positions blended between the
@@ -907,6 +986,90 @@ export class Game {
       busy: paused || this.hud.isBuildMode || this.hud.isInventoryOpen || this.workbench.isOpen,
       touch: COARSE.matches,
     });
+  }
+
+  /**
+   * Run the island forward on this machine: solo, or as the host whose world
+   * everyone else follows.
+   */
+  private simulate(elapsed: number, own: PlayerInput, maxTicks: number): void {
+    this.accumulator += elapsed;
+    const host = this.host;
+
+    let ticks = 0;
+    while (this.accumulator >= TICK_DT && ticks++ < maxTicks) {
+      this.accumulator -= TICK_DT;
+      this.interpolator.capture(this.world);
+      let inputs = new Map<number, PlayerInput>([[this.selfId, own]]);
+      for (const id of this.world.players.keys()) {
+        if (id !== this.selfId) inputs.set(id, EMPTY_INPUT);
+      }
+      if (host) {
+        host.beforeStep(this.world);
+        // Guests' orders announce themselves too, and `step` would clear them.
+        this.flush();
+        inputs = host.inputs(this.world, inputs);
+      }
+      step(this.world, inputs);
+      // Before the flush: the cosmetic layers empty the buffer.
+      this.announceResearch();
+      this.announceGoals();
+      this.flush();
+      this.announcePhase();
+      host?.afterStep(this.world, inputs);
+    }
+    // A host that fell far behind drops the backlog rather than fast-forwarding
+    // everyone through it.
+    if (ticks > maxTicks) this.accumulator = 0;
+
+    this.saveTimer -= elapsed;
+    if (this.saveTimer <= 0) {
+      this.saveTimer = SAVE_INTERVAL;
+      this.persist();
+    }
+  }
+
+  /**
+   * Play the host's ticks as they arrive. A tick or two queued is the cushion
+   * that keeps motion smooth over an uneven connection; more than a few means
+   * this copy has fallen behind, and it catches up rather than staying late.
+   */
+  private simulateGuest(guest: CoopGuest, elapsed: number, own: PlayerInput): void {
+    guest.sendInput(own);
+    if (guest.world && guest.world !== this.world) {
+      // A fresh snapshot replaced the old copy after a mismatch.
+      this.world = guest.world;
+      this.interpolator.capture(this.world);
+    }
+    this.accumulator += elapsed;
+    let ticks = 0;
+    while (guest.backlog > 0 && ticks < 8 && (this.accumulator >= TICK_DT || guest.backlog > 3)) {
+      ticks++;
+      this.accumulator = Math.max(0, this.accumulator - TICK_DT);
+      this.interpolator.capture(this.world);
+      guest.advance(() => {
+        this.announceResearch();
+        this.announceGoals();
+        this.flush();
+      });
+      this.announcePhase();
+    }
+    if (guest.backlog === 0) this.accumulator = Math.min(this.accumulator, TICK_DT);
+  }
+
+  /**
+   * Do something to the island. Solo it happens now; a host does it now and
+   * owes it to every guest; a guest asks the host, and sees it happen when the
+   * host's next tick comes back. The result is only meaningful off a guest.
+   */
+  private act(command: Command): boolean {
+    const order = { p: this.selfId, c: command };
+    if (this.guest) {
+      this.guest.command(command);
+      return true;
+    }
+    const result = this.host ? this.host.apply(this.world, order) : applyOrder(this.world, order);
+    return result === true;
   }
 
   /** A finished tech is a milestone, and the only sign a lab gives of one. */
@@ -952,9 +1115,12 @@ export class Game {
   /** Hand one batch of simulation events to the cosmetic layers, once. */
   private flush(): void {
     if (this.world.events.length === 0) return;
-    this.renderer.effects.consume(this.world.events);
+    // A friend's pickups are theirs to hear about; seeing "+2 Wood" float over
+    // someone else reads as your own bag filling up.
+    const events = this.world.events.filter((e) => e.kind !== 'collected' || e.playerId === this.selfId);
+    this.renderer.effects.consume(events);
     this.renderer.noteEvents(this.world.events);
-    audio.consume(this.world.events);
+    audio.consume(events);
     this.world.events.length = 0;
   }
 
@@ -969,6 +1135,23 @@ export class Game {
       this.hud.toast('Dawn. The island is yours again.', 'good');
       this.persist();
     }
+  }
+}
+
+/**
+ * Who this browser is on other people's islands. A host keeps a friend's
+ * character under it, so coming back finds the same bag and level.
+ */
+function guestToken(): string {
+  const key = 'ccgame.coop.token';
+  try {
+    const known = localStorage.getItem(key);
+    if (known) return known;
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem(key, token);
+    return token;
+  } catch {
+    return 'guest';
   }
 }
 
