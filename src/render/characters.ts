@@ -11,6 +11,7 @@ import {
   tint,
   tone,
 } from './paint';
+import { drawBrood, drawShellback, drawSpitter, drawWarden } from './creatures';
 
 /**
  * The people and creatures of the island.
@@ -542,7 +543,17 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   ctx.save();
   switch (mob.type) {
     case 'slime':
+    case 'mother':
       drawSlime(ctx, mob, time);
+      break;
+    case 'spitter':
+      drawSpitter(ctx, mob, time);
+      break;
+    case 'shellback':
+      drawShellback(ctx, mob, time);
+      break;
+    case 'warden':
+      drawWarden(ctx, mob, time);
       break;
     case 'crawler':
       drawCrawler(ctx, mob, time);
@@ -558,8 +569,8 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   setFlash(0);
 
   if (mob.hp < mob.maxHp) {
-    const top = mob.type === 'brute' ? def.radius * 2.9 : mob.type === 'wisp' ? def.radius * 3 : def.radius * 2.1;
-    healthBar(ctx, mob.pos.x, mob.pos.y - top, def.radius * 2.2, mob.hp / mob.maxHp);
+    const tall = mob.type === 'brute' ? 2.9 : mob.type === 'wisp' ? 3 : mob.type === 'warden' ? 3.2 : 2.1;
+    healthBar(ctx, mob.pos.x, mob.pos.y - def.radius * tall, def.radius * 2.2, mob.hp / mob.maxHp);
   }
 }
 
@@ -580,7 +591,7 @@ function healthBar(ctx: CanvasRenderingContext2D, x: number, y: number, width: n
 }
 
 function drawSlime(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
-  const def = MOBS.slime;
+  const def = MOBS[mob.type];
   const r = def.radius;
   const { x, y } = mob.pos;
   const base = y + r * 0.45;
@@ -618,11 +629,15 @@ function drawSlime(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void 
   ctx.globalAlpha = 1;
 
   // Something half-digested in the middle, and bubbles rising through it.
-  ctx.fillStyle = tint(tone(def.accent, -0.3));
-  ctx.globalAlpha = 0.35;
-  ctx.beginPath();
-  ctx.ellipse(r * 0.2, -r * 0.42, r * 0.34, r * 0.24, 0.4, 0, Math.PI * 2);
-  ctx.fill();
+  // A mother carries her brood there instead.
+  if (mob.type === 'mother') drawBrood(ctx, mob, time);
+  else {
+    ctx.fillStyle = tint(tone(def.accent, -0.3));
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    ctx.ellipse(r * 0.2, -r * 0.42, r * 0.34, r * 0.24, 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.globalAlpha = 0.5;
   ctx.fillStyle = tint(tone(def.color, 0.55));
   for (let i = 0; i < 3; i++) {
@@ -1006,8 +1021,21 @@ export function drawMobGlow(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
       glow(ex, ey, 4.5, 'rgba(255, 205, 110, A)', 0.8);
       break;
     }
-    case 'slime': {
+    case 'slime':
+    case 'mother': {
       glow(x, y - r * 0.2, r * 1.6, 'rgba(120, 230, 150, A)', 0.22);
+      break;
+    }
+    case 'spitter': {
+      glow(x + (face.x < 0 ? -1 : 1) * r * 0.55, y + r * 0.1, r * 1.1, 'rgba(210, 255, 120, A)', 0.35);
+      break;
+    }
+    case 'shellback': {
+      glow(x + face.x * r * 1.1, y - r * 0.25 + face.y * r * 0.8, 4.5, 'rgba(255, 210, 110, A)', 0.8);
+      break;
+    }
+    case 'warden': {
+      glow(x, y - r * 1.2, r * 2.2, 'rgba(255, 160, 60, A)', 0.4);
       break;
     }
   }

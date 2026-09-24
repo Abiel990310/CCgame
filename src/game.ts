@@ -3,6 +3,7 @@ import { applyOrder, type Command } from '@shared/sim/commands';
 import { CRAFT_BY_ID } from '@shared/data/crafting';
 import { BELT_COST, MACHINES, placementCost } from '@shared/data/machines';
 import { ITEMS } from '@shared/data/items';
+import { MOBS } from '@shared/data/mobs';
 import { CAMP, TICK_DT } from '@shared/sim/constants';
 import {
   buildingAt,
@@ -1121,6 +1122,10 @@ export class Game {
   /** Goals and level-ups are said once, and the tracker makes way for the next goal. */
   private announceGoals(): void {
     for (const event of this.world.events) {
+      if (event.kind === 'boss') {
+        this.hud.toast(`${MOBS[event.type].name} is coming for the camp`, 'warn');
+        continue;
+      }
       // The first level-up in a queue says how to spend it; the ring's badge
       // counts any that follow, so a busy lab does not chatter.
       if (event.kind === 'levelUp' && event.playerId === this.selfId && this.self.pendingUpgrades === 1) {

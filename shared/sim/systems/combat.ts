@@ -4,7 +4,8 @@ import { COMBAT, PLAYER } from '../constants';
 import { distance, distanceSq, normalize } from '../math';
 import { grantXp, nextFloat } from '../progression';
 import { researchBonuses } from '../research';
-import type { Mob, Player, Vec2, World } from '../types';
+import type { Mob, Player, Projectile, Vec2, World } from '../types';
+import { spawnMob } from './mobs';
 
 /** Radians between multishot projectiles that have no target of their own. */
 const FAN_SPREAD = 0.22;
@@ -172,17 +173,25 @@ export function stepProjectiles(world: World, dt: number): void {
 
     let consumed = p.life <= 0;
 
-    if (!consumed) {
+    if (consumed) {
+      // Spent: nothing left to hit.
+    } else if (p.weapon === 'spit') {
+      consumed = spitHits(world, p);
+    } else {
+      const def = WEAPONS[p.weapon];
       for (const mob of world.mobs) {
-        if (mob.hp <= 0) continue;
-        const def = MOBS[mob.type];
-        if (distance(mob.pos, p.pos) > def.radius + 4) continue;
+        if (mob.hp <= 0 || p.struck?.includes(mob.id)) continue;
+        if (distance(mob.pos, p.pos) > MOBS[mob.type].radius + 4) continue;
 
+        if (def.chill) mob.chill = Math.max(mob.chill ?? 0, def.chill);
         damageMob(world, mob, p.damage, p.ownerId);
+        if (def.splash) splash(world, mob, p.pos, def.splash, p.damage * 0.5, p.ownerId);
         // Whatever it hits, it is no longer on its way to its target.
         p.targetId = undefined;
-        if (p.pierce > 0) p.pierce -= 1;
-        else consumed = true;
+        if (p.pierce > 0) {
+          p.pierce -= 1;
+          (p.struck ??= []).push(mob.id);
+        } else consumed = true;
         break;
       }
     }
@@ -191,27 +200,65 @@ export function stepProjectiles(world: World, dt: number): void {
   }
 }
 
+/** A mob's spit only ever lands on players. */
+function spitHits(world: World, p: Projectile): boolean {
+  for (const player of world.players.values()) {
+    if (player.downed > 0) continue;
+    if (distance(player.pos, p.pos) > PLAYER.radius + 5) continue;
+    damagePlayer(world, player, p.damage);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Half the hit again to everything else in the burst. The list is copied
+ * first, since a mob that splits as it dies adds to the one being walked.
+ */
+function splash(world: World, struck: Mob, at: Vec2, radius: number, amount: number, sourceId: number): void {
+  world.events.push({ kind: 'blast', pos: { ...at }, radius });
+  for (const mob of [...world.mobs]) {
+    if (mob === struck || mob.hp <= 0) continue;
+    if (distance(mob.pos, at) > radius + MOBS[mob.type].radius) continue;
+    damageMob(world, mob, amount, sourceId);
+  }
+}
+
 export function damageMob(world: World, mob: Mob, amount: number, sourceId: number): void {
-  mob.hp -= amount;
+  const def = MOBS[mob.type];
+  const dealt = Math.max(1, amount - (def.armor ?? 0));
+  mob.hp -= dealt;
   mob.hitFlash = 0.12;
-  world.events.push({ kind: 'hit', pos: { ...mob.pos }, amount: Math.round(amount) });
+  world.events.push({ kind: 'hit', pos: { ...mob.pos }, amount: Math.round(dealt) });
 
   if (mob.hp > 0) return;
 
-  const def = MOBS[mob.type];
   world.events.push({ kind: 'mobDied', pos: { ...mob.pos }, type: mob.type });
 
   const killer = world.players.get(sourceId);
   if (killer) grantXp(world, killer, def.xp);
 
+  if (def.splits) {
+    for (let i = 0; i < def.splits.count; i++) {
+      const angle = (i / def.splits.count) * Math.PI * 2 + nextFloat(world);
+      const child = spawnMob(world, def.splits.into, {
+        x: mob.pos.x + Math.cos(angle) * def.radius * 0.6,
+        y: mob.pos.y + Math.sin(angle) * def.radius * 0.6,
+      });
+      child.vel = { x: Math.cos(angle) * 160, y: Math.sin(angle) * 160 };
+    }
+  }
+
   // Orbs the killer still has to walk over — movement stays the main verb.
-  const orbs = 1 + Math.floor(nextFloat(world) * 2);
+  const orbs = def.loot?.orbs ?? 1 + Math.floor(nextFloat(world) * 2);
+  const essence = def.loot?.essence ?? 0.25;
+  const scatter = def.loot ? 320 : 140;
   for (let i = 0; i < orbs; i++) {
     world.pickups.push({
       id: world.nextId++,
       pos: { ...mob.pos },
-      vel: { x: (nextFloat(world) - 0.5) * 140, y: (nextFloat(world) - 0.5) * 140 },
-      item: nextFloat(world) < 0.25 ? 'essence' : null,
+      vel: { x: (nextFloat(world) - 0.5) * scatter, y: (nextFloat(world) - 0.5) * scatter },
+      item: nextFloat(world) < essence ? 'essence' : null,
       count: 1,
       xp: 0,
       settle: 0.3,

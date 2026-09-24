@@ -18,7 +18,7 @@ const statUpgrade = (
 ): UpgradeDef => ({ id, title, description, available: () => true, apply });
 
 const WEAPON_MAX_LEVEL = 6;
-const MAX_WEAPONS = 4;
+const MAX_WEAPONS = 5;
 
 function weaponUpgrades(): UpgradeDef[] {
   return (Object.keys(WEAPONS) as WeaponId[]).map((id) => {
