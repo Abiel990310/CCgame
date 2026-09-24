@@ -211,7 +211,10 @@ export type MachineId =
   | 'furnaceMk3'
   | 'assemblerMk2'
   | 'assemblerMk3'
-  | 'longInserter';
+  | 'longInserter'
+  | 'fastInserter'
+  | 'stackInserter'
+  | 'steelChest';
 
 /** One item riding a belt tile, positioned 0..1 along its length. */
 export interface BeltItem {

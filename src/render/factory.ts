@@ -270,7 +270,7 @@ function drawMachineFace(
     case 'chest': {
       ctx.fillStyle = accent;
       ctx.fillRect(x - TILE * 0.08, y - TILE * 0.24, TILE * 0.16, TILE * 0.18);
-      ctx.fillStyle = shift('#a4713d', -30);
+      ctx.fillStyle = shift(def.color, -30);
       ctx.fillRect(x - TILE * 0.44, y - TILE * 0.08, TILE * 0.88, 3);
       break;
     }

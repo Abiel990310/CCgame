@@ -76,7 +76,7 @@ export const TECHS: TechDef[] = [
     time: 5,
     requires: ['automation'],
     effect: { kind: 'crafting', amount: 0.25 },
-    unlocks: ['furnaceMk2', 'assemblerMk2'],
+    unlocks: ['furnaceMk2', 'assemblerMk2', 'steelChest'],
     xp: 8,
   },
   {
@@ -91,6 +91,7 @@ export const TECHS: TechDef[] = [
     time: 6,
     requires: ['beltLogistics'],
     effect: { kind: 'inserter', amount: 0.5 },
+    unlocks: ['fastInserter'],
     xp: 12,
   },
   {
@@ -137,7 +138,7 @@ export const TECHS: TechDef[] = [
     id: 'resonance',
     name: 'Resonance',
     description:
-      'Essence tuned into a motor. Electric miners, electric furnaces and industrial assemblers.',
+      'Essence tuned into a motor. The electric machines, and an arm that moves a stack at a time.',
     inputs: [
       { id: 'logicPack', count: 1 },
       { id: 'powerPack', count: 1 },
@@ -147,7 +148,7 @@ export const TECHS: TechDef[] = [
     time: 8,
     requires: ['roboticArms', 'labAutomation', 'angling'],
     effect: { kind: 'crafting', amount: 0.1 },
-    unlocks: ['minerMk3', 'furnaceMk3', 'assemblerMk3'],
+    unlocks: ['minerMk3', 'furnaceMk3', 'assemblerMk3', 'stackInserter'],
     xp: 30,
   },
   {
