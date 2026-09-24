@@ -237,6 +237,15 @@ export class GameAudio {
         case 'mobDied':
           this.play('mobDied', { pos: event.pos });
           break;
+        case 'blast':
+          this.play('blast', { pos: event.pos });
+          break;
+        case 'spit':
+          this.play('spit', { pos: event.pos });
+          break;
+        case 'boss':
+          this.play('boss');
+          break;
         case 'playerHit':
           this.play('playerHit');
           break;
@@ -294,6 +303,9 @@ const SHOT_SOUND = {
   bow: 'shotBow',
   spark: 'shotSpark',
   thorn: 'shotThorn',
+  harpoon: 'shotHarpoon',
+  ember: 'shotEmber',
+  frost: 'shotFrost',
 } as const satisfies Record<string, SoundId>;
 
 /**

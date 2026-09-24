@@ -69,8 +69,54 @@ export const SOUNDS = {
       NOISE(900, 320, 0.5, 0.002, 0.12, 1.2),
     ],
   },
+  shotHarpoon: {
+    gain: 0.2,
+    vary: 0.05,
+    throttle: 0.08,
+    layers: [
+      NOISE(2600, 700, 0.6, 0.001, 0.14, 1.8),
+      TONE('triangle', 140, 70, 0.55, 0.002, 0.18),
+      TONE('sine', 900, 420, 0.2, 0.001, 0.08),
+    ],
+  },
+  shotEmber: {
+    gain: 0.18,
+    vary: 0.1,
+    throttle: 0.06,
+    layers: [NOISE(500, 1400, 0.5, 0.01, 0.16, 0.8, 0, 'lowpass'), TONE('sine', 220, 330, 0.35, 0.005, 0.12)],
+  },
+  shotFrost: {
+    gain: 0.1,
+    vary: 0.12,
+    throttle: 0.04,
+    layers: [TONE('sine', 2400, 1800, 0.35, 0.001, 0.09), NOISE(6000, 5000, 0.25, 0.001, 0.06, 4, 0, 'highpass')],
+  },
 
   // ---- Combat ----
+  blast: {
+    gain: 0.24,
+    vary: 0.1,
+    throttle: 0.07,
+    layers: [
+      NOISE(700, 120, 0.8, 0.002, 0.3, 0.7, 0, 'lowpass'),
+      TONE('sine', 110, 40, 0.6, 0.003, 0.28),
+    ],
+  },
+  spit: {
+    gain: 0.12,
+    vary: 0.15,
+    throttle: 0.08,
+    layers: [NOISE(900, 2200, 0.5, 0.004, 0.1, 2), TONE('sine', 360, 520, 0.25, 0.004, 0.08)],
+  },
+  boss: {
+    gain: 0.4,
+    vary: 0,
+    layers: [
+      TONE('sawtooth', 55, 45, 0.5, 0.08, 1.6, 0, 6),
+      TONE('triangle', 82, 70, 0.45, 0.1, 1.4, 0.05),
+      NOISE(300, 80, 0.5, 0.05, 1.2, 0.6, 0, 'lowpass'),
+    ],
+  },
   hit: {
     gain: 0.12,
     vary: 0.16,

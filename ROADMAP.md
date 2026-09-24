@@ -217,6 +217,10 @@ detail behind the factory entries is in
 
 ### Bugs
 
+- [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
+      again on the next tick, so it rarely reached a second target. Each shot
+      now remembers what it went through.
+
 - [ ] The game gets very laggy near the campfire. *Hold lifted 2026-09-24; the
       engine thread is on it (WebGL world drawing, Canvas fix first).*
 - [x] On a phone held sideways (iPhone 13 landscape, 750×342) the day panel
@@ -291,6 +295,14 @@ detail behind the factory entries is in
 
 
 ### New features
+
+- [x] More to fight: the **Spitter** (night 4) keeps its distance and spits,
+      the armoured **Shellback** (night 5) shrugs off weak hits, the **Mother
+      Slime** (night 6) bursts into four slimes, and every fifth night a
+      **Stone Warden** boss walks in and drops a heap of orbs and essence if
+      it falls before dawn. Three new weapons: the long-reach **Harpoon**,
+      the splash-damage **Ember Pot**, and the slowing **Frost Shard**. You
+      can carry five weapons instead of four.
 
 - [x] A longer tech tree: Toolmaking (hand gathering), Firebox Design (every
       coal does more), Weaponsmithing and repeatable Ballistics (damage),
@@ -712,6 +724,10 @@ detail behind the factory entries is in
       a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
 
 ### Needs testing
+
+- [ ] Stone Warden pacing: 520 health behind 3 armour in a one-minute night.
+      Whether a night-5 player can kill it with the weapons they have by then
+      is unplayed; a sling at level 3 barely scratches it.
 
 - [ ] Co-op across two real networks through the public PeerJS broker. It was
       driven with two browsers on one machine through a local copy of the same

@@ -9,7 +9,7 @@ import { damagePlayer } from './combat';
 import { resolveMachines } from './movement';
 
 /** Mobs head for the nearest standing player, or the camp when nobody is up. */
-function findTarget(world: World, mob: Mob): Vec2 {
+function findTarget(world: World, mob: Mob): { pos: Vec2; player: boolean } {
   let best: Vec2 = world.camp;
   let bestDist = Infinity;
   for (const player of world.players.values()) {
@@ -20,8 +20,11 @@ function findTarget(world: World, mob: Mob): Vec2 {
       best = player.pos;
     }
   }
-  return best;
+  return { pos: best, player: bestDist < Infinity };
 }
+
+/** How much frost holds a mob back, as a share of its speed. */
+const CHILLED = 0.45;
 
 export function stepMobs(world: World, dt: number): void {
   for (let i = world.mobs.length - 1; i >= 0; i--) {
@@ -36,10 +39,17 @@ export function stepMobs(world: World, dt: number): void {
     mob.hitFlash = Math.max(0, mob.hitFlash - dt);
 
     const target = findTarget(world, mob);
-    const dir = normalize({ x: target.x - mob.pos.x, y: target.y - mob.pos.y });
+    const dir = normalize({ x: target.pos.x - mob.pos.x, y: target.pos.y - mob.pos.y });
+    let speed = def.speed;
+    if (mob.chill && mob.chill > 0) {
+      mob.chill = Math.max(0, mob.chill - dt);
+      speed *= CHILLED;
+    }
+    let pace = 1;
+    if (def.spit && target.player) pace = spit(world, mob, target.pos, dt);
 
-    mob.vel.x = damp(mob.vel.x, dir.x * def.speed, 8, dt);
-    mob.vel.y = damp(mob.vel.y, dir.y * def.speed, 8, dt);
+    mob.vel.x = damp(mob.vel.x, dir.x * speed * pace, 8, dt);
+    mob.vel.y = damp(mob.vel.y, dir.y * speed * pace, 8, dt);
 
     stepMobPosition(world, mob, def.radius, dt);
     separate(world, mob, def.radius);
@@ -48,6 +58,35 @@ export function stepMobs(world: World, dt: number): void {
     resolveMachines(world, mob.pos, def.radius);
     attackNearby(world, mob, def.radius, def.damage);
   }
+}
+
+/**
+ * A spitter holds at the edge of its range and fires from there, backing off
+ * when a player walks in on it. Returns how hard it should keep closing in:
+ * negative to retreat.
+ */
+function spit(world: World, mob: Mob, at: Vec2, dt: number): number {
+  const shot = MOBS[mob.type].spit!;
+  mob.spitCd = Math.max(0, (mob.spitCd ?? shot.interval * nextFloat(world)) - dt);
+  const d = distance(mob.pos, at);
+  if (d <= shot.range && mob.spitCd === 0) {
+    mob.spitCd = shot.interval;
+    const dir = normalize({ x: at.x - mob.pos.x, y: at.y - mob.pos.y });
+    world.projectiles.push({
+      id: world.nextId++,
+      pos: { ...mob.pos },
+      vel: { x: dir.x * shot.speed, y: dir.y * shot.speed },
+      damage: shot.damage,
+      life: shot.range / shot.speed + 0.4,
+      ownerId: mob.id,
+      weapon: 'spit',
+      pierce: 0,
+    });
+    world.events.push({ kind: 'spit', pos: { ...mob.pos } });
+  }
+  if (d > shot.range * 0.85) return 1;
+  if (d < shot.range * 0.55) return -0.6;
+  return 0;
 }
 
 function stepMobPosition(world: World, mob: Mob, radius: number, dt: number): void {
@@ -112,7 +151,7 @@ function attackNearby(world: World, mob: Mob, radius: number, damage: number): v
 /** Pick the strongest affordable type available on this night. */
 function pickMobType(world: World, budget: number): MobTypeId | null {
   const eligible = MOB_ORDER.filter(
-    (id) => MOBS[id].minNight <= world.nightIndex && MOBS[id].cost <= budget,
+    (id) => MOBS[id].minNight <= world.nightIndex && MOBS[id].cost <= budget && !MOBS[id].bossEvery,
   );
   if (eligible.length === 0) return null;
   // Bias toward the tougher end as nights progress, but keep the mix varied.
@@ -154,6 +193,16 @@ export function spawnMob(world: World, type: MobTypeId, pos: Vec2): Mob {
   };
   world.mobs.push(mob);
   return mob;
+}
+
+/** Whatever boss this night is owed walks in from the edge as it falls. */
+export function spawnBosses(world: World): void {
+  for (const id of Object.keys(MOBS) as MobTypeId[]) {
+    const def = MOBS[id];
+    if (!def.bossEvery || world.nightIndex < def.minNight || world.nightIndex % def.bossEvery !== 0) continue;
+    const mob = spawnMob(world, id, edgeSpawn(world));
+    world.events.push({ kind: 'boss', pos: { ...mob.pos }, type: id });
+  }
 }
 
 /** Release the night's spawn budget in pulses rather than one dump. */

@@ -109,9 +109,21 @@ export interface Mob {
   /** Cosmetic wobble seed. */
   seed: number;
   hitFlash: number;
+  /** Seconds of frost left: it moves slower until they run out. */
+  chill?: number;
+  /** Seconds until a mob that spits can spit again. */
+  spitCd?: number;
 }
 
-export type MobTypeId = 'slime' | 'crawler' | 'brute' | 'wisp';
+export type MobTypeId =
+  | 'slime'
+  | 'crawler'
+  | 'brute'
+  | 'wisp'
+  | 'spitter'
+  | 'shellback'
+  | 'mother'
+  | 'warden';
 
 export interface Projectile {
   id: number;
@@ -120,9 +132,11 @@ export interface Projectile {
   damage: number;
   life: number;
   ownerId: number;
-  /** Weapon that fired it, so the renderer can style it. */
-  weapon: WeaponId;
+  /** Weapon that fired it, so the renderer can style it; 'spit' is a mob's. */
+  weapon: WeaponId | 'spit';
   pierce: number;
+  /** Mobs a piercing shot already went through, so it never hits one twice. */
+  struck?: number[];
   /**
    * Mob this was aimed at, until it hits anything. Lets later volleys see the
    * damage already on its way and pick someone else instead of overkilling.
@@ -130,7 +144,7 @@ export interface Projectile {
   targetId?: number;
 }
 
-export type WeaponId = 'sling' | 'bow' | 'spark' | 'thorn';
+export type WeaponId = 'sling' | 'bow' | 'spark' | 'thorn' | 'harpoon' | 'ember' | 'frost';
 
 /** How a weapon chooses among the mobs in range. */
 export type TargetRule = 'nearest' | 'toughest' | 'scatter' | 'line';
@@ -403,6 +417,9 @@ export type SimEvent =
   | { kind: 'placed'; pos: Vec2; what: MachineId | 'belt' }
   | { kind: 'removed'; pos: Vec2 }
   | { kind: 'mobDied'; pos: Vec2; type: MobTypeId }
+  | { kind: 'blast'; pos: Vec2; radius: number }
+  | { kind: 'spit'; pos: Vec2 }
+  | { kind: 'boss'; pos: Vec2; type: MobTypeId }
   | { kind: 'levelUp'; playerId: number; level: number }
   | { kind: 'gathered'; pos: Vec2; item: ItemId }
   | { kind: 'phase'; phase: Phase; nightIndex: number }

@@ -1,7 +1,7 @@
 import { CYCLE, PLAYER, WAVES } from '../constants';
 import { spawnPoint } from '../world';
 import type { World } from '../types';
-import { nightBudget } from './mobs';
+import { nightBudget, spawnBosses } from './mobs';
 
 /** Day ⇄ night, plus the per-player upkeep that rides on the clock. */
 export function stepCycle(world: World, dt: number): void {
@@ -15,6 +15,7 @@ export function stepCycle(world: World, dt: number): void {
     // A peaceful world still has nights; they are just quiet ones.
     world.waveBudget = world.peaceful ? 0 : nightBudget(world);
     world.wavePulse = 0.5;
+    if (!world.peaceful) spawnBosses(world);
   } else {
     world.phase = 'day';
     world.phaseTime = CYCLE.daySeconds;

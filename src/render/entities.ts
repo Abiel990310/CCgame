@@ -19,22 +19,66 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, building: Building, 
 export { drawMob, drawMobGlow, drawPlayer };
 export type { Tool };
 
+/** A mob's spit: a wobbling green glob, so it never reads as the player's own fire. */
+function drawSpit(ctx: CanvasRenderingContext2D, p: Projectile): void {
+  const wob = Math.sin(p.life * 30) * 0.6;
+  ctx.save();
+  ctx.translate(p.pos.x, p.pos.y);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = 'rgba(190, 230, 90, 0.35)';
+  ctx.beginPath();
+  ctx.arc(0, 0, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 4.6 + wob, 4.6 - wob, 0, 0, Math.PI * 2);
+  fillInk(ctx, litFill(ctx, '#a6cc3e', -4, -4, 4, 4, 0.4, -0.3), 1);
+  ctx.restore();
+}
+
 export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile): void {
+  if (p.weapon === 'spit') {
+    drawSpit(ctx, p);
+    return;
+  }
   const def = WEAPONS[p.weapon];
   const angle = Math.atan2(p.vel.y, p.vel.x);
+  // A pot of coals is a lobbed lump, not a streak.
+  if (def.splash) {
+    ctx.save();
+    ctx.translate(p.pos.x, p.pos.y);
+    ctx.globalCompositeOperation = 'lighter';
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 12);
+    glow.addColorStop(0, rgba(def.color, 0.6));
+    glow.addColorStop(1, rgba(def.color, 0));
+    ctx.fillStyle = glow;
+    ctx.fillRect(-12, -12, 24, 24);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.beginPath();
+    ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+    fillInk(ctx, litFill(ctx, '#6a4a3a', -4, -4, 4, 4, 0.3, -0.3), 1);
+    ctx.fillStyle = shift(def.color, 40);
+    ctx.beginPath();
+    ctx.arc(0, -2.4, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+  // Longer, heavier weapons leave a longer streak.
+  const long = def.pierce >= 5 ? 1.8 : 1;
   ctx.save();
   ctx.translate(p.pos.x, p.pos.y);
   ctx.rotate(angle);
   // A streak of light: a fading tail, a hot core, added onto the scene.
   ctx.globalCompositeOperation = 'lighter';
-  const tail = ctx.createLinearGradient(4, 0, -18, 0);
+  const tail = ctx.createLinearGradient(4, 0, -18 * long, 0);
   tail.addColorStop(0, rgba(def.color, 0.75));
   tail.addColorStop(1, rgba(def.color, 0));
   ctx.fillStyle = tail;
   ctx.beginPath();
   ctx.moveTo(4, 0);
-  ctx.lineTo(-18, -2.2);
-  ctx.lineTo(-18, 2.2);
+  ctx.lineTo(-18 * long, -2.2);
+  ctx.lineTo(-18 * long, 2.2);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = rgba(def.color, 0.35);
@@ -44,7 +88,7 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile): vo
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = shift(def.color, 70);
   ctx.beginPath();
-  ctx.ellipse(0.5, 0, 4.2, 1.7, 0, 0, Math.PI * 2);
+  ctx.ellipse(0.5, 0, 4.2 * long, 1.7, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
