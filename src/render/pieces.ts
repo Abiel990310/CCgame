@@ -5,6 +5,7 @@ import { tileCenter } from '@shared/sim/grid';
 import type { BuildingId, MachineId } from '@shared/sim/types';
 import { drawBuilding } from './entities';
 import { drawBeltAt, drawMachine, previewMachine } from './factory';
+import { paintScale, setPaintScale } from './paint';
 
 /**
  * Icons for everything the player can build, baked from the very drawing the
@@ -75,7 +76,12 @@ export function installPieceIcons(): void {
       // leave headroom above rather than centring the footprint.
       const s = (ICON_PX * 0.4) / Math.max(def.radius, 12);
       ctx.setTransform(s, 0, 0, s, ICON_PX / 2, ICON_PX * 0.68);
+      // Camp art is blitted from sprites baked at the world's scale; bake
+      // these at the icon's own, or the icon is a blurry enlargement.
+      const world = paintScale();
+      setPaintScale(s);
       drawBuilding(ctx, { id: 7, type: id, pos: { x: 0, y: 0 }, level: 4 }, 0.4);
+      setPaintScale(world);
     });
   }
 

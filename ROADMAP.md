@@ -68,6 +68,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Research XP | Every lab cycle levels up every player | Gathering by hand was the only source of XP, so automating the island slowed the character down and a peaceful world barely levelled at all. |
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
 | Interface look | One visual language, SVG icons, art baked from the world's own drawings | Emoji icons rendered as a different picture on every platform, so the HUD never looked like one thing. Icons are inline SVG (`src/ui/icons.ts`), and the hotbar and palette show each piece baked from the canvas drawing the world uses (`src/render/pieces.ts`), so a slot looks like what it places. Still zero requests and system fonts only. |
+| World art | Outlined, lit, illustrated characters and scenery; ground as a soft colour field plus hand-placed detail | Abiel asked (2026-09-24) for a serious game look rather than flat low-poly blobs. Everything is still procedural canvas, zero requests. Trees, rocks, bushes and camp pieces bake per variant at device scale (`src/render/paint.ts` `blitCached`), so a detailed forest draws faster than the blobs did; characters draw live because they animate. The ground is one small colour bitmap per island, resampled once, with biome edges jittered by noise but the coastline kept within a few pixels of the real shore. |
 | Machine art | A static body sprite per type and facing, with only moving parts drawn live | The 3/4-view blocks are a dozen fills each; drawing them per frame cost about 45% more than the flat boxes they replaced on a full screen. Baking shadow, block, deck, port and tier marks once brought it back level with the old art. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Save contents | Derive what the seed decides; store only what play changed | Scenery was 109 kB of a 110 kB save and `createWorld` already rebuilds it from the seed, exactly as terrain is. Nodes are regenerated on load and only the chopped and cleared ones are written, which is also why worldgen changing under an existing island would move its scenery. |
@@ -482,8 +483,17 @@ detail behind the factory entries is in
       at the end rather than one past every furnace.
 - [ ] Save cards on the menu show a generic island badge. A tiny minimap of
       the actual island, rendered once on save, would make islands tell apart.
-- [ ] The player character and mobs are still the original simple shapes; they
-      are now the least polished art on screen next to the new machines.
+- [ ] A second player is drawn in a rust jacket; a small outfit picker (jacket,
+      scarf, cap colours) would let friends tell each other apart and cost
+      nothing but a few rows.
+- [ ] Footstep dust on sand and splashes in the shallows, drawn from the
+      ground under the player, would make walking feel grounded.
+- [ ] The surf is a still band baked into the ground. A thin animated foam
+      line that washes in and out along the same coastline would bring the
+      shore to life.
+- [ ] Ore patches are still the scattered pebbles and flat halos from before
+      the ground was repainted, and now read as the least finished thing on
+      the ground.
 - [ ] The menu could open on a short scripted flyover of your factory rather
       than a slow drift around where you stood.
 - [ ] Machine status lights distinguish working, waiting and blocked in the
@@ -564,6 +574,12 @@ detail behind the factory entries is in
       a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
 
 ### Needs testing
+
+- [ ] Ground repaint cost on a real phone. A full repaint (a zoom, a resize)
+      takes about 13 ms longer than the old triangle mesh in headless
+      Chromium; walking only repaints a strip about once a second, and steady
+      frames are faster than before. The ground's blur relies on canvas
+      `filter`, which older Safari ignores: edges there are a little crisper.
 
 - [ ] Resonance pacing: 40 cycles of one essence each, and a trap lands essence
       about one catch in six, every 6 seconds. One trap is about 24 minutes of

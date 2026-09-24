@@ -1,25 +1,3 @@
-import type { Terrain } from '@shared/sim/types';
-
-/**
- * Flat-shaded palette. Each terrain gets a lit face and a shadowed face; the
- * mesh picks between them per triangle to fake a single light direction.
- */
-export interface TerrainShade {
-  lit: string;
-  shade: string;
-  /** Slight per-triangle hue drift keeps large areas from banding. */
-  vary: number;
-}
-
-export const TERRAIN_COLORS: Record<Terrain, TerrainShade> = {
-  deep: { lit: '#1d4a6b', shade: '#163b57', vary: 4 },
-  water: { lit: '#2f7fa8', shade: '#276a8d', vary: 6 },
-  sand: { lit: '#e2cf9c', shade: '#cdb884', vary: 6 },
-  grass: { lit: '#7fb469', shade: '#6a9c58', vary: 8 },
-  forest: { lit: '#5d9455', shade: '#4d7d47', vary: 8 },
-  rock: { lit: '#9aa0a8', shade: '#828992', vary: 7 },
-};
-
 export const UI = {
   ink: '#f2ede2',
   inkDim: '#a9a294',
