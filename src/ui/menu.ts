@@ -59,10 +59,12 @@ export class MainMenu {
     this.els.new.addEventListener('click', () => this.startNew());
   }
 
-  open(): void {
+  /** `notice` replaces the usual summary line, for news the player must see. */
+  open(notice?: string): void {
     this.armedDelete = null;
     this.sound.refresh();
     this.render();
+    if (notice) this.els.note.textContent = notice;
     this.els.root.classList.remove('hidden');
   }
 

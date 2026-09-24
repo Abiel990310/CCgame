@@ -1,4 +1,4 @@
-import { createWorld } from '@shared/sim/world';
+import { WORLDGEN, createWorld } from '@shared/sim/world';
 import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { TECH_BY_ID } from '@shared/data/techs';
@@ -22,7 +22,7 @@ import type {
 } from '@shared/sim/types';
 import { FACTORY_SUFFIX, ORE_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
 
-const VERSION = 5;
+const VERSION = 6;
 
 /**
  * The header: everything that moves on every single save. Small enough that
@@ -45,6 +45,11 @@ interface SaveFile {
   rngState: number;
   players: Player[];
   peaceful: boolean;
+  /**
+   * The worldgen that grew this island's terrain, ore and scenery. Version 6
+   * and newer; every island saved before it was grown by generation 1.
+   */
+  worldgen?: number;
   /** Version 5 and newer. An older island has researched nothing. */
   research?: World['research'];
   /** Version 3 and older only. */
@@ -129,6 +134,7 @@ export function saveWorld(world: World, slot: string): boolean {
     version: VERSION,
     savedAt: Date.now(),
     seed: world.seed,
+    worldgen: WORLDGEN,
     tick: world.tick,
     time: world.time,
     phase: world.phase,
@@ -159,7 +165,16 @@ function minedTiles(world: World): OreSection {
   return out;
 }
 
-export function loadWorld(slot: string): World | null {
+/** What a load had to do beyond reading the island back. */
+export interface LoadNotes {
+  /**
+   * The island was grown by an older worldgen, so its scenery and ore are
+   * today's generator's rather than the ones it was saved with.
+   */
+  regenerated?: boolean;
+}
+
+export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
   const file = readSection<SaveFile>(slot, '');
   if (!file) return null;
 
@@ -167,6 +182,14 @@ export function loadWorld(slot: string): World | null {
     // A save from a future version is the only one we refuse, since we cannot
     // know what it means.
     if (!(file.version >= 1 && file.version <= VERSION)) return null;
+    const generation = file.worldgen ?? 1;
+    if (!(generation >= 1 && generation <= WORLDGEN)) return null;
+    // The scenery and ore sections are differences from what the seed grew
+    // under the island's own generator. Laid over a different generator's
+    // ground they would fell the wrong trees and hollow out the wrong tiles, so
+    // the island takes today's ground whole and keeps only what was built.
+    const sameGround = generation === WORLDGEN;
+    notes.regenerated = !sameGround;
 
     // Terrain, ore and scenery are all regenerated from the seed rather than
     // stored — they are large, and they are a pure function of the seed.
@@ -186,7 +209,7 @@ export function loadWorld(slot: string): World | null {
     const scenery = readSection<ScenerySection>(slot, SCENERY_SUFFIX);
     // An older island carried its scenery in the header; a version 4 one has
     // only the differences from what the seed grows.
-    world.nodes = file.nodes ?? applyScenery(pristine, scenery);
+    world.nodes = file.nodes ?? (sameGround ? applyScenery(pristine, scenery) : pristine);
     world.buildings = file.buildings ?? scenery?.buildings ?? world.buildings;
 
     const factory = readSection<FactorySection>(slot, FACTORY_SUFFIX);
@@ -197,7 +220,8 @@ export function loadWorld(slot: string): World | null {
       .filter((m) => m.type in MACHINES)
       .map(loadMachine);
 
-    applyMinedTiles(world, readSection<OreSection>(slot, ORE_SUFFIX));
+    const mined = readSection<OreSection>(slot, ORE_SUFFIX);
+    if (sameGround) applyMinedTiles(world, mined);
     // The tile index is derived state, so rebuild it rather than storing it.
     rebuildGrid(world);
     // Older islands were built before scenery blocked placement, so they can

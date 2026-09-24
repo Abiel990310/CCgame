@@ -122,6 +122,11 @@ on purpose and should stay true as tiers are added.
 - **Saves must stay backward compatible.** `loadWorld` accepts any version up
   to the current one and defaults the fields that version did not have. Raising
   `VERSION` without that is how you silently delete someone's island.
+- **Worldgen is part of the save contract.** Terrain, ore and scenery are
+  regenerated from the seed, never stored, so changing what a seed grows moves
+  things on every existing island. The fingerprint test in
+  `shared/sim/__tests__/worldgen.test.ts` fails when that happens; raise
+  `WORLDGEN` in `shared/sim/world.ts` on purpose, then update the fingerprints.
 
 ## Verifying changes
 
