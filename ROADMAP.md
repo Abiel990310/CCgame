@@ -330,8 +330,6 @@ detail behind the factory entries is in
       taking a piece the player never saw outlined.
 - [ ] A long name truncates in a quick slot (`Storag…`). A short display name on
       each machine and building would read better in an eight-wide bar.
-- [ ] Steel plate and iron plate are both grey discs on a belt, so a mixed line
-      cannot be read at a glance. Item shapes in the world would tell them apart.
 - [ ] A Mk3 machine runs four times a Mk1, but an inserter still swings at one
       speed — about 1.7 items a second, against an electric furnace that can eat
       four ore a second. Feeding a tier 3 bank by arm is the bottleneck until
@@ -394,8 +392,6 @@ detail behind the factory entries is in
       something worth using from the bag.
 - [ ] Sorting discards the arrangement a player chose. A pinned or filtered slot
       would let a chest keep its shape while still tidying around it.
-- [ ] Item icons are CSS shapes in the UI and flat discs in the world. Drawing
-      both from one shape table would make an item look like itself everywhere.
 - [ ] **Measure the render path by frame rate, never by timing draw calls.**
       Canvas 2D records draw calls and rasterises them later, so
       `performance.now()` around drawing measures recording only. On a full
