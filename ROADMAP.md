@@ -87,6 +87,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Island size | Per island, fixed by the generator that grew it | New islands are 256 tiles across; islands grown before keep 96 and their own generator, so nobody's factory lands in the sea. `createWorld` sets the live `MAP_*` bindings, which is safe because one process simulates one island. |
 | Exploration | A seen-tile mask in the save, as run lengths | A bigger island needs a reason to walk and a way to find your way back. The mask is sim state so co-op guests share it, and costs a few kilobytes. |
 | Far ore | Patches get up to 2.2× richer and wider towards the coast | Makes the far side of the island worth a long belt or a second base instead of only more of the same. |
+| Power | One network per set of wired poles, balanced every tick; tier 3 runs on it instead of coal | The fuel memo said power should replace tier 3's fuel rather than run beside it. Supply short of demand slows every machine by the same share rather than stopping some, so an overloaded base degrades visibly instead of flickering. The layout is derived from the machines and never saved; a starved machine's `unpowered` flag is, so a guest balances the same demand as the host. |
+| Tech added under a finished one | Granted on load | Electricity sits under Resonance; an island that finished Resonance first gets it free, so its electric machines stay buildable. Done generically for any prerequisite added later. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
@@ -113,7 +115,7 @@ always rebuilding something you built an hour ago.
 | 1 | Miner, belt, chest, inserter | Things move without you | ✅ |
 | 2 | Furnace, plates | Ratios: several miners feed one furnace | ✅ |
 | 3 | Assembler: gears, wire, circuits | Multi-input recipes, sub-factories | ✅ |
-| 4 | Power (coal → steam) | Everything stops when power dies | Next |
+| 4 | Power (coal → steam) | Everything slows when power runs short | ✅ |
 | 5 | Steel, resin, advanced circuits | Chains six or more steps deep | Recipes and machine tiers done; resin ahead |
 | 6 | Island logistics: drones, rail | Remote outposts on distant ore | Planned |
 | 7 | The Megaproject | An endgame sink with unbounded appetite | Planned |
@@ -147,8 +149,13 @@ Each lab cycle grants XP to every player on the island, which is what stops
 automating your island from slowing your character down, and gives a peaceful
 world a levelling curve at last.
 
-- Power as a network: generators, poles, consumption per machine. Machines stop
-  when supply runs short, which makes power a system rather than a cost.
+- [x] Power as a network. **Steam engines** stand on a shoreline and burn coal
+  only as fast as their load asks; **power poles** power machines within four
+  tiles and wire to poles within eight. Every tier 3 machine (electric miner,
+  electric furnace, industrial assembler, stack inserter) now draws power instead
+  of burning coal, and a network short of supply slows every machine on it by
+  the same share. The **Electricity** tech (research + logic packs, after
+  Metallurgy) unlocks it and sits under Resonance.
 - Steel and resin: recipes six or more steps from raw ore.
 - Belt tiers or not (see open questions).
 - Production statistics, so a player can find their own bottleneck. This is a
@@ -558,6 +565,13 @@ detail behind the factory entries is in
       frame to feed the depth sort. Pooling them would cut the GC churn.
 
 ### Ideas
+
+- [ ] Power: a solar panel or wind turbine tier that needs no coal, and an
+      accumulator that stores surplus for the night.
+- [ ] Power: a production-stats panel per network (supply, demand, coal per
+      minute over time).
+- [ ] Goals: extend the chain past tier 2 with "research Electricity" and
+      "power an electric machine".
 
 - [ ] A corner minimap on the HUD, drawn from the same image as the island map.
 - [ ] Index scenery nodes by tile bucket. The mainland has 6–9k nodes and

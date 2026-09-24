@@ -65,7 +65,8 @@ export type CraftedMachineId =
   | 'fastInserter'
   | 'stackInserter'
   | 'lab'
-  | 'splitter';
+  | 'splitter'
+  | 'generator';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -235,7 +236,9 @@ export type MachineFamily =
   | 'inserter'
   | 'splitter'
   | 'lab'
-  | 'fishTrap';
+  | 'fishTrap'
+  | 'generator'
+  | 'pole';
 
 export type MachineId =
   | MachineFamily
@@ -297,6 +300,12 @@ export interface Machine {
   filters?: (ItemId | null)[];
   /** Splitter only: which of the two sides the next item is offered to. */
   turn?: number;
+  /**
+   * Electric machines only: true when it stopped last tick for want of power
+   * rather than for want of work. It is what keeps a starved machine asking
+   * for power, so its network cannot mistake it for an idle one.
+   */
+  unpowered?: boolean;
   /** Burners only: the fuel grid, sized by the machine's `fuelSlots`. */
   fuel?: Slot[];
   /**

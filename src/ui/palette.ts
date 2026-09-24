@@ -34,7 +34,7 @@ export const TABS: Array<{ id: PaletteTab; label: string }> = [
  * column, and a family's tiers stack down it, so the palette reads as a
  * ladder rather than a list.
  */
-export const GROUPS = ['Extraction', 'Logistics', 'Smelting', 'Assembly', 'Research', 'Storage', 'Camp'] as const;
+export const GROUPS = ['Extraction', 'Logistics', 'Smelting', 'Assembly', 'Power', 'Research', 'Storage', 'Camp'] as const;
 
 const FAMILY_GROUP: Record<MachineFamily, (typeof GROUPS)[number]> = {
   miner: 'Extraction',
@@ -45,6 +45,8 @@ const FAMILY_GROUP: Record<MachineFamily, (typeof GROUPS)[number]> = {
   assembler: 'Assembly',
   chest: 'Storage',
   fishTrap: 'Extraction',
+  generator: 'Power',
+  pole: 'Power',
 };
 
 const FACTORY: PaletteEntry[] = [

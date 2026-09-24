@@ -196,6 +196,12 @@ function upgradeMachine(
   if (def.fuelSlots > 0) {
     machine.fuel = normalizeSlots(machine.fuel ?? [], def.fuelSlots, def.slotSize);
     machine.heat ??= 0;
+  } else if (machine.fuel) {
+    // A steel furnace upgraded to electric stops burning, and the coal it was
+    // holding goes back to whoever did it rather than vanishing.
+    refund(world, player, machine.fuel.flatMap((slot) => (slot ? [slot] : [])));
+    delete machine.fuel;
+    delete machine.heat;
   }
   machine.stalled = false;
 

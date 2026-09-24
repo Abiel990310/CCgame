@@ -26,6 +26,7 @@ import {
 import { tileCenter } from '../grid';
 import { rollDrop } from './gathering';
 import { minerSource, oreAt, takeOre } from '../ore';
+import { powerFactor, powerNetOf } from '../power';
 import { activeTech, finishCycle, researchBonuses, type ResearchBonuses } from '../research';
 import { addToSlots, countIn, roomFor, slotCap, takeFromSlots } from '../slots';
 import type { Belt, ItemId, ItemStack, Machine, Slot, World } from '../types';
@@ -85,6 +86,10 @@ export function pushOntoBelt(belt: Belt, item: ItemId): boolean {
 /** Accept an item into a machine's input, respecting its recipe and slots. */
 export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
   const def = MACHINES[machine.type];
+  // A generator has no recipe, only a firebox.
+  if (def.family === 'generator') {
+    return !!machine.fuel && isFuel(item) && addToSlots(machine.fuel, item, 1, def.slotSize) === 1;
+  }
   if (def.inputSlots === 0) return false;
 
   // An inserter's input slot is its hand, not a hopper: it fills that itself
@@ -187,18 +192,34 @@ export function stepMachines(world: World, dt: number): void {
   const bonus = researchBonuses(world);
 
   for (const machine of world.machines) {
+    // An electric machine works at its network's pace, and not at all off one.
+    // Scaling its time step is all it takes: every family below already
+    // measures its work in seconds.
+    let mdt = dt;
+    if (MACHINES[machine.type].power) {
+      const factor = powerFactor(world, machine);
+      if (factor <= 0) {
+        machine.stalled = true;
+        machine.unpowered = true;
+        pushMachineOutput(world, machine);
+        continue;
+      }
+      if (machine.unpowered) delete machine.unpowered;
+      mdt = dt * factor;
+    }
+
     // Dispatch on the family, not the type: a steel furnace is a furnace that
     // runs faster, and every tier added later should stay that cheap.
     switch (MACHINES[machine.type].family) {
       case 'miner':
-        stepMiner(world, machine, dt, bonus);
+        stepMiner(world, machine, mdt, bonus);
         break;
       case 'chest':
         // Chests only receive; nothing to tick.
         machine.stalled = false;
         break;
       case 'inserter':
-        stepInserter(world, machine, dt, bonus);
+        stepInserter(world, machine, mdt, bonus);
         break;
       case 'lab':
         stepLab(world, machine, dt, bonus);
@@ -209,8 +230,15 @@ export function stepMachines(world: World, dt: number): void {
       case 'fishTrap':
         stepTrap(world, machine, dt);
         break;
+      case 'generator':
+        // `stepPower` runs engines on a network; one no pole reaches is idle.
+        if (!powerNetOf(world, machine)) machine.stalled = true;
+        break;
+      case 'pole':
+        machine.stalled = false;
+        break;
       default:
-        stepCrafter(world, machine, dt, bonus);
+        stepCrafter(world, machine, mdt, bonus);
         break;
     }
     pushMachineOutput(world, machine);

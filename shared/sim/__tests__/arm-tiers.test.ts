@@ -15,7 +15,7 @@ const CHEST_SLOT = MACHINES.chest.slotSize;
 
 /** chest → arm → electric furnace; returns the plates smelted in `seconds`. */
 function feedFurnace(arm: MachineId, seconds: number): number {
-  const b = bench();
+  const b = bench(2026, true);
   const { tx, ty } = at(3, 2);
   const chest = put(b, 'chest', tx + 1, ty, 0) as Machine;
   fill(chest.input, 'ironOre', 400, CHEST_SLOT);
@@ -45,7 +45,7 @@ describe('the arm tiers', () => {
   });
 
   it('move a whole hand per swing with the stack arm', () => {
-    const b = bench();
+    const b = bench(2026, true);
     const { tx, ty } = at(3, 3);
     const chest = put(b, 'chest', tx + 1, ty, 0) as Machine;
     fill(chest.input, 'gear', 400, CHEST_SLOT);
@@ -65,7 +65,7 @@ describe('the arm tiers', () => {
   });
 
   it('lift only one kind of item per swing', () => {
-    const b = bench();
+    const b = bench(2026, true);
     const { tx, ty } = at(3, 3);
     const chest = put(b, 'chest', tx + 1, ty, 0) as Machine;
     fill(chest.input, 'gear', 1, CHEST_SLOT);
@@ -79,7 +79,7 @@ describe('the arm tiers', () => {
   });
 
   it('unload a stack onto a belt without losing an item or flashing red', () => {
-    const b = bench();
+    const b = bench(2026, true);
     const { tx, ty } = at(12, 3);
     const chest = put(b, 'chest', tx + 1, ty, 0) as Machine;
     fill(chest.input, 'ironPlate', 40, CHEST_SLOT);
@@ -101,7 +101,7 @@ describe('the arm tiers', () => {
   });
 
   it('stall a stack arm with its hand kept when the target is full', () => {
-    const b = bench();
+    const b = bench(2026, true);
     const { tx, ty } = at(3, 3);
     const chest = put(b, 'chest', tx + 1, ty, 0) as Machine;
     fill(chest.input, 'gear', 10, CHEST_SLOT);
@@ -126,7 +126,7 @@ describe('the steel chest', () => {
   });
 
   it('empties through an arm like any chest', () => {
-    const b = bench();
+    const b = bench(2026, true);
     const { tx, ty } = at(3, 3);
     const box = put(b, 'steelChest', tx + 1, ty, 0) as Machine;
     fill(box.input, 'copperPlate', 3000, MACHINES.steelChest.slotSize);

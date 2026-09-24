@@ -2,7 +2,7 @@ import { WORLDGEN, createWorld } from '@shared/sim/world';
 import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { TECH_BY_ID } from '@shared/data/techs';
-import { newResearch } from '@shared/sim/research';
+import { backfillPrerequisites, newResearch } from '@shared/sim/research';
 import { catchUpGoals } from '@shared/sim/goals';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
@@ -310,6 +310,11 @@ function loadResearch(
   }
   if (typeof raw.current === 'string' && TECH_BY_ID.has(raw.current)) {
     research.current = raw.current;
+  }
+  backfillPrerequisites(research);
+  // Pointing the labs at a tech that has just been granted would waste them.
+  if (research.current && (research.levels[research.current] ?? 0) > 0 && !TECH_BY_ID.get(research.current)?.repeatable) {
+    research.current = null;
   }
   return research;
 }
