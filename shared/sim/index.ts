@@ -16,3 +16,4 @@ export * from './grid';
 export * from './ore';
 export * from './factory';
 export * from './goals';
+export * from './explore';

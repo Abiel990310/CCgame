@@ -3,6 +3,7 @@ import { placeBuilding, placementError } from '../building';
 import { factoryPlacementError, placeBelt } from '../factory';
 import { tileCenter, tileKey } from '../grid';
 import { TERRAIN_ORDER } from '../terrain';
+import { MAP_TILES } from '../constants';
 import { bench, type Bench } from './bench';
 
 /**
@@ -10,14 +11,15 @@ import { bench, type Bench } from './bench';
  * bench sits deliberately clear of it, so these tests flatten their own patch
  * around the campfire instead.
  */
-const CAMP_TILE = 48;
+// Read once a world exists: each island sets its own size.
+const campTile = (): number => MAP_TILES / 2;
 
 function campBench(): Bench {
   const b = bench();
   const grass = TERRAIN_ORDER.indexOf('grass');
 
-  for (let ty = CAMP_TILE - 2; ty <= CAMP_TILE + 2; ty++) {
-    for (let tx = CAMP_TILE - 4; tx <= CAMP_TILE + 4; tx++) {
+  for (let ty = campTile() - 2; ty <= campTile() + 2; ty++) {
+    for (let tx = campTile() - 4; tx <= campTile() + 4; tx++) {
       b.world.terrain[tileKey(tx, ty)] = grass;
       b.world.ore[tileKey(tx, ty)] = 0;
     }
@@ -28,8 +30,8 @@ function campBench(): Bench {
 describe('camp pieces against the factory grid', () => {
   it('refuses to run a belt through a wall', () => {
     const b = campBench();
-    const tx = CAMP_TILE - 2;
-    const ty = CAMP_TILE;
+    const tx = campTile() - 2;
+    const ty = campTile();
     expect(placeBuilding(b.world, b.player, 'wall', tileCenter(tx, ty))).toBe(true);
 
     expect(factoryPlacementError(b.world, b.player, 'belt', tx, ty)).toBe('camp');
@@ -38,11 +40,11 @@ describe('camp pieces against the factory grid', () => {
 
   it('leaves the tile beside a wall buildable', () => {
     const b = campBench();
-    const ty = CAMP_TILE;
-    expect(placeBuilding(b.world, b.player, 'wall', tileCenter(CAMP_TILE - 2, ty))).toBe(true);
+    const ty = campTile();
+    expect(placeBuilding(b.world, b.player, 'wall', tileCenter(campTile() - 2, ty))).toBe(true);
 
-    expect(factoryPlacementError(b.world, b.player, 'belt', CAMP_TILE - 3, ty)).toBe(null);
-    expect(placeBelt(b.world, b.player, CAMP_TILE - 3, ty, 0)).not.toBe(null);
+    expect(factoryPlacementError(b.world, b.player, 'belt', campTile() - 3, ty)).toBe(null);
+    expect(placeBelt(b.world, b.player, campTile() - 3, ty, 0)).not.toBe(null);
   });
 
   it('blocks the tiles the campfire stands on, not the ring it grazes', () => {
@@ -52,17 +54,17 @@ describe('camp pieces against the factory grid', () => {
 
     // The campfire sits on the map's exact centre, which is a tile corner, so
     // it really does stand on all four tiles that meet there.
-    expect(err(CAMP_TILE, CAMP_TILE)).toBe('camp');
-    expect(err(CAMP_TILE - 1, CAMP_TILE - 1)).toBe('camp');
+    expect(err(campTile(), campTile())).toBe('camp');
+    expect(err(campTile() - 1, campTile() - 1)).toBe('camp');
     // A tile further out is only grazed by its radius and stays buildable.
-    expect(err(CAMP_TILE + 1, CAMP_TILE)).toBe(null);
-    expect(err(CAMP_TILE - 2, CAMP_TILE)).toBe(null);
+    expect(err(campTile() + 1, campTile())).toBe(null);
+    expect(err(campTile() - 2, campTile())).toBe(null);
   });
 
   it('refuses to drop a wall on top of a belt', () => {
     const b = campBench();
-    const tx = CAMP_TILE - 2;
-    const ty = CAMP_TILE;
+    const tx = campTile() - 2;
+    const ty = campTile();
     expect(placeBelt(b.world, b.player, tx, ty, 0)).not.toBe(null);
 
     expect(placementError(b.world, b.player, 'wall', tileCenter(tx, ty))).toBe('factory');
@@ -71,10 +73,10 @@ describe('camp pieces against the factory grid', () => {
 
   it('leaves the tile beside a belt open to the camp', () => {
     const b = campBench();
-    const ty = CAMP_TILE;
-    expect(placeBelt(b.world, b.player, CAMP_TILE - 2, ty, 0)).not.toBe(null);
+    const ty = campTile();
+    expect(placeBelt(b.world, b.player, campTile() - 2, ty, 0)).not.toBe(null);
 
-    const beside = tileCenter(CAMP_TILE - 3, ty);
+    const beside = tileCenter(campTile() - 3, ty);
     expect(placementError(b.world, b.player, 'wall', beside)).toBe(null);
     expect(placeBuilding(b.world, b.player, 'wall', beside)).toBe(true);
   });

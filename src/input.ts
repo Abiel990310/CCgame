@@ -30,6 +30,7 @@ export type ActionKey =
   | 'paste'
   | 'craft'
   | 'upgrade'
+  | 'map'
   | `hotbar${HotbarKey}`
   | `bind${HotbarKey}`;
 
@@ -104,7 +105,7 @@ export class InputManager {
       if (e.code === 'KeyB') this.pending.push('build');
       if (e.code === 'KeyR') this.pending.push('rotate');
       if (e.code === 'KeyX') this.pending.push('remove');
-      if (e.code === 'KeyM') this.pending.push('mute');
+      if (e.code === 'KeyM') this.pending.push(e.shiftKey ? 'mute' : 'map');
       if (e.code === 'KeyC') this.pending.push('craft');
       if (e.code === 'KeyU') this.pending.push('upgrade');
       if (e.code === 'Tab') this.pending.push('inventory');

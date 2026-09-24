@@ -84,6 +84,9 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Worldgen | Versioned as part of the save contract | Saves hold only differences from what the seed grows, so they mean nothing against a different generator. `WORLDGEN` is recorded in every save and guarded by a fingerprint test; an island from an older generation gets today's ground rather than deltas laid over land they do not describe. |
 | Tabs | Last to open an island owns it | Every tab holds the whole island and saves it wholesale, so two writers corrupt each other. An owner record beside the slot is the rule; a broadcast asks the old tab to save before the new one reads. |
 | Fuel | A separate fuel grid on burners, spent per recipe-second | Coal is also a steel and battery ingredient, so it could not share the recipe grid without starving one or the other; a burner keeps `FUEL_RESERVE` in hand before letting coal through to the recipe. Burning per unit of work rather than per second makes every craft cost the same coal in every tier. |
+| Island size | Per island, fixed by the generator that grew it | New islands are 256 tiles across; islands grown before keep 96 and their own generator, so nobody's factory lands in the sea. `createWorld` sets the live `MAP_*` bindings, which is safe because one process simulates one island. |
+| Exploration | A seen-tile mask in the save, as run lengths | A bigger island needs a reason to walk and a way to find your way back. The mask is sim state so co-op guests share it, and costs a few kilobytes. |
+| Far ore | Patches get up to 2.2× richer and wider towards the coast | Makes the far side of the island worth a long belt or a second base instead of only more of the same. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
@@ -207,8 +210,10 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] The game gets very laggy near the campfire. *On hold until Abiel confirms multiplayer works (2026-09-24).*
-- [ ] The overlapping HUD panels are still showing after the UI revamp. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [ ] The game gets very laggy near the campfire. *Hold lifted 2026-09-24; the
+      engine thread is on it (WebGL world drawing, Canvas fix first).*
+- [ ] The overlapping HUD panels are still showing after the UI revamp. *Hold
+      lifted 2026-09-24; the UI revamp thread is on it.*
 - [x] Co-op: "Lost the matchmaking service" when the broker's socket dropped,
       which also threw a guest out of a game that no longer needed it. The
       broker now reconnects quietly, and guests let go of it once they are in.
@@ -266,11 +271,19 @@ detail behind the factory entries is in
 
 ### New features
 
-- [ ] A much bigger map, so the island feels like an open world rather than one
-      screen of forest. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [x] A much bigger map, so the island feels like an open world rather than one
+      screen of forest. New islands are a 256-tile mainland (seven times the
+      area) with lakes, highlands and richer ore towards the coast; islands
+      from before keep their 96 tiles. Exploration fog and an island map (M,
+      or the Map button) show what you have seen.
+- [ ] Landmarks worth travelling to on the mainland: ruins with loot, a
+      crashed supply pod, a rich ore vein guarded by a nest.
+- [ ] Map pins: let the player mark a spot on the island map.
 - [ ] A big content pass across every system (recipes, machines, techs, goals,
       mobs, camp) aimed at tens to hundreds of hours of play over the next
-      weeks. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+      weeks. *Hold lifted 2026-09-24; planned across the week to 2026-10-01:
+      power, a longer tech tree, more tiers, creatures and weapons, ~50
+      upgrades, a megaproject.*
 - [ ] Co-op: predict a guest's own movement locally. A guest sees their own
       steps one round trip late (under a tenth of a second on a good line).
 - [ ] Co-op: a TURN relay fallback, so friends on strict networks (some mobile
@@ -528,6 +541,12 @@ detail behind the factory entries is in
       frame to feed the depth sort. Pooling them would cut the GC churn.
 
 ### Ideas
+
+- [ ] A corner minimap on the HUD, drawn from the same image as the island map.
+- [ ] Index scenery nodes by tile bucket. The mainland has 6–9k nodes and
+      gathering, collision and mobs still scan the whole list.
+- [ ] The coal swatch on the island map is nearly invisible against the dark
+      fog; give coal a lighter outline on the map.
 
 - [ ] Co-op: let the host hand the island to a guest when leaving, so the others
       can keep playing (host migration).

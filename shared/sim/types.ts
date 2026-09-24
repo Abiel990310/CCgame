@@ -332,6 +332,8 @@ export interface World {
   tick: number;
   time: number;
   seed: number;
+  /** The generation of worldgen that grew this island, which also sets its size. */
+  worldgen: number;
   /** Row-major terrain grid, MAP_TILES * MAP_TILES entries. */
   terrain: Uint8Array;
   phase: Phase;
@@ -345,6 +347,8 @@ export interface World {
   nodes: ResourceNode[];
   buildings: Building[];
   camp: Vec2;
+  /** Row-major, 1 where a player has been close enough to see. Parallel to `terrain`. */
+  explored: Uint8Array;
   /** Row-major ore grid; 0 means no ore. Parallel to `terrain`. */
   ore: Uint8Array;
   /**

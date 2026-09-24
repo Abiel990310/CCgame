@@ -8,6 +8,7 @@ import { stepPlayerMovement } from './systems/movement';
 import { stepPickups } from './systems/pickups';
 import { stepBelts, stepMachines } from './systems/factory';
 import { stepGoals } from './goals';
+import { stepExploration } from './explore';
 
 export const EMPTY_INPUT: PlayerInput = {
   move: { x: 0, y: 0 },
@@ -46,4 +47,5 @@ export function step(world: World, inputs: Map<number, PlayerInput>, dt = TICK_D
   stepNodeRegrowth(world, dt);
   stepPlayerUpkeep(world, dt);
   stepGoals(world);
+  stepExploration(world);
 }

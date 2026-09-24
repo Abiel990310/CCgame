@@ -112,7 +112,10 @@ describe('inventory', () => {
 describe('gathering', () => {
   it('harvests a nearby node and drops a pickup', () => {
     const world = createWorld(17);
-    const node = world.nodes.find((n) => n.kind === 'tree')!;
+    // A tree standing alone, so it is the node nearest the player.
+    const node = world.nodes.find(
+      (n) => n.kind === 'tree' && world.nodes.every((o) => o === n || Math.hypot(o.pos.x - n.pos.x, o.pos.y - n.pos.y) > 90),
+    )!;
     const player = addPlayer(world, 'test');
     player.pos = { x: node.pos.x, y: node.pos.y + 20 };
 

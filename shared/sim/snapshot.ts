@@ -1,6 +1,7 @@
 import { tileKey } from './grid';
 import type { Belt, Machine, Player, World } from './types';
 import { createWorld } from './world';
+import { packExplored, unpackExplored } from './explore';
 
 /**
  * The whole live state of an island, as plain data a guest can rebuild it from.
@@ -12,6 +13,8 @@ import { createWorld } from './world';
  */
 export interface Snapshot {
   seed: number;
+  /** Which generator grew the island, which is also how big it is. */
+  worldgen: number;
   peaceful: boolean;
   tick: number;
   time: number;
@@ -20,6 +23,8 @@ export interface Snapshot {
   nightIndex: number;
   /** Sent whole, small as it is, so ground reshaped after worldgen still matches. */
   terrain: number[];
+  /** Run-length text, as a save stores it. */
+  explored: string;
   /** In the host's iteration order: players are stepped in it. */
   players: Player[];
   mobs: World['mobs'];
@@ -42,6 +47,7 @@ export interface Snapshot {
 export function takeSnapshot(world: World): Snapshot {
   return {
     seed: world.seed,
+    worldgen: world.worldgen,
     peaceful: world.peaceful,
     tick: world.tick,
     time: world.time,
@@ -49,6 +55,7 @@ export function takeSnapshot(world: World): Snapshot {
     phaseTime: world.phaseTime,
     nightIndex: world.nightIndex,
     terrain: Array.from(world.terrain),
+    explored: packExplored(world.explored),
     players: [...world.players.values()],
     mobs: world.mobs,
     projectiles: world.projectiles,
@@ -74,13 +81,14 @@ export function takeSnapshot(world: World): Snapshot {
  * the world's own.
  */
 export function restoreSnapshot(snap: Snapshot): World {
-  const world = createWorld(snap.seed, snap.peaceful);
+  const world = createWorld(snap.seed, snap.peaceful, snap.worldgen);
   world.tick = snap.tick;
   world.time = snap.time;
   world.phase = snap.phase;
   world.phaseTime = snap.phaseTime;
   world.nightIndex = snap.nightIndex;
   world.terrain = Uint8Array.from(snap.terrain);
+  world.explored = unpackExplored(snap.explored ?? '', world.terrain.length);
   world.players = new Map(snap.players.map((p) => [p.id, p]));
   world.mobs = snap.mobs;
   world.projectiles = snap.projectiles;
