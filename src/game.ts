@@ -83,6 +83,9 @@ export class Game {
   private lastFrame = 0;
   private saveTimer = SAVE_INTERVAL;
   private running = false;
+  /** True while the menu is up and the island drifts past behind it. */
+  private showcasing = false;
+  private showcaseFocus = { x: 0, y: 0 };
   private lastPhase: World['phase'] = 'day';
   /** Facing applied to the next belt or machine placed. */
   private buildDir: Direction = 0;
@@ -172,6 +175,7 @@ export class Game {
       );
     }
 
+    this.showcasing = false;
     // Whatever was pressed on the menu is not a move order.
     this.input.drainActions();
     this.hud.setPauseOpen(false);
@@ -185,6 +189,38 @@ export class Game {
       this.running = true;
       requestAnimationFrame((t) => this.frame(t));
     }
+  }
+
+  /**
+   * Draw the island behind the main menu: the one just played, standing where
+   * it was left, or the freshly generated one the game boots with. Nothing is
+   * simulated — the camera drifts and the scenery sways — so the menu costs a
+   * render and never touches a save.
+   */
+  showcase(): void {
+    if (this.running || this.showcasing) return;
+    this.showcasing = true;
+    const first = this.world.players.values().next().value as Player | undefined;
+    this.showcaseFocus = first ? { ...first.pos } : { ...this.world.camp };
+    this.renderer.resize();
+    requestAnimationFrame((t) => this.showcaseFrame(t));
+  }
+
+  private showcaseFrame(now: number): void {
+    if (!this.showcasing || this.running) {
+      this.showcasing = false;
+      return;
+    }
+    requestAnimationFrame((t) => this.showcaseFrame(t));
+
+    const t = now / 1000;
+    const camera = this.renderer.camera;
+    // A slow Lissajous loop, so the view never visibly repeats or stops.
+    camera.pos = {
+      x: this.showcaseFocus.x + Math.cos(t * 0.045) * 150 + 60,
+      y: this.showcaseFocus.y + Math.sin(t * 0.063) * 90,
+    };
+    this.renderer.render(this.world, this.selfId, t, null, null);
   }
 
   private toggleMute(): void {
@@ -589,6 +625,7 @@ export class Game {
     }
     audio.update(this.world, elapsed);
     this.hud.update(this.world, this.self);
+    this.hud.updateStick(this.input.stickState);
   }
 
   /** A finished tech is a milestone, and the only sign a lab gives of one. */

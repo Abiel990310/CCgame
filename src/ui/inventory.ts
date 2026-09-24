@@ -18,6 +18,8 @@ import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import { filterOf } from '@shared/sim/factory';
 import type { ItemId, Machine, Player, Slot, World } from '@shared/sim/types';
 import { itemIconVar } from '../render/items';
+import { pieceIconVar } from '../render/pieces';
+import { icon } from './icons';
 
 export interface InventoryCallbacks {
   /** A slot was clicked: pick up, put down, split, or send across. */
@@ -56,6 +58,7 @@ export class InventoryScreen {
   private root: HTMLElement;
   private els: {
     eyebrow: HTMLElement;
+    icon: HTMLElement;
     title: HTMLElement;
     blurb: HTMLElement;
     container: HTMLElement;
@@ -92,6 +95,7 @@ export class InventoryScreen {
     this.root = must('inv');
     this.els = {
       eyebrow: must('inv-eyebrow'),
+      icon: must('inv-icon'),
       title: must('inv-title'),
       blurb: must('inv-blurb'),
       container: must('inv-container'),
@@ -184,6 +188,7 @@ export class InventoryScreen {
     if (!machine) {
       this.els.eyebrow.textContent = 'Carrying';
       this.els.title.textContent = 'Your bag';
+      this.els.icon.classList.add('hidden');
       this.els.blurb.classList.add('hidden');
       this.els.container.classList.add('hidden');
       this.els.research.classList.add('hidden');
@@ -202,6 +207,8 @@ export class InventoryScreen {
           ? 'Arm'
           : 'Storage';
     this.els.title.textContent = def.name;
+    this.els.icon.classList.remove('hidden');
+    this.els.icon.style.backgroundImage = pieceIconVar(`machine:${machine.type}`);
     this.els.blurb.textContent = def.description;
     this.els.blurb.classList.remove('hidden');
     this.els.container.classList.remove('hidden');
@@ -428,10 +435,15 @@ export class InventoryScreen {
 
     for (const recipe of recipesFor(machine.type)) {
       const button = document.createElement('button');
-      button.className = `offer${machine.recipe === recipe.id ? ' on' : ''}`;
-      const inputs = recipe.inputs.map((i) => `${i.count} ${ITEMS[i.id].name}`).join(' + ');
-      const outputs = recipe.outputs.map((o) => `${o.count} ${ITEMS[o.id].name}`).join(' + ');
-      button.innerHTML = `<b>${recipe.name}</b><span>${inputs} → ${outputs}<br>${recipe.time}s</span>`;
+      button.className = `offer recipe${machine.recipe === recipe.id ? ' on' : ''}`;
+      const stack = (id: ItemId, count: number): string =>
+        `<span class="stack" title="${ITEMS[id].name}"><i class="ic" style="background-image:${itemIconVar(id)}"></i>${count}</span>`;
+      const inputs = recipe.inputs.map((i) => stack(i.id, i.count)).join('');
+      const outputs = recipe.outputs.map((o) => stack(o.id, o.count)).join('');
+      const seconds = Math.round(craftTime(recipe, def.speed) * 10) / 10;
+      button.innerHTML =
+        `<b>${recipe.name}</b><span class="recipe-flow">${inputs}${icon('arrow')}${outputs}` +
+        `<em>${seconds}s</em></span>`;
       button.addEventListener('click', () => {
         audio.play('click');
         this.callbacks.onSetRecipe(machine.id, recipe.id);
@@ -456,7 +468,12 @@ export class InventoryScreen {
       button.className = `offer${current ? ' on' : ''}`;
       button.disabled = !open || done;
 
-      const cost = tech.inputs.map((i) => `${i.count} ${ITEMS[i.id].name}`).join(' + ');
+      const cost = tech.inputs
+        .map(
+          (i) =>
+            `<span class="stack" title="${ITEMS[i.id].name}"><i class="ic" style="background-image:${itemIconVar(i.id)}"></i>${i.count}</span>`,
+        )
+        .join('');
       const state = done
         ? 'Done'
         : !open
@@ -464,11 +481,13 @@ export class InventoryScreen {
           : `${cyclesDone(world, tech.id)} / ${cyclesNeeded(world, tech)} cycles`;
       const name = tech.repeatable && level > 0 ? `${tech.name} ${level + 1}` : tech.name;
       const unlocks = tech.unlocks?.length
-        ? `<br>Unlocks ${tech.unlocks.map((id) => MACHINES[id].name).join(', ')}`
+        ? `<span class="tech-unlocks">Unlocks ${tech.unlocks.map((id) => MACHINES[id].name).join(', ')}</span>`
         : '';
 
+      button.className += ' tech';
       button.innerHTML =
-        `<b>${name}</b><span>${tech.description}<br>${cost} · ${tech.time}s · ${state}${unlocks}</span>`;
+        `<b>${name}</b><span>${tech.description}</span>${unlocks}` +
+        `<span class="recipe-flow">${cost}<em>${tech.time}s · ${state}</em></span>`;
       button.addEventListener('click', () => {
         audio.play('click');
         this.callbacks.onSetResearch(tech.id);
