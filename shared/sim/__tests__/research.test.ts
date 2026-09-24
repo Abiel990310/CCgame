@@ -233,12 +233,12 @@ describe('finishing a tech', () => {
     b.world.research.levels.automation = 1;
     b.world.research.levels.beltLogistics = 1;
     expect(isAvailable(b.world, robotic)).toBe(true);
-    expect(setResearch(b.world, 'miningProductivity')).toBe(false);
+    expect(setResearch(b.world, 'deepDrilling')).toBe(false);
   });
 
   it('keeps a repeatable tech selected, and charges more each level', () => {
     const b = labBench();
-    const tech = TECH_BY_ID.get('miningProductivity')!;
+    const tech = TECH_BY_ID.get('deepDrilling')!;
     for (const id of ['automation', 'beltLogistics', 'metallurgy', 'roboticArms', 'labAutomation']) {
       b.world.research.levels[id] = 1;
     }
@@ -261,7 +261,7 @@ describe('research bonuses', () => {
     b.world.research.levels.automation = 1;
     expect(researchBonuses(b.world).mining).toBeCloseTo(1.25);
 
-    b.world.research.levels.miningProductivity = 3;
+    b.world.research.levels.deepDrilling = 3;
     expect(researchBonuses(b.world).mining).toBeCloseTo(1.7);
   });
 

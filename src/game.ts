@@ -578,6 +578,7 @@ export class Game {
   private flush(): void {
     if (this.world.events.length === 0) return;
     this.renderer.effects.consume(this.world.events);
+    this.renderer.noteEvents(this.world.events);
     audio.consume(this.world.events);
     this.world.events.length = 0;
   }

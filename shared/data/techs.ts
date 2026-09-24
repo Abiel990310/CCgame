@@ -107,9 +107,10 @@ export const TECHS: TechDef[] = [
     xp: 14,
   },
   {
-    id: 'miningProductivity',
-    name: 'Mining Productivity',
-    description: 'Never finishes. Each level makes every miner faster again, and costs more.',
+    id: 'deepDrilling',
+    name: 'Deep Drilling',
+    description:
+      'Never finishes. Each level makes every miner faster again, and costs more. Patches run dry sooner.',
     inputs: [
       { id: 'researchPack', count: 1 },
       { id: 'logicPack', count: 1 },

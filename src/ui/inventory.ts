@@ -2,6 +2,7 @@ import { ITEMS, ITEM_ORDER } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
 import { TECHS, TECH_BY_ID } from '@shared/data/techs';
+import { minerOreLeft } from '@shared/sim/ore';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import {
   activeTech,
@@ -238,7 +239,7 @@ export class InventoryScreen {
     }
   }
 
-  update(world: World, player: Player, machine: Machine | null): void {
+  update(player: Player, machine: Machine | null, world: World): void {
     if (!this.open) return;
     // The machine object is re-read every frame: removing it while its screen
     // is open must close the screen rather than show a ghost.
@@ -255,6 +256,9 @@ export class InventoryScreen {
     }
 
     if (machine) this.updateProgress(machine);
+    if (machine && MACHINES[machine.type].family === 'miner') {
+      this.updateMinerOre(world, machine);
+    }
     if (machine && MACHINES[machine.type].family === 'lab') this.updateResearchNote(world);
     this.updatePanel(world, machine);
   }
@@ -325,6 +329,18 @@ export class InventoryScreen {
         `${tech.inputs.map((i) => `${i.count} ${ITEMS[i.id].name}`).join(' + ')} each`
       : 'Nothing selected. Every lab on the island works on what you pick below.';
     if (this.els.research.innerHTML !== text) this.els.research.innerHTML = text;
+  }
+
+  /**
+   * A miner has no recipe to show, so its blurb carries the one number that
+   * matters instead: how much is left under it before it has to move.
+   */
+  private updateMinerOre(world: World, machine: Machine): void {
+    const left = minerOreLeft(world, machine);
+    this.els.blurb.textContent =
+      left > 0
+        ? `${left.toLocaleString()} ore left within reach.`
+        : 'The ground here is worked out. Move it to a fresh patch.';
   }
 
   /**

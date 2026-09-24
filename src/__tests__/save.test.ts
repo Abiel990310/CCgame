@@ -143,12 +143,13 @@ describe('saving an island', () => {
   it('rewrites only the sections that moved', () => {
     const world = island();
     saveWorld(world, SLOT);
-    expect(new Set(writes).size).toBe(3);
+    // The header, the scenery, the factory and the ground the miners have taken.
+    expect(new Set(writes).size).toBe(4);
 
     writes.length = 0;
     world.tick += 240;
     saveWorld(world, SLOT);
-    // Nothing was built and nothing was chopped, so only the header moved.
+    // Nothing was built, chopped or mined, so only the header moved.
     expect(writes).toEqual([slotKey(SLOT)]);
 
     writes.length = 0;
@@ -249,7 +250,7 @@ describe('research in a save', () => {
   it('comes back exactly as it went in', () => {
     const world = island();
     world.research.levels.automation = 1;
-    world.research.levels.miningProductivity = 3;
+    world.research.levels.deepDrilling = 3;
     world.research.progress.beltLogistics = 7;
     setResearch(world, 'beltLogistics');
 
@@ -257,7 +258,7 @@ describe('research in a save', () => {
     expect(loadWorld(SLOT)?.research).toEqual({
       current: 'beltLogistics',
       progress: { beltLogistics: 7 },
-      levels: { automation: 1, miningProductivity: 3 },
+      levels: { automation: 1, deepDrilling: 3 },
     });
   });
 

@@ -49,6 +49,7 @@ export function createPlayer(id: number, name: string, pos: Vec2): Player {
 export function createWorld(seed = 12345, peaceful = false): World {
   const terrain = generateTerrain(seed);
   const camp: Vec2 = { x: MAP_CENTER, y: MAP_CENTER };
+  const ore = generateOre(terrain, seed);
 
   const world: World = {
     tick: 0,
@@ -66,7 +67,10 @@ export function createWorld(seed = 12345, peaceful = false): World {
     nodes: [],
     buildings: [],
     camp,
-    ore: generateOre(terrain, seed),
+    ore: ore.kind,
+    oreLeft: ore.left,
+    // The baseline the save diffs against, so only mined tiles are written out.
+    oreMax: Uint16Array.from(ore.left),
     belts: [],
     machines: [],
     grid: new Map(),
