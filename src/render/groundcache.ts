@@ -5,7 +5,13 @@ import { GroundMesh } from './terrain';
 /** Tiles along each edge of a cached piece of ground. */
 const CHUNK_TILES = 4;
 const CHUNK = CHUNK_TILES * TILE;
-const CHUNKS = Math.ceil(MAP_TILES / CHUNK_TILES);
+/**
+ * Chunks along each edge of the island. Read at call time: the map's size is
+ * set per island when a world is created, not fixed at import.
+ */
+function across(): number {
+  return Math.ceil(MAP_TILES / CHUNK_TILES);
+}
 
 /** Chunks painted ahead of the view each frame, so walking rarely waits on one. */
 const PREFETCH_PER_FRAME = 2;
@@ -52,6 +58,7 @@ export class GroundCache {
 
   /** Blit every chunk the view touches; `originX/Y` is the world origin in device pixels. */
   draw(ctx: CanvasRenderingContext2D, world: World, view: View, scale: number, originX: number, originY: number): void {
+    const n = across();
     if (this.mesh === null || this.mesh.seed !== world.seed) this.mesh = new GroundMesh(world.seed);
     // A different island under the same camera (the menu's backdrop, then the
     // game) must not keep the old island's ground.
@@ -66,8 +73,8 @@ export class GroundCache {
     const pad = SHAKE_PAD;
     const cx0 = Math.max(0, Math.floor((view.minX - pad) / CHUNK));
     const cy0 = Math.max(0, Math.floor((view.minY - pad) / CHUNK));
-    const cx1 = Math.min(CHUNKS - 1, Math.floor((view.maxX + pad) / CHUNK));
-    const cy1 = Math.min(CHUNKS - 1, Math.floor((view.maxY + pad) / CHUNK));
+    const cx1 = Math.min(n - 1, Math.floor((view.maxX + pad) / CHUNK));
+    const cy1 = Math.min(n - 1, Math.floor((view.maxY + pad) / CHUNK));
 
     for (const key of this.dirty) this.chunks.delete(key);
     this.dirty.clear();
@@ -88,18 +95,19 @@ export class GroundCache {
 
   /** Ore on this tile changed, so the chunks holding it and its spill are stale. */
   oreChanged(tx: number, ty: number): void {
+    const n = across();
     // Ore art reaches a tile past its own, so a neighbouring chunk may hold some.
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
         const cx = Math.floor((tx + dx) / CHUNK_TILES);
         const cy = Math.floor((ty + dy) / CHUNK_TILES);
-        if (cx >= 0 && cy >= 0 && cx < CHUNKS && cy < CHUNKS) this.dirty.add(cy * CHUNKS + cx);
+        if (cx >= 0 && cy >= 0 && cx < n && cy < n) this.dirty.add(cy * n + cx);
       }
     }
   }
 
   private chunk(world: World, cx: number, cy: number): Chunk | null {
-    const key = cy * CHUNKS + cx;
+    const key = cy * across() + cx;
     let chunk = this.chunks.get(key);
     if (chunk) return chunk;
     const mesh = this.mesh;
@@ -130,10 +138,11 @@ export class GroundCache {
   }
 
   private prefetch(world: World, cx0: number, cy0: number, cx1: number, cy1: number): void {
+    const n = across();
     let budget = PREFETCH_PER_FRAME;
-    for (let cy = Math.max(0, cy0); cy <= Math.min(CHUNKS - 1, cy1) && budget > 0; cy++) {
-      for (let cx = Math.max(0, cx0); cx <= Math.min(CHUNKS - 1, cx1) && budget > 0; cx++) {
-        if (this.chunks.has(cy * CHUNKS + cx)) continue;
+    for (let cy = Math.max(0, cy0); cy <= Math.min(n - 1, cy1) && budget > 0; cy++) {
+      for (let cx = Math.max(0, cx0); cx <= Math.min(n - 1, cx1) && budget > 0; cx++) {
+        if (this.chunks.has(cy * n + cx)) continue;
         this.chunk(world, cx, cy);
         budget--;
       }
@@ -141,9 +150,10 @@ export class GroundCache {
   }
 
   private evict(cx0: number, cy0: number, cx1: number, cy1: number): void {
+    const n = across();
     for (const key of this.chunks.keys()) {
-      const cx = key % CHUNKS;
-      const cy = (key - cx) / CHUNKS;
+      const cx = key % n;
+      const cy = (key - cx) / n;
       if (cx < cx0 || cx > cx1 || cy < cy0 || cy > cy1) this.chunks.delete(key);
     }
   }
