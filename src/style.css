@@ -2179,6 +2179,16 @@ kbd {
   #ui .goal {
     top: calc(max(14px, env(safe-area-inset-top)) + 128px);
   }
+  /* Five buttons no longer fit beside the hotbar, so they climb the right edge. */
+  .actions {
+    flex-direction: column-reverse;
+  }
+  .buildbar {
+    left: max(14px, env(safe-area-inset-left));
+    transform: none;
+    width: calc(100vw - 112px);
+    animation: none;
+  }
 }
 
 /* ---------- Narrow screens: phones in portrait ---------- */
@@ -2873,5 +2883,102 @@ kbd {
 @media (max-width: 640px) {
   #ui:has(#buildbar:not(.hidden)) .goal-hint {
     display: none;
+  }
+}
+
+/*
+ * Phones held sideways: under 480 tall and under 900 wide there is no room for
+ * full vitals, a 320px phase panel and the pouch in one row, nor for five
+ * buttons beside the hotbar. The vitals shrink as they do on a portrait phone,
+ * the phase narrows to the gap the pouch leaves, and the buttons take two rows.
+ */
+@media (max-height: 480px) and (max-width: 900px) {
+  .vitals {
+    padding: 6px 10px 6px 6px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+  .level-ring {
+    width: 38px;
+    height: 38px;
+  }
+  .level {
+    width: 31px;
+    height: 31px;
+    font-size: 14px;
+  }
+  .bars {
+    width: 96px;
+    gap: 5px;
+  }
+  .bar-icon {
+    display: none;
+  }
+  .bar {
+    height: 12px;
+  }
+  .bar span {
+    font-size: 9px;
+    line-height: 12px;
+  }
+  .bar.xp {
+    height: 8px;
+  }
+  .bar.xp span {
+    display: none;
+  }
+
+  /* Centred, so it may only be as wide as the gap the wider side leaves twice. */
+  .topbar {
+    width: min(260px, calc(100vw - 452px));
+    padding: 6px 10px 8px 8px;
+    border-radius: 14px;
+  }
+  .phase-dial {
+    width: 26px;
+    height: 26px;
+    font-size: 15px;
+  }
+  .phase-text strong {
+    font-size: 13px;
+  }
+  .phase-time {
+    font-size: 12.5px;
+    padding: 2px 6px;
+  }
+  .phase-track {
+    margin-top: 6px;
+  }
+
+  #ui .goal {
+    top: calc(max(14px, env(safe-area-inset-top)) + 62px);
+    width: 180px;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    justify-content: end;
+  }
+
+  /* By id: progress.css loads after this file. A key hint means nothing on a phone. */
+  #ui .levelup-prompt {
+    font-size: 10px;
+  }
+  #ui .levelup-prompt kbd {
+    display: none;
+  }
+}
+
+/* On a short screen the palette fills the middle, so toasts wait above the buttons. */
+@media (max-height: 480px) {
+  #ui:has(#buildbar:not(.hidden)) .toasts {
+    top: auto;
+    left: auto;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 124px);
+    transform: none;
+    flex-direction: column-reverse;
+    align-items: flex-end;
   }
 }

@@ -219,8 +219,17 @@ detail behind the factory entries is in
 
 - [ ] The game gets very laggy near the campfire. *Hold lifted 2026-09-24; the
       engine thread is on it (WebGL world drawing, Canvas fix first).*
-- [ ] On a phone held sideways (iPhone 13 landscape, 750×342) the day panel
-      covers the right half of the health and XP bars.
+- [x] On a phone held sideways (iPhone 13 landscape, 750×342) the day panel
+      covers the right half of the health and XP bars. Sideways phones up to
+      900px wide now get compact vitals and a narrower phase panel. The five
+      action buttons take two rows there, where the Map button had pushed Build
+      under the hotbar. On a portrait tablet they climb the right edge, and the
+      palette stays clear of them. Surveyed clean at 16 sizes.
+- [ ] On a portrait tablet (810px) the build palette squeezes six category
+      columns into the width, so names wrap and "Workbench" is clipped on the
+      Lab card. Three columns and a scroll would read better there.
+- [ ] On a portrait phone a toast can land on the top edge of an open build
+      palette.
 - [x] The overlapping HUD panels are still showing after the UI revamp. The
       co-op code chip sat on the resource pouch at every screen size, and on
       a 320px phone the phase panel wrapped into it. The top-right corner is
