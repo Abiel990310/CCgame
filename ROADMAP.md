@@ -64,6 +64,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Tech effects | Multipliers, never unlocks | Every machine stays available from minute one; a tech makes the factory you already built worth more. A tree of unlocks ends, and two of these repeat forever, so the curve does not. |
 | Research XP | Every lab cycle levels up every player | Gathering by hand was the only source of XP, so automating the island slowed the character down and a peaceful world barely levelled at all. |
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
+| Interface look | One visual language, SVG icons, art baked from the world's own drawings | Emoji icons rendered as a different picture on every platform, so the HUD never looked like one thing. Icons are inline SVG (`src/ui/icons.ts`), and the hotbar and palette show each piece baked from the canvas drawing the world uses (`src/render/pieces.ts`), so a slot looks like what it places. Still zero requests and system fonts only. |
+| Machine art | A static body sprite per type and facing, with only moving parts drawn live | The 3/4-view blocks are a dozen fills each; drawing them per frame cost about 45% more than the flat boxes they replaced on a full screen. Baking shadow, block, deck, port and tier marks once brought it back level with the old art. |
 | Saving | Periodic and coalesced, flushed on exit | Serialising the island costs more as the island grows, so a click never writes: it pulls the periodic save forward to 2 seconds. Leaving, pausing or hiding the tab flushes, so nothing a player did is lost by waiting. |
 | Save contents | Derive what the seed decides; store only what play changed | Scenery was 109 kB of a 110 kB save and `createWorld` already rebuilds it from the seed, exactly as terrain is. Nodes are regenerated on load and only the chopped and cleared ones are written, which is also why worldgen changing under an existing island would move its scenery. |
 | Save layout | One entry per part of the island, grouped by how often it changes | A header, the scenery, and the factory. A section whose text has not moved is not written again, so standing still costs the header alone instead of the whole world. |
@@ -180,6 +182,9 @@ detail behind the factory entries is in
 
 ### Bugs
 
+- [ ] On a phone the build palette covers the column of action buttons, so
+      Build and Bag cannot be pressed while it is open. The palette has its own
+      close button, but the Bag being unreachable while building is odd.
 - [ ] `npm run preview` answers 404 to the browser's own request for the
       module bundle in this container — vite's preview server rejects
       `Sec-Fetch-Dest: script`, though curl for the same URL is fine. Serving
@@ -426,6 +431,15 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Save cards on the menu show a generic island badge. A tiny minimap of
+      the actual island, rendered once on save, would make islands tell apart.
+- [ ] The player character and mobs are still the original simple shapes; they
+      are now the least polished art on screen next to the new machines.
+- [ ] The menu could open on a short scripted flyover of your factory rather
+      than a slow drift around where you stood.
+- [ ] Machine status lights distinguish working, waiting and blocked in the
+      renderer only. A "show me every blocked machine" toggle would use the
+      same rule to find the bottleneck in a big base.
 - [ ] Drag to upgrade a whole row: hold the click with a Mk2 selected and every
       lower-tier machine of that family the cursor crosses is swapped.
 - [ ] Show an upgrade's net cost in the palette tooltip (new cost minus the
@@ -507,6 +521,9 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] The UI revamp was verified in headless Chromium at 1440x900, iPhone 13
+      portrait and landscape. Real phones (notch, safe areas, iOS Safari's
+      backdrop blur) and a small laptop screen have not been tried.
 - [ ] Whether the new targeting rules feel right on a real night: the bow now
       ignores slimes while a brute is in range, and spark picks at random.
 - [ ] Movement smoothing was measured at 60 fps in headless Chromium (the player
