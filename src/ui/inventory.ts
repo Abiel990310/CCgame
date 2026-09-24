@@ -463,9 +463,12 @@ export class InventoryScreen {
           ? `Needs ${tech.requires.map((id) => TECH_BY_ID.get(id)?.name ?? id).join(', ')}`
           : `${cyclesDone(world, tech.id)} / ${cyclesNeeded(world, tech)} cycles`;
       const name = tech.repeatable && level > 0 ? `${tech.name} ${level + 1}` : tech.name;
+      const unlocks = tech.unlocks?.length
+        ? `<br>Unlocks ${tech.unlocks.map((id) => MACHINES[id].name).join(', ')}`
+        : '';
 
       button.innerHTML =
-        `<b>${name}</b><span>${tech.description}<br>${cost} · ${tech.time}s · ${state}</span>`;
+        `<b>${name}</b><span>${tech.description}<br>${cost} · ${tech.time}s · ${state}${unlocks}</span>`;
       button.addEventListener('click', () => {
         audio.play('click');
         this.callbacks.onSetResearch(tech.id);

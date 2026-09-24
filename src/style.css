@@ -416,6 +416,18 @@ body {
   opacity: 0.45;
 }
 
+/* Locked reads differently from unaffordable: more materials will not help. */
+.build-option.locked {
+  opacity: 0.4;
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.build-option.locked em {
+  color: var(--ink-dim);
+  font-style: italic;
+}
+
 .build-option b {
   display: block;
   font-size: 12px;

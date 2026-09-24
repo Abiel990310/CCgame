@@ -3,7 +3,7 @@ import { CYCLE } from '@shared/sim/constants';
 import { activeTech, cyclesDone, cyclesNeeded } from '@shared/sim/research';
 import { hasAll } from '@shared/sim/inventory';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { ItemId, Machine, Player, World } from '@shared/sim/types';
+import type { ItemId, ItemStack, Machine, Player, World } from '@shared/sim/types';
 import { audio } from '../audio';
 import { itemIconVar } from '../render/items';
 import { InventoryScreen } from './inventory';
@@ -12,6 +12,7 @@ import {
   TABS,
   entriesFor,
   entryFor,
+  lockedBy,
   selectionKey,
   tabOf,
   type BuildSelection,
@@ -24,6 +25,10 @@ import {
   slotOf,
   type HotbarBinding,
 } from './hotbar';
+
+function costText(cost: ItemStack[]): string {
+  return cost.map((c) => `${c.count} ${ITEMS[c.id].name}`).join(' · ');
+}
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -233,10 +238,16 @@ export class Hud {
       button.className = 'build-option';
       button.dataset.key = selectionKey(entry.selection);
       button.title = entry.description;
-      button.innerHTML = `<b>${entry.name}</b><em>${entry.cost
-        .map((c) => `${c.count} ${ITEMS[c.id].name}`)
-        .join(' · ')}</em>`;
+      button.innerHTML = `<b>${entry.name}</b><em>${costText(entry.cost)}</em>`;
       button.addEventListener('click', () => {
+        // Which tech a piece waits on is painted each frame into the button,
+        // so a click reads it back rather than needing the world here.
+        const lock = button.dataset.lock;
+        if (lock) {
+          audio.play('denied');
+          this.toast(`Research ${lock} to build a ${entry.name}`, 'warn');
+          return;
+        }
         audio.play('click');
         this.select(entry.selection);
       });
@@ -365,7 +376,7 @@ export class Hud {
     this.updateHotbar(player);
     this.updateResearch(world);
     this.inventory.update(player, this.liveMachine(world), world);
-    if (this.buildMode) this.updateBuildAffordability(player);
+    if (this.buildMode) this.updateBuildAffordability(world, player);
   }
 
   /** Re-resolve the open machine each frame, so removing it closes the screen. */
@@ -471,15 +482,27 @@ export class Hud {
     }
   }
 
-  private updateBuildAffordability(player: Player): void {
+  private updateBuildAffordability(world: World, player: Player): void {
     const current = selectionKey(this.selection);
     const entries = entriesFor(this.tab);
 
     for (const button of Array.from(this.els.buildItems.children) as HTMLElement[]) {
       const key = button.dataset.key ?? '';
       const entry = entries.find((e) => selectionKey(e.selection) === key);
+      const lock = entry ? lockedBy(world, entry.selection) : null;
       button.classList.toggle('on', key === current);
-      button.classList.toggle('poor', entry ? !hasAll(player, entry.cost) : false);
+      button.classList.toggle('locked', !!lock);
+      button.classList.toggle('poor', !lock && entry ? !hasAll(player, entry.cost) : false);
+
+      // Only a finished tech changes this, so it is compared rather than
+      // rewritten every frame.
+      const lockName = lock?.name ?? '';
+      if ((button.dataset.lock ?? '') !== lockName && entry) {
+        if (lock) button.dataset.lock = lockName;
+        else delete button.dataset.lock;
+        const em = button.querySelector('em');
+        if (em) em.textContent = lock ? `Research ${lockName}` : costText(entry.cost);
+      }
     }
   }
 }

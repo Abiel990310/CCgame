@@ -590,6 +590,11 @@ export class Game {
         next ? `Researched ${name}. Labs moved to ${next.name}.` : `Researched ${name}`,
         'good',
       );
+      // Only the first level of a tech opens anything.
+      if (tech?.unlocks?.length && event.level === 1) {
+        const names = tech.unlocks.map((id) => MACHINES[id].name).join(', ');
+        this.hud.toast(`New on the build palette: ${names}`, 'good');
+      }
       this.requestSave();
     }
   }

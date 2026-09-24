@@ -1,6 +1,6 @@
 import { ITEMS } from '@shared/data/items';
 import type { MachineDef } from '@shared/data/machines';
-import { BELT_SPEED, INSERTER_SWING, MACHINES } from '@shared/data/machines';
+import { BELT_SPEED, INSERTER_SWING, MACHINES, TRAP_TIME } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TECH_BY_ID } from '@shared/data/techs';
 import { TILE } from '@shared/sim/constants';
@@ -274,6 +274,34 @@ function drawMachineFace(
       ctx.fillRect(x - TILE * 0.44, y - TILE * 0.08, TILE * 0.88, 3);
       break;
     }
+    case 'fishTrap': {
+      // A square of open water with a float on it. The float bobs while the
+      // trap is fishing and lies still once its catch has nowhere to go.
+      ctx.fillStyle = shift(accent, -60);
+      ctx.beginPath();
+      ctx.roundRect(x - TILE * 0.3, y - TILE * 0.32, TILE * 0.6, TILE * 0.4, 4);
+      ctx.fill();
+
+      ctx.strokeStyle = rgba(accent, running ? 0.6 : 0.25);
+      ctx.lineWidth = 1.2;
+      const ripple = running ? (time * 0.8) % 1 : 0.4;
+      ctx.beginPath();
+      const rx = TILE * (0.06 + ripple * 0.18);
+      const ry = TILE * (0.03 + ripple * 0.08);
+      ctx.ellipse(x, y - TILE * 0.12, rx, ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const bob = running ? Math.sin(time * 3) * 1.4 : 0;
+      ctx.fillStyle = '#e8574f';
+      ctx.beginPath();
+      ctx.arc(x, y - TILE * 0.14 + bob, 3, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#f2efe6';
+      ctx.beginPath();
+      ctx.arc(x, y - TILE * 0.14 + bob, 3, 0, Math.PI);
+      ctx.fill();
+      break;
+    }
     case 'lab': {
       // A lit dome with something rising through it. A lab has no output side
       // and no moving arm, so the bubbles are the only sign it is working.
@@ -433,6 +461,7 @@ function cycleLength(machine: Machine): number {
   // A miner's speed scales how fast progress climbs toward MINE_TIME, so the
   // bar is out of MINE_TIME whatever the tier.
   if (def.family === 'miner') return MINE_TIME;
+  if (def.family === 'fishTrap') return TRAP_TIME;
   if (def.family === 'lab') {
     const tech = machine.recipe ? TECH_BY_ID.get(machine.recipe) : null;
     return tech ? tech.time : 0;
