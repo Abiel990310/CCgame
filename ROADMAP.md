@@ -58,6 +58,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Tile lookup | The grid maps a tile to the entity itself | Belts hand off every tick, so resolving a tile has to be O(1). Storing an id meant scanning every belt and machine, which made a tick O(belts squared). |
 | Machine tiers | A tier is a data row: a family plus a speed multiplier | A steel furnace is a furnace that runs faster, so it points at the furnace's recipes rather than duplicating them. Adding a tier costs one row in `machines.ts` and no recipe rows, which is what keeps the engine small as the ladder grows. |
 | Inserter reach and filters | Data rows on the machine table, not new machine types | `MachineDef.reach` is what makes the long arm a row rather than a system, and `Machine.filter` sits beside the recipe so both arms take one. A third arm, or a filtered one of any length, costs a table entry. |
+| Arm hand size | An inserter's one slot size is its hand | The stack arm is the first arm that carries more than one item, and making the hand the slot's size keeps it a row. It lifts one kind at a time and lets go one by one, and it only shows red after a whole swing's wait with nothing let go, so feeding a belt faster than the belt spaces items is not a blockage. |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Research | Packs belted into labs, owned by the world | Research is the first thing the factory feeds rather than the player, so an unlock is a throughput problem: a second lab is worth exactly what a second furnace is. It belongs to the island, not a player, because a lab is a building and multiplayer will have several people feeding one tree. |
 | Tech effects | Multipliers, never unlocks | Every machine stays available from minute one; a tech makes the factory you already built worth more. A tree of unlocks ends, and two of these repeat forever, so the curve does not. |
@@ -221,9 +222,10 @@ detail behind the factory entries is in
 - [x] **Inserter filter** — an inserter set to a single item, so a mixed chest
       can feed a line that only wants plates. Built: set from the arm's screen,
       and anything else rides past it on a belt.
-- [ ] **Inserter tiers** — `MachineDef.speed` already multiplies the swing
+- [x] **Inserter tiers** — `MachineDef.speed` already multiplies the swing
       time, so a faster arm is a data row and nothing else. `reach` is now a
-      data row too, so a longer one is as well.
+      data row too, so a longer one is as well. Built: a fast inserter (2.5x,
+      about four items a second) and a stack inserter that lifts four at once.
 - [ ] **Filtered chest slots** — the same filter idea on a chest, so a buffer
       reserves room for what a line needs rather than filling with one item.
 - [ ] **Copy settings between machines** — a bank of filtered arms means
@@ -236,10 +238,12 @@ detail behind the factory entries is in
       interest of a layout.
 - [ ] **Generator and power radius** — tier-3 machines draw power instead of
       fuel; a brown-out slows machines proportionally rather than stopping them.
-- [ ] **Storage and logistics tiers** — a steel chest with more slots and a fast
+- [x] **Storage and logistics tiers** — a steel chest with more slots and a fast
       inserter. Miners, furnaces and assemblers have three tiers each now;
       `MachineDef.speed` already multiplies an inserter's swing, so both are a
-      row apiece.
+      row apiece. Built: a 16-slot steel chest, twice a wooden one.
+- [ ] **A third chest tier** — a warehouse bigger than one tile, or a chest
+      that reserves slots per item, once a steel chest stops being enough.
 - [ ] **Upgrade in place** — placing a Mk2 over a Mk1 should swap it, keeping
       its recipe, its contents and its facing. Today a tier upgrade means
       removing the machine, picking its stock back up and rebuilding, which is
@@ -375,11 +379,11 @@ detail behind the factory entries is in
       would make a row of sorters one pass instead of two.
 - [ ] A long name truncates in a quick slot (`Storag…`). A short display name on
       each machine and building would read better in an eight-wide bar.
-- [ ] A Mk3 machine runs four times a Mk1, but an inserter still swings at one
-      speed — about 1.7 items a second, against an electric furnace that can eat
-      four ore a second. Feeding a tier 3 bank by arm is the bottleneck until
-      inserter tiers land.
-- [ ] The factory palette is twelve entries and now wraps to four rows. It wants
+- [x] A Mk3 machine runs four times a Mk1, but an inserter still swings at one
+      speed — about 1.7 items a second, against an electric furnace that eats
+      two ore a second (more with Metallurgy). Fixed by the fast inserter; the
+      first arm still starves an electric furnace, on purpose.
+- [ ] The factory palette is fifteen entries and now wraps to six rows. It wants
       grouping, or the tech gating above, before belts and chests get tiers too.
 - [ ] Nothing gates a tier: a player who has the steel can build an electric
       furnace on night one. That is the tech-tree entry's job, but worth
@@ -544,3 +548,6 @@ detail behind the factory entries is in
       1.7 items a second against a belt's 1.6 tiles a second, so a single
       inserter roughly keeps pace with one belt. Whether that is the right
       ratio for feeding a furnace bank is a guess.
+- [ ] Whether a stack inserter's four-item hand is too strong. At about sixteen
+      items a second it outruns a belt (6.4), so out of a chest the belt sets
+      the pace; into a machine it is four times a fast arm for Mk3 parts.

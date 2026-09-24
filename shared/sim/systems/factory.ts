@@ -232,15 +232,17 @@ function announce(world: World, machine: Machine, item: ItemId): void {
  * tile it faces. It is the only thing that can take items back out of a chest,
  * so without one a chest is where a production line stops.
  *
- * The item is picked up first and held in the single input slot, so a blocked
- * destination stalls an inserter with its hand full rather than quietly
- * dropping what it grabbed.
+ * What it picks up is held in the single input slot, so a blocked destination
+ * stalls an inserter with its hand full rather than quietly dropping what it
+ * grabbed. The slot's size is the hand's size: a stack arm lifts several of
+ * one item per swing and lets them go one by one at the far end, which is how
+ * it outpaces the arm's travel time without swinging any faster.
  */
 function stepInserter(world: World, machine: Machine, dt: number, bonus: ResearchBonuses): void {
   const def = MACHINES[machine.type];
 
   if (machine.input[0] === null) {
-    const grabbed = grabFromBehind(world, machine, def.reach);
+    const grabbed = grabFromBehind(world, machine, def.reach, def.slotSize);
     if (grabbed === null) {
       // Nothing within reach is idle, not stalled — a red light on every
       // inserter waiting on a slow line would drown out real blockages.
@@ -248,17 +250,32 @@ function stepInserter(world: World, machine: Machine, dt: number, bonus: Researc
       machine.stalled = false;
       return;
     }
-    machine.input[0] = { id: grabbed, count: 1 };
+    machine.input[0] = grabbed;
   }
 
+  // Past the end of the swing, progress keeps counting how long the arm has
+  // hung over its target; the renderer clamps it, so the arm just holds still.
+  machine.progress = Math.min(
+    machine.progress + dt * def.speed * bonus.inserter,
+    INSERTER_SWING * 2,
+  );
   machine.stalled = false;
-  machine.progress = Math.min(machine.progress + dt * def.speed * bonus.inserter, INSERTER_SWING);
   if (machine.progress < INSERTER_SWING) return;
 
   const hand = machine.input[0];
-  if (!hand || !dropInFront(world, machine, hand.id, def.reach)) {
-    // Arm extended over a full destination: hold the item and show it.
-    machine.stalled = true;
+  if (!hand) return;
+  let dropped = false;
+  while (hand.count > 0 && dropInFront(world, machine, hand.id, def.reach)) {
+    hand.count--;
+    dropped = true;
+  }
+
+  if (hand.count > 0) {
+    // Arm extended over a destination that will not take the rest: hold it.
+    // Only a whole swing's wait with nothing let go shows red, so a stack arm
+    // feeding a belt faster than the belt can space items is not blocked.
+    if (dropped) machine.progress = INSERTER_SWING;
+    machine.stalled = machine.progress >= INSERTER_SWING * 2;
     return;
   }
 
@@ -267,21 +284,32 @@ function stepInserter(world: World, machine: Machine, dt: number, bonus: Researc
 }
 
 /**
- * Take one item out of whatever sits behind the inserter, `reach` tiles back.
- * A filtered arm takes only what it is set to and leaves the rest where it is,
- * which is what lets one mixed chest or one shared belt feed several lines.
+ * Take up to `hand` of one item out of whatever sits behind the inserter,
+ * `reach` tiles back. A filtered arm takes only what it is set to and leaves
+ * the rest where it is, which is what lets one mixed chest or one shared belt
+ * feed several lines.
  */
-function grabFromBehind(world: World, machine: Machine, reach: number): ItemId | null {
+function grabFromBehind(
+  world: World,
+  machine: Machine,
+  reach: number,
+  hand: number,
+): ItemStack | null {
   const { tx, ty } = inputTile(machine, reach);
 
   const belt = beltAt(world, tx, ty);
   if (belt) {
     // The item nearest the belt's output end is the one within reach. A
-    // filtered arm does not dig past it: anything else keeps riding by.
+    // filtered arm does not dig past it: anything else keeps riding by. A
+    // bigger hand keeps taking from the front while the item stays the same.
     const front = belt.items[0];
     if (!front || !wanted(machine, front.item)) return null;
-    belt.items.shift();
-    return front.item;
+    let count = 0;
+    while (count < hand && belt.items[0]?.item === front.item) {
+      belt.items.shift();
+      count++;
+    }
+    return { id: front.item, count };
   }
 
   const source = machineAt(world, tx, ty);
@@ -297,8 +325,10 @@ function grabFromBehind(world: World, machine: Machine, reach: number): ItemId |
 
   for (const slot of from) {
     if (slot && slot.count > 0 && wanted(machine, slot.id)) {
-      takeStack(from, slot.id, 1);
-      return slot.id;
+      const id = slot.id;
+      const count = Math.min(hand, countIn(from, id));
+      takeStack(from, id, count);
+      return { id, count };
     }
   }
   return null;
