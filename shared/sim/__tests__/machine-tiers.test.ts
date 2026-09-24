@@ -37,14 +37,23 @@ describe('the tier table', () => {
     }
   });
 
-  it('gets faster with every tier and never slower', () => {
+  // A rung up is worth more than the one below it. For most machines that is
+  // speed; an arm can also carry more per swing, and a chest is only storage.
+  const worth = (id: MachineId): number => {
+    const def = MACHINES[id];
+    if (def.family === 'chest') return def.inputSlots * def.slotSize;
+    if (def.family === 'inserter') return def.speed * def.slotSize;
+    return def.speed;
+  };
+
+  it('gets better with every tier and never worse', () => {
     for (const id of TIERED) {
       const def = MACHINES[id];
       const below = MACHINE_ORDER.find(
         (other) => MACHINES[other].family === def.family && MACHINES[other].tier === def.tier - 1,
       );
       expect(below, id).toBeDefined();
-      expect(def.speed, id).toBeGreaterThan(MACHINES[below!].speed);
+      expect(worth(id), id).toBeGreaterThan(worth(below!));
     }
   });
 
