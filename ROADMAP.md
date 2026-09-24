@@ -72,6 +72,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Quick slots | Bound in `localStorage`, not in the save | The bar says how one person likes their tools arranged, not what is true of an island. Keeping it out of the world means no save version, and one bar across every island — which is what someone who arranges it once expects. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
+| Worldgen | Versioned as part of the save contract | Saves hold only differences from what the seed grows, so they mean nothing against a different generator. `WORLDGEN` is recorded in every save and guarded by a fingerprint test; an island from an older generation gets today's ground rather than deltas laid over land they do not describe. |
+| Tabs | Last to open an island owns it | Every tab holds the whole island and saves it wholesale, so two writers corrupt each other. An owner record beside the slot is the rule; a broadcast asks the old tab to save before the new one reads. |
 | Fuel | A separate fuel grid on burners, spent per recipe-second | Coal is also a steel and battery ingredient, so it could not share the recipe grid without starving one or the other; a burner keeps `FUEL_RESERVE` in hand before letting coal through to the recipe. Burning per unit of work rather than per second makes every craft cost the same coal in every tier. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
@@ -191,10 +193,15 @@ detail behind the factory entries is in
       `Sec-Fetch-Dest: script`, though curl for the same URL is fine. Serving
       `dist/` with `python3 -m http.server` works. Costs a session twenty
       minutes if nobody says so.
-- [ ] Two tabs open on the same island overwrite each other, and now the
-      skipped-write cache can make one of them skip a section the other has
-      already replaced. Harmless today because nobody is told they can play in
-      two tabs, but it is a real way to lose a factory.
+- [x] Two tabs open on the same island overwrote each other, and the
+      skipped-write cache could make one skip a section the other had already
+      replaced. Now whoever opens an island last owns it: the other tab saves,
+      hands it over and returns to the menu saying why, and never writes to it
+      again unless it is opened there once more.
+- [ ] In a browser without `BroadcastChannel` the tab losing an island is
+      told only through storage, so it cannot save first, and for the instant
+      before it sees the new owner it could still autosave over the new tab.
+      Every current browser has the channel.
 - [ ] Touch has no way to remove anything. Removal is the `X` key and
       right-click only, so on a phone a misplaced belt is permanent. Now that
       removal is build-mode only, the fix belongs in the build bar: a remove
@@ -315,10 +322,14 @@ detail behind the factory entries is in
       it now blocks the four tiles that meet there rather than one. Snapping it
       to a tile centre on world creation would hand three of them back, but it
       moves the camp for every existing save.
-- [ ] Regenerating scenery from the seed means changing `populateNodes` or
-      terrain generation moves the trees on islands people already have. Worth
-      a generation counter in the save, so a changed worldgen can be spotted
-      rather than silently rearranging someone's island.
+- [x] Regenerating scenery from the seed meant a change to worldgen could
+      silently move the trees on existing islands. Saves now record `WORLDGEN`,
+      a fingerprint test fails if what a seed grows changes without raising it,
+      and an island from an older generation takes the new ground whole and
+      keeps only what was built, with a toast saying so.
+- [ ] Raising `WORLDGEN` still resets the trees and ore of every older island.
+      Keeping the old generator callable by generation would let them keep
+      their ground; worth doing the first time worldgen actually changes.
 - [ ] A busy factory still rewrites every belt and machine each save, because
       one belt item moving makes the whole section's text differ. Fine at a few
       hundred belts; if the section gets big, split it per chunk of the map.

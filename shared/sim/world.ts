@@ -46,6 +46,17 @@ export function createPlayer(id: number, name: string, pos: Vec2): Player {
   };
 }
 
+/**
+ * Which generation of worldgen built an island. Terrain, ore and scenery are
+ * never saved, only regenerated from the seed, so a save's deltas only mean
+ * something against the generator that produced them. Raise this whenever
+ * `createWorld` would build a different island from the same seed — the
+ * worldgen fingerprint test fails until you do — and the loader will then
+ * stop applying an older island's scenery and ore deltas to ground they no
+ * longer describe.
+ */
+export const WORLDGEN = 1;
+
 export function createWorld(seed = 12345, peaceful = false): World {
   const terrain = generateTerrain(seed);
   const camp: Vec2 = { x: MAP_CENTER, y: MAP_CENTER };

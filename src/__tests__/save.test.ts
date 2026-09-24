@@ -5,9 +5,9 @@ import { addToSlots } from '@shared/sim/slots';
 import { tileKey } from '@shared/sim/grid';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
 import { setResearch } from '@shared/sim/research';
-import { addPlayer, createWorld } from '@shared/sim/world';
+import { WORLDGEN, addPlayer, createWorld } from '@shared/sim/world';
 import type { ItemId, World } from '@shared/sim/types';
-import { forgetSlot, loadWorld, saveWorld } from '../save';
+import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from '../save';
 import { FACTORY_SUFFIX, SCENERY_SUFFIX, slotKey } from '../saves';
 
 /** Counts writes as well as holding them, since skipping one is the point. */
@@ -302,5 +302,34 @@ describe('research in a save', () => {
     store.set(slotKey(SLOT), JSON.stringify(header));
 
     expect(loadWorld(SLOT)?.research).toEqual({ current: null, progress: {}, levels: {} });
+  });
+});
+
+describe('worldgen in a save', () => {
+  it('keeps the scenery of an island saved before the generation was recorded', () => {
+    const world = island();
+    const felled = world.nodes[7];
+    world.nodes = world.nodes.filter((n) => n.id !== felled.id);
+    saveWorld(world, SLOT);
+
+    const header = JSON.parse(store.get(slotKey(SLOT))!);
+    expect(header.worldgen).toBe(WORLDGEN);
+    delete header.worldgen;
+    header.version = 5;
+    store.set(slotKey(SLOT), JSON.stringify(header));
+
+    const notes: LoadNotes = {};
+    const back = loadWorld(SLOT, notes);
+    expect(notes.regenerated).toBe(false);
+    expect(back?.nodes.find((n) => n.id === felled.id)).toBeUndefined();
+  });
+
+  it('refuses an island grown by a worldgen newer than this build', () => {
+    saveWorld(island(), SLOT);
+    const header = JSON.parse(store.get(slotKey(SLOT))!);
+    header.worldgen = WORLDGEN + 1;
+    store.set(slotKey(SLOT), JSON.stringify(header));
+
+    expect(loadWorld(SLOT)).toBeNull();
   });
 });
