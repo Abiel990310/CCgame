@@ -241,10 +241,10 @@ detail behind the factory entries is in
       inserter. Miners, furnaces and assemblers have three tiers each now;
       `MachineDef.speed` already multiplies an inserter's swing, so both are a
       row apiece.
-- [ ] **Upgrade in place** — placing a Mk2 over a Mk1 should swap it, keeping
-      its recipe, its contents and its facing. Today a tier upgrade means
-      removing the machine, picking its stock back up and rebuilding, which is
-      the tedious part of every rebuild the ladder is meant to cause.
+- [x] **Upgrade in place** — placing a Mk2 over a Mk1 swaps it, keeping its
+      recipe, its contents and its facing. Built: any higher tier of the same
+      family can go over a lower one (Mk1 straight to Mk3 too), the old machine
+      is refunded as removing it would be, and the ghost takes the old facing.
 - [ ] **Modules** — a slotted item for +speed, +output or −power in a tier-3
       machine. A sink that never saturates.
 - [ ] **Steel and 8–10 new recipes** — gives research something worth gating.
@@ -417,12 +417,15 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Drag to upgrade a whole row: hold the click with a Mk2 selected and every
+      lower-tier machine of that family the cursor crosses is swapped.
+- [ ] Show an upgrade's net cost in the palette tooltip (new cost minus the
+      refund), since the refund is what makes Mk1 to Mk2 cheaper than it looks.
 - [ ] Mobs only bite players and walls, and have no pathing, so a raid that
       meets a machine bank presses against it and slides along. Letting them
       chew on machines would make the factory part of the defence line.
 - [ ] Inserters block movement like every other machine. If a dense build
       makes that feel cramped, an inserter is the one to make walkable next.
-
 - [ ] A splitter that prefers the emptier side over strict alternation. Turn
       by turn is right while both sides flow; when one backs up the rotation
       still offers it first every other item and only then falls through.
