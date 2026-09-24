@@ -90,6 +90,9 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   },
   pipe: { id: 'pipe', name: 'Pipe', color: '#a9b4bf', stack: 999, shape: 'log' },
   engineUnit: { id: 'engineUnit', name: 'Engine Unit', color: '#c8923e', stack: 999, shape: 'motor' },
+  processor: { id: 'processor', name: 'Processor', color: '#3fb0a0', stack: 999, shape: 'chip' },
+  frame: { id: 'frame', name: 'Steel Frame', color: '#6c7a92', stack: 999, shape: 'ingot' },
+  lens: { id: 'lens', name: 'Resonant Lens', color: '#bfe8ff', stack: 999, shape: 'orb' },
 
   researchPack: {
     id: 'researchPack',

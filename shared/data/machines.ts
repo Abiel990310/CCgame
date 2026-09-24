@@ -606,6 +606,33 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     generates: 60,
     solid: true,
   },
+  beacon: {
+    id: 'beacon',
+    crafted: true,
+    family: 'beacon',
+    tier: 1,
+    name: 'Skyward Beacon',
+    description:
+      'The island\'s last and largest project. Raised in five stages, each fed like any machine, from steel up to processors and essence. Light it and the whole island sees.',
+    cost: [
+      { id: 'steelPlate', count: 40 },
+      { id: 'circuit', count: 20 },
+      { id: 'engineUnit', count: 5 },
+    ],
+    color: '#5a5f78',
+    accent: '#ffd46a',
+    // One slot per ingredient of the widest stage, each deep enough for a whole stage.
+    inputSlots: 4,
+    outputSlots: 0,
+    slotSize: 999,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+    fuelSlots: 0,
+    solid: true,
+  },
   pole: {
     id: 'pole',
     family: 'pole',
@@ -657,6 +684,7 @@ export const MACHINE_ORDER: MachineId[] = [
   'generator',
   'solar',
   'pole',
+  'beacon',
 ];
 
 export const BELT_COST: ItemStack[] = [

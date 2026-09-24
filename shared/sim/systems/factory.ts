@@ -1,3 +1,4 @@
+import { insertIntoBeacon, stepBeacon } from '../beacon';
 import type { MachineDef } from '../../data/machines';
 import {
   BELT_CAPACITY,
@@ -91,6 +92,7 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
     return !!machine.fuel && isFuel(item) && addToSlots(machine.fuel, item, 1, def.slotSize) === 1;
   }
   if (def.inputSlots === 0) return false;
+  if (def.family === 'beacon') return insertIntoBeacon(machine, item, def.slotSize);
 
   // An inserter's input slot is its hand, not a hopper: it fills that itself
   // from the tile behind it. Refusing here is also what stops two inserters
@@ -237,6 +239,9 @@ export function stepMachines(world: World, dt: number): void {
         break;
       case 'pole':
         machine.stalled = false;
+        break;
+      case 'beacon':
+        stepBeacon(world, machine);
         break;
       default:
         stepCrafter(world, machine, mdt, bonus);

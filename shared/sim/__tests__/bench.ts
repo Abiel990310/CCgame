@@ -62,7 +62,8 @@ export function bench(seed = 2026, powered = false): Bench {
   for (const item of stock) addItem(player, item, 900);
   // Later tiers are made at a workbench before they can be placed; the bench
   // skips that trip, which has tests of its own.
-  for (const id of CRAFTED_MACHINES) addItem(player, id, 20);
+  // The beacon is left out: the bag is full, and only its own tests place one.
+  for (const id of CRAFTED_MACHINES) if (id !== 'beacon') addItem(player, id, 20);
 
   const grass = TERRAIN_ORDER.indexOf('grass');
   for (let ty = BENCH.ty; ty < BENCH.ty + BENCH.height; ty++) {

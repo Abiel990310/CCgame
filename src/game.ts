@@ -4,6 +4,7 @@ import { CRAFT_BY_ID } from '@shared/data/crafting';
 import { BELT_COST, MACHINES, placementCost } from '@shared/data/machines';
 import { ITEMS } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
+import { BEACON_STAGES } from '@shared/data/beacon';
 import { CAMP, TICK_DT } from '@shared/sim/constants';
 import {
   buildingAt,
@@ -1122,6 +1123,18 @@ export class Game {
   /** Goals and level-ups are said once, and the tracker makes way for the next goal. */
   private announceGoals(): void {
     for (const event of this.world.events) {
+      if (event.kind === 'beacon') {
+        const stage = BEACON_STAGES[event.stage - 1];
+        const next = BEACON_STAGES[event.stage];
+        this.hud.toast(
+          event.lit
+            ? 'The Skyward Beacon is lit. The whole island can see it.'
+            : `Beacon: ${stage.name} raised. Next, the ${next.name.toLowerCase()}.`,
+          'good',
+        );
+        this.requestSave();
+        continue;
+      }
       if (event.kind === 'boss') {
         this.hud.toast(`${MOBS[event.type].name} is coming for the camp`, 'warn');
         continue;

@@ -246,6 +246,9 @@ export class GameAudio {
         case 'boss':
           this.play('boss');
           break;
+        case 'beacon':
+          this.play(event.lit ? 'beaconLit' : 'beaconStage');
+          break;
         case 'playerHit':
           this.play('playerHit');
           break;
@@ -328,6 +331,7 @@ const PRODUCED_SOUND = {
   generator: null,
   solar: null,
   pole: null,
+  beacon: null,
 } as const satisfies Record<MachineFamily, SoundId | null>;
 
 export type { SoundId };

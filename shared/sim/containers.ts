@@ -2,6 +2,7 @@ import { MACHINES, isFuel } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { isResearchPack } from '../data/techs';
 import { hasSlotFilters, isSplitter, setSideFilter, setSlotFilter, splitterAccepts } from './factory';
+import { beaconStage, beaconWants } from './beacon';
 import { giveOrDrop } from './inventory';
 import { addToSlots, slotCap, slotTakes, sortSlots, takeFromSlots } from './slots';
 import type { SlotFilters } from './slots';
@@ -48,6 +49,11 @@ function slotsFor(player: Player, machine: Machine | null, area: SlotArea): Slot
 /** The per-slot ceiling in one area. Machines hold less per slot than a bag. */
 function capIn(machine: Machine | null, area: SlotArea, id: ItemId): number {
   if (area === 'bag' || !machine) return slotCap(id);
+  // A beacon slot holds a stage's worth and no more, so a stack handed in
+  // whole leaves the rest in hand rather than clogging the next stage.
+  if (area === 'input' && MACHINES[machine.type].family === 'beacon') {
+    return beaconStage(machine)?.stage.needs.find((n) => n.id === id)?.count ?? 0;
+  }
   return slotCap(id, MACHINES[machine.type].slotSize);
 }
 
@@ -79,6 +85,7 @@ export function accepts(
   if (def.inputSlots === 0) return false;
   // A lab is loaded by hand on the same terms a belt loads it: packs only.
   if (def.family === 'lab') return isResearchPack(id);
+  if (def.family === 'beacon') return beaconWants(machine, id) > 0;
   // Handing a splitter something neither side would route only jams it.
   if (def.family === 'splitter') return splitterAccepts(machine, id);
   // A chest takes anything; a crafter only takes what its recipe actually uses.
@@ -237,7 +244,8 @@ export function quickMove(
     for (const area of ['fuel', 'input'] as const) {
       const target = slotsFor(player, machine, area);
       if (!target || !accepts(machine, area, slot.id)) continue;
-      moved += addToSlots(target, slot.id, slot.count - moved, size, filtersIn(machine, area));
+      const wants = area === 'input' && MACHINES[machine.type].family === 'beacon' ? beaconWants(machine, slot.id) : Infinity;
+      moved += addToSlots(target, slot.id, Math.min(wants, slot.count - moved), size, filtersIn(machine, area));
     }
     if (moved === 0) return false;
     takeOut(slots, ref.index, moved);

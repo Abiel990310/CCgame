@@ -12,7 +12,9 @@ import {
   isFinished,
   techLevel,
 } from '@shared/sim/research';
-import { totalIn } from '@shared/sim/slots';
+import { countIn, totalIn } from '@shared/sim/slots';
+import { BEACON_STAGES } from '@shared/data/beacon';
+import { beaconStage } from '@shared/sim/beacon';
 import { audio } from '../audio';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import { filterOf, hasSettings, hasSlotFilters } from '@shared/sim/factory';
@@ -261,6 +263,8 @@ export class InventoryScreen {
     const arm = def.family === 'inserter';
     this.els.eyebrow.textContent = lab
       ? 'Research'
+      : def.family === 'beacon'
+        ? 'Great work'
       : def.choosesRecipe
         ? 'Machine'
         : arm
@@ -278,6 +282,8 @@ export class InventoryScreen {
     // splitter's is a queue rather than a shelf.
     this.els.inputLabel.textContent = lab
       ? 'Packs'
+      : def.family === 'beacon'
+        ? 'Delivered'
       : def.choosesRecipe
         ? 'In'
         : arm
@@ -377,6 +383,7 @@ export class InventoryScreen {
       this.updateMinerOre(world, machine);
     }
     if (machine && MACHINES[machine.type].family === 'lab') this.updateResearchNote(world);
+    if (machine && MACHINES[machine.type].family === 'beacon') this.updateBeacon(machine);
     this.updatePanel(world, machine);
   }
 
@@ -479,6 +486,19 @@ export class InventoryScreen {
         `${tech.inputs.map((i) => `${i.count} ${ITEMS[i.id].name}`).join(' + ')} each`
       : 'Nothing selected. Every lab on the island works on what you pick below.';
     if (this.els.research.innerHTML !== text) this.els.research.innerHTML = text;
+  }
+
+  /** A beacon's blurb is its build sheet: the stage under way and what it still wants. */
+  private updateBeacon(machine: Machine): void {
+    const current = beaconStage(machine);
+    const text = current
+      ? `Stage ${current.index + 1} of ${BEACON_STAGES.length}: ${current.stage.name}. Needs ` +
+        current.stage.needs
+          .map((n) => `${Math.min(n.count, countIn(machine.input, n.id))} / ${n.count} ${ITEMS[n.id].name}`)
+          .join(', ') +
+        '.'
+      : 'Lit. The whole island can see it.';
+    if (this.els.blurb.textContent !== text) this.els.blurb.textContent = text;
   }
 
   /**

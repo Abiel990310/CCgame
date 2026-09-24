@@ -1,3 +1,4 @@
+import { BEACON_LIT } from './beacon';
 import { MACHINES } from './machines';
 import type { ItemId, MachineFamily, Player, World } from '../sim/types';
 
@@ -228,6 +229,30 @@ export const GOALS: GoalDef[] = [
     have: (w, p) => itemsAnywhere(w, p, 'engineeringPack'),
     need: 5,
     xp: 90,
+  },
+  {
+    id: 'processor',
+    title: 'Make processors',
+    hint: 'Two advanced circuits and a battery make a processor. The beacon will want a lot of them.',
+    have: (w, p) => itemsAnywhere(w, p, 'processor'),
+    need: 10,
+    xp: 110,
+  },
+  {
+    id: 'beacon',
+    title: 'Raise a Skyward Beacon',
+    hint: 'Research Skyward Beacon, craft one at the workbench and place it where the whole island can see.',
+    have: (w) => machinesOf(w, 'beacon'),
+    need: 1,
+    xp: 120,
+  },
+  {
+    id: 'beaconLit',
+    title: 'Light the beacon',
+    hint: 'Feed it every stage, from steel frames up to processors and essence. Click it to see what the stage needs.',
+    have: (w) => (w.machines.some((m) => m.recipe === BEACON_LIT) ? 1 : 0),
+    need: 1,
+    xp: 300,
   },
 ];
 

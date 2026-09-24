@@ -168,6 +168,23 @@ export const SOUNDS = {
       TONE('sine', 1568, 1568, 0.18, 0.01, 0.35, 0.07),
     ],
   },
+  beaconStage: {
+    gain: 0.3,
+    layers: [
+      TONE('triangle', 392, 392, 0.4, 0.01, 0.5),
+      TONE('triangle', 587, 587, 0.35, 0.01, 0.6, 0.12),
+      NOISE(300, 120, 0.3, 0.02, 0.5, 0.7, 0, 'lowpass'),
+    ],
+  },
+  beaconLit: {
+    gain: 0.36,
+    layers: [
+      TONE('triangle', 523, 523, 0.4, 0.02, 1.4),
+      TONE('triangle', 659, 659, 0.35, 0.02, 1.5, 0.15),
+      TONE('triangle', 784, 784, 0.35, 0.02, 1.6, 0.3),
+      TONE('sine', 1047, 1047, 0.3, 0.05, 2.2, 0.45),
+    ],
+  },
 
   // ---- Gathering and carrying ----
   gathered: {
