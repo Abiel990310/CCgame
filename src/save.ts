@@ -91,6 +91,9 @@ type PackedMachine = [
    * the filter at that position.
    */
   (OreKind | null)?,
+  /** A splitter's two sides and whose turn it is; only a splitter has them. */
+  ((ItemId | null)[])?,
+  number?,
 ];
 
 interface FactorySection {
@@ -354,7 +357,7 @@ function unpackSlots(packed: PackedSlot[]): Slot[] {
 }
 
 function packMachine(machine: Machine): PackedMachine {
-  return [
+  const packed: PackedMachine = [
     machine.id,
     machine.type,
     machine.tx,
@@ -367,10 +370,17 @@ function packMachine(machine: Machine): PackedMachine {
     machine.filter,
     machine.ore,
   ];
+
+  // Only a splitter has sides, so only a splitter pays for them in the file.
+  if (MACHINES[machine.type].family === 'splitter') {
+    packed[11] = machine.filters ?? [null, null];
+    packed[12] = machine.turn ?? 0;
+  }
+  return packed;
 }
 
 function unpackMachine(packed: PackedMachine): Machine {
-  return {
+  const machine: Machine = {
     id: packed[0],
     type: packed[1],
     tx: packed[2],
@@ -387,6 +397,12 @@ function unpackMachine(packed: PackedMachine): Machine {
     // Recomputed by the factory system on the first tick after a load.
     stalled: false,
   };
+
+  if (MACHINES[machine.type]?.family === 'splitter') {
+    machine.filters = packed[11] ?? [null, null];
+    machine.turn = packed[12] ?? 0;
+  }
+  return machine;
 }
 
 function packFactory(world: World): FactorySection {
@@ -409,7 +425,7 @@ function applyMinedTiles(world: World, mined: OreSection | null): void {
 /** Machine storage is a fixed grid too, sized by the machine's own definition. */
 function loadMachine(machine: Machine): Machine {
   const def = MACHINES[machine.type];
-  return {
+  const loaded: Machine = {
     ...machine,
     // An island saved before filters existed simply has none.
     filter: loadFilter(machine),
@@ -418,6 +434,18 @@ function loadMachine(machine: Machine): Machine {
     input: normalizeSlots(machine.input, def.inputSlots, def.slotSize),
     output: normalizeSlots(machine.output, def.outputSlots, def.slotSize),
   };
+
+  // A splitter always has exactly two sides. A filter naming an item that no
+  // longer exists opens back up rather than refusing everything forever.
+  if (def.family === 'splitter') {
+    const saved = machine.filters ?? [];
+    loaded.filters = [0, 1].map((i) => {
+      const item = saved[i];
+      return item && item in ITEMS ? item : null;
+    });
+    loaded.turn = machine.turn === 1 ? 1 : 0;
+  }
+  return loaded;
 }
 
 /** A filter naming an item this build no longer has is dropped, not honoured. */

@@ -1,6 +1,7 @@
 import { MACHINES } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { isResearchPack } from '../data/techs';
+import { isSplitter, setSideFilter, splitterAccepts } from './factory';
 import { giveOrDrop } from './inventory';
 import { addToSlots, slotCap, sortSlots, takeFromSlots } from './slots';
 import type { ItemId, Machine, Player, Slot, World } from './types';
@@ -16,7 +17,12 @@ import type { ItemId, Machine, Player, Slot, World } from './types';
  * swallow a stack mid-drag.
  */
 
-export type SlotArea = 'bag' | 'input' | 'output';
+/**
+ * `filter` is not storage. A splitter's two sides are shown as slots because
+ * setting one is the same gesture as moving a stack: drop an item on a side to
+ * point it at that item, click it empty-handed to open it up again.
+ */
+export type SlotArea = 'bag' | 'input' | 'output' | 'filter';
 
 export interface SlotRef {
   area: SlotArea;
@@ -32,7 +38,7 @@ export function machineById(world: World, id: number | null): Machine | null {
 
 function slotsFor(player: Player, machine: Machine | null, area: SlotArea): Slot[] | null {
   if (area === 'bag') return player.inventory;
-  if (!machine) return null;
+  if (!machine || area === 'filter') return null;
   return area === 'input' ? machine.input : machine.output;
 }
 
@@ -48,11 +54,14 @@ export function accepts(machine: Machine | null, area: SlotArea, id: ItemId): bo
   if (!machine) return false;
   // The output side is what the machine made; taking from it is fine, filling it is not.
   if (area === 'output') return false;
+  if (area === 'filter') return isSplitter(machine);
 
   const def = MACHINES[machine.type];
   if (def.inputSlots === 0) return false;
   // A lab is loaded by hand on the same terms a belt loads it: packs only.
   if (def.family === 'lab') return isResearchPack(id);
+  // Handing a splitter something neither side would route only jams it.
+  if (def.family === 'splitter') return splitterAccepts(machine, id);
   // A chest takes anything; a crafter only takes what its recipe actually uses.
   if (!def.choosesRecipe) return true;
 
@@ -73,6 +82,13 @@ export function clickSlot(
   button: ClickButton = 'left',
 ): boolean {
   const machine = machineById(world, machineId);
+  // A side is set from what is in hand and cleared by an empty one, so the
+  // click never takes the item: a filter is a label, not a stored stack.
+  if (ref.area === 'filter') {
+    if (machineId === null || !machine || !isSplitter(machine)) return false;
+    return setSideFilter(world, machineId, ref.index, player.cursor?.id ?? null);
+  }
+
   const slots = slotsFor(player, machine, ref.area);
   if (!slots || ref.index < 0 || ref.index >= slots.length) return false;
 

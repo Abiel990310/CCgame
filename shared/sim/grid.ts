@@ -50,6 +50,11 @@ export function rotate(dir: Direction): Direction {
   return ((dir + 1) % 4) as Direction;
 }
 
+/** A quarter turn anticlockwise — the direction on an entity's left. */
+export function turnLeft(dir: Direction): Direction {
+  return ((dir + 3) % 4) as Direction;
+}
+
 export function dirAngle(dir: Direction): number {
   return (dir * Math.PI) / 2;
 }

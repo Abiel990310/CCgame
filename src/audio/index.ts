@@ -291,9 +291,10 @@ const SHOT_SOUND = {
 } as const satisfies Record<string, SoundId>;
 
 /**
- * A chest never produces, but the table has to cover every family. Tiers are
- * keyed by family on purpose: a steel furnace is a furnace, and a row per tier
- * would be five more sounds saying the same thing. A lab consumes rather than
+ * A chest never produces and a splitter only passes items along, but the table
+ * has to cover every family. Tiers are keyed by family on purpose: a steel
+ * furnace is a furnace, and a row per tier would be five more sounds saying
+ * the same thing. A lab consumes rather than
  * produces, so it has no production sound yet.
  */
 const PRODUCED_SOUND = {
@@ -302,6 +303,7 @@ const PRODUCED_SOUND = {
   assembler: 'assembled',
   inserter: 'slot',
   chest: 'slot',
+  splitter: 'slot',
   lab: null,
 } as const satisfies Record<MachineFamily, SoundId | null>;
 

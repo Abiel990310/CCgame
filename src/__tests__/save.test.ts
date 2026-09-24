@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { placeBelt, placeMachine, setRecipe } from '@shared/sim/factory';
+import { placeBelt, placeMachine, setSideFilter, setRecipe } from '@shared/sim/factory';
 import { addItem } from '@shared/sim/inventory';
 import { addToSlots } from '@shared/sim/slots';
 import { tileKey } from '@shared/sim/grid';
@@ -104,6 +104,25 @@ describe('saving an island', () => {
     expect(reloaded?.regrow).toBeCloseTo(12.5, 2);
     // Everything else came back untouched.
     expect(back?.nodes.length).toBe(world.nodes.length);
+  });
+
+  it("keeps a splitter's sides, which nothing else on the grid has", () => {
+    const world = island();
+    const player = [...world.players.values()][0];
+
+    const splitter = placeMachine(world, player, 'splitter', SITE.tx, SITE.ty, 2)!;
+    const plain = placeMachine(world, player, 'chest', SITE.tx + 1, SITE.ty, 0)!;
+    expect(setSideFilter(world, splitter.id, 1, 'copperOre')).toBe(true);
+    splitter.turn = 1;
+
+    saveWorld(world, SLOT);
+    const back = loadWorld(SLOT)!;
+
+    const reloaded = back.machines.find((m) => m.id === splitter.id)!;
+    expect(reloaded.filters).toEqual([null, 'copperOre']);
+    expect(reloaded.turn).toBe(1);
+    // Every other machine still carries no sides at all.
+    expect(back.machines.find((m) => m.id === plain.id)!.filters).toBeUndefined();
   });
 
   it('round-trips a production line through the packed factory', () => {
