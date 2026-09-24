@@ -3,7 +3,7 @@ import { INSERTER_SWING, MACHINES } from '../../data/machines';
 import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
 import { countIn, totalIn } from '../slots';
 import type { Belt, Machine, MachineId } from '../types';
-import { advance, at, bench, fill, held, itemsOnBelts, put, totalHeld } from './bench';
+import { advance, at, bench, fill, held, itemsOnBelts, put, stoke, totalHeld } from './bench';
 
 /**
  * The later arms exist because a Mk3 furnace eats ore faster than the first
@@ -21,6 +21,8 @@ function feedFurnace(arm: MachineId, seconds: number): number {
   fill(chest.input, 'ironOre', 400, CHEST_SLOT);
   put(b, arm, tx, ty, 2);
   const furnace = put(b, ['furnaceMk3', 'ironPlate'], tx - 1, ty, 3) as Machine;
+  // An electric furnace burns coal, and this is a test of the arm, not the fuel.
+  stoke(furnace);
 
   advance(b.world, seconds);
   return countIn(furnace.output, 'ironPlate');

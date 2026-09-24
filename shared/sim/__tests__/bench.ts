@@ -158,6 +158,15 @@ export function fill(slots: Slot[], item: ItemId, count: number, max = Infinity)
   expect(addToSlots(slots, item, count, max)).toBe(count);
 }
 
+/**
+ * Fill a burner's fuel grid with coal, so a test about speed or ingredients is
+ * not quietly a test about running out of fuel. A machine that burns nothing
+ * is left alone.
+ */
+export function stoke(machine: Machine, count = 50): void {
+  if (machine.fuel) fill(machine.fuel, 'coal', count);
+}
+
 export function itemsOnBelts(world: World): number {
   return world.belts.reduce((n, belt) => n + belt.items.length, 0);
 }

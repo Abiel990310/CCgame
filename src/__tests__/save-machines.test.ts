@@ -114,3 +114,36 @@ describe('saving an island with inserters on it', () => {
     expect(loadWorld('c')!.machines[0].filter).toBe(null);
   });
 });
+
+describe('saving an island with burners on it', () => {
+  it('brings the fuel grid and the heat back', () => {
+    const world = createWorld(7, true);
+    const burner = machine('furnaceMk2', 30, 30);
+    burner.fuel = [{ id: 'coal', count: 12 }];
+    burner.heat = 3.25;
+    world.machines.push(burner, machine('furnace', 31, 30));
+
+    expect(saveWorld(world, 'a')).toBe(true);
+    const [steel, stone] = loadWorld('a')!.machines;
+
+    expect(steel.fuel).toEqual([{ id: 'coal', count: 12 }]);
+    expect(steel.heat).toBe(3.25);
+    expect(stone.fuel).toBeUndefined();
+    expect(stone.heat).toBeUndefined();
+  });
+
+  it('gives a burner saved before fuel existed an empty grid', () => {
+    const world = createWorld(7, true);
+    world.machines.push(machine('assemblerMk3', 30, 30));
+    saveWorld(world, 'b');
+
+    // A row packed before fuel stops at the splitter fields or earlier.
+    const factory = JSON.parse(store.get(slotKey('b') + FACTORY_SUFFIX)!);
+    factory.machines[0] = factory.machines[0].slice(0, 11);
+    store.set(slotKey('b') + FACTORY_SUFFIX, JSON.stringify(factory));
+
+    const loaded = loadWorld('b')!.machines[0];
+    expect(loaded.fuel).toEqual([null]);
+    expect(loaded.heat).toBe(0);
+  });
+});

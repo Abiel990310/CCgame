@@ -9,7 +9,7 @@ import {
 import { tileKey } from '../grid';
 import { countIn } from '../slots';
 import type { Machine } from '../types';
-import { advance, at, bench, lay, plantOre, put } from './bench';
+import { advance, at, bench, lay, plantOre, put, stoke } from './bench';
 
 describe('upgrading a machine in place', () => {
   it('swaps a furnace for a Mk2 keeping its recipe, facing, stock and id', () => {
@@ -123,6 +123,8 @@ describe('upgrading a machine in place', () => {
     expect(placeMachine(b.world, b.player, 'furnaceMk2', tx + 3, ty, 0)).toBe(
       furnace,
     );
+    // A steel furnace is a burner, so the faster line needs its coal.
+    stoke(furnace);
 
     const chest = machineAt(b.world, tx + 5, ty)!;
     const before = countIn(chest.input, 'ironPlate');

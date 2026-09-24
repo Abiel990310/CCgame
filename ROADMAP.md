@@ -72,6 +72,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Item storage | Fixed slot grids, sparse, with the held stack in the sim | A bag the player arranges has to keep an empty slot where it is; a compacted list slides every stack left the moment one runs out. The stack on the cursor lives on the player rather than in the DOM so closing, reloading or a lost tab cannot swallow it. |
 | Quick slots | Bound in `localStorage`, not in the save | The bar says how one person likes their tools arranged, not what is true of an island. Keeping it out of the world means no save version, and one bar across every island — which is what someone who arranges it once expects. |
 | Save format | Old versions load, newer ones are refused | Persistence is the promise the game makes. A field added later defaults; a save from the future cannot be guessed at. |
+| Fuel | A separate fuel grid on burners, spent per recipe-second | Coal is also a steel and battery ingredient, so it could not share the recipe grid without starving one or the other; a burner keeps `FUEL_RESERVE` in hand before letting coal through to the recipe. Burning per unit of work rather than per second makes every craft cost the same coal in every tier. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
@@ -239,9 +240,11 @@ detail behind the factory entries is in
 - [ ] **Tech gating on the build palette** — start with miner, furnace and
       belt; everything else is earned. Today all four machines are available at
       minute one.
-- [ ] **Fuel slots** — tier-2 furnaces and assemblers burn coal off a belt.
+- [x] **Fuel slots** — tier-2 furnaces and assemblers burn coal off a belt.
       Every furnace bank then needs two input belts, which roughly doubles the
-      interest of a layout.
+      interest of a layout. Tier 3 burns coal too until power exists; one coal
+      pays for 8 recipe-seconds in every tier, so four plates. `fuelSlots` and
+      `FUEL_VALUE` in `machines.ts` are the whole knob.
 - [ ] **Generator and power radius** — tier-3 machines draw power instead of
       fuel; a brown-out slows machines proportionally rather than stopping them.
 - [x] **Storage and logistics tiers** — a steel chest with more slots and a fast
@@ -431,6 +434,11 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Wood as a weak fuel (a row in `FUEL_VALUE`), so a steel furnace can be
+      lit before the first coal miner is down.
+- [ ] Inserters that feed a burner's fuel from a neighbouring burner, the way
+      Factorio chains burner inserters, so a furnace row needs one coal belt
+      at the end rather than one past every furnace.
 - [ ] Save cards on the menu show a generic island badge. A tiny minimap of
       the actual island, rendered once on save, would make islands tell apart.
 - [ ] The player character and mobs are still the original simple shapes; they
@@ -521,6 +529,11 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Coal cost of burners. One coal per four plates means a Mk2 furnace bank
+      eats a quarter as much coal as it makes plates; nobody has played a coal
+      patch dry against it yet.
+- [ ] Old islands: Steel and Electric furnaces and assemblers built before fuel
+      existed load with an empty fuel slot and stop until coal reaches them.
 - [ ] The UI revamp was verified in headless Chromium at 1440x900, iPhone 13
       portrait and landscape. Real phones (notch, safe areas, iOS Safari's
       backdrop blur) and a small laptop screen have not been tried.
