@@ -145,6 +145,8 @@ export interface Player {
   /** Queued level-ups waiting for the player to pick an upgrade. */
   pendingUpgrades: number;
   offers: UpgradeOffer[];
+  /** Index into `GOALS` of the goal this player is working on. */
+  goal: number;
   /** Fixed grid of `INVENTORY_SLOTS` cells, arranged by the player. */
   inventory: Slot[];
   /** The stack held on the pointer while rearranging. Saved, so it is never lost. */
@@ -358,4 +360,5 @@ export type SimEvent =
   | { kind: 'downed'; playerId: number }
   | { kind: 'built'; pos: Vec2; type: BuildingId }
   | { kind: 'research'; tech: string; level: number; next: string | null }
+  | { kind: 'goal'; playerId: number; goal: string; next: string | null }
   | { kind: 'oreChanged'; tx: number; ty: number };

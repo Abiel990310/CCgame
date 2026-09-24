@@ -112,6 +112,17 @@ export const SOUNDS = {
     ],
   },
 
+  // A goal met: brighter and shorter than a level-up, since the two often land
+  // together and the level-up should still read as the bigger moment.
+  goal: {
+    gain: 0.24,
+    layers: [
+      TONE('triangle', 784, 784, 0.45, 0.005, 0.14),
+      TONE('triangle', 1175, 1175, 0.4, 0.005, 0.28, 0.07),
+      TONE('sine', 1568, 1568, 0.18, 0.01, 0.35, 0.07),
+    ],
+  },
+
   // ---- Gathering and carrying ----
   gathered: {
     gain: 0.2,

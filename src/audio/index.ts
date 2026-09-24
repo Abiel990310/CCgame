@@ -246,6 +246,9 @@ export class GameAudio {
         case 'levelUp':
           this.play('levelUp');
           break;
+        case 'goal':
+          this.play('goal');
+          break;
         case 'gathered':
           this.play('gathered', { pos: event.pos });
           break;

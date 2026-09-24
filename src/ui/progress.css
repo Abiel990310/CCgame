@@ -1,0 +1,175 @@
+/* The goal tracker sits under the vitals, in the same glass as the rest. */
+.goal {
+  position: absolute;
+  top: calc(max(14px, env(safe-area-inset-top)) + 76px);
+  left: var(--gap);
+  width: 230px;
+  padding: 9px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  cursor: pointer;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.goal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 800;
+}
+
+.goal-count {
+  color: var(--ink);
+  letter-spacing: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-title {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.goal-hint {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink-dim);
+}
+
+.goal.folded .goal-hint {
+  display: none;
+}
+
+.goal-track {
+  margin-top: 4px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--well);
+  overflow: hidden;
+}
+
+.goal-fill {
+  height: 100%;
+  background: var(--gold);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.35s ease;
+}
+
+.goal.done {
+  animation: goal-pop 0.9s ease;
+}
+
+@keyframes goal-pop {
+  0% {
+    box-shadow: var(--shadow), 0 0 0 0 var(--gold-line);
+    transform: scale(1);
+  }
+  25% {
+    box-shadow: var(--shadow), 0 0 0 6px var(--gold-soft);
+    transform: scale(1.04);
+  }
+  100% {
+    box-shadow: var(--shadow), 0 0 0 0 transparent;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .goal {
+    top: calc(max(14px, env(safe-area-inset-top)) + 60px);
+    width: 180px;
+    padding: 7px 10px 8px;
+  }
+  .goal-title {
+    font-size: 12px;
+  }
+  .goal-hint {
+    font-size: 11px;
+  }
+}
+
+/* Landscape phones have no height to spare: title and bar only. */
+@media (max-height: 480px) {
+  .goal-hint {
+    display: none;
+  }
+}
+
+/*
+ * A level-up waits for the player: the ring glows and carries a badge until
+ * they choose to open the draft, so a factory levelling them up in the
+ * background never stops the island on its own.
+ */
+.vitals.ready {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.vitals.ready .level-ring {
+  animation: level-ready 1.6s ease-in-out infinite;
+}
+
+.vitals.ready .level-ring::after {
+  content: attr(data-pending);
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: var(--gold);
+  color: #1b1405;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 19px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.levelup-prompt {
+  display: none;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.vitals.ready .levelup-prompt {
+  display: block;
+}
+
+.vitals.ready .bar-row.xp-row {
+  display: none;
+}
+
+@keyframes level-ready {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--gold-line);
+  }
+  50% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+.levelup-later {
+  margin-top: 14px;
+  align-self: center;
+}
+
+@media (max-width: 640px) {
+  .levelup-prompt {
+    font-size: 10px;
+  }
+  .levelup-prompt kbd {
+    display: none;
+  }
+}
