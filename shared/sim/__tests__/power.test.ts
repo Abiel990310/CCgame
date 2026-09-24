@@ -160,3 +160,64 @@ describe('power', () => {
     expect(countIn(g.fuel!, 'coal')).toBeGreaterThan(0);
   });
 });
+
+describe('power research', () => {
+  it('raises every engine\'s output with High-Pressure Steam', () => {
+    const b = bench();
+    const f = furnace(b, 2, 3);
+    pole(b, 3, 3);
+    engine(b, 5, 3, 20);
+    advance(b.world, 1);
+    expect(powerNetOf(b.world, f)!.supply).toBe(900);
+    b.world.research.levels.steamPressure = 1;
+    advance(b.world, 1);
+    expect(powerNetOf(b.world, f)!.supply).toBeCloseTo(1125, 6);
+  });
+
+  it('makes a coal last longer in an engine with Firebox Design', () => {
+    const burnt = (firebox: boolean): number => {
+      const b = bench();
+      if (firebox) b.world.research.levels.fireboxDesign = 1;
+      const g = engine(b, 5, 3, 20);
+      pole(b, 3, 3);
+      for (const [dx, dy] of [[0, 2], [1, 4], [2, 2], [6, 2], [7, 4]]) furnace(b, dx, dy);
+      advance(b.world, 20);
+      return 20 - countIn(g.fuel!, 'coal');
+    };
+    expect(burnt(true)).toBeLessThan(burnt(false));
+  });
+});
+
+describe('solar panels', () => {
+  function field(b: Bench): { panel: Machine; f: Machine } {
+    const f = put(b, ['assemblerMk3', 'gear'], at(2, 3).tx, at(2, 3).ty, 0) as Machine;
+    fill(f.input, 'ironPlate', 100);
+    pole(b, 3, 3);
+    const panel = put(b, 'solar', at(4, 3).tx, at(4, 3).ty, 0) as Machine;
+    return { panel, f };
+  }
+
+  it('powers a network by day with nothing to burn', () => {
+    const b = bench();
+    b.world.phase = 'day';
+    b.world.phaseTime = 1000;
+    const { panel, f } = field(b);
+    advance(b.world, 5);
+    expect(panel.stalled).toBe(false);
+    expect(powerNetOf(b.world, f)!.supply).toBe(MACHINES.solar.generates);
+    // 60 kW of a 150 kW assembler: it works, at two fifths of the pace.
+    expect(powerNetOf(b.world, f)!.satisfaction).toBeCloseTo(0.4, 6);
+    expect(countIn(f.output, 'gear')).toBeGreaterThan(0);
+  });
+
+  it('goes dark at night', () => {
+    const b = bench();
+    b.world.phase = 'night';
+    b.world.phaseTime = 1000;
+    const { panel, f } = field(b);
+    advance(b.world, 5);
+    expect(panel.stalled).toBe(true);
+    expect(f.unpowered).toBe(true);
+    expect(countIn(f.output, 'gear')).toBe(0);
+  });
+});

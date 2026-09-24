@@ -4,6 +4,7 @@ import { distanceSq } from '../math';
 import { toolSpeed } from '../crafting';
 import { nodeSpotTaken } from '../nodes';
 import { nextFloat } from '../progression';
+import { researchBonuses } from '../research';
 import type { ItemId, Player, PlayerInput, ResourceNode, World } from '../types';
 
 export function findNearestNode(world: World, player: Player): ResourceNode | null {
@@ -58,7 +59,8 @@ export function stepGathering(
   }
 
   const tool = toolSpeed(player, RESOURCES[target.kind].tool);
-  player.gatherProgress += (dt / GATHER.baseSeconds) * player.stats.gatherSpeed * tool;
+  const research = researchBonuses(world).gather;
+  player.gatherProgress += (dt / GATHER.baseSeconds) * player.stats.gatherSpeed * tool * research;
   if (player.gatherProgress < 1) return;
 
   player.gatherProgress -= 1;

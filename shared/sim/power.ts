@@ -1,5 +1,6 @@
 import { FUEL_VALUE, GENERATOR_FUEL_SHARE, MACHINES } from '../data/machines';
 import { tileKey } from './grid';
+import { researchBonuses } from './research';
 import { takeFromSlots } from './slots';
 import type { Machine, World } from './types';
 
@@ -139,13 +140,13 @@ function hasFuel(machine: Machine): boolean {
   return (machine.fuel ?? []).some((slot) => slot !== null && (FUEL_VALUE[slot.id] ?? 0) > 0);
 }
 
-function burn(machine: Machine): boolean {
+function burn(machine: Machine, fuelBonus: number): boolean {
   if ((machine.heat ?? 0) > 0) return true;
   for (const slot of machine.fuel ?? []) {
     const value = slot ? FUEL_VALUE[slot.id] ?? 0 : 0;
     if (slot && value > 0) {
       takeFromSlots(machine.fuel!, slot.id, 1);
-      machine.heat = (machine.heat ?? 0) + value * GENERATOR_FUEL_SHARE;
+      machine.heat = (machine.heat ?? 0) + value * GENERATOR_FUEL_SHARE * fuelBonus;
       return true;
     }
   }
@@ -162,6 +163,8 @@ function burn(machine: Machine): boolean {
  */
 export function stepPower(world: World, dt: number): void {
   const { nets } = layout(world);
+  const bonus = researchBonuses(world);
+  const daylight = world.phase === 'day';
   for (const net of nets) {
     net.demand = 0;
     for (const m of net.consumers) {
@@ -170,9 +173,11 @@ export function stepPower(world: World, dt: number): void {
 
     net.supply = 0;
     for (const g of net.generators) {
-      const running = hasFuel(g);
+      const def = MACHINES[g.type];
+      // A generator with no firebox runs on daylight instead.
+      const running = def.fuelSlots > 0 ? hasFuel(g) : daylight;
       g.stalled = !running;
-      if (running) net.supply += MACHINES[g.type].generates ?? 0;
+      if (running) net.supply += (def.generates ?? 0) * bonus.power;
     }
 
     net.satisfaction = net.demand === 0 ? 1 : Math.min(1, net.supply / net.demand);
@@ -182,7 +187,7 @@ export function stepPower(world: World, dt: number): void {
     // Every engine shares the load evenly, so a bank drains its coal together
     // and one full belt keeps all of them going.
     for (const g of net.generators) {
-      if (g.stalled || !burn(g)) continue;
+      if (g.stalled || MACHINES[g.type].fuelSlots === 0 || !burn(g, bonus.fuel)) continue;
       g.heat = (g.heat ?? 0) - dt * load;
     }
   }

@@ -416,6 +416,32 @@ function drawMachineDeck(ctx: CanvasRenderingContext2D, def: MachineDef, x: numb
       ctx.stroke();
       break;
     }
+    case 'solar': {
+      // A grid of cells across the whole deck, tilted to the light.
+      ctx.fillStyle = shift(def.color, -40);
+      ctx.beginPath();
+      ctx.roundRect(x - TILE * 0.4, y + TILE * (TOP + 0.04), TILE * 0.8, TILE * (LIP - TOP - 0.08), 3);
+      ctx.fill();
+      const cols = 4;
+      const rows = 3;
+      const cw = (TILE * 0.74) / cols;
+      const ch = (TILE * (LIP - TOP - 0.14)) / rows;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          ctx.fillStyle = shift(accent, -70 + r * 8);
+          ctx.fillRect(x - TILE * 0.37 + c * cw + 0.6, y + TILE * (TOP + 0.07) + r * ch + 0.6, cw - 1.2, ch - 1.2);
+        }
+      }
+      ctx.fillStyle = rgba('#ffffff', 0.22);
+      ctx.beginPath();
+      ctx.moveTo(x - TILE * 0.3, y + TILE * (TOP + 0.07));
+      ctx.lineTo(x - TILE * 0.12, y + TILE * (TOP + 0.07));
+      ctx.lineTo(x - TILE * 0.3, y + TILE * (LIP - 0.07));
+      ctx.lineTo(x - TILE * 0.37, y + TILE * (LIP - 0.07));
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
     case 'fishTrap': {
       // A square of open water let into the deck, for the float to sit on.
       ctx.fillStyle = shift(accent, -70);

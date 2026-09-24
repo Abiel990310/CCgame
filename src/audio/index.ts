@@ -314,6 +314,7 @@ const PRODUCED_SOUND = {
   // A trap landing a catch is the rod's sound, since it is the rod's catch.
   fishTrap: 'gathered',
   generator: null,
+  solar: null,
   pole: null,
 } as const satisfies Record<MachineFamily, SoundId | null>;
 
