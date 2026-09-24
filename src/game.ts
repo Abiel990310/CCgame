@@ -29,6 +29,7 @@ import {
   setFilter,
   setRecipe,
   setSideFilter,
+  upgradeTarget,
 } from '@shared/sim/factory';
 import { rotate, tileCenter, toTile } from '@shared/sim/grid';
 import { chooseUpgrade } from '@shared/sim/progression';
@@ -353,7 +354,15 @@ export class Game {
 
     const what = selection.kind === 'belt' ? 'belt' : selection.id;
     const valid = factoryPlacementError(this.world, this.self, what, tx, ty) === null;
-    return { kind: 'grid', what, tx, ty, dir: this.buildDir, valid };
+    // An upgrade keeps the facing of the machine it replaces, so the ghost does too.
+    const replacing = what === 'belt' ? null : upgradeTarget(this.world, what, tx, ty);
+    const dir = replacing ? replacing.dir : this.buildDir;
+    return { kind: 'grid', what, tx, ty, dir, valid };
+  }
+
+  private isUpgrade(ghost: GhostPreview | null): boolean {
+    if (ghost?.kind !== 'grid' || ghost.what === 'belt') return false;
+    return upgradeTarget(this.world, ghost.what, ghost.tx, ghost.ty) !== null;
   }
 
   /**
@@ -425,8 +434,10 @@ export class Game {
     const error = factoryPlacementError(this.world, this.self, what, tx, ty);
 
     if (error === null) {
+      const replacing = what === 'belt' ? null : upgradeTarget(this.world, what, tx, ty);
       if (what === 'belt') placeBelt(this.world, this.self, tx, ty, this.buildDir);
       else placeMachine(this.world, this.self, what, tx, ty, this.buildDir);
+      if (replacing) this.hud.toast(`Upgraded to ${MACHINES[replacing.type].name}`, 'good');
       this.requestSave();
       return;
     }
@@ -514,7 +525,9 @@ export class Game {
     // Inspecting a machine should not also swing the pickaxe at it.
     if (this.hud.isInventoryOpen) this.input.takeClick();
     const ghost = this.ghost();
-    const removal = this.removalTarget();
+    // Hovering a machine with its next tier selected is an upgrade, not a
+    // demolition, so the removal outline would be a false warning.
+    const removal = this.isUpgrade(ghost) ? null : this.removalTarget();
     this.tryPlace(ghost);
 
     // Placing, removing and anything else driven straight from the UI announces

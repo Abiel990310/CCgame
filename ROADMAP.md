@@ -245,10 +245,10 @@ detail behind the factory entries is in
       inserter. Miners, furnaces and assemblers have three tiers each now;
       `MachineDef.speed` already multiplies an inserter's swing, so both are a
       row apiece.
-- [ ] **Upgrade in place** — placing a Mk2 over a Mk1 should swap it, keeping
-      its recipe, its contents and its facing. Today a tier upgrade means
-      removing the machine, picking its stock back up and rebuilding, which is
-      the tedious part of every rebuild the ladder is meant to cause.
+- [x] **Upgrade in place** — placing a Mk2 over a Mk1 swaps it, keeping its
+      recipe, its contents and its facing. Built: any higher tier of the same
+      family can go over a lower one (Mk1 straight to Mk3 too), the old machine
+      is refunded as removing it would be, and the ghost takes the old facing.
 - [ ] **Modules** — a slotted item for +speed, +output or −power in a tier-3
       machine. A sink that never saturates.
 - [ ] **Steel and 8–10 new recipes** — gives research something worth gating.
@@ -344,9 +344,11 @@ detail behind the factory entries is in
 - [ ] A filtered arm reads only the front item of the belt it watches, so a
       full belt of the wrong item parks it even when its item is two places
       back. Correct for one lane; worth revisiting if belts ever carry sides.
-- [ ] Weapons only ever fire at the nearest mob, so a forty-mob night sounds
-      exactly like a one-mob night. Noticed while balancing combat audio; it is
-      a combat-feel question, not an audio one.
+- [x] Weapons only ever fire at the nearest mob, so a forty-mob night sounds
+      exactly like a one-mob night. Now each weapon has a targeting rule
+      (sling nearest, bow toughest, spark scatter, thorn most crowded line),
+      shots skip mobs already doomed by damage in flight, and multishot gives
+      each projectile its own target.
 - [ ] The factory hum counts machines within earshot every 0.3s by scanning
       every machine and belt on the island. Fine at hundreds; if a base ever
       reaches thousands it wants the same spatial index the renderer will need.
@@ -427,13 +429,15 @@ detail behind the factory entries is in
 - [ ] Nothing but research yet needs essence in bulk. A late camp piece or the
       megaproject could ask for it too, so fishing stays worth automating
       after resonance is done.
-
+- [ ] Drag to upgrade a whole row: hold the click with a Mk2 selected and every
+      lower-tier machine of that family the cursor crosses is swapped.
+- [ ] Show an upgrade's net cost in the palette tooltip (new cost minus the
+      refund), since the refund is what makes Mk1 to Mk2 cheaper than it looks.
 - [ ] Mobs only bite players and walls, and have no pathing, so a raid that
       meets a machine bank presses against it and slides along. Letting them
       chew on machines would make the factory part of the defence line.
 - [ ] Inserters block movement like every other machine. If a dense build
       makes that feel cramped, an inserter is the one to make walkable next.
-
 - [ ] A splitter that prefers the emptier side over strict alternation. Turn
       by turn is right while both sides flow; when one backs up the rotation
       still offers it first every other item and only then falls through.
@@ -493,6 +497,12 @@ detail behind the factory entries is in
       between facets; growing the triangle about its centroid by 6% instead
       draws the same picture for a third of the cost.
 
+- [ ] Weapons aim at where a mob is, not where it will be, so fast mobs
+      (crawlers, wisps) dodge shots and keep their in-flight damage reserved
+      until those shots expire. Leading the target would fix both.
+- [ ] Let the player pick a weapon's targeting rule, or offer a rule change as
+      a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
+
 ### Needs testing
 
 - [ ] Resonance pacing: 40 cycles of one essence each, and a trap lands essence
@@ -501,7 +511,8 @@ detail behind the factory entries is in
 - [ ] Old islands load with every machine unlocked, verified in the browser on
       a rewritten version 5 save. Not yet tried against a real island saved on
       the live site before this change.
-
+- [ ] Whether the new targeting rules feel right on a real night: the bow now
+      ignores slimes while a brute is in range, and spark picks at random.
 - [ ] Movement smoothing was measured at 60 fps in headless Chromium (the player
       now moves every frame instead of every other one). Not yet watched on a
       120 Hz screen or a phone, where the old stutter would have been worst.

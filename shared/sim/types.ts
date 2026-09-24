@@ -86,9 +86,17 @@ export interface Projectile {
   /** Weapon that fired it, so the renderer can style it. */
   weapon: WeaponId;
   pierce: number;
+  /**
+   * Mob this was aimed at, until it hits anything. Lets later volleys see the
+   * damage already on its way and pick someone else instead of overkilling.
+   */
+  targetId?: number;
 }
 
 export type WeaponId = 'sling' | 'bow' | 'spark' | 'thorn';
+
+/** How a weapon chooses among the mobs in range. */
+export type TargetRule = 'nearest' | 'toughest' | 'scatter' | 'line';
 
 export interface WeaponState {
   id: WeaponId;

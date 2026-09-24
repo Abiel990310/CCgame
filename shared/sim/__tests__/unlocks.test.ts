@@ -137,6 +137,18 @@ describe('placing a locked machine', () => {
     expect(placeMachine(b.world, b.player, 'splitter', tx, ty, 0)).not.toBe(null);
   });
 
+  it('cannot be dropped over the tier below it either', () => {
+    const b = gated();
+    const { tx, ty } = at(2, 2);
+    expect(placeMachine(b.world, b.player, 'furnace', tx, ty, 0)).not.toBe(null);
+    expect(factoryPlacementError(b.world, b.player, 'furnaceMk2', tx, ty)).toBe('locked');
+    expect(placeMachine(b.world, b.player, 'furnaceMk2', tx, ty, 0)).toBe(null);
+
+    finish(b.world, 'automation');
+    finish(b.world, 'metallurgy');
+    expect(placeMachine(b.world, b.player, 'furnaceMk2', tx, ty, 0)?.type).toBe('furnaceMk2');
+  });
+
   it('never stops a machine already standing from working', () => {
     // An island that loses its unlock somehow keeps what it built running;
     // the gate is on placement and nothing else.
