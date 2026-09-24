@@ -1,4 +1,5 @@
 import { createWorld } from '@shared/sim/world';
+import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
@@ -78,7 +79,13 @@ type PackedMachine = [
   number,
   PackedSlot[],
   PackedSlot[],
-  /** What a miner is pulling up. Absent in version 4, where ore was endless. */
+  /** An inserter's filter. Absent on a row packed before filters existed. */
+  (ItemId | null)?,
+  /**
+   * What a miner is pulling up. Absent in version 4, where ore was endless.
+   * It sits after the filter because islands already carry rows packed with
+   * the filter at that position.
+   */
   (OreKind | null)?,
 ];
 
@@ -326,6 +333,7 @@ function packMachine(machine: Machine): PackedMachine {
     round(machine.progress, 3),
     packSlots(machine.input),
     packSlots(machine.output),
+    machine.filter,
     machine.ore,
   ];
 }
@@ -341,9 +349,10 @@ function unpackMachine(packed: PackedMachine): Machine {
     progress: packed[6],
     input: unpackSlots(packed[7]),
     output: unpackSlots(packed[8]),
+    filter: packed[9] ?? null,
     // A miner packed before ore ran out never recorded a kind; the simulation
     // reads it back off its own tile on the next tick.
-    ore: packed[9] ?? null,
+    ore: packed[10] ?? null,
     // Recomputed by the factory system on the first tick after a load.
     stalled: false,
   };
@@ -371,11 +380,20 @@ function loadMachine(machine: Machine): Machine {
   const def = MACHINES[machine.type];
   return {
     ...machine,
+    // An island saved before filters existed simply has none.
+    filter: loadFilter(machine),
     // Version 3 and older stored machines whole, and none of them had this.
     ore: machine.ore ?? null,
     input: normalizeSlots(machine.input, def.inputSlots, def.slotSize),
     output: normalizeSlots(machine.output, def.outputSlots, def.slotSize),
   };
+}
+
+/** A filter naming an item this build no longer has is dropped, not honoured. */
+function loadFilter(machine: Machine): ItemId | null {
+  const filter = machine.filter as ItemId | null | undefined;
+  if (!filter || MACHINES[machine.type].family !== 'inserter' || !(filter in ITEMS)) return null;
+  return filter;
 }
 
 function rebuildGrid(world: World): void {

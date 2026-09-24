@@ -39,6 +39,7 @@ export interface HudCallbacks {
   onTogglePause: () => void;
   onQuitToMenu: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
+  onSetFilter: (machineId: number, item: ItemId | null) => void;
   onSlotAction: (ref: SlotRef, button: ClickButton, quick: boolean) => void;
   onTakeAll: (machineId: number) => void;
   onSort: (area: SlotArea) => void;
@@ -128,6 +129,7 @@ export class Hud {
         if (machine) this.callbacks.onTakeAll(machine.id);
       },
       onSetRecipe: (machineId, recipeId) => this.callbacks.onSetRecipe(machineId, recipeId),
+      onSetFilter: (machineId, item) => this.callbacks.onSetFilter(machineId, item),
       onSort: (area) => this.callbacks.onSort(area),
       onGather: (ref) => this.callbacks.onGather(ref),
       onClose: () => this.callbacks.onCloseInventory(),

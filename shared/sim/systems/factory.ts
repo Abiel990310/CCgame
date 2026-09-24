@@ -200,7 +200,7 @@ function stepInserter(world: World, machine: Machine, dt: number): void {
   const def = MACHINES[machine.type];
 
   if (machine.input[0] === null) {
-    const grabbed = grabFromBehind(world, machine);
+    const grabbed = grabFromBehind(world, machine, def.reach);
     if (grabbed === null) {
       // Nothing within reach is idle, not stalled — a red light on every
       // inserter waiting on a slow line would drown out real blockages.
@@ -216,7 +216,7 @@ function stepInserter(world: World, machine: Machine, dt: number): void {
   if (machine.progress < INSERTER_SWING) return;
 
   const hand = machine.input[0];
-  if (!hand || !dropInFront(world, machine, hand.id)) {
+  if (!hand || !dropInFront(world, machine, hand.id, def.reach)) {
     // Arm extended over a full destination: hold the item and show it.
     machine.stalled = true;
     return;
@@ -226,15 +226,20 @@ function stepInserter(world: World, machine: Machine, dt: number): void {
   machine.progress = 0;
 }
 
-/** Take one item out of whatever sits behind the inserter. */
-function grabFromBehind(world: World, machine: Machine): ItemId | null {
-  const { tx, ty } = inputTile(machine);
+/**
+ * Take one item out of whatever sits behind the inserter, `reach` tiles back.
+ * A filtered arm takes only what it is set to and leaves the rest where it is,
+ * which is what lets one mixed chest or one shared belt feed several lines.
+ */
+function grabFromBehind(world: World, machine: Machine, reach: number): ItemId | null {
+  const { tx, ty } = inputTile(machine, reach);
 
   const belt = beltAt(world, tx, ty);
   if (belt) {
-    // The item nearest the belt's output end is the one within reach.
+    // The item nearest the belt's output end is the one within reach. A
+    // filtered arm does not dig past it: anything else keeps riding by.
     const front = belt.items[0];
-    if (!front) return null;
+    if (!front || !wanted(machine, front.item)) return null;
     belt.items.shift();
     return front.item;
   }
@@ -248,7 +253,7 @@ function grabFromBehind(world: World, machine: Machine): ItemId | null {
   const from = MACHINES[source.type].outputSlots > 0 ? source.output : source.input;
 
   for (const slot of from) {
-    if (slot && slot.count > 0) {
+    if (slot && slot.count > 0 && wanted(machine, slot.id)) {
       takeStack(from, slot.id, 1);
       return slot.id;
     }
@@ -256,9 +261,14 @@ function grabFromBehind(world: World, machine: Machine): ItemId | null {
   return null;
 }
 
+/** An unfiltered inserter moves anything; a filtered one moves its one item. */
+function wanted(machine: Machine, item: ItemId): boolean {
+  return machine.filter === null || machine.filter === item;
+}
+
 /** Put the held item into the belt or machine the inserter faces. */
-function dropInFront(world: World, machine: Machine, item: ItemId): boolean {
-  const { tx, ty } = outputTile(machine);
+function dropInFront(world: World, machine: Machine, item: ItemId, reach: number): boolean {
+  const { tx, ty } = outputTile(machine, reach);
 
   const belt = beltAt(world, tx, ty);
   if (belt) return pushOntoBelt(belt, item);

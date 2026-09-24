@@ -189,7 +189,8 @@ export type MachineId =
   | 'furnaceMk2'
   | 'furnaceMk3'
   | 'assemblerMk2'
-  | 'assemblerMk3';
+  | 'assemblerMk3'
+  | 'longInserter';
 
 /** One item riding a belt tile, positioned 0..1 along its length. */
 export interface BeltItem {
@@ -215,6 +216,8 @@ export interface Machine {
   dir: Direction;
   /** Chosen recipe, or null for machines that have no choice to make. */
   recipe: string | null;
+  /** Inserters only: the one item this arm will move, or null for anything. */
+  filter: ItemId | null;
   /**
    * What a miner is pulling up, remembered rather than read off its own tile:
    * once that tile runs dry the miner keeps working the ring around it, and it

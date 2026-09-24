@@ -5,7 +5,7 @@ import { oreAt, oreLeftAt } from '@shared/sim/ore';
 import { createWorld } from '@shared/sim/world';
 import type { World } from '@shared/sim/types';
 import { loadWorld, saveWorld } from '../save';
-import { ORE_SUFFIX, slotKey } from '../saves';
+import { FACTORY_SUFFIX, ORE_SUFFIX, slotKey } from '../saves';
 
 /** The save layer only ever talks to localStorage, so a Map stands in for it. */
 function installStorage(): Map<string, string> {
@@ -120,6 +120,7 @@ describe('mined ore survives a save', () => {
       ty,
       dir: 0,
       recipe: null,
+      filter: null,
       ore: 'ironOre',
       progress: 0,
       input: [],
@@ -130,5 +131,22 @@ describe('mined ore survives a save', () => {
     saveWorld(world, 'slot');
 
     expect(loadWorld('slot')!.machines[0].ore).toBe('ironOre');
+  });
+
+  it('reads a machine row packed with a filter and no ore, as islands already have', () => {
+    const world = createWorld(SEED);
+    saveWorld(world, 'slot');
+
+    // The row an inserter with a filter was packed as before ore ran out:
+    // ten fields, the filter last.
+    const factory = {
+      belts: [],
+      machines: [[7, 'inserter', 40, 40, 0, null, 0, [null], [], 'ironPlate']],
+    };
+    store.set(slotKey('slot') + FACTORY_SUFFIX, JSON.stringify(factory));
+
+    const loaded = loadWorld('slot')!;
+    expect(loaded.machines[0].filter).toBe('ironPlate');
+    expect(loaded.machines[0].ore).toBe(null);
   });
 });
