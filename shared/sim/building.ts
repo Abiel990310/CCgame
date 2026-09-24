@@ -5,7 +5,7 @@ import { inBounds, tileKey } from './grid';
 import { giveOrDrop, payAll, hasAll } from './inventory';
 import { clearFelledNodes } from './nodes';
 import { isWalkable, terrainAtIndex } from './terrain';
-import type { Building, BuildingId, Player, Vec2, World } from './types';
+import type { Building, BuildingId, ItemStack, Player, Vec2, World } from './types';
 
 export type PlacementError = 'range' | 'terrain' | 'overlap' | 'factory' | 'cost' | null;
 
@@ -90,7 +90,7 @@ export function placeBuilding(
     id: world.nextId++,
     type,
     // Walls take chip damage from mobs; level doubles as their hit points.
-    level: type === 'wall' ? 4 : 1,
+    level: type === 'wall' ? CAMP.wallHp : 1,
     pos: { ...pos },
   });
   world.events.push({ kind: 'built', pos: { ...pos }, type });
@@ -115,7 +115,22 @@ export function buildingAt(world: World, pos: Vec2): Building | null {
 
 export type RemovalResult = 'removed' | 'campfire' | 'none';
 
-/** Take a camp piece back down, refunding what it cost to put up. */
+/**
+ * What taking a piece down gives back. A wall returns only the share of its
+ * cost it still has in hit points, rounded down: otherwise pulling a chipped
+ * wall and putting it back would be a free repair.
+ */
+export function removalRefund(building: Building): ItemStack[] {
+  const cost = BUILDINGS[building.type].cost;
+  if (building.type !== 'wall') return cost.map((entry) => ({ ...entry }));
+
+  const share = clamp(building.level / CAMP.wallHp, 0, 1);
+  return cost
+    .map((entry) => ({ id: entry.id, count: Math.floor(entry.count * share) }))
+    .filter((entry) => entry.count > 0);
+}
+
+/** Take a camp piece back down, refunding what it has left of its cost. */
 export function removeBuildingAt(world: World, player: Player, pos: Vec2): RemovalResult {
   const target = buildingAt(world, pos);
   if (!target) return 'none';
@@ -125,7 +140,7 @@ export function removeBuildingAt(world: World, player: Player, pos: Vec2): Remov
 
   world.buildings.splice(world.buildings.indexOf(target), 1);
   world.events.push({ kind: 'removed', pos: { ...target.pos } });
-  for (const entry of BUILDINGS[target.type].cost) {
+  for (const entry of removalRefund(target)) {
     giveOrDrop(world, player, entry.id, entry.count);
   }
   return 'removed';

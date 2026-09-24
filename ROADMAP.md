@@ -246,10 +246,10 @@ detail behind the factory entries is in
       inserter. Miners, furnaces and assemblers have three tiers each now;
       `MachineDef.speed` already multiplies an inserter's swing, so both are a
       row apiece.
-- [ ] **Upgrade in place** — placing a Mk2 over a Mk1 should swap it, keeping
-      its recipe, its contents and its facing. Today a tier upgrade means
-      removing the machine, picking its stock back up and rebuilding, which is
-      the tedious part of every rebuild the ladder is meant to cause.
+- [x] **Upgrade in place** — placing a Mk2 over a Mk1 swaps it, keeping its
+      recipe, its contents and its facing. Built: any higher tier of the same
+      family can go over a lower one (Mk1 straight to Mk3 too), the old machine
+      is refunded as removing it would be, and the ghost takes the old facing.
 - [ ] **Modules** — a slotted item for +speed, +output or −power in a tier-3
       machine. A sink that never saturates.
 - [ ] **Steel and 8–10 new recipes** — gives research something worth gating.
@@ -297,11 +297,13 @@ detail behind the factory entries is in
       split into a header, scenery and factory so a section that has not moved
       is not rewritten. A 101 kB island measured in a browser now writes 1.4 kB,
       and standing still writes only the 1 kB header.
-- [ ] Nothing on the factory grid blocks movement. `collideBuildings` in
+- [x] Nothing on the factory grid blocks movement. `collideBuildings` in
       `shared/sim/systems/movement.ts` walks `world.buildings` only, so players
       and mobs pass straight through furnaces, chests and miners. Walking over
       a belt is fine; walking through an assembler is not, and a mob taking the
-      shortcut through a machine bank ignores the wall line entirely.
+      shortcut through a machine bank ignores the wall line entirely. Fixed:
+      a `solid` flag on each machine row; every machine blocks players and
+      mobs over its whole tile, belts and splitters stay walkable.
 - [ ] The campfire stands on the map's exact centre, which is a tile corner, so
       it now blocks the four tiles that meet there rather than one. Snapping it
       to a tile centre on world creation would hand three of them back, but it
@@ -359,9 +361,13 @@ detail behind the factory entries is in
 - [ ] The inventory screen leaves the world running behind it, which is right
       for watching a furnace but means a night can start while you sort a
       chest. Worth deciding deliberately rather than by default.
-- [ ] A wall chipped to 1 hit point refunds its full cost, so taking it down
-      and putting it back is a free repair. Walls want a repair action, or a
-      refund that scales with the damage taken.
+- [x] A wall chipped to 1 hit point refunds its full cost, so taking it down
+      and putting it back is a free repair. Settled by scaling the refund with
+      the hit points left, rounded down: a wall on its last point gives back
+      one wood and no stone.
+- [ ] Walls could take a repair action in build mode that spends the missing
+      share of their cost, so a chipped line is fixed in place rather than
+      pulled and rebuilt one wall at a time.
 - [x] The removal highlight only shows in build mode, so a right-click on the
       open island is still aimed blind. Settled by making removal a build-mode
       action: outside it the cursor opens a machine, so a demolition outline on
@@ -425,6 +431,15 @@ detail behind the factory entries is in
 - [ ] Machine status lights distinguish working, waiting and blocked in the
       renderer only. A "show me every blocked machine" toggle would use the
       same rule to find the bottleneck in a big base.
+- [ ] Drag to upgrade a whole row: hold the click with a Mk2 selected and every
+      lower-tier machine of that family the cursor crosses is swapped.
+- [ ] Show an upgrade's net cost in the palette tooltip (new cost minus the
+      refund), since the refund is what makes Mk1 to Mk2 cheaper than it looks.
+- [ ] Mobs only bite players and walls, and have no pathing, so a raid that
+      meets a machine bank presses against it and slides along. Letting them
+      chew on machines would make the factory part of the defence line.
+- [ ] Inserters block movement like every other machine. If a dense build
+      makes that feel cramped, an inserter is the one to make walkable next.
 - [ ] A splitter that prefers the emptier side over strict alternation. Turn
       by turn is right while both sides flow; when one backs up the rotation
       still offers it first every other item and only then falls through.
