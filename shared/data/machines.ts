@@ -375,6 +375,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     solid: true,
     storage: true,
+    fuelSlots: 0,
   },
   fastInserter: {
     id: 'fastInserter',
@@ -400,6 +401,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 1,
     solid: true,
     storage: false,
+    fuelSlots: 0,
   },
   stackInserter: {
     id: 'stackInserter',
@@ -425,6 +427,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 1,
     solid: true,
     storage: false,
+    fuelSlots: 0,
   },
   lab: {
     id: 'lab',
