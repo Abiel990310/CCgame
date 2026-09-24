@@ -20,8 +20,10 @@ export type RelayType = 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'LEAVE';
 
 export interface BrokerEvents {
   onRelay: (type: RelayType, src: string, payload: unknown) => void;
-  /** The broker refused us or the socket went away. */
+  /** The broker has been unreachable for a while; it keeps trying. */
   onFail: (reason: string) => void;
+  /** A message we sent was never collected: nobody holds that id. */
+  onExpire?: () => void;
 }
 
 /**
@@ -33,10 +35,22 @@ function brokerUrl(): string {
   return override ?? DEFAULT_BROKER;
 }
 
+/** Waits between reconnection attempts, then the last one repeats. */
+const RETRY_MS = [1000, 2000, 4000, 8000, 15000];
+/** Attempts that may fail quietly before anyone is told. */
+const QUIET_RETRIES = 3;
+
 export class Broker {
   private socket: WebSocket | null = null;
   private heartbeat = 0;
+  private retryTimer = 0;
+  private retries = 0;
   private closed = false;
+  /**
+   * Kept for the life of the id: the broker hands an id back to whoever shows
+   * the same token, which is what lets a dropped socket reconnect as itself.
+   */
+  private readonly token = Math.random().toString(36).slice(2, 12);
 
   constructor(
     readonly id: string,
@@ -45,63 +59,81 @@ export class Broker {
 
   /** Resolves once the broker has accepted our id. */
   open(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const token = Math.random().toString(36).slice(2, 12);
-      const url = `${brokerUrl()}&id=${encodeURIComponent(this.id)}&token=${token}&version=1.5.4`;
-      let socket: WebSocket;
+    return new Promise((resolve, reject) => this.connect(resolve, reject));
+  }
+
+  /**
+   * One socket. Before the first OPEN a failure rejects; after it, a dropped
+   * socket reconnects on its own. Hosted brokers drop idle-looking sockets,
+   * and a tab in the background sends its heartbeat late enough to look idle.
+   */
+  private connect(resolve?: () => void, reject?: (error: Error) => void): void {
+    const first = resolve !== undefined;
+    const url = `${brokerUrl()}&id=${encodeURIComponent(this.id)}&token=${this.token}&version=1.5.4`;
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(url);
+    } catch {
+      if (first) reject?.(new Error('Could not reach the matchmaking service'));
+      else this.retry();
+      return;
+    }
+    this.socket = socket;
+    let opened = false;
+
+    socket.onmessage = (event) => {
+      let message: { type?: string; src?: string; payload?: unknown };
       try {
-        socket = new WebSocket(url);
+        message = JSON.parse(String(event.data)) as typeof message;
       } catch {
-        reject(new Error('Could not reach the matchmaking service'));
         return;
       }
-      this.socket = socket;
-      let opened = false;
-
-      socket.onmessage = (event) => {
-        let message: { type?: string; src?: string; payload?: unknown };
-        try {
-          message = JSON.parse(String(event.data)) as typeof message;
-        } catch {
-          return;
-        }
-        switch (message.type) {
-          case 'OPEN':
-            opened = true;
-            this.heartbeat = window.setInterval(() => this.send({ type: 'HEARTBEAT' }), HEARTBEAT_MS);
-            resolve();
-            break;
-          case 'ID-TAKEN':
-            reject(new Error('That room code is already in use'));
+      switch (message.type) {
+        case 'OPEN':
+          opened = true;
+          this.retries = 0;
+          window.clearInterval(this.heartbeat);
+          this.heartbeat = window.setInterval(() => this.send({ type: 'HEARTBEAT' }), HEARTBEAT_MS);
+          resolve?.();
+          break;
+        case 'ID-TAKEN':
+          if (first) {
+            reject?.(new Error('That room code is already in use'));
             this.close();
-            break;
-          case 'ERROR':
-            if (!opened) reject(new Error('The matchmaking service refused the connection'));
-            else this.events.onFail('The matchmaking service reported an error');
-            break;
-          case 'EXPIRE':
-            // Sent back when a message's `dst` never showed up to collect it.
-            this.events.onFail('No game is open with that code');
-            break;
-          case 'OFFER':
-          case 'ANSWER':
-          case 'CANDIDATE':
-          case 'LEAVE':
-            if (message.src) this.events.onRelay(message.type, message.src, message.payload);
-            break;
-          default:
-            break;
-        }
-      };
-      socket.onerror = () => {
-        if (!opened) reject(new Error('Could not reach the matchmaking service'));
-      };
-      socket.onclose = () => {
-        window.clearInterval(this.heartbeat);
-        if (!opened) reject(new Error('Could not reach the matchmaking service'));
-        else if (!this.closed) this.events.onFail('Lost the matchmaking service');
-      };
-    });
+          }
+          break;
+        case 'ERROR':
+          if (first && !opened) reject?.(new Error('The matchmaking service refused the connection'));
+          break;
+        case 'EXPIRE':
+          // Sent back when a message's `dst` never showed up to collect it.
+          this.events.onExpire?.();
+          break;
+        case 'OFFER':
+        case 'ANSWER':
+        case 'CANDIDATE':
+        case 'LEAVE':
+          if (message.src) this.events.onRelay(message.type, message.src, message.payload);
+          break;
+        default:
+          break;
+      }
+    };
+    socket.onclose = () => {
+      window.clearInterval(this.heartbeat);
+      if (this.closed || this.socket !== socket) return;
+      this.socket = null;
+      if (first && !opened) reject?.(new Error('Could not reach the matchmaking service'));
+      else this.retry();
+    };
+  }
+
+  private retry(): void {
+    if (this.closed) return;
+    this.retries++;
+    if (this.retries === QUIET_RETRIES + 1) this.events.onFail('Lost the matchmaking service, still trying');
+    const wait = RETRY_MS[Math.min(this.retries - 1, RETRY_MS.length - 1)];
+    this.retryTimer = window.setTimeout(() => this.connect(), wait);
   }
 
   relay(type: RelayType, dst: string, payload: unknown): void {
@@ -115,6 +147,7 @@ export class Broker {
   close(): void {
     this.closed = true;
     window.clearInterval(this.heartbeat);
+    window.clearTimeout(this.retryTimer);
     this.socket?.close();
     this.socket = null;
   }

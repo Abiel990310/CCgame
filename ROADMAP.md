@@ -209,6 +209,9 @@ detail behind the factory entries is in
 
 - [ ] The game gets very laggy near the campfire. *On hold until Abiel confirms multiplayer works (2026-09-24).*
 - [ ] The overlapping HUD panels are still showing after the UI revamp. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [x] Co-op: "Lost the matchmaking service" when the broker's socket dropped,
+      which also threw a guest out of a game that no longer needed it. The
+      broker now reconnects quietly, and guests let go of it once they are in.
 - [ ] Co-op: when the host's tab goes to the background, browsers throttle its
       timers and the island slows or stutters for everyone on it.
 
