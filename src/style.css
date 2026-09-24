@@ -873,6 +873,32 @@ kbd {
   filter: grayscale(0.7);
 }
 
+/* Locked reads differently from unaffordable: more materials will not help. */
+.build-option.locked {
+  opacity: 0.5;
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.build-option.locked .piece {
+  filter: grayscale(1);
+}
+
+.build-option .lock-note {
+  display: none;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--ink-dim);
+}
+
+.build-option.locked .lock-note {
+  display: block;
+}
+
+.build-option.locked .cost {
+  display: none;
+}
+
 .build-option b {
   font-size: 12px;
   font-weight: 800;
@@ -1093,6 +1119,12 @@ kbd {
 
 .offer.tech .recipe-flow {
   margin-top: 8px;
+}
+
+.offer.tech .tech-unlocks {
+  display: block;
+  margin-top: 4px;
+  color: var(--gold);
 }
 
 .offer.on {

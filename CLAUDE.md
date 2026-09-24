@@ -85,6 +85,7 @@ engine is deliberately small and generic; the content is data.
 | A mob | `shared/data/mobs.ts` |
 | A weapon | `shared/data/weapons.ts` |
 | A tech | `shared/data/techs.ts` |
+| Which tech unlocks a machine | `unlocks` on its row in `shared/data/techs.ts` |
 | A level-up upgrade | `shared/data/upgrades.ts` |
 | A camp building | `shared/data/buildings.ts` |
 | A sound | `src/audio/sounds.ts` |

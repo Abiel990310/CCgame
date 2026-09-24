@@ -4,7 +4,7 @@ import { addItem } from '@shared/sim/inventory';
 import { addToSlots } from '@shared/sim/slots';
 import { tileKey } from '@shared/sim/grid';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
-import { setResearch } from '@shared/sim/research';
+import { isUnlocked, setResearch } from '@shared/sim/research';
 import { WORLDGEN, addPlayer, createWorld } from '@shared/sim/world';
 import type { ItemId, World } from '@shared/sim/types';
 import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from '../save';
@@ -109,6 +109,8 @@ describe('saving an island', () => {
   it("keeps a splitter's sides, which nothing else on the grid has", () => {
     const world = island();
     const player = [...world.players.values()][0];
+    // The splitter is earned, and this island has to have earned it.
+    world.research.levels.beltLogistics = 1;
 
     const splitter = placeMachine(world, player, 'splitter', SITE.tx, SITE.ty, 2)!;
     // A chest has filters too, one per slot, so the plain machine is a furnace.
@@ -279,6 +281,7 @@ describe('research in a save', () => {
       current: 'beltLogistics',
       progress: { beltLogistics: 7 },
       levels: { automation: 1, deepDrilling: 3 },
+      unlockedAll: false,
     });
   });
 
@@ -292,7 +295,12 @@ describe('research in a save', () => {
     header.version = 4;
     store.set(slotKey(SLOT), JSON.stringify(header));
 
-    expect(loadWorld(SLOT)?.research).toEqual({ current: null, progress: {}, levels: {} });
+    expect(loadWorld(SLOT)?.research).toEqual({
+      current: null,
+      progress: {},
+      levels: {},
+      unlockedAll: true,
+    });
   });
 
   it('drops a tech the game no longer has rather than pointing labs at it', () => {
@@ -302,7 +310,60 @@ describe('research in a save', () => {
     header.research = { current: 'gone', progress: { gone: 4 }, levels: { gone: 1 } };
     store.set(slotKey(SLOT), JSON.stringify(header));
 
-    expect(loadWorld(SLOT)?.research).toEqual({ current: null, progress: {}, levels: {} });
+    expect(loadWorld(SLOT)?.research).toEqual({
+      current: null,
+      progress: {},
+      levels: {},
+      unlockedAll: false,
+    });
+  });
+});
+
+/**
+ * An island built while every machine was on the palette keeps every machine.
+ * Taking a piece back off someone who already built with it is the one thing
+ * the gate must never do.
+ */
+describe('the gated palette and older islands', () => {
+  function rewrite(edit: (header: Record<string, unknown>) => void): void {
+    const header = JSON.parse(store.get(slotKey(SLOT))!);
+    edit(header);
+    store.set(slotKey(SLOT), JSON.stringify(header));
+  }
+
+  it('starts a new island with the tiers still to earn', () => {
+    saveWorld(island(), SLOT);
+    const back = loadWorld(SLOT)!;
+    expect(back.research.unlockedAll).toBe(false);
+    expect(isUnlocked(back, 'furnaceMk2')).toBe(false);
+    expect(isUnlocked(back, 'furnace')).toBe(true);
+  });
+
+  it('unlocks everything on an island saved before the gate', () => {
+    const world = island();
+    world.research.levels.automation = 1;
+    saveWorld(world, SLOT);
+    rewrite((header) => {
+      header.version = 6;
+      delete (header.research as Record<string, unknown>).unlockedAll;
+    });
+
+    const back = loadWorld(SLOT)!;
+    expect(back.research.unlockedAll).toBe(true);
+    expect(isUnlocked(back, 'assemblerMk3')).toBe(true);
+    // What it had researched is still what it had researched.
+    expect(back.research.levels).toEqual({ automation: 1 });
+  });
+
+  it('keeps an older island unlocked once it has been saved again', () => {
+    saveWorld(island(), SLOT);
+    rewrite((header) => {
+      header.version = 4;
+      delete header.research;
+    });
+
+    saveWorld(loadWorld(SLOT)!, SLOT);
+    expect(loadWorld(SLOT)!.research.unlockedAll).toBe(true);
   });
 });
 

@@ -15,6 +15,7 @@ import {
   TABS,
   entriesFor,
   entryFor,
+  lockedBy,
   selectionKey,
   tabOf,
   type BuildSelection,
@@ -277,8 +278,16 @@ export class Hud {
         const tier = entry.tier > 1 ? `<span class="tier t${entry.tier}">Mk${entry.tier}</span>` : '';
         button.innerHTML =
           `<i class="piece" style="background-image:${pieceIconVar(key)}"></i>${tier}` +
-          `<b>${entry.name}</b>${costHtml(entry.cost)}`;
+          `<b>${entry.name}</b>${costHtml(entry.cost)}<em class="lock-note"></em>`;
         button.addEventListener('click', () => {
+          // Which tech a piece waits on is painted each frame into the button,
+          // so a click reads it back rather than needing the world here.
+          const lock = button.dataset.lock;
+          if (lock) {
+            audio.play('denied');
+            this.toast(`Research ${lock} to build a ${entry.name}`, 'warn');
+            return;
+          }
           audio.play('click');
           this.select(entry.selection);
         });
@@ -296,10 +305,11 @@ export class Hud {
   }
 
   /** The strip under the palette: what the hovered or selected piece is and costs. */
-  private paintDetail(player: Player): void {
+  private paintDetail(world: World, player: Player): void {
     const entry = this.hovered ?? entryFor(this.selection);
     if (!entry) return;
-    const key = `${selectionKey(entry.selection)}:${entry.cost
+    const lock = lockedBy(world, entry.selection);
+    const key = `${selectionKey(entry.selection)}:${lock?.id ?? ''}:${entry.cost
       .map((c) => (countItem(player, c.id) >= c.count ? 1 : 0))
       .join('')}`;
     if (key === this.detailKey) return;
@@ -310,7 +320,9 @@ export class Hud {
       `<div><b></b><p></p></div>${costHtml(entry.cost, player)}`;
     // Descriptions are table text; set as text so they can never be markup.
     (this.els.buildDetail.querySelector('b') as HTMLElement).textContent = entry.name;
-    (this.els.buildDetail.querySelector('p') as HTMLElement).textContent = entry.description;
+    (this.els.buildDetail.querySelector('p') as HTMLElement).textContent = lock
+      ? `${entry.description} Research ${lock.name} to build it.`
+      : entry.description;
   }
 
   private select(selection: BuildSelection): void {
@@ -437,8 +449,8 @@ export class Hud {
     this.updateResearch(world);
     this.inventory.update(player, this.liveMachine(world), world);
     if (this.buildMode) {
-      this.updateBuildAffordability(player);
-      this.paintDetail(player);
+      this.updateBuildAffordability(world, player);
+      this.paintDetail(world, player);
     }
   }
 
@@ -569,15 +581,28 @@ export class Hud {
     }
   }
 
-  private updateBuildAffordability(player: Player): void {
+  private updateBuildAffordability(world: World, player: Player): void {
     const current = selectionKey(this.selection);
     const entries = entriesFor(this.tab);
 
-    for (const button of Array.from(this.els.buildItems.children) as HTMLElement[]) {
+    // Buttons sit inside their group's column, not directly in the bar.
+    for (const button of Array.from(this.els.buildItems.querySelectorAll<HTMLElement>('.build-option'))) {
       const key = button.dataset.key ?? '';
       const entry = entries.find((e) => selectionKey(e.selection) === key);
+      const lock = entry ? lockedBy(world, entry.selection) : null;
       button.classList.toggle('on', key === current);
-      button.classList.toggle('poor', entry ? !hasAll(player, entry.cost) : false);
+      button.classList.toggle('locked', !!lock);
+      button.classList.toggle('poor', !lock && entry ? !hasAll(player, entry.cost) : false);
+
+      // Only a finished tech changes this, so it is compared rather than
+      // rewritten every frame.
+      const lockName = lock?.name ?? '';
+      if ((button.dataset.lock ?? '') !== lockName) {
+        if (lock) button.dataset.lock = lockName;
+        else delete button.dataset.lock;
+        const note = button.querySelector('.lock-note');
+        if (note) note.textContent = lock ? `Research ${lockName}` : '';
+      }
     }
   }
 }

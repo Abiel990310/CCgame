@@ -136,6 +136,20 @@ export const RECIPES: Recipe[] = [
     ],
     outputs: [{ id: 'powerPack', count: 1 }],
   },
+  {
+    // Essence is the one pack ingredient no machine mines. It comes off a
+    // fishing line or out of a wisp, so the top of the tree sends a player
+    // back out onto the island rather than retiring the gathering layer.
+    id: 'resonancePack',
+    name: 'Resonance Pack',
+    machine: 'assembler',
+    time: 8,
+    inputs: [
+      { id: 'circuit', count: 1 },
+      { id: 'essence', count: 1 },
+    ],
+    outputs: [{ id: 'resonancePack', count: 1 }],
+  },
 ];
 
 export const RECIPE_BY_ID = new Map(RECIPES.map((r) => [r.id, r]));

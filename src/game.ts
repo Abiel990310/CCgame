@@ -39,7 +39,7 @@ import {
 } from '@shared/sim/factory';
 import { rotate, tileCenter, toTile } from '@shared/sim/grid';
 import { chooseUpgrade } from '@shared/sim/progression';
-import { TECH_BY_ID } from '@shared/data/techs';
+import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
 import { setResearch } from '@shared/sim/research';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
@@ -551,6 +551,8 @@ export class Game {
       occupied: 'Something is already there',
       terrain: "Can't build on water",
       ore: 'A miner has to sit on an ore patch',
+      shore: 'A fish trap has to sit on the shoreline',
+      locked: what === 'belt' ? '' : `Research ${UNLOCKED_BY.get(what)?.name ?? 'more'} first`,
       scenery: "Clear what's growing there first",
       camp: 'A camp building is in the way',
       cost: this.costMessage(cost),
@@ -741,6 +743,11 @@ export class Game {
         next ? `Researched ${name}. Labs moved to ${next.name}.` : `Researched ${name}`,
         'good',
       );
+      // Only the first level of a tech opens anything.
+      if (tech?.unlocks?.length && event.level === 1) {
+        const names = tech.unlocks.map((id) => MACHINES[id].name).join(', ');
+        this.hud.toast(`New on the build palette: ${names}`, 'good');
+      }
       this.requestSave();
     }
   }

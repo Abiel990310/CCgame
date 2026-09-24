@@ -61,7 +61,10 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Arm hand size | An inserter's one slot size is its hand | The stack arm is the first arm that carries more than one item, and making the hand the slot's size keeps it a row. It lifts one kind at a time and lets go one by one, and it only shows red after a whole swing's wait with nothing let go, so feeding a belt faster than the belt spaces items is not a blockage. |
 | Machine inputs | One input slot reserved per ingredient | A two-ingredient recipe fed by two belts deadlocks forever if whichever ingredient saturates first is allowed to fill the whole grid. The machine refuses the surplus instead, and the belt backs up where a player can see it. |
 | Research | Packs belted into labs, owned by the world | Research is the first thing the factory feeds rather than the player, so an unlock is a throughput problem: a second lab is worth exactly what a second furnace is. It belongs to the island, not a player, because a lab is a building and multiplayer will have several people feeding one tree. |
-| Tech effects | Multipliers, never unlocks | Every machine stays available from minute one; a tech makes the factory you already built worth more. A tree of unlocks ends, and two of these repeat forever, so the curve does not. |
+| Tech effects | Multipliers, plus unlocks for the tiers above the first | Every tier-1 machine is there from minute one and a tech still makes the factory you built worth more, but Mk2, Mk3 and the logistics sidegrades are earned. The two repeatable techs stay pure multipliers, so the curve still never ends. |
+| Palette gating | Enforced in `placeMachine`, listed as `unlocks` on the tech row | The gate is a data row like everything else, and the simulation refuses a locked piece so a future server does not have to trust the client's palette. Locked pieces stay visible on the palette, showing the tech that opens them. |
+| Gated palette on old islands | Grandfathered: an island saved before version 7 keeps every machine | "Nothing is lost" is a pillar. `Research.unlockedAll` records it, so the island stays unlocked after it is saved again. |
+| Essence and peaceful worlds | The top tech takes a Resonance Pack (circuit + essence); a researched Fish Trap catches essence on a shoreline | Essence also drops from night wisps, which a peaceful island never sees. The trap rolls the fishing spot's own drop table, so peaceful reaches the top of the tree by fishing alone and raid worlds get a second source. |
 | Research XP | Every lab cycle levels up every player | Gathering by hand was the only source of XP, so automating the island slowed the character down and a peaceful world barely levelled at all. |
 | Item art | One shape name per item, drawn by one function everywhere | An item has no art, so its silhouette *is* its identity. While the bag drew CSS boxes and the world drew a coloured blob, iron and steel plate were the same grey disc on a belt however different they looked in the bag. The names live in `ITEMS`, the drawing in `src/render/items.ts`, and the bag shows the canvas drawing rather than a copy of it. |
 | Interface look | One visual language, SVG icons, art baked from the world's own drawings | Emoji icons rendered as a different picture on every platform, so the HUD never looked like one thing. Icons are inline SVG (`src/ui/icons.ts`), and the hotbar and palette show each piece baked from the canvas drawing the world uses (`src/render/pieces.ts`), so a slot looks like what it places. Still zero requests and system fonts only. |
@@ -123,7 +126,12 @@ Research is in too. A **Lab** eats research packs off a belt, and `TECHS` in
 (research, logic, power) assembled from the existing chain, eight techs, and
 two of them repeatable forever. Every tech is a multiplier on machines that
 already exist — mining, crafting, belt and inserter speed, lab speed, research
-XP — so nothing is locked behind research and a finished tree still compounds.
+XP — and the tiers above the first are unlocked by it: automation opens the
+steel miner, belt logistics the splitter and long inserter, metallurgy the
+steel furnace, assembler Mk2 and steel chest, robotic arms the fast inserter,
+angling the fish trap, and resonance, which eats essence, the three electric
+machines and the stack inserter. A finished tree still compounds
+through the two repeatable techs.
 Each lab cycle grants XP to every player on the island, which is what stops
 automating your island from slowing your character down, and gives a peaceful
 world a levelling curve at last.
@@ -253,9 +261,6 @@ detail behind the factory entries is in
       copies, shift+click pastes, or the buttons in the machine screen. Works
       across tiers of one family: recipe, arm filter, splitter sides, chest
       slot filters.
-- [ ] **Tech gating on the build palette** — start with miner, furnace and
-      belt; everything else is earned. Today all four machines are available at
-      minute one.
 - [x] **Fuel slots** — tier-2 furnaces and assemblers burn coal off a belt.
       Every furnace bank then needs two input belts, which roughly doubles the
       interest of a layout. Tier 3 burns coal too until power exists; one coal
@@ -432,11 +437,13 @@ detail behind the factory entries is in
       speed — about 1.7 items a second, against an electric furnace that eats
       two ore a second (more with Metallurgy). Fixed by the fast inserter; the
       first arm still starves an electric furnace, on purpose.
-- [ ] The factory palette is fifteen entries and now wraps to six rows. It wants
-      grouping, or the tech gating above, before belts and chests get tiers too.
-- [ ] Nothing gates a tier: a player who has the steel can build an electric
-      furnace on night one. That is the tech-tree entry's job, but worth
-      recording as true today.
+- [ ] The factory palette is eighteen entries and wraps to six rows. Gating
+      greys most of them out on a new island rather than hiding them, so it
+      still wants grouping before belts get tiers too.
+- [ ] A machine row added without naming it in some tech's `unlocks` is on the
+      palette from minute one. The safe default, but a new tier should be
+      given a tech on purpose; the unlock tests fail if a tier-2 or tier-3
+      row is left open.
 - [ ] The machine screen lists every recipe its machine can run, and the
       assembler is already at six. It needs grouping or a filter before the
       steel tier doubles it again.
@@ -463,6 +470,11 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Fish trap tiers, or a trap that catches more essence at night, so the
+      essence line scales like the ore lines do instead of by sheer count.
+- [ ] Nothing but research yet needs essence in bulk. A late camp piece or the
+      megaproject could ask for it too, so fishing stays worth automating
+      after resonance is done.
 - [ ] Wood as a weak fuel (a row in `FUEL_VALUE`), so a steel furnace can be
       lit before the first coal miner is down.
 - [ ] Inserters that feed a burner's fuel from a neighbouring burner, the way
@@ -506,17 +518,12 @@ detail behind the factory entries is in
 - [ ] The save header is written every 8 seconds even when nothing happened,
       since `tick` always moves. Skipping it while the player is idle and
       nothing is running would make a paused island cost nothing at all.
-- [ ] Peaceful worlds need a fishing-only route to the top research tier, since
-      `essence` also drops from wisps at night. Otherwise peaceful is locked
-      out of the endgame it suits best.
 - [ ] Research is already per world rather than per player, which is what will
       make another player arriving unambiguously good. Worth revisiting whether
       XP from a cycle should scale with how many people are on the island.
 - [ ] Item shapes could carry a second colour — a gear's bore, a battery's
       terminal — instead of deriving every tone from one hex. Worth it only if
       a tier adds items a single hue cannot keep apart.
-- [ ] Grandfather existing saves as fully unlocked when the palette becomes
-      tech-gated. "Nothing is lost" is a stated pillar.
 - [ ] Trains as a later flourish on top of port logistics, for the spectacle
       rather than the function.
 - [ ] Fluids — oil, pipes, refineries. Deliberately deferred: a second belt
@@ -558,6 +565,12 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Resonance pacing: 40 cycles of one essence each, and a trap lands essence
+      about one catch in six, every 6 seconds. One trap is about 24 minutes of
+      essence, which is untested against how the rest of that tier feels.
+- [ ] Old islands load with every machine unlocked, verified in the browser on
+      a rewritten version 6 save. Not yet tried against a real island saved on
+      the live site before this change.
 - [ ] Coal cost of burners. One coal per four plates means a Mk2 furnace bank
       eats a quarter as much coal as it makes plates; nobody has played a coal
       patch dry against it yet.

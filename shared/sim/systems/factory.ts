@@ -7,8 +7,10 @@ import {
   FUEL_VALUE,
   INSERTER_SWING,
   MACHINES,
+  TRAP_TIME,
   isFuel,
 } from '../../data/machines';
+import { RESOURCES } from '../../data/items';
 import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
 import { RESEARCH_PACKS, TECH_BY_ID, isResearchPack } from '../../data/techs';
 import {
@@ -22,6 +24,7 @@ import {
   splitterAccepts,
 } from '../factory';
 import { tileCenter } from '../grid';
+import { rollDrop } from './gathering';
 import { minerSource, oreAt, takeOre } from '../ore';
 import { activeTech, finishCycle, researchBonuses, type ResearchBonuses } from '../research';
 import { addToSlots, countIn, roomFor, slotCap, takeFromSlots } from '../slots';
@@ -203,6 +206,9 @@ export function stepMachines(world: World, dt: number): void {
       case 'splitter':
         stepSplitter(world, machine);
         break;
+      case 'fishTrap':
+        stepTrap(world, machine, dt);
+        break;
       default:
         stepCrafter(world, machine, dt, bonus);
         break;
@@ -251,6 +257,31 @@ function stepMiner(world: World, machine: Machine, dt: number, bonus: ResearchBo
   if (!takeOre(world, source.tx, source.ty)) return;
   addToSlots(machine.output, ore, 1, def.slotSize);
   announce(world, machine, ore);
+}
+
+/**
+ * A fish trap pulls from the same table a rod does, one roll per catch. It is
+ * how a peaceful island, which has no wisps, gets essence in quantity: the top
+ * research tier needs it by the belt, not by the pocketful.
+ */
+function stepTrap(world: World, machine: Machine, dt: number): void {
+  const def = MACHINES[machine.type];
+  // Checked against a full catch of anything, so a slot that fits fish but
+  // not essence cannot make one roll's result silently vanish.
+  const drops = RESOURCES.fish.drops;
+  if (drops.some((d) => roomFor(machine.output, d.item, def.slotSize) < d.count)) {
+    machine.stalled = true;
+    return;
+  }
+
+  machine.stalled = false;
+  machine.progress += dt * def.speed;
+  if (machine.progress < TRAP_TIME) return;
+
+  machine.progress -= TRAP_TIME;
+  const catchOf = rollDrop(world, 'fish');
+  addToSlots(machine.output, catchOf.item, catchOf.count, def.slotSize);
+  announce(world, machine, catchOf.item);
 }
 
 /**

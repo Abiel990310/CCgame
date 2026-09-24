@@ -1,6 +1,8 @@
 import { BUILDINGS, BUILD_ORDER } from '@shared/data/buildings';
 import { BELT_COST, MACHINES, MACHINE_ORDER } from '@shared/data/machines';
-import type { BuildingId, ItemStack, MachineFamily, MachineId } from '@shared/sim/types';
+import { UNLOCKED_BY, type TechDef } from '@shared/data/techs';
+import { isUnlocked } from '@shared/sim/research';
+import type { BuildingId, ItemStack, MachineFamily, MachineId, World } from '@shared/sim/types';
 
 /** What the player currently has selected in build mode. */
 export type BuildSelection =
@@ -42,6 +44,7 @@ const FAMILY_GROUP: Record<MachineFamily, (typeof GROUPS)[number]> = {
   furnace: 'Smelting',
   assembler: 'Assembly',
   chest: 'Storage',
+  fishTrap: 'Extraction',
 };
 
 const FACTORY: PaletteEntry[] = [
@@ -92,4 +95,14 @@ export function entryFor(selection: BuildSelection): PaletteEntry | undefined {
 /** Which tab holds a selection, so picking one from the hotbar can show it. */
 export function tabOf(selection: BuildSelection): PaletteTab {
   return selection.kind === 'building' ? 'camp' : 'factory';
+}
+
+/**
+ * The tech this island still has to finish before it may build a selection,
+ * or null when it may. Locked pieces stay on the palette rather than vanishing:
+ * seeing the next tier is most of the reason to feed a lab.
+ */
+export function lockedBy(world: World, selection: BuildSelection): TechDef | null {
+  if (selection.kind !== 'machine' || isUnlocked(world, selection.id)) return null;
+  return UNLOCKED_BY.get(selection.id) ?? null;
 }

@@ -1,6 +1,6 @@
 import { ITEMS } from '@shared/data/items';
 import type { MachineDef } from '@shared/data/machines';
-import { BELT_SPEED, INSERTER_SWING, MACHINES } from '@shared/data/machines';
+import { BELT_SPEED, INSERTER_SWING, MACHINES, TRAP_TIME } from '@shared/data/machines';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TECH_BY_ID } from '@shared/data/techs';
 import { TILE } from '@shared/sim/constants';
@@ -365,6 +365,18 @@ function drawMachineDeck(ctx: CanvasRenderingContext2D, def: MachineDef, x: numb
       ctx.fill();
       break;
     }
+    case 'fishTrap': {
+      // A square of open water let into the deck, for the float to sit on.
+      ctx.fillStyle = shift(accent, -70);
+      ctx.beginPath();
+      ctx.roundRect(x - TILE * 0.3, cy - TILE * 0.2, TILE * 0.6, TILE * 0.4, 4);
+      ctx.fill();
+      ctx.fillStyle = shift(accent, -40);
+      ctx.beginPath();
+      ctx.roundRect(x - TILE * 0.26, cy - TILE * 0.16, TILE * 0.52, TILE * 0.32, 3);
+      ctx.fill();
+      break;
+    }
   }
 }
 
@@ -483,6 +495,29 @@ function drawMachineLive(
         }
       }
       ctx.restore();
+      break;
+    }
+    case 'fishTrap': {
+      // A ripple spreading from a float that bobs while the trap is fishing
+      // and lies still once its catch has nowhere to go.
+      ctx.strokeStyle = rgba(accent, running ? 0.6 : 0.25);
+      ctx.lineWidth = 1.2;
+      const ripple = running ? (time * 0.8) % 1 : 0.4;
+      ctx.beginPath();
+      const rx = TILE * (0.06 + ripple * 0.18);
+      const ry = TILE * (0.03 + ripple * 0.08);
+      ctx.ellipse(x, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const bob = running ? Math.sin(time * 3) * 1.4 : 0;
+      ctx.fillStyle = '#e8574f';
+      ctx.beginPath();
+      ctx.arc(x, cy - 2 + bob, 3, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = '#f2efe6';
+      ctx.beginPath();
+      ctx.arc(x, cy - 2 + bob, 3, 0, Math.PI);
+      ctx.fill();
       break;
     }
     case 'lab': {
@@ -763,6 +798,7 @@ function cycleLength(machine: Machine): number {
   // A miner's speed scales how fast progress climbs toward MINE_TIME, so the
   // bar is out of MINE_TIME whatever the tier.
   if (def.family === 'miner') return MINE_TIME;
+  if (def.family === 'fishTrap') return TRAP_TIME;
   if (def.family === 'lab') {
     const tech = machine.recipe ? TECH_BY_ID.get(machine.recipe) : null;
     return tech ? tech.time : 0;

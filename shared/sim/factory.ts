@@ -6,7 +6,8 @@ import { makeSlots, normalizeSlots } from './slots';
 import { inBounds, opposite, rotate, step1, stepN, tileCenter, tileKey, turnLeft } from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
-import { isWalkable, terrainAtIndex } from './terrain';
+import { isUnlocked } from './research';
+import { isShore, isWalkable, terrainAtIndex } from './terrain';
 import type {
   Belt,
   Direction,
@@ -23,6 +24,8 @@ export type FactoryError =
   | 'occupied'
   | 'terrain'
   | 'ore'
+  | 'shore'
+  | 'locked'
   | 'cost'
   | 'bounds'
   | 'scenery'
@@ -52,6 +55,9 @@ export function factoryPlacementError(
   ty: number,
 ): FactoryError {
   if (!inBounds(tx, ty)) return 'bounds';
+  // Checked before the upgrade shortcut, since dropping a tier onto the one
+  // below it is still building that tier.
+  if (what !== 'belt' && !isUnlocked(world, what)) return 'locked';
   // An upgrade stands where its predecessor already passed every tile check,
   // including the ore one: a miner that has emptied its own tile still works
   // the ring around it, and swapping in a faster drill must not strand it.
@@ -72,6 +78,7 @@ export function factoryPlacementError(
 
   const def = MACHINES[what];
   if (def.needsOre && oreAt(world.ore, tx, ty) === null) return 'ore';
+  if (def.needsShore && !isShore(world.terrain, tx, ty)) return 'shore';
   return hasAll(player, def.cost) ? null : 'cost';
 }
 

@@ -572,10 +572,13 @@ export class InventoryScreen {
           ? `Needs ${tech.requires.map((id) => TECH_BY_ID.get(id)?.name ?? id).join(', ')}`
           : `${cyclesDone(world, tech.id)} / ${cyclesNeeded(world, tech)} cycles`;
       const name = tech.repeatable && level > 0 ? `${tech.name} ${level + 1}` : tech.name;
+      const unlocks = tech.unlocks?.length
+        ? `<span class="tech-unlocks">Unlocks ${tech.unlocks.map((id) => MACHINES[id].name).join(', ')}</span>`
+        : '';
 
       button.className += ' tech';
       button.innerHTML =
-        `<b>${name}</b><span>${tech.description}</span>` +
+        `<b>${name}</b><span>${tech.description}</span>${unlocks}` +
         `<span class="recipe-flow">${cost}<em>${tech.time}s · ${state}</em></span>`;
       button.addEventListener('click', () => {
         audio.play('click');

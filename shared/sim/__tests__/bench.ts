@@ -41,6 +41,9 @@ export interface Bench {
 export function bench(seed = 2026): Bench {
   const world = createWorld(seed, true);
   const player = addPlayer(world, 'line-tester');
+  // A bench tests how machines behave, not whether the island has earned
+  // them; the gate has its own tests.
+  world.research.unlockedAll = true;
 
   // Enough of everything the machines cost, so placement never fails for want
   // of materials.
