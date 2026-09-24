@@ -313,6 +313,8 @@ const PRODUCED_SOUND = {
   lab: null,
   // A trap landing a catch is the rod's sound, since it is the rod's catch.
   fishTrap: 'gathered',
+  generator: null,
+  pole: null,
 } as const satisfies Record<MachineFamily, SoundId | null>;
 
 export type { SoundId };

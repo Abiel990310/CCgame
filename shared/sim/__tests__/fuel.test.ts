@@ -25,10 +25,11 @@ function feed(belt: Belt, item: 'coal' | 'ironOre' | 'ironPlate'): void {
 }
 
 describe('which machines burn fuel', () => {
-  it('gives every tier 2 and tier 3 furnace and assembler a fuel slot, and nothing else', () => {
+  it('gives every tier 2 furnace and assembler a fuel slot, the steam engine a firebox, and nothing else', () => {
     for (const id of MACHINE_ORDER) {
       const def = MACHINES[id];
-      const burner = (def.family === 'furnace' || def.family === 'assembler') && def.tier > 1;
+      // Tier 3 runs on power instead.
+      const burner = ((def.family === 'furnace' || def.family === 'assembler') && def.tier === 2) || def.family === 'generator';
       expect(def.fuelSlots > 0, id).toBe(burner);
     }
   });
@@ -63,9 +64,9 @@ describe('burning coal', () => {
     expect(countIn(machine.output, 'ironPlate')).toBeGreaterThan(0);
   });
 
-  it('smelts the same plates per coal at tier 2 and tier 3', () => {
+  it('smelts the same plates per coal at every burner tier', () => {
     const perCoal = FUEL_VALUE.coal! / RECIPE_BY_ID.get('ironPlate')!.time;
-    for (const type of ['furnaceMk2', 'furnaceMk3'] as MachineId[]) {
+    for (const type of ['furnaceMk2'] as MachineId[]) {
       const b = bench();
       const machine = furnace(b, type, 2);
       advance(b.world, 30);
@@ -195,7 +196,7 @@ describe('fuel by hand', () => {
 });
 
 describe('upgrading into a burner', () => {
-  it('gives a stone furnace upgraded in place a fuel slot, and keeps its fuel on Mk2 to Mk3', () => {
+  it('gives a stone furnace upgraded in place a fuel slot, and hands its fuel back going electric', () => {
     const b = bench();
     const spot = at(18, 2);
     const machine = put(b, 'furnace', spot.tx, spot.ty, 0) as Machine;
@@ -207,7 +208,10 @@ describe('upgrading into a burner', () => {
     expect(machine.heat).toBe(0);
 
     fill(machine.fuel!, 'coal', 9);
+    const coal = countItem(b.player, 'coal');
     put(b, 'furnaceMk3', spot.tx, spot.ty, 0);
-    expect(machine.fuel).toEqual([{ id: 'coal', count: 9 }]);
+    expect(machine.fuel).toBeUndefined();
+    expect(machine.heat).toBeUndefined();
+    expect(countItem(b.player, 'coal')).toBe(coal + 9);
   });
 });

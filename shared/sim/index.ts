@@ -17,3 +17,4 @@ export * from './ore';
 export * from './factory';
 export * from './goals';
 export * from './explore';
+export * from './power';

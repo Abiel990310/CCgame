@@ -8,6 +8,7 @@ import { beltAt, machineAt } from '@shared/sim/factory';
 import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
+import { powerNetOf } from '@shared/sim/power';
 import { nearWorkbench } from '@shared/sim/crafting';
 import { findNearestNode } from '@shared/sim/systems/gathering';
 import type { Machine, OreKind, Player, ToolKind, Vec2, World } from '@shared/sim/types';
@@ -197,7 +198,7 @@ export class Inspector {
 
     const { tx, ty } = toTile(pos);
     const machine = machineAt(world, tx, ty);
-    if (machine) return describeMachine(machine);
+    if (machine) return describeMachine(world, machine);
 
     const belt = beltAt(world, tx, ty);
     if (belt) {
@@ -282,8 +283,9 @@ export class Inspector {
   }
 }
 
-function describeMachine(machine: Machine): Card {
+function describeMachine(world: World, machine: Machine): Card {
   const def = MACHINES[machine.type];
+  if (def.family === 'pole' || def.generates) return describePower(world, machine);
   const rows: Array<[string, string]> = [];
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   if (def.family === 'miner' && machine.ore) rows.push(['Mining', ITEMS[machine.ore].name]);
@@ -293,11 +295,17 @@ function describeMachine(machine: Machine): Card {
   let status: Card['status'];
   if (def.family !== 'chest' && def.family !== 'splitter') {
     if (outOfFuel(machine)) status = { text: 'Out of fuel', tone: 'bad' };
+    else if (machine.unpowered) status = { text: powerNetOf(world, machine) ? 'No power' : 'No pole in reach', tone: 'bad' };
     else if (def.choosesRecipe && !recipe) status = { text: 'Pick a recipe', tone: 'warn' };
     else if (machine.stalled && isBlocked(machine, def))
       status = { text: def.family === 'miner' ? 'No ore in reach' : 'Output full', tone: 'bad' };
     else if (machine.stalled) status = { text: 'Waiting for input', tone: 'warn' };
     else status = { text: 'Working', tone: 'good' };
+  }
+  const net = def.power ? powerNetOf(world, machine) : null;
+  if (def.power) {
+    const pace = net ? Math.round(net.satisfaction * 100) : 0;
+    rows.push(['Power', `${def.power} kW${net && pace < 100 ? `, ${pace}% speed` : ''}`]);
   }
   const held = [...machine.input, ...machine.output].reduce((n, s) => n + (s ? s.count : 0), 0);
   if (def.storage || held > 0) rows.push(['Holding', `${held} ${held === 1 ? 'item' : 'items'}`]);
@@ -308,6 +316,42 @@ function describeMachine(machine: Machine): Card {
     status,
     rows,
     hint: def.inputSlots + def.outputSlots > 0 ? 'Click to open' : undefined,
+  };
+}
+
+/**
+ * A pole or an engine is its network: what it can give, what is asked of it,
+ * and whether the one is enough for the other.
+ */
+function describePower(world: World, machine: Machine): Card {
+  const def = MACHINES[machine.type];
+  const net = powerNetOf(world, machine);
+  const rows: Array<[string, string]> = [];
+  let status: Card['status'];
+  let meter: Card['meter'];
+
+  if (!net) {
+    status = def.generates
+      ? { text: 'No pole in reach', tone: 'warn' }
+      : { text: 'No engine on this line', tone: 'warn' };
+  } else {
+    const used = Math.min(net.demand, net.supply);
+    rows.push(['Supply', `${net.supply} kW`], ['Demand', `${net.demand} kW`]);
+    if (def.generates && outOfFuel(machine)) status = { text: 'Out of fuel', tone: 'bad' };
+    else if (net.supply === 0) status = { text: 'No engine running', tone: 'bad' };
+    else if (net.satisfaction < 1) status = { text: `Overloaded: ${Math.round(net.satisfaction * 100)}% speed`, tone: 'bad' };
+    else if (net.demand === 0) status = { text: 'Idle', tone: 'warn' };
+    else status = { text: 'Powered', tone: 'good' };
+    if (net.supply > 0) meter = { value: used / net.supply, tone: net.satisfaction < 1 ? 'bad' : 'good' };
+    if (def.family === 'pole') rows.push(['Poles', String(net.poles.length)], ['Machines', String(net.consumers.length)]);
+  }
+  return {
+    title: def.name,
+    icon: pieceIconVar(`machine:${machine.type}`),
+    status,
+    rows,
+    meter,
+    hint: def.fuelSlots > 0 ? 'Click to add coal' : undefined,
   };
 }
 

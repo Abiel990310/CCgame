@@ -80,6 +80,21 @@ export const TECHS: TechDef[] = [
     xp: 8,
   },
   {
+    id: 'electricity',
+    name: 'Electricity',
+    description:
+      'Steam engines on the shore and poles to carry what they make. Every electric machine after this runs on power instead of coal.',
+    inputs: [
+      { id: 'researchPack', count: 1 },
+      { id: 'logicPack', count: 1 },
+    ],
+    cycles: 30,
+    time: 6,
+    requires: ['metallurgy'],
+    unlocks: ['generator', 'pole'],
+    xp: 12,
+  },
+  {
     id: 'roboticArms',
     name: 'Robotic Arms',
     description: 'Inserters swing half again as fast, so one arm keeps up with a full belt.',
@@ -146,7 +161,7 @@ export const TECHS: TechDef[] = [
     ],
     cycles: 40,
     time: 8,
-    requires: ['roboticArms', 'labAutomation', 'angling'],
+    requires: ['roboticArms', 'labAutomation', 'angling', 'electricity'],
     effect: { kind: 'crafting', amount: 0.1 },
     unlocks: ['minerMk3', 'furnaceMk3', 'assemblerMk3', 'stackInserter'],
     xp: 30,
