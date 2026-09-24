@@ -74,6 +74,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
 | Dependencies | Zero runtime deps, zero external requests | Nothing to leak, nothing to break when a CDN does. |
 | Audio | Synthesised in Web Audio, never sampled | A sound pack would be the first file the page ever fetched, and the first thing between a load and a playable island. It also means the music can be generated rather than looped, which matters when someone is on the same island for hours. Sounds are a data table (`src/audio/sounds.ts`) like every other kind of content. |
+| Rendering between ticks | Draw moving things blended between their last two tick positions, one tick behind the sim | The sim ticks at 30 Hz and screens refresh at 60 or more; drawing raw positions showed each one for two frames or more, so walking read as 10–15 fps. Lives in `src/render/interpolate.ts`, never in `shared/`. The same blend is what multiplayer needs for other players. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -402,6 +403,8 @@ detail behind the factory entries is in
       5-pixel steps where it used to be a continuous 4.29, so motion is
       quantised by well under a pixel. If it ever reads as judder on a
       high-refresh screen, this is the reason.
+      Checked with interpolation in place: at 60 fps the scene now advances
+      5, 5, 5, 6 device pixels per frame, a one-pixel wobble, so it stays.
 - [ ] `resize()` caps `devicePixelRatio` at 2, so a retina display rasterises
       four times the pixels every frame. Worth revisiting if lag is reported on
       one.
@@ -482,6 +485,9 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Movement smoothing was measured at 60 fps in headless Chromium (the player
+      now moves every frame instead of every other one). Not yet watched on a
+      120 Hz screen or a phone, where the old stutter would have been worst.
 - [ ] Research rates are guesses. The first tech is 20 cycles at 4s, packs cost
       a gear and a copper plate each, and the repeatable techs double in price
       per level. None of it has been played, only driven.
