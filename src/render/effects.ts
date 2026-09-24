@@ -49,6 +49,9 @@ export class Effects {
         case 'built':
           this.burst(event.pos, 10, '#e8d8b0', 130);
           break;
+        case 'crafted':
+          this.burst(event.pos, 12, '#f0b94a', 120);
+          break;
         default:
           break;
       }

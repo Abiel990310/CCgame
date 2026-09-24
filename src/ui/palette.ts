@@ -1,5 +1,5 @@
 import { BUILDINGS, BUILD_ORDER } from '@shared/data/buildings';
-import { BELT_COST, MACHINES, MACHINE_ORDER } from '@shared/data/machines';
+import { BELT_COST, MACHINES, MACHINE_ORDER, placementCost } from '@shared/data/machines';
 import { UNLOCKED_BY, type TechDef } from '@shared/data/techs';
 import { isUnlocked } from '@shared/sim/research';
 import type { BuildingId, ItemStack, MachineFamily, MachineId, World } from '@shared/sim/types';
@@ -60,7 +60,7 @@ const FACTORY: PaletteEntry[] = [
     selection: { kind: 'machine' as const, id },
     name: MACHINES[id].name,
     description: MACHINES[id].description,
-    cost: MACHINES[id].cost,
+    cost: placementCost(id),
     group: FAMILY_GROUP[MACHINES[id].family],
     tier: MACHINES[id].tier,
   })),

@@ -214,10 +214,12 @@ describe('taking a splitter back down', () => {
     const { b, splitter } = tee();
     fill(splitter.input, 'ironPlate', 3, SPLITTER_BUFFER);
     const before = countIn(b.player.inventory, 'ironPlate');
+    const packed = countIn(b.player.inventory, 'splitter');
 
     expect(removeAt(b.world, b.player, splitter.tx, splitter.ty)).toBe(true);
 
-    const cost = MACHINES.splitter.cost.find((c) => c.id === 'ironPlate')!.count;
-    expect(countIn(b.player.inventory, 'ironPlate')).toBe(before + 3 + cost);
+    // A crafted machine comes back as itself, ready to place again.
+    expect(countIn(b.player.inventory, 'splitter')).toBe(packed + 1);
+    expect(countIn(b.player.inventory, 'ironPlate')).toBe(before + 3);
   });
 });

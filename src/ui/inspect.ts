@@ -8,6 +8,7 @@ import { beltAt, machineAt } from '@shared/sim/factory';
 import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
+import { nearWorkbench } from '@shared/sim/crafting';
 import { findNearestNode } from '@shared/sim/systems/gathering';
 import type { Machine, OreKind, Player, ToolKind, Vec2, World } from '@shared/sim/types';
 import type { Camera } from '../render/camera';
@@ -68,21 +69,41 @@ export interface InspectContext {
 export class Inspector {
   private card = document.createElement('div');
   private prompt = document.createElement('div');
+  /** Its own element: standing at the bench and beside a bush are both common. */
+  private bench = document.createElement('button');
   private cardKey = '';
   private promptKey = '';
   private patch: Patch | null = null;
 
-  constructor(root: HTMLElement) {
+  constructor(root: HTMLElement, onBench: () => void) {
     this.card.id = 'tip';
     this.card.hidden = true;
     this.prompt.id = 'prompt';
     this.prompt.hidden = true;
-    root.append(this.card, this.prompt);
+    this.bench.className = 'bench-prompt';
+    this.bench.hidden = true;
+    // Tappable, since a phone has no C key to open the bench with.
+    this.bench.addEventListener('click', onBench);
+    root.append(this.card, this.prompt, this.bench);
   }
 
   update(c: InspectContext): void {
     this.updatePrompt(c);
+    this.updateBench(c);
     this.updateCard(c);
+  }
+
+  private updateBench(c: InspectContext): void {
+    const bench = c.busy ? null : nearWorkbench(c.world, c.self);
+    if (!bench) {
+      this.bench.hidden = true;
+      return;
+    }
+    const html = `${c.touch ? '' : '<b class="cap">C</b>'}<span>Craft</span>`;
+    if (this.bench.innerHTML !== html) this.bench.innerHTML = html;
+    const at = c.camera.worldToScreen(bench.pos.x, bench.pos.y - 34);
+    this.bench.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px) translate(-50%, -100%)`;
+    this.bench.hidden = false;
   }
 
   private updatePrompt(c: InspectContext): void {

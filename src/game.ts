@@ -1,5 +1,6 @@
 import { BUILDINGS } from '@shared/data/buildings';
-import { BELT_COST, MACHINES } from '@shared/data/machines';
+import { CRAFT_BY_ID } from '@shared/data/crafting';
+import { BELT_COST, MACHINES, placementCost } from '@shared/data/machines';
 import { ITEMS } from '@shared/data/items';
 import { CAMP, TICK_DT } from '@shared/sim/constants';
 import {
@@ -43,6 +44,7 @@ import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
 import { setResearch } from '@shared/sim/research';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
+import { craft, craftError, nearWorkbench } from '@shared/sim/crafting';
 import type {
   Direction,
   MachineFamily,
@@ -62,6 +64,7 @@ import { touchSlot, type SaveSlot } from './saves';
 import { SlotLock, type EvictReason } from './tablock';
 import { Hud } from './ui/hud';
 import { Inspector } from './ui/inspect';
+import { WorkbenchScreen } from './ui/workbench';
 
 /** A finger has no hover and no E key, so its prompts say so. */
 const COARSE = matchMedia('(pointer: coarse)');
@@ -107,12 +110,18 @@ export class Game {
    */
   private clipboard: MachineSettings | null = null;
   private inspector: Inspector;
+  private workbench: WorkbenchScreen;
   private lock = new SlotLock((slot, reason) => this.evict(slot, reason));
 
   constructor(canvas: HTMLCanvasElement, private callbacks: GameCallbacks) {
     this.renderer = new Renderer(canvas);
     this.input = new InputManager(canvas);
-    this.inspector = new Inspector(document.getElementById('ui') ?? document.body);
+    const ui = document.getElementById('ui') ?? document.body;
+    this.inspector = new Inspector(ui, () => this.toggleCrafting());
+    this.workbench = new WorkbenchScreen(ui, {
+      onCraft: (id) => this.craftItem(id),
+      onClose: () => this.closeCrafting(),
+    });
     this.hud = new Hud({
       onChooseUpgrade: (id) => this.chooseUpgrade(id),
       onToggleBuild: () => this.toggleBuild(),
@@ -340,6 +349,56 @@ export class Game {
     if (on) this.closeInventory();
   }
 
+  /** Open the workbench screen when standing at one, or say what is missing. */
+  private toggleCrafting(): void {
+    if (this.workbench.isOpen) {
+      this.closeCrafting();
+      return;
+    }
+    if (!nearWorkbench(this.world, this.self)) {
+      const any = this.world.buildings.some((b) => b.type === 'workbench');
+      audio.play('denied');
+      this.hud.toast(
+        any ? 'Walk up to a workbench to craft' : 'Build a workbench first: Build (B), then Camp',
+        'warn',
+      );
+      return;
+    }
+    this.hud.setBuildMode(false);
+    this.closeInventory();
+    audio.play('open');
+    this.workbench.show();
+  }
+
+  private closeCrafting(): void {
+    if (!this.workbench.isOpen) return;
+    audio.play('close');
+    this.workbench.hide();
+  }
+
+  private craftItem(id: string): void {
+    const error = craftError(this.world, this.self, id);
+    if (error === null && craft(this.world, this.self, id)) {
+      const made = this.world.events.at(-1);
+      const name = made?.kind === 'crafted' ? ITEMS[made.item].name : 'it';
+      this.flush();
+      this.workbench.pulse(id);
+      this.hud.toast(`Crafted ${name}`, 'good');
+      this.requestSave();
+      return;
+    }
+    const def = CRAFT_BY_ID.get(id);
+    const messages: Record<NonNullable<typeof error>, string> = {
+      unknown: 'Nothing to craft there',
+      far: 'Walk up to a workbench to craft',
+      locked: def?.unlock ? `Research ${UNLOCKED_BY.get(def.unlock)?.name ?? 'more'} first` : 'Locked',
+      cost: def ? this.costMessage(def.cost) : 'Missing materials',
+      room: 'No room in your bag',
+    };
+    audio.play('denied');
+    this.hud.toast(messages[error ?? 'unknown'], 'warn');
+  }
+
   private toggleBag(): void {
     if (this.hud.isInventoryOpen) this.closeInventory();
     else this.hud.openInventory(null);
@@ -408,7 +467,7 @@ export class Game {
   private handleActions(): void {
     // Build keys must not reach the world through an open screen: pressing X
     // while sorting a chest should not also demolish whatever is behind it.
-    const blocked = this.hud.isInventoryOpen || this.hud.isPauseOpen;
+    const blocked = this.hud.isInventoryOpen || this.hud.isPauseOpen || this.workbench.isOpen;
 
     for (const action of this.input.drainActions()) {
       // A quick slot picks what to place, so it also turns build mode on; the
@@ -424,7 +483,11 @@ export class Game {
 
       if (action === 'mute') this.toggleMute();
       if (action === 'build' && !blocked) this.toggleBuild();
-      if (action === 'inventory') this.toggleBag();
+      if (action === 'inventory') {
+        this.closeCrafting();
+        this.toggleBag();
+      }
+      if (action === 'craft' && !this.hud.isPauseOpen) this.toggleCrafting();
       if (action === 'rotate' && !blocked) this.buildDir = rotate(this.buildDir);
       if (action === 'remove' && !blocked) this.tryRemove();
       if (action === 'copy' && !blocked) this.copyFrom(this.machineUnderCursor());
@@ -432,6 +495,7 @@ export class Game {
       if (action === 'cancel') {
         // Esc backs out of whatever is open, and opens the menu when nothing is.
         if (this.hud.isPauseOpen) this.togglePause();
+        else if (this.workbench.isOpen) this.closeCrafting();
         else if (this.hud.isBuildMode || this.hud.isInventoryOpen) {
           this.hud.setBuildMode(false);
           this.closeInventory();
@@ -551,7 +615,7 @@ export class Game {
       return;
     }
 
-    const cost = what === 'belt' ? BELT_COST : MACHINES[what].cost;
+    const cost = what === 'belt' ? BELT_COST : placementCost(what);
     const messages: Record<NonNullable<typeof error>, string> = {
       bounds: 'Off the edge of the island',
       occupied: 'Something is already there',
@@ -561,7 +625,10 @@ export class Game {
       locked: what === 'belt' ? '' : `Research ${UNLOCKED_BY.get(what)?.name ?? 'more'} first`,
       scenery: "Clear what's growing there first",
       camp: 'A camp building is in the way',
-      cost: this.costMessage(cost),
+      cost:
+        what !== 'belt' && MACHINES[what].crafted
+          ? `Craft a ${MACHINES[what].name} at a workbench first`
+          : this.costMessage(cost),
     };
     audio.play('denied');
     this.hud.toast(messages[error], 'warn');
@@ -617,7 +684,11 @@ export class Game {
 
   private inspectUnderCursor(): void {
     const machine = this.machineUnderCursor();
-    if (machine) this.hud.openInventory(machine);
+    if (machine) {
+      this.hud.openInventory(machine);
+      return;
+    }
+    if (buildingAt(this.world, this.cursorWorld)?.type === 'workbench') this.toggleCrafting();
   }
 
   private machineUnderCursor(): Machine | null {
@@ -668,7 +739,7 @@ export class Game {
 
     const paused = this.self.pendingUpgrades > 0 || this.hud.isPauseOpen;
     // Inspecting a machine should not also swing the pickaxe at it.
-    if (this.hud.isInventoryOpen) this.input.takeClick();
+    if (this.hud.isInventoryOpen || this.workbench.isOpen) this.input.takeClick();
     const ghost = this.ghost();
     // Hovering a machine with its next tier selected is an upgrade, not a
     // demolition, so the removal outline would be a false warning.
@@ -687,7 +758,7 @@ export class Game {
       // Building mode repurposes the click, so suppress gathering while placing.
       // An open inventory stops the player entirely: sorting a chest should not
       // also walk you off it. The world keeps ticking behind it either way.
-      const playerInput: PlayerInput = this.hud.isInventoryOpen
+      const playerInput: PlayerInput = this.hud.isInventoryOpen || this.workbench.isOpen
         ? { move: { x: 0, y: 0 }, dash: false, interact: false }
         : this.hud.isBuildMode
           ? { ...raw, interact: false }
@@ -735,13 +806,16 @@ export class Game {
     audio.update(this.world, elapsed);
     this.hud.update(this.world, this.self);
     this.hud.updateStick(this.input.stickState);
+    // A raid can shove the player off the bench; the screen goes with them.
+    if (this.workbench.isOpen && !nearWorkbench(this.world, this.self)) this.closeCrafting();
+    this.workbench.update(this.world, this.self);
     this.inspector.update({
       world: this.world,
       self: this.self,
       camera: this.renderer.camera,
       pointer: this.input.pointer,
       hovering: this.input.hovering,
-      busy: paused || this.hud.isBuildMode || this.hud.isInventoryOpen,
+      busy: paused || this.hud.isBuildMode || this.hud.isInventoryOpen || this.workbench.isOpen,
       touch: COARSE.matches,
     });
   }

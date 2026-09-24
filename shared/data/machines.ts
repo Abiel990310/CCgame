@@ -1,4 +1,4 @@
-import type { ItemId, ItemStack, MachineFamily, MachineId } from '../sim/types';
+import type { CraftedMachineId, ItemId, ItemStack, MachineFamily, MachineId } from '../sim/types';
 
 export interface MachineDef {
   id: MachineId;
@@ -52,6 +52,12 @@ export interface MachineDef {
    * line, and belts are walkable so a factory never walls its owner in.
    */
   solid: boolean;
+  /**
+   * True when the machine is made at a workbench rather than put together on
+   * the spot. Its `cost` is then the crafting recipe, and placing it spends
+   * one of the crafted item instead. Must be listed in `CraftedMachineId`.
+   */
+  crafted?: boolean;
 }
 
 /**
@@ -149,6 +155,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   minerMk2: {
     id: 'minerMk2',
+    crafted: true,
     family: 'miner',
     tier: 2,
     name: 'Steel Miner',
@@ -172,6 +179,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   minerMk3: {
     id: 'minerMk3',
+    crafted: true,
     family: 'miner',
     tier: 3,
     name: 'Electric Miner',
@@ -196,6 +204,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   furnaceMk2: {
     id: 'furnaceMk2',
+    crafted: true,
     family: 'furnace',
     tier: 2,
     name: 'Steel Furnace',
@@ -219,6 +228,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   furnaceMk3: {
     id: 'furnaceMk3',
+    crafted: true,
     family: 'furnace',
     tier: 3,
     name: 'Electric Furnace',
@@ -243,6 +253,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   assemblerMk2: {
     id: 'assemblerMk2',
+    crafted: true,
     family: 'assembler',
     tier: 2,
     name: 'Assembler Mk2',
@@ -267,6 +278,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   assemblerMk3: {
     id: 'assemblerMk3',
+    crafted: true,
     family: 'assembler',
     tier: 3,
     name: 'Industrial Assembler',
@@ -335,6 +347,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   longInserter: {
     id: 'longInserter',
+    crafted: true,
     family: 'inserter',
     // A sidegrade rather than a rung: it reaches further, not faster.
     tier: 1,
@@ -361,6 +374,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   steelChest: {
     id: 'steelChest',
+    crafted: true,
     family: 'chest',
     tier: 2,
     name: 'Steel Chest',
@@ -381,6 +395,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   fastInserter: {
     id: 'fastInserter',
+    crafted: true,
     family: 'inserter',
     tier: 2,
     name: 'Fast Inserter',
@@ -407,6 +422,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   stackInserter: {
     id: 'stackInserter',
+    crafted: true,
     family: 'inserter',
     tier: 3,
     name: 'Stack Inserter',
@@ -433,6 +449,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   lab: {
     id: 'lab',
+    crafted: true,
     family: 'lab',
     tier: 1,
     name: 'Lab',
@@ -459,6 +476,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
   },
   splitter: {
     id: 'splitter',
+    crafted: true,
     family: 'splitter',
     tier: 1,
     name: 'Splitter',
@@ -554,3 +572,14 @@ export const BELT_ITEM_GAP = 1 / BELT_CAPACITY;
 
 /** Seconds an inserter takes to swing one item from behind it to in front. */
 export const INSERTER_SWING = 0.6;
+
+/** Machines made at the workbench, in palette order. */
+export const CRAFTED_MACHINES = MACHINE_ORDER.filter((id) => MACHINES[id].crafted) as CraftedMachineId[];
+
+/**
+ * What placing a machine takes from the bag: its materials, or for a crafted
+ * machine the one item the workbench made. Removing it hands the same back.
+ */
+export function placementCost(id: MachineId): ItemStack[] {
+  return MACHINES[id].crafted ? [{ id: id as CraftedMachineId, count: 1 }] : MACHINES[id].cost;
+}

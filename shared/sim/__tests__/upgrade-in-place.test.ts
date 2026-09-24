@@ -21,7 +21,7 @@ describe('upgrading a machine in place', () => {
     furnace.output[0] = { id: 'steelPlate', count: 4 };
     furnace.progress = 0.5;
 
-    const steelBefore = countIn(b.player.inventory, 'steelPlate');
+    const packedBefore = countIn(b.player.inventory, 'furnaceMk2');
     const stoneBefore = countIn(b.player.inventory, 'stone');
 
     // Facing 3 on the placement is ignored: an upgrade keeps the old facing.
@@ -42,9 +42,9 @@ describe('upgrading a machine in place', () => {
       b.world.machines.filter((m) => m.tx === tx && m.ty === ty),
     ).toHaveLength(1);
 
-    // Paid for the Mk2, refunded the furnace, exactly as removing it would.
-    expect(countIn(b.player.inventory, 'steelPlate')).toBe(steelBefore - 12);
-    expect(countIn(b.player.inventory, 'stone')).toBe(stoneBefore - 20 + 20);
+    // Spent a crafted Mk2, refunded the furnace, exactly as removing it would.
+    expect(countIn(b.player.inventory, 'furnaceMk2')).toBe(packedBefore - 1);
+    expect(countIn(b.player.inventory, 'stone')).toBe(stoneBefore + MACHINES.furnace.cost[0].count);
   });
 
   it('goes straight from Mk1 to Mk3 and from Mk2 to Mk3', () => {

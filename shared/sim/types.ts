@@ -33,7 +33,39 @@ export type ItemId =
   | 'researchPack'
   | 'logicPack'
   | 'powerPack'
-  | 'resonancePack';
+  | 'resonancePack'
+  // Crafted at the workbench
+  | ToolItemId
+  | CraftedMachineId;
+
+/** Hand tools. Carried in the bag, they speed up gathering with their kind. */
+export type ToolItemId =
+  | 'stoneAxe'
+  | 'stonePick'
+  | 'ironAxe'
+  | 'ironPick'
+  | 'steelAxe'
+  | 'steelPick'
+  | 'fishingRod'
+  | 'forageBasket';
+
+/**
+ * Machines too advanced to knock together on the spot. Each is crafted at a
+ * workbench into an item of the same name, and placing one spends that item.
+ */
+export type CraftedMachineId =
+  | 'minerMk2'
+  | 'minerMk3'
+  | 'furnaceMk2'
+  | 'furnaceMk3'
+  | 'assemblerMk2'
+  | 'assemblerMk3'
+  | 'steelChest'
+  | 'longInserter'
+  | 'fastInserter'
+  | 'stackInserter'
+  | 'lab'
+  | 'splitter';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -357,5 +389,6 @@ export type SimEvent =
   | { kind: 'playerHit'; playerId: number; amount: number }
   | { kind: 'downed'; playerId: number }
   | { kind: 'built'; pos: Vec2; type: BuildingId }
+  | { kind: 'crafted'; pos: Vec2; item: ItemId }
   | { kind: 'research'; tech: string; level: number; next: string | null }
   | { kind: 'oreChanged'; tx: number; ty: number };

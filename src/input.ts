@@ -23,6 +23,7 @@ export type ActionKey =
   | 'mute'
   | 'copy'
   | 'paste'
+  | 'craft'
   | `hotbar${HotbarKey}`
   | `bind${HotbarKey}`;
 
@@ -90,6 +91,7 @@ export class InputManager {
       if (e.code === 'KeyR') this.pending.push('rotate');
       if (e.code === 'KeyX') this.pending.push('remove');
       if (e.code === 'KeyM') this.pending.push('mute');
+      if (e.code === 'KeyC') this.pending.push('craft');
       if (e.code === 'Tab') this.pending.push('inventory');
       if (e.code === 'Escape') this.pending.push('cancel');
     });

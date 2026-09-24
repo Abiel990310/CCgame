@@ -2,6 +2,7 @@ import { expect } from 'vitest';
 import { TICK_DT, TILE } from '../constants';
 import { placeBelt, placeMachine, setRecipe } from '../factory';
 import { tileKey } from '../grid';
+import { CRAFTED_MACHINES } from '../../data/machines';
 import { addItem } from '../inventory';
 import { addToSlots, countIn, stacksIn, totalIn } from '../slots';
 import { ORE_ORDER } from '../ore';
@@ -58,6 +59,9 @@ export function bench(seed = 2026): Bench {
     'advancedCircuit',
   ];
   for (const item of stock) addItem(player, item, 900);
+  // Later tiers are made at a workbench before they can be placed; the bench
+  // skips that trip, which has tests of its own.
+  for (const id of CRAFTED_MACHINES) addItem(player, id, 20);
 
   const grass = TERRAIN_ORDER.indexOf('grass');
   for (let ty = BENCH.ty; ty < BENCH.ty + BENCH.height; ty++) {
