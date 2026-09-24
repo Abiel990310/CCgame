@@ -266,6 +266,9 @@ export class GameAudio {
         case 'built':
           this.play('built', { pos: event.pos });
           break;
+        case 'crafted':
+          this.play('crafted');
+          break;
         case 'removed':
           this.play('removed', { pos: event.pos });
           break;

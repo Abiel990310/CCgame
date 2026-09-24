@@ -26,6 +26,13 @@ export class Camera {
     };
   }
 
+  worldToScreen(wx: number, wy: number): Vec2 {
+    return {
+      x: (wx - this.pos.x) * this.zoom + this.width / 2,
+      y: (wy - this.pos.y) * this.zoom + this.height / 2,
+    };
+  }
+
   /** Visible world rect, padded, for culling. */
   bounds(pad = 80): { minX: number; minY: number; maxX: number; maxY: number } {
     const halfW = this.width / 2 / this.zoom + pad;

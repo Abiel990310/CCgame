@@ -1,4 +1,5 @@
-import type { ItemId, ResourceKind, ToolKind } from '../sim/types';
+import type { CraftedMachineId, ItemId, ResourceKind, ToolKind } from '../sim/types';
+import { CRAFTED_MACHINES, MACHINES } from './machines';
 
 /**
  * The silhouette an item is drawn with. There is no art in this project, so
@@ -22,7 +23,12 @@ export type ItemShape =
   | 'chip'
   | 'cell'
   | 'motor'
-  | 'flask';
+  | 'flask'
+  | 'axe'
+  | 'pick'
+  | 'rod'
+  | 'basket'
+  | 'crate';
 
 export interface ItemDef {
   id: ItemId;
@@ -31,7 +37,20 @@ export interface ItemDef {
   color: string;
   stack: number;
   shape: ItemShape;
+  /**
+   * A hand tool: carried anywhere in the bag, it multiplies how fast nodes of
+   * its kind are gathered. Only the best one of a kind counts.
+   */
+  tool?: { kind: ToolKind; speed: number };
 }
+
+/** Every crafted machine is also an item, drawn as a crate in the machine's colour. */
+const MACHINE_ITEMS = Object.fromEntries(
+  CRAFTED_MACHINES.map((id): [CraftedMachineId, ItemDef] => [
+    id,
+    { id, name: MACHINES[id].name, color: MACHINES[id].color, stack: 20, shape: 'crate' },
+  ]),
+) as Record<CraftedMachineId, ItemDef>;
 
 export const ITEMS: Record<ItemId, ItemDef> = {
   wood: { id: 'wood', name: 'Wood', color: '#a4713d', stack: 999, shape: 'log' },
@@ -43,7 +62,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   gold: { id: 'gold', name: 'Gold', color: '#e8b64c', stack: 999, shape: 'nugget' },
   essence: { id: 'essence', name: 'Essence', color: '#b58cf0', stack: 999, shape: 'orb' },
 
-  ironOre: { id: 'ironOre', name: 'Iron Ore', color: '#9c8378', stack: 999, shape: 'chunk' },
+  ironOre: { id: 'ironOre', name: 'Iron Ore', color: '#7391b6', stack: 999, shape: 'chunk' },
   copperOre: { id: 'copperOre', name: 'Copper Ore', color: '#c28356', stack: 999, shape: 'chunk' },
   coal: { id: 'coal', name: 'Coal', color: '#4a4a52', stack: 999, shape: 'chunk' },
 
@@ -86,7 +105,23 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     stack: 999,
     shape: 'flask',
   },
+
+  stoneAxe: tool('stoneAxe', 'Stone Axe', '#9a8f80', 'axe', 1.5),
+  stonePick: tool('stonePick', 'Stone Pickaxe', '#9a8f80', 'pick', 1.5),
+  ironAxe: tool('ironAxe', 'Iron Axe', '#c3ccd6', 'axe', 2.2),
+  ironPick: tool('ironPick', 'Iron Pickaxe', '#c3ccd6', 'pick', 2.2),
+  steelAxe: tool('steelAxe', 'Steel Axe', '#7e9bc4', 'axe', 3.2),
+  steelPick: tool('steelPick', 'Steel Pickaxe', '#7e9bc4', 'pick', 3.2),
+  fishingRod: tool('fishingRod', 'Fishing Rod', '#b9854e', 'rod', 1.8),
+  forageBasket: tool('forageBasket', 'Forage Basket', '#c9a36a', 'hand', 1.6),
+
+  ...MACHINE_ITEMS,
 };
+
+function tool(id: ItemId, name: string, color: string, kind: ToolKind, speed: number): ItemDef {
+  const shape: ItemShape = kind === 'hand' ? 'basket' : kind;
+  return { id, name, color, stack: 1, shape, tool: { kind, speed } };
+}
 
 /** Every item in table order, which is the order an item picker offers them. */
 export const ITEM_ORDER = Object.keys(ITEMS) as ItemId[];

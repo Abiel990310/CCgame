@@ -149,7 +149,10 @@ export const GOALS: GoalDef[] = [
   {
     id: 'lab',
     title: 'Build a Lab',
-    hint: 'Labs eat research packs off a belt and work through the tech tree.',
+    // Goal progress is saved as an index into this table, so the workbench is
+    // folded into this hint rather than given a row of its own.
+    hint: 'Build a Workbench (Camp tab), press C beside it to craft a Lab, then place it.',
+    touchHint: 'Build a Workbench (Camp tab), tap Craft beside it to make a Lab, then place it.',
     have: (w) => machinesOf(w, 'lab'),
     need: 1,
     xp: 20,
@@ -173,7 +176,7 @@ export const GOALS: GoalDef[] = [
   {
     id: 'tier2',
     title: 'Build a Mk2 machine',
-    hint: 'Research unlocks faster tiers. Place one over its Mk1 to upgrade it.',
+    hint: 'Research unlocks faster tiers. Craft one at the workbench and place it over its Mk1.',
     have: (w) => w.machines.filter((m) => MACHINES[m.type].tier >= 2).length,
     need: 1,
     xp: 40,

@@ -3,7 +3,7 @@ import { oreAt, oreBand } from '@shared/sim/ore';
 import { hash2, valueNoise } from '@shared/sim/rng';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
 import type { Terrain } from '@shared/sim/types';
-import { drawOreTile } from './factory';
+import { drawOreTiles, type OreTile } from './ore';
 
 /** A world-space rectangle to paint, in pixels. */
 export interface GroundRect {
@@ -428,12 +428,14 @@ function drawOre(
   tx1: number,
   ty1: number,
 ): void {
+  const tiles: OreTile[] = [];
   for (let ty = ty0; ty <= ty1; ty++) {
     for (let tx = tx0; tx <= tx1; tx++) {
       const kind = oreAt(ore, tx, ty);
       // A worked tile is drawn thinner, so a patch visibly wears away from its
       // rim inward and a player can see one running out before it stops.
-      if (kind) drawOreTile(ctx, tx, ty, kind, oreBand(oreLeft[ty * MAP_TILES + tx]));
+      if (kind) tiles.push({ tx, ty, kind, band: oreBand(oreLeft[ty * MAP_TILES + tx]) });
     }
   }
+  drawOreTiles(ctx, tiles);
 }

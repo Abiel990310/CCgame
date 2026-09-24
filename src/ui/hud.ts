@@ -227,6 +227,17 @@ export class Hud {
     return this.buildMode;
   }
 
+  /**
+   * Fold the palette down to its tabs and the selected piece while the mouse
+   * is out over the island placing things, and open it again when the mouse
+   * comes back. Open in full it covered most of a laptop screen.
+   */
+  foldPalette(fold: boolean): void {
+    if (this.els.buildbar.classList.contains('folded') !== fold) {
+      this.els.buildbar.classList.toggle('folded', fold);
+    }
+  }
+
   get isInventoryOpen(): boolean {
     return this.inventory.isOpen;
   }
@@ -642,6 +653,12 @@ export class Hud {
  * short of is marked, so "why can't I place this" is answered on the card.
  */
 function costHtml(cost: ItemStack[], player?: Player): string {
+  // A crafted machine is paid for at the workbench; here it only needs one in the bag.
+  if (cost.length === 1 && ITEMS[cost[0].id].shape === 'crate') {
+    const have = player ? countItem(player, cost[0].id) : 0;
+    const text = !player ? 'Workbench' : have > 0 ? `${have} in bag` : 'Craft at a workbench';
+    return `<span class="cost crafted"><span class="${player && have === 0 ? 'short' : ''}">${icon('hammer')}${text}</span></span>`;
+  }
   const parts = cost.map((c) => {
     const short = player ? countItem(player, c.id) < c.count : false;
     return (

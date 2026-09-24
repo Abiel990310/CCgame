@@ -28,6 +28,7 @@ export type ActionKey =
   | 'mute'
   | 'copy'
   | 'paste'
+  | 'craft'
   | 'upgrade'
   | `hotbar${HotbarKey}`
   | `bind${HotbarKey}`;
@@ -58,6 +59,12 @@ export class InputManager {
 
   pointer: Vec2 = { x: 0, y: 0 };
   pointerDown = false;
+  /**
+   * A mouse resting over the world rather than over a panel. Hover cards need
+   * it: a touch has no hover, and a pointer that has moved onto the HUD should
+   * not keep describing whatever was last under it.
+   */
+  hovering = false;
   clicked = false;
   /**
    * Set by the game each frame. In build mode a finger is a cursor: a tap
@@ -98,6 +105,7 @@ export class InputManager {
       if (e.code === 'KeyR') this.pending.push('rotate');
       if (e.code === 'KeyX') this.pending.push('remove');
       if (e.code === 'KeyM') this.pending.push('mute');
+      if (e.code === 'KeyC') this.pending.push('craft');
       if (e.code === 'KeyU') this.pending.push('upgrade');
       if (e.code === 'Tab') this.pending.push('inventory');
       if (e.code === 'Escape') this.pending.push('cancel');
@@ -111,7 +119,9 @@ export class InputManager {
       if (e.pointerType === 'touch') return;
       const rect = this.target.getBoundingClientRect();
       this.pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      this.hovering = e.pointerType !== 'touch';
     });
+    this.target.addEventListener('pointerleave', () => (this.hovering = false));
     // Right-click removes, so the browser menu must not fight it.
     this.target.addEventListener('contextmenu', (e) => e.preventDefault());
 

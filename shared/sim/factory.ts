@@ -1,4 +1,4 @@
-import { BELT_COST, MACHINES } from '../data/machines';
+import { BELT_COST, MACHINES, placementCost } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { buildingOnTile } from './building';
 import { giveOrDrop, payAll, hasAll } from './inventory';
@@ -62,7 +62,7 @@ export function factoryPlacementError(
   // including the ore one: a miner that has emptied its own tile still works
   // the ring around it, and swapping in a faster drill must not strand it.
   if (what !== 'belt' && upgradeTarget(world, what, tx, ty) !== null) {
-    return hasAll(player, MACHINES[what].cost) ? null : 'cost';
+    return hasAll(player, placementCost(what)) ? null : 'cost';
   }
   if (world.grid.has(tileKey(tx, ty))) return 'occupied';
   if (!isWalkable(terrainAtIndex(world.terrain, tx, ty))) return 'terrain';
@@ -79,7 +79,7 @@ export function factoryPlacementError(
   const def = MACHINES[what];
   if (def.needsOre && oreAt(world.ore, tx, ty) === null) return 'ore';
   if (def.needsShore && !isShore(world.terrain, tx, ty)) return 'shore';
-  return hasAll(player, def.cost) ? null : 'cost';
+  return hasAll(player, placementCost(what)) ? null : 'cost';
 }
 
 export function placeBelt(
@@ -114,7 +114,7 @@ export function placeMachine(
   if (existing) return upgradeMachine(world, player, existing, type);
 
   const def = MACHINES[type];
-  if (!payAll(player, def.cost)) return null;
+  if (!payAll(player, placementCost(type))) return null;
 
   const machine: Machine = {
     id: world.nextId++,
@@ -181,8 +181,8 @@ function upgradeMachine(
   type: MachineId,
 ): Machine | null {
   const def = MACHINES[type];
-  if (!payAll(player, def.cost)) return null;
-  refund(world, player, MACHINES[machine.type].cost);
+  if (!payAll(player, placementCost(type))) return null;
+  refund(world, player, placementCost(machine.type));
 
   machine.type = type;
   // A higher tier never has fewer slots, so every stack keeps its position.
@@ -241,7 +241,7 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
   }
 
   drop(world.machines, entity);
-  refund(world, player, MACHINES[entity.type].cost);
+  refund(world, player, placementCost(entity.type));
   for (const stack of [...entity.input, ...entity.output, ...(entity.fuel ?? [])]) {
     if (stack) giveOrDrop(world, player, stack.id, stack.count);
   }

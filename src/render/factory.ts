@@ -7,65 +7,10 @@ import { TILE } from '@shared/sim/constants';
 import { filterOf } from '@shared/sim/factory';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
-import type { Belt, Direction, Machine, MachineId, OreKind } from '@shared/sim/types';
+import type { Belt, Direction, Machine, MachineId } from '@shared/sim/types';
 import { drawItemSprite } from './items';
 import { UI, rgba, shift } from './palette';
-import { meter, polygon, shadow } from './shapes';
-
-const ORE_COLORS: Record<OreKind, string> = {
-  ironOre: '#b9a49a',
-  copperOre: '#d98c4e',
-  coal: '#3c3c46',
-};
-
-/**
- * Ore is drawn as scattered pebbles, never as a tinted tile. A flat per-tile
- * fill produces hard square edges across a patch that read as rendering
- * artefacts; soft circular shading plus rocks reads as an actual deposit.
- *
- * `band` is how full the tile still is, 1 to 4. A worked-out tile keeps fewer
- * pebbles and a fainter stain, which is what lets a patch be read at a glance
- * rather than by opening every miner on it.
- */
-export function drawOreTile(
-  ctx: CanvasRenderingContext2D,
-  tx: number,
-  ty: number,
-  kind: OreKind,
-  band = 4,
-): void {
-  const { x, y } = tileCenter(tx, ty);
-  const color = ORE_COLORS[kind];
-
-  // Circles overlap between neighbouring tiles, so a patch has no visible grid.
-  // Kept faint: stronger, the overlapping discs read as a field of blotches.
-  ctx.fillStyle = rgba(color, 0.04 + band * 0.02);
-  ctx.beginPath();
-  ctx.arc(x, y, TILE * 0.6, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Deterministic pebble placement so a patch never shimmers between frames.
-  // Pebbles are dropped from the end of that fixed sequence as the tile runs
-  // down, so the ones that remain never jump about.
-  for (let i = 0; i < band + 1; i++) {
-    const hx = ((tx * 73856093) ^ (ty * 19349663) ^ (i * 83492791)) >>> 0;
-    const ox = ((hx % 1000) / 1000 - 0.5) * TILE * 0.82;
-    const oy = (((hx >> 10) % 1000) / 1000 - 0.5) * TILE * 0.82;
-    const r = 2.8 + ((hx >> 20) % 100) / 100 * 2.6;
-
-    ctx.fillStyle = 'rgba(10, 14, 20, 0.2)';
-    ctx.beginPath();
-    ctx.ellipse(x + ox, y + oy + r * 0.5, r, r * 0.45, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    polygon(ctx, x + ox, y + oy, r, 5, hx, 0.32);
-    ctx.fillStyle = color;
-    ctx.fill();
-    polygon(ctx, x + ox - r * 0.22, y + oy - r * 0.26, r * 0.5, 5, hx + 7, 0.32);
-    ctx.fillStyle = shift(color, 30);
-    ctx.fill();
-  }
-}
+import { meter, shadow } from './shapes';
 
 /**
  * A belt is a dark rubber bed between two steel rails. The rails are what
@@ -194,7 +139,7 @@ export function drawMachine(
   drawProgress(ctx, machine, x, y);
 }
 
-function outOfFuel(machine: Machine): boolean {
+export function outOfFuel(machine: Machine): boolean {
   if (!machine.fuel || (machine.heat ?? 0) > 0) return false;
   return machine.fuel.every((slot) => slot === null || slot.count <= 0);
 }
@@ -550,7 +495,7 @@ function drawMachineLive(
 }
 
 /** Stuck rather than waiting: every output slot taken, or a miner off its ore. */
-function isBlocked(machine: Machine, def: MachineDef): boolean {
+export function isBlocked(machine: Machine, def: MachineDef): boolean {
   // A burner with nothing to burn waits forever, not for the next delivery.
   if (outOfFuel(machine)) return true;
   if (def.family === 'miner' && machine.output.every((s) => s === null)) return true;

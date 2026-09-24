@@ -1,6 +1,7 @@
 import { RESOURCES } from '../../data/items';
 import { GATHER, PLAYER } from '../constants';
 import { distanceSq } from '../math';
+import { toolSpeed } from '../crafting';
 import { nodeSpotTaken } from '../nodes';
 import { nextFloat } from '../progression';
 import type { ItemId, Player, PlayerInput, ResourceNode, World } from '../types';
@@ -56,7 +57,8 @@ export function stepGathering(
     player.gatherProgress = 0;
   }
 
-  player.gatherProgress += (dt / GATHER.baseSeconds) * player.stats.gatherSpeed;
+  const tool = toolSpeed(player, RESOURCES[target.kind].tool);
+  player.gatherProgress += (dt / GATHER.baseSeconds) * player.stats.gatherSpeed * tool;
   if (player.gatherProgress < 1) return;
 
   player.gatherProgress -= 1;

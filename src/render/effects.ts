@@ -1,6 +1,8 @@
+import { ITEMS } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
-import type { SimEvent, Vec2 } from '@shared/sim/types';
-import { UI, rgba } from './palette';
+import type { ItemId, SimEvent, Vec2 } from '@shared/sim/types';
+import { drawItemSprite } from './items';
+import { INK } from './paint';
 
 interface Particle {
   pos: Vec2;
@@ -15,9 +17,18 @@ interface FloatingText {
   pos: Vec2;
   text: string;
   life: number;
+  maxLife: number;
   color: string;
   size: number;
+  /** Sideways drift, so a burst of hits fans out instead of stacking. */
+  drift: number;
+  /** Loot lines carry the item, drawn beside the count, and merge by it. */
+  item?: ItemId;
+  count?: number;
 }
+
+/** The HUD's rounded face, so numbers in the world and on the panels match. */
+const FONT = "ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, sans-serif";
 
 /**
  * Purely cosmetic layer driven by simulation events. Nothing here feeds back
@@ -34,7 +45,11 @@ export class Effects {
       switch (event.kind) {
         case 'hit':
           this.burst(event.pos, 4, '#ffe8b0', 90);
-          this.text(event.pos, `${event.amount}`, UI.ink, 12);
+          // Big hits read bigger and hotter, so a good upgrade is felt.
+          this.text(event.pos, `${event.amount}`, event.amount >= 20 ? '#ffb347' : '#fff4d6', event.amount >= 20 ? 16 : 13);
+          break;
+        case 'collected':
+          if (event.item) this.loot(event.pos, event.item, event.count);
           break;
         case 'mobDied':
           this.burst(event.pos, 14, MOBS[event.type].color, 170);
@@ -48,6 +63,9 @@ export class Effects {
           break;
         case 'built':
           this.burst(event.pos, 10, '#e8d8b0', 130);
+          break;
+        case 'crafted':
+          this.burst(event.pos, 12, '#f0b94a', 120);
           break;
         default:
           break;
@@ -74,11 +92,38 @@ export class Effects {
   text(pos: Vec2, text: string, color: string, size: number): void {
     if (!text) return;
     this.texts.push({
-      pos: { x: pos.x + (Math.random() - 0.5) * 12, y: pos.y - 8 },
+      pos: { x: pos.x + (Math.random() - 0.5) * 12, y: pos.y - 14 },
       text,
       life: 0.8,
+      maxLife: 0.8,
       color,
       size,
+      drift: (Math.random() - 0.5) * 30,
+    });
+  }
+
+  /**
+   * "+3 wood" over the player. Pickups arrive in quick runs, so a line still
+   * rising for the same item counts up rather than a second one stacking on it.
+   */
+  loot(pos: Vec2, item: ItemId, count: number): void {
+    const open = this.texts.find((t) => t.item === item && t.maxLife - t.life < 0.7);
+    if (open) {
+      open.count = (open.count ?? 0) + count;
+      open.text = `+${open.count}`;
+      open.life = open.maxLife - 0.12;
+      return;
+    }
+    this.texts.push({
+      pos: { x: pos.x, y: pos.y - 34 },
+      text: `+${count}`,
+      life: 1.3,
+      maxLife: 1.3,
+      color: '#fff4d6',
+      size: 11,
+      drift: 0,
+      item,
+      count,
     });
   }
 
@@ -102,7 +147,12 @@ export class Effects {
       const t = this.texts[i];
       t.life -= dt;
       if (t.life <= 0) this.texts.splice(i, 1);
-      else t.pos.y -= 26 * dt;
+      else {
+        // Quick rise that eases off, so a number pops out and then hangs.
+        const age = t.maxLife - t.life;
+        t.pos.y -= (t.item ? 16 : 60 * Math.max(0.15, 1 - age * 2.2)) * dt;
+        t.pos.x += t.drift * dt;
+      }
     }
   }
 
@@ -117,14 +167,35 @@ export class Effects {
     ctx.globalAlpha = 1;
 
     ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
     for (const t of this.texts) {
-      ctx.globalAlpha = Math.min(1, t.life * 1.6);
-      ctx.font = `700 ${t.size}px system-ui, sans-serif`;
-      ctx.fillStyle = rgba('#10141a', 0.5);
-      ctx.fillText(t.text, t.pos.x, t.pos.y + 1);
+      const age = t.maxLife - t.life;
+      // Pops in oversized and settles, the way a hit lands in an action game.
+      const pop = 1 + Math.max(0, 0.45 - age * 3.2);
+      ctx.globalAlpha = Math.min(1, t.life * 3);
+      ctx.font = `900 ${Math.round(t.size * pop)}px ${FONT}`;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = INK;
+
+      if (t.item) {
+        const name = ITEMS[t.item].name;
+        const label = `${t.text} ${name}`;
+        const w = ctx.measureText(label).width;
+        const ix = t.pos.x - w / 2 - 7;
+        drawItemSprite(ctx, ix, t.pos.y, 5.5, t.item);
+        ctx.textAlign = 'left';
+        ctx.strokeText(label, ix + 8, t.pos.y);
+        ctx.fillStyle = t.color;
+        ctx.fillText(label, ix + 8, t.pos.y);
+        ctx.textAlign = 'center';
+        continue;
+      }
+      ctx.strokeText(t.text, t.pos.x, t.pos.y);
       ctx.fillStyle = t.color;
       ctx.fillText(t.text, t.pos.x, t.pos.y);
     }
     ctx.globalAlpha = 1;
+    ctx.textBaseline = 'alphabetic';
   }
 }

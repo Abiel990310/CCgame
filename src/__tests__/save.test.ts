@@ -112,6 +112,7 @@ describe('saving an island', () => {
     // The splitter is earned, and this island has to have earned it.
     world.research.levels.beltLogistics = 1;
 
+    addItem(player, 'splitter', 1);
     const splitter = placeMachine(world, player, 'splitter', SITE.tx, SITE.ty, 2)!;
     // A chest has filters too, one per slot, so the plain machine is a furnace.
     const plain = placeMachine(world, player, 'furnace', SITE.tx + 1, SITE.ty, 0)!;

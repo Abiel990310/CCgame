@@ -188,6 +188,17 @@ export const SOUNDS = {
       NOISE(600, 200, 0.5, 0.002, 0.14, 0.9),
     ],
   },
+  // Two taps of the hammer and a bright ring as the piece comes off the bench.
+  crafted: {
+    gain: 0.26,
+    vary: 0.04,
+    layers: [
+      NOISE(2600, 1400, 0.5, 0.001, 0.05, 2.2),
+      NOISE(2400, 1300, 0.45, 0.001, 0.05, 2.2, 0.09),
+      TONE('triangle', 880, 880, 0.35, 0.004, 0.32, 0.17),
+      TONE('sine', 1320, 1320, 0.2, 0.004, 0.36, 0.17),
+    ],
+  },
   removed: {
     gain: 0.24,
     vary: 0.08,

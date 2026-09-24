@@ -1,6 +1,7 @@
 import { ITEMS, type ItemShape } from '@shared/data/items';
 import type { ItemId } from '@shared/sim/types';
 import { rgba, shift } from './palette';
+import { pieceIconVar } from './pieces';
 
 /**
  * One drawing of an item, used everywhere an item is shown: riding a belt, in
@@ -411,7 +412,158 @@ function flask(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, c
   outline(ctx, s, line);
 }
 
+/** A wooden haft running corner to corner, which every hand tool starts from. */
+function haft(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, line: string): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.PI / 4);
+  ctx.beginPath();
+  ctx.roundRect(-s * 0.13, -s * 0.72, s * 0.26, s * 1.75, s * 0.12);
+  ctx.fillStyle = '#8a5a30';
+  ctx.fill();
+  outline(ctx, s, line);
+  ctx.restore();
+}
+
+/** A haft with a wedge head on one side: the axe. */
+function axe(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  const { lit, shade, line } = tones(color);
+  haft(ctx, x, y, s, line);
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.52, y - s * 0.62);
+  ctx.lineTo(x - s * 0.05, y - s * 0.98);
+  ctx.quadraticCurveTo(x + s * 0.35, y - s * 0.62, x + s * 0.12, y - s * 0.12);
+  ctx.lineTo(x - s * 0.18, y - s * 0.26);
+  ctx.closePath();
+  ctx.fillStyle = shade;
+  ctx.fill();
+  outline(ctx, s, line);
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.05, y - s * 0.9);
+  ctx.quadraticCurveTo(x + s * 0.28, y - s * 0.6, x + s * 0.1, y - s * 0.22);
+  ctx.lineTo(x - s * 0.02, y - s * 0.5);
+  ctx.closePath();
+  ctx.fillStyle = lit;
+  ctx.fill();
+}
+
+/** A haft under a curved double point: the pickaxe. */
+function pick(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  const { lit, shade, line } = tones(color);
+  haft(ctx, x, y, s, line);
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.95, y - s * 0.1);
+  ctx.quadraticCurveTo(x - s * 0.6, y - s * 0.95, x + s * 0.1, y - s * 0.95);
+  ctx.quadraticCurveTo(x - s * 0.35, y - s * 0.62, x - s * 0.5, y - s * 0.35);
+  ctx.closePath();
+  ctx.moveTo(x + s * 0.1, y - s * 0.95);
+  ctx.quadraticCurveTo(x + s * 0.72, y - s * 0.72, x + s * 0.92, y - s * 0.02);
+  ctx.quadraticCurveTo(x + s * 0.58, y - s * 0.42, x + s * 0.28, y - s * 0.48);
+  ctx.closePath();
+  ctx.fillStyle = shade;
+  ctx.fill();
+  outline(ctx, s, line);
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.8, y - s * 0.3);
+  ctx.quadraticCurveTo(x - s * 0.55, y - s * 0.85, x + s * 0.05, y - s * 0.9);
+  ctx.quadraticCurveTo(x - s * 0.4, y - s * 0.7, x - s * 0.8, y - s * 0.3);
+  ctx.fillStyle = lit;
+  ctx.fill();
+}
+
+/** A long bent rod with its line and float. */
+function rod(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  const { shade, line } = tones(color);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.85, y + s * 0.85);
+  ctx.quadraticCurveTo(x - s * 0.1, y - s * 0.2, x + s * 0.7, y - s * 0.9);
+  ctx.strokeStyle = line;
+  ctx.lineWidth = Math.max(1.2, s * 0.26);
+  ctx.stroke();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(0.8, s * 0.15);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + s * 0.7, y - s * 0.9);
+  ctx.lineTo(x + s * 0.75, y + s * 0.35);
+  ctx.strokeStyle = 'rgba(240, 240, 240, 0.8)';
+  ctx.lineWidth = Math.max(0.5, s * 0.05);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x + s * 0.75, y + s * 0.45, s * 0.16, 0, Math.PI * 2);
+  ctx.fillStyle = '#e0574f';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x - s * 0.62, y + s * 0.62, s * 0.2, 0, Math.PI * 2);
+  ctx.fillStyle = shade;
+  ctx.fill();
+}
+
+/** A woven basket with a handle, for foraging by hand. */
+function basket(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  const { lit, shade, line } = tones(color);
+  ctx.beginPath();
+  ctx.arc(x, y - s * 0.1, s * 0.62, Math.PI, 0);
+  ctx.strokeStyle = line;
+  ctx.lineWidth = Math.max(1.2, s * 0.22);
+  ctx.stroke();
+  ctx.strokeStyle = shade;
+  ctx.lineWidth = Math.max(0.8, s * 0.13);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.9, y - s * 0.12);
+  ctx.lineTo(x + s * 0.9, y - s * 0.12);
+  ctx.lineTo(x + s * 0.66, y + s * 0.85);
+  ctx.lineTo(x - s * 0.66, y + s * 0.85);
+  ctx.closePath();
+  ctx.fillStyle = shade;
+  ctx.fill();
+  outline(ctx, s, line);
+  if (s >= 5) {
+    ctx.strokeStyle = lit;
+    ctx.lineWidth = Math.max(0.6, s * 0.09);
+    for (const k of [0.22, 0.52]) {
+      ctx.beginPath();
+      ctx.moveTo(x - s * (0.86 - k * 0.3), y - s * 0.12 + s * k * 1.1);
+      ctx.lineTo(x + s * (0.86 - k * 0.3), y - s * 0.12 + s * k * 1.1);
+      ctx.stroke();
+    }
+  }
+  ctx.beginPath();
+  ctx.arc(x - s * 0.2, y - s * 0.3, s * 0.2, 0, Math.PI * 2);
+  ctx.arc(x + s * 0.22, y - s * 0.26, s * 0.18, 0, Math.PI * 2);
+  ctx.fillStyle = '#d8556b';
+  ctx.fill();
+}
+
+/** A packed machine: a banded crate in the machine's own colour. */
+function crate(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  const { lit, shade, line } = tones(color);
+  ctx.beginPath();
+  ctx.roundRect(x - s * 0.85, y - s * 0.7, s * 1.7, s * 1.5, s * 0.16);
+  ctx.fillStyle = shade;
+  ctx.fill();
+  outline(ctx, s, line);
+  ctx.beginPath();
+  ctx.roundRect(x - s * 0.85, y - s * 0.7, s * 1.7, s * 0.42, [s * 0.16, s * 0.16, 0, 0]);
+  ctx.fillStyle = lit;
+  ctx.fill();
+  if (s < 5) return;
+  ctx.fillStyle = '#f0b94a';
+  ctx.fillRect(x - s * 0.12, y - s * 0.7, s * 0.24, s * 1.5);
+  ctx.beginPath();
+  ctx.arc(x, y + s * 0.2, s * 0.2, 0, Math.PI * 2);
+  ctx.fillStyle = '#2a2f3a';
+  ctx.fill();
+}
+
 const SHAPES: Record<ItemShape, ShapeFn> = {
+  axe,
+  pick,
+  rod,
+  basket,
+  crate,
   chunk,
   nugget,
   log,
@@ -507,6 +659,11 @@ export function installItemIcons(): void {
 
   const lines: string[] = [];
   for (const id of Object.keys(ITEMS) as ItemId[]) {
+    // A packed machine shows the machine in the bag, not a generic crate.
+    if (ITEMS[id].shape === 'crate') {
+      lines.push(`--icon-${id}: ${pieceIconVar(`machine:${id}`)};`);
+      continue;
+    }
     ctx.clearRect(0, 0, ICON_PX, ICON_PX);
     // A margin keeps the widest shapes and their outlines off the edge.
     drawItem(ctx, ICON_PX / 2, ICON_PX / 2, ICON_PX * 0.44, id);

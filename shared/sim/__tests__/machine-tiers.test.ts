@@ -70,16 +70,18 @@ describe('the tier table', () => {
 });
 
 describe('building a later tier', () => {
-  it('pays for itself out of the steel chain', () => {
+  it('spends one crafted machine and none of its materials', () => {
     const b = bench();
-    const before = countIn(b.player.inventory, 'advancedCircuit');
+    const crafted = countIn(b.player.inventory, 'minerMk3');
+    const circuits = countIn(b.player.inventory, 'advancedCircuit');
 
     plantOre(b.world, 'ironOre', at(0, 0).tx, at(0, 0).ty);
     const machine = put(b, 'minerMk3', at(0, 0).tx, at(0, 0).ty, 0) as Machine;
 
     expect(machine.type).toBe('minerMk3');
-    const cost = MACHINES.minerMk3.cost.find((c) => c.id === 'advancedCircuit')!.count;
-    expect(countIn(b.player.inventory, 'advancedCircuit')).toBe(before - cost);
+    expect(countIn(b.player.inventory, 'minerMk3')).toBe(crafted - 1);
+    // The materials were paid at the workbench, not again on the ground.
+    expect(countIn(b.player.inventory, 'advancedCircuit')).toBe(circuits);
   });
 
   it('refuses a player who has only wood and stone', () => {

@@ -38,7 +38,13 @@ export function stepPickups(world: World, dt: number): void {
       if (pickup.item) addItem(player, pickup.item, pickup.count);
       if (pickup.xp > 0) grantXp(world, player, pickup.xp);
       else grantXp(world, player, 1);
-      world.events.push({ kind: 'collected', pos: { ...pickup.pos }, item: pickup.item });
+      world.events.push({
+        kind: 'collected',
+        pos: { ...pickup.pos },
+        item: pickup.item,
+        count: pickup.count,
+        playerId: player.id,
+      });
       claimed = true;
       break;
     }

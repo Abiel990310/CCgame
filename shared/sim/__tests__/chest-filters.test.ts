@@ -139,7 +139,7 @@ describe('filtered chest slots', () => {
   it('carry over to a steel chest built on top, with the new slots open', () => {
     const { b, box } = chest(7);
     setSlotFilter(b.world, box.id, 3, 'coal');
-    for (const cost of MACHINES.steelChest.cost) addItem(b.player, cost.id, cost.count);
+    addItem(b.player, 'steelChest', 1);
     const upgraded = put(b, 'steelChest', box.tx, box.ty, 0) as Machine;
 
     expect(upgraded.id).toBe(box.id);

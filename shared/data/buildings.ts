@@ -44,7 +44,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDef> = {
   workbench: {
     id: 'workbench',
     name: 'Workbench',
-    description: 'Unlocks better gear. (Crafting arrives in a later phase.)',
+    description: 'Crafts tools and advanced machines. Stand beside it and press C.',
     cost: [
       { id: 'wood', count: 20 },
       { id: 'stone', count: 10 },
