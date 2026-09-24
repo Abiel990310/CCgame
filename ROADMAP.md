@@ -402,6 +402,13 @@ detail behind the factory entries is in
       PixiJS (a dependency for what is a few hundred lines here) and a full
       engine such as Godot or Unity (a rewrite of the sim and co-op in another
       language for no visual gain the art cannot already give).
+      Since then (PR #47) the Canvas fixes above took every measured scene to
+      2 to 3 times its frame rate, so whether the full move still pays depends
+      on Abiel's own device; asked 2026-09-24.
+- [ ] Crawlers and slimes are still traced live (about 0.3 and 0.15 ms each on
+      a CPU canvas). Baking them like the brute needs their heading quantised,
+      and the sprite cache evicts by age rather than use, which a few hundred
+      creature frames would churn.
 - [x] Loot popups ("+2 Wood") show for every player's pickups. Filter them by
       the event's `playerId` when multiplayer lands. Done with co-op.
 - [ ] Co-op: the menu behind a guest who left still shows the friend's island
