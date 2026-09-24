@@ -101,10 +101,8 @@
   color: var(--ink-dim);
 }
 
+/* Joins the top-right stack under the pouch; see .corner-right. */
 .coop-chip {
-  position: absolute;
-  top: calc(max(14px, env(safe-area-inset-top)) + 64px);
-  right: var(--gap);
   display: flex;
   align-items: center;
   gap: 7px;
@@ -129,4 +127,22 @@
 
 .menu-actions .coop-join-btn .ico {
   font-size: 16px;
+}
+
+/* On a phone the chip is the code and a head count, no sentence. */
+@media (max-width: 640px) {
+  .coop-chip {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+  .coop-chip span {
+    display: none;
+  }
+  .coop-chip b::after {
+    content: attr(data-count);
+    margin-left: 7px;
+    color: var(--ink-dim);
+    letter-spacing: 0;
+    font-family: inherit;
+  }
 }

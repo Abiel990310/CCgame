@@ -208,7 +208,11 @@ detail behind the factory entries is in
 ### Bugs
 
 - [ ] The game gets very laggy near the campfire. *On hold until Abiel confirms multiplayer works (2026-09-24).*
-- [ ] The overlapping HUD panels are still showing after the UI revamp. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [x] The overlapping HUD panels are still showing after the UI revamp. The
+      co-op code chip sat on the resource pouch at every screen size, and on
+      a 320px phone the phase panel wrapped into it. The top-right corner is
+      now one stack, the chip is compact on phones, and phone toasts stay
+      clear of the button column. Surveyed clean at 11 sizes from 320px to 1920px.
 - [x] Co-op: "Lost the matchmaking service" when the broker's socket dropped,
       which also threw a guest out of a game that no longer needed it. The
       broker now reconnects quietly, and guests let go of it once they are in.
@@ -365,6 +369,9 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [ ] HUD panels are still placed with hand-tuned `top` offsets per breakpoint
+      (goal, toasts, left column). Turning the left column into a stack like
+      the top-right one would stop the next new panel colliding.
 - [x] Loot popups ("+2 Wood") show for every player's pickups. Filter them by
       the event's `playerId` when multiplayer lands. Done with co-op.
 - [ ] Co-op: the menu behind a guest who left still shows the friend's island

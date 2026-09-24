@@ -64,7 +64,7 @@ export class CoopPanel {
   constructor(private callbacks: CoopPanelCallbacks) {
     const sound = document.getElementById('pause-sound');
     sound?.parentElement?.insertBefore(this.section, sound);
-    document.getElementById('ui')?.appendChild(this.chip);
+    (document.getElementById('corner-right') ?? document.getElementById('ui'))?.appendChild(this.chip);
     this.render();
   }
 
@@ -104,7 +104,9 @@ export class CoopPanel {
     this.chip.classList.toggle('hidden', mode.kind === 'solo');
     if (mode.kind !== 'solo') {
       this.chip.innerHTML = `${icon('users')}<b></b><span></span>`;
-      (this.chip.querySelector('b') as HTMLElement).textContent = mode.code;
+      const code = this.chip.querySelector('b') as HTMLElement;
+      code.textContent = mode.code;
+      code.dataset.count = String(others);
       (this.chip.querySelector('span') as HTMLElement).textContent =
         others === 1 ? 'just you so far' : `${others} on the island`;
       this.chip.title = this.names.join(', ');
