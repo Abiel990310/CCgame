@@ -3043,3 +3043,21 @@ kbd {
     align-items: flex-end;
   }
 }
+
+/* The F3 frame meter: under the day banner, clear of the corner stacks and
+   the hotbar, readable over grass and night alike. */
+.perf-meter {
+  position: fixed;
+  left: 50%;
+  top: 92px;
+  transform: translateX(-50%);
+  z-index: 60;
+  margin: 0;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(10, 14, 20, 0.78);
+  color: #d8f0d0;
+  font: 600 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+  pointer-events: none;
+}
