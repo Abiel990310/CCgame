@@ -44,6 +44,7 @@ import { rotate, step1, tileCenter, tileKey, toTile } from '@shared/sim/grid';
 import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
 import { setResearch } from '@shared/sim/research';
 import { GOAL_BY_ID } from '@shared/data/goals';
+import { GraphicsPanel } from './ui/graphics';
 import { GoalTracker } from './ui/goals';
 import { WorldMap } from './ui/worldmap';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
@@ -100,6 +101,7 @@ export class Game {
   private renderer: Renderer;
   private input: InputManager;
   private hud: Hud;
+  private graphics: GraphicsPanel | null = null;
   private goals: GoalTracker;
   private worldMap: WorldMap;
 
@@ -133,6 +135,8 @@ export class Game {
   constructor(canvas: HTMLCanvasElement, private callbacks: GameCallbacks) {
     this.renderer = new Renderer(canvas);
     this.input = new InputManager(canvas);
+    const graphics = document.getElementById('pause-graphics');
+    if (graphics) this.graphics = new GraphicsPanel(graphics, this.renderer);
     const ui = document.getElementById('ui') ?? document.body;
     this.inspector = new Inspector(ui, () => this.toggleCrafting());
     this.workbench = new WorkbenchScreen(ui, {
@@ -340,6 +344,7 @@ export class Game {
       if (this.slot) this.hud.setPauseOpen(true, this.slot.name, `Night ${this.world.nightIndex} · saved just now`);
       else this.hud.setPauseOpen(true, "A friend's island", `Night ${this.world.nightIndex} · the host keeps the save`);
       this.coop.refreshPause();
+      this.graphics?.refresh();
     } else {
       // Coming back from a pause must not fast-forward the missed seconds.
       this.lastFrame = performance.now();

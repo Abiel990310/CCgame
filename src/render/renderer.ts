@@ -31,6 +31,7 @@ import {
 } from './entities';
 import { UI, rgba } from './palette';
 import { GroundCache } from './groundcache';
+import type { GpuStage } from './gpu/stage';
 import { setItemScale } from './items';
 import { setPaintScale } from './paint';
 import { polygon } from './shapes';
@@ -47,10 +48,31 @@ interface Drawable {
   draw: () => void;
 }
 
+/** Where the choice of renderer is remembered; `?renderer=pixi` or `?renderer=canvas` sets it. */
+const RENDERER_KEY = 'ccgame.renderer';
+
+/** Whether this browser session asked for the Pixi renderer. */
+function pixiWanted(): boolean {
+  try {
+    const asked = new URLSearchParams(location.search).get('renderer');
+    if (asked === 'pixi' || asked === 'canvas') localStorage.setItem(RENDERER_KEY, asked);
+    return localStorage.getItem(RENDERER_KEY) === 'pixi';
+  } catch {
+    return false;
+  }
+}
+
 export class Renderer {
   readonly camera = new Camera();
   readonly effects = new Effects();
+  /** What the frame is drawn with: the stage's own context, or the Pixi one once it is up. */
   private ctx: CanvasRenderingContext2D;
+  private stageCtx: CanvasRenderingContext2D;
+  /** The Pixi renderer, while it is switched on and has started. */
+  private gpu: GpuStage | null = null;
+  /** Milliseconds between frames, smoothed; see `fps`. */
+  private frameGap = 0;
+  private lastFrame = 0;
   private ground = new GroundCache();
   private dpr = 1;
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
@@ -79,6 +101,7 @@ export class Renderer {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('2D canvas context unavailable');
     this.ctx = ctx;
+    this.stageCtx = ctx;
 
     // Night is laid over the scene by the browser's compositor rather than
     // painted into it: a flat dark sheet, then the low-resolution light map
@@ -103,21 +126,93 @@ export class Renderer {
       canvas.after(dark, lights, eyes.canvas, tags.canvas);
       this.night = { dark, lights, lightsCtx: lights.getContext('2d'), eyes, tags, shade: '' };
     }
+
+    if (pixiWanted()) void this.startGpu();
+  }
+
+  /**
+   * Switch to the Pixi renderer or back, remembering the choice. Resolves to
+   * the renderer actually drawing, which stays Canvas where Pixi cannot start.
+   */
+  async setBackend(kind: 'pixi' | 'canvas'): Promise<'pixi' | 'canvas'> {
+    try {
+      localStorage.setItem(RENDERER_KEY, kind);
+    } catch {
+      // A private window forgets the choice; the switch still happens.
+    }
+    if (kind === 'pixi') {
+      await this.startGpu();
+    } else if (this.gpu) {
+      const gpu = this.gpu;
+      this.gpu = null;
+      this.ctx = this.stageCtx;
+      this.canvas.style.opacity = '';
+      gpu.destroy();
+      this.resize();
+    }
+    return this.backend;
+  }
+
+  private starting: Promise<void> | null = null;
+
+  private startGpu(): Promise<void> {
+    // The Pixi renderer relies on the night being laid over it, since it has
+    // no way to blend the dark and the lights into itself yet.
+    if (this.gpu || !this.night) return Promise.resolve();
+    this.starting ??= import('./gpu/stage')
+      .then(({ GpuStage }) => GpuStage.create())
+      .then((stage) => this.attachGpu(stage))
+      .catch((err: unknown) => console.warn('Pixi renderer unavailable, staying on Canvas', err))
+      .finally(() => {
+        this.starting = null;
+      });
+    return this.starting;
+  }
+
+  /** Frames drawn a second, smoothed over the last couple of seconds. */
+  get fps(): number {
+    return this.frameGap > 0 ? 1000 / this.frameGap : 0;
+  }
+
+  /** Put the Pixi canvas under the stage canvas, which stays on top, clear, to take the input. */
+  private attachGpu(stage: GpuStage): void {
+    Object.assign(stage.canvas.style, {
+      position: 'fixed',
+      inset: '0',
+      width: '100%',
+      height: '100%',
+      display: 'block',
+      pointerEvents: 'none',
+    });
+    this.canvas.before(stage.canvas);
+    this.canvas.style.opacity = '0';
+    this.gpu = stage;
+    this.ctx = stage.ctx as unknown as CanvasRenderingContext2D;
+    this.resize();
+  }
+
+  /** Which renderer is drawing, for the settings and for tests. */
+  get backend(): 'pixi' | 'canvas' {
+    return this.gpu ? 'pixi' : 'canvas';
   }
 
   resize(): void {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
-    this.canvas.width = Math.round(w * dpr);
-    this.canvas.height = Math.round(h * dpr);
+    const pw = Math.round(w * dpr);
+    const ph = Math.round(h * dpr);
+    // Under Pixi the stage canvas only takes input, so it keeps no pixels.
+    this.canvas.width = this.gpu ? 1 : pw;
+    this.canvas.height = this.gpu ? 1 : ph;
+    this.gpu?.resize(pw, ph);
     this.camera.width = w;
     this.camera.height = h;
     this.dpr = dpr;
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.stageCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (this.night) {
-      this.night.eyes.resize(this.canvas.width, this.canvas.height);
-      this.night.tags.resize(this.canvas.width, this.canvas.height);
+      this.night.eyes.resize(pw, ph);
+      this.night.tags.resize(pw, ph);
     }
     // Zoom with viewport so a phone shows a sensible slice of the island.
     this.camera.zoom = clamp(Math.min(w, h) / 560, 1.15, 2.4);
@@ -137,6 +232,16 @@ export class Renderer {
     const ctx = this.ctx;
     const { width, height } = this.camera;
 
+    const now = performance.now();
+    const gap = now - this.lastFrame;
+    // A gap of a second or more is the tab asleep, not a slow frame.
+    if (this.lastFrame > 0 && gap < 1000) this.frameGap = this.frameGap > 0 ? this.frameGap * 0.97 + gap * 0.03 : gap;
+    this.lastFrame = now;
+
+    if (this.gpu) {
+      this.gpu.ctx.begin();
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    }
     ctx.save();
     ctx.fillStyle = '#12232e';
     ctx.fillRect(0, 0, width, height);
@@ -224,6 +329,7 @@ export class Renderer {
 
     this.effects.draw(ctx);
     ctx.restore();
+    this.gpu?.present();
 
     this.drawLighting(world, selfId, time);
 

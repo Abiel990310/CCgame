@@ -1216,6 +1216,17 @@ kbd {
   margin-top: 20px;
 }
 
+.pause-inner #pause-graphics {
+  margin-top: 10px;
+}
+
+.graphics-status {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Toasts ---------- */
 
 .toasts {

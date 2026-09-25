@@ -92,11 +92,12 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
-| Dependencies | Zero runtime deps, zero external requests | Nothing to leak, nothing to break when a CDN does. |
+| Dependencies | Zero runtime deps, zero external requests; PixiJS is the one exception (2026-09-25), bundled and loaded from the same site only when the GPU renderer is on | Nothing to leak, nothing to break when a CDN does. |
 | Audio | Synthesised in Web Audio, never sampled | A sound pack would be the first file the page ever fetched, and the first thing between a load and a playable island. It also means the music can be generated rather than looped, which matters when someone is on the same island for hours. Sounds are a data table (`src/audio/sounds.ts`) like every other kind of content. |
 | Rendering between ticks | Draw moving things blended between their last two tick positions, one tick behind the sim | The sim ticks at 30 Hz and screens refresh at 60 or more; drawing raw positions showed each one for two frames or more, so walking read as 10–15 fps. Lives in `src/render/interpolate.ts`, never in `shared/`. The same blend is what multiplayer needs for other players. |
 | Co-op netcode | The host's browser runs the island; guests replay its ticks | Guests send what they press and click; the host applies it between ticks and sends every guest that tick's orders and inputs, so each copy of the deterministic sim takes the same step. A tick costs about 150 bytes where state snapshots would cost tens of kilobytes, and a fingerprint every second replaces a copy that drifts. Every click that changes the island is a `Command` in `shared/sim/commands.ts`. |
 | Co-op transport | WebRTC data channels, signalled through the public PeerJS broker | No server to run or pay for, on static hosting. The page talks to the broker only when someone hosts or joins, and speaks its protocol directly so there is still no runtime dependency. Friends' characters are saved on the host's side, beside the island. |
+| Renderer | PixiJS (WebGL) behind a switch, drawing the same art through a Canvas-shaped adapter | Abiel chose it on 2026-09-25 as the engine web games use, so the game can grow on it. The first runtime dependency, loaded only when the GPU renderer is on. The art stays written once against the Canvas API, so the two renderers cannot drift apart while Pixi is proven. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -476,23 +477,25 @@ detail behind the factory entries is in
       forty on screen went from 27 to 133 fps headless. Crawlers (about
       0.3 ms each on a CPU canvas) and slimes are still traced live.
 - [ ] **Move drawing to PixiJS** (Abiel, 2026-09-25: "just use the one
-      everyone use for web gaming so we can expand"). The first plan, below,
-      was hand-written WebGL (first decided 2026-09-24). Profiled on the live build: the
-      simulation, HUD and lighting maths cost under 1 ms a frame; the rest is
-      Canvas 2D rasterising sprites, gradients and full-screen composites, and
-      everything past a fresh island (a factory, a night camp, a raid) still
-      sits at 12 to 30 fps on a 2x screen in headless Chromium. Canvas stays as
-      the art painter (every sprite is already baked into a bitmap); WebGL
-      becomes the compositor: one atlas, batched quads, the ground as one
-      texture with grain in a shader, lights and night as a shader pass. Hand
-      written, no library, so the bundle keeps zero dependencies. Rejected:
-      PixiJS (a dependency for what is a few hundred lines here) and a full
-      engine such as Godot or Unity (a rewrite of the sim and co-op in another
-      language for no visual gain the art cannot already give).
-      Since then (PR #47) the Canvas fixes above took every measured scene to
-      2 to 3 times its frame rate. Pixi v8 adds about 145 KB gzipped (the game
-      is 85 KB); it draws the existing baked art as textures, behind a switch
-      until it matches the Canvas renderer.
+      everyone use for web gaming so we can expand"). First step done: a Pixi
+      renderer behind a switch (Pause → Graphics → Try GPU, or
+      `?renderer=pixi`), loaded as its own file so the Canvas build does not
+      download Pixi. `src/render/gpu/context.ts` takes the Canvas 2D calls the
+      art already makes and turns them into Pixi sprites and graphics in the
+      same order, so every painter is shared and the 3/4 depth sort is
+      untouched; baked sprites and ground chunks become textures. It matches
+      the Canvas look in side-by-side screenshots. Speed is unproven: headless
+      Chromium has no GPU (its software WebGL spends seconds a frame filling
+      pixels), and with the pixels taken out Pixi's main-thread work is 11 to
+      19 ms a frame against Canvas's 2 to 8 ms, over half of it uploading
+      vertex buffers that rebuild every frame. Next: keep static Graphics
+      (machine live parts that did not change) between frames, pack baked
+      sprites into an atlas so they batch, then move night and lights into a
+      shader pass so the DOM layers go. Canvas stays the default until Pixi is
+      faster on a real GPU.
+      History: the first plan was hand-written WebGL (2026-09-24), rejecting
+      PixiJS as a dependency for a few hundred lines; the Canvas fixes in PR
+      #47 then took every measured scene to 2 to 3 times its frame rate.
 - [ ] Crawlers and slimes are still traced live (about 0.3 and 0.15 ms each on
       a CPU canvas). Baking them like the brute needs their heading quantised,
       and the sprite cache evicts by age rather than use, which a few hundred
@@ -810,6 +813,8 @@ detail behind the factory entries is in
 
 - [ ] Frame rate near the camp on Abiel's own machine. Every number so far is
       headless Chromium without a GPU, which rasterises canvas on the CPU.
+- [ ] The GPU (PixiJS) renderer on a real machine: Pause → Graphics shows the
+      frame rate; compare Canvas and Try GPU at a busy factory and at night.
 - [ ] Landmark cache sizes against the walk. A far shrine takes a few minutes
       to reach on foot on day one; whether its essence and upgrade feel worth
       it, and whether caches near camp break the early goal pace, is unplayed.
