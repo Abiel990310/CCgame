@@ -3,7 +3,7 @@ import type { PlayerInput, World } from './types';
 import { stepCycle, stepPlayerUpkeep } from './systems/cycle';
 import { stepGathering, stepNodeRegrowth } from './systems/gathering';
 import { stepProjectiles, stepWeapons } from './systems/combat';
-import { stepMobs, stepWaves } from './systems/mobs';
+import { stepLandmarkGuards, stepMobs, stepWaves } from './systems/mobs';
 import { stepPlayerMovement } from './systems/movement';
 import { stepPickups } from './systems/pickups';
 import { stepBelts, stepMachines } from './systems/factory';
@@ -43,6 +43,7 @@ export function step(world: World, inputs: Map<number, PlayerInput>, dt = TICK_D
   stepBelts(world, dt);
 
   stepWaves(world, dt);
+  stepLandmarkGuards(world);
   stepMobs(world, dt);
   stepProjectiles(world, dt);
   stepPickups(world, dt);
