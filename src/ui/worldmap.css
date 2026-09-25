@@ -57,7 +57,7 @@
   height: 100%;
 }
 
-/* Painted at about a thousand pixels, so it is scaled smoothly. */
+/* Painted finer than a tile a pixel, so it is scaled smoothly. */
 .worldmap-land {
   image-rendering: auto;
 }
