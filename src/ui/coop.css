@@ -146,3 +146,27 @@
     font-family: inherit;
   }
 }
+
+/* Who may drop in on an island kept in an account. */
+.coop-access {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.coop-access-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-dim);
+}
+
+.coop-access-options {
+  display: flex;
+  gap: 6px;
+}
+
+.coop-access-options .ghost-btn.on {
+  color: var(--gold);
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+}
