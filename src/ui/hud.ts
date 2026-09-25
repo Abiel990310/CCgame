@@ -1,6 +1,6 @@
 import { ITEMS } from '@shared/data/items';
 import { CYCLE } from '@shared/sim/constants';
-import { activeTech, cyclesDone, cyclesNeeded } from '@shared/sim/research';
+import { activeTech, cyclesDone, cyclesNeeded, type QueueOp } from '@shared/sim/research';
 import { countItem, hasAll } from '@shared/sim/inventory';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import type { ItemId, ItemStack, Machine, MachineFamily, Player, World } from '@shared/sim/types';
@@ -48,7 +48,7 @@ export interface HudCallbacks {
   onTogglePause: () => void;
   onQuitToMenu: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
-  onSetResearch: (techId: string) => void;
+  onQueueResearch: (techId: string, op: QueueOp) => void;
   onSetFilter: (machineId: number, item: ItemId | null) => void;
   onSlotAction: (ref: SlotRef, button: ClickButton, quick: boolean) => void;
   onCopySettings: (machineId: number) => void;
@@ -172,7 +172,7 @@ export class Hud {
         if (machine) this.callbacks.onTakeAll(machine.id);
       },
       onSetRecipe: (machineId, recipeId) => this.callbacks.onSetRecipe(machineId, recipeId),
-      onSetResearch: (techId) => this.callbacks.onSetResearch(techId),
+      onQueueResearch: (techId, op) => this.callbacks.onQueueResearch(techId, op),
       onSetFilter: (machineId, item) => this.callbacks.onSetFilter(machineId, item),
       onCopySettings: (machineId) => this.callbacks.onCopySettings(machineId),
       onPasteSettings: (machineId) => this.callbacks.onPasteSettings(machineId),
@@ -524,7 +524,8 @@ export class Hud {
     const done = cyclesDone(world, tech.id);
     const needed = cyclesNeeded(world, tech);
     this.els.researchFill.style.width = `${(done / needed) * 100}%`;
-    this.els.researchText.textContent = `${tech.name} ${done} / ${needed}`;
+    const queued = world.research.queue.length;
+    this.els.researchText.textContent = `${tech.name} ${done} / ${needed}${queued ? ` · ${queued} queued` : ''}`;
   }
 
   private updatePhase(world: World): void {
