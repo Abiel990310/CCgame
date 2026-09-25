@@ -1311,6 +1311,10 @@ export class Game {
         this.requestSave();
         continue;
       }
+      if (event.kind === 'guardsWoke') {
+        this.hud.toast(`Something guards the ${RESOURCES[event.landmark].name}`, 'warn');
+        continue;
+      }
       if (event.kind === 'boss') {
         this.hud.toast(`${MOBS[event.type].name} is coming for the camp`, 'warn');
         continue;

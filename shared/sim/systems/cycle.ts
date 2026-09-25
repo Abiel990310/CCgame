@@ -21,7 +21,8 @@ export function stepCycle(world: World, dt: number): void {
     world.phaseTime = CYCLE.daySeconds;
     world.waveBudget = 0;
     // Dawn clears the field: no leftovers chasing you through a chill phase.
-    world.mobs.length = 0;
+    // A landmark's keepers are not raiders and stay at their post.
+    world.mobs = world.mobs.filter((m) => m.post);
   }
 
   world.events.push({ kind: 'phase', phase: world.phase, nightIndex: world.nightIndex });

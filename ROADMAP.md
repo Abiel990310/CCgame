@@ -13,7 +13,7 @@ Status, plan, and the decisions behind both. Updated as phases move.
 | 2 | Persistence in `localStorage` | ✅ Done |
 | 3 | Factory tiers 1–3: ore, miners, belts, furnaces, assemblers, chests | ✅ Done |
 | 4 | Factory tiers 4–5: power, steel, deeper chains, tech tree | Next |
-| 5 | Multiplayer: co-op on the host's island (done); accounts, cloud islands and friends (built, waiting on the Supabase project); dedicated server worlds | In progress |
+| 5 | Multiplayer: co-op on the host's island (done); accounts, cloud islands and friends (live 2026-09-25); dedicated server worlds | In progress |
 | 6 | The long game: logistics, megaproject, blueprints, statistics | Planned |
 
 Live at <https://abiel990310.github.io/CCgame/>.
@@ -172,7 +172,7 @@ the five-letter code, or open the invite link. The host's browser runs the
 island and owns the save; guests replay its ticks (see the decision log). What
 follows is the dedicated-server version the co-op path grows into.
 
-**Accounts are built and waiting on the Supabase project** (2026-09-25). With
+**Accounts are live** (2026-09-25, Supabase project `qidagnlgbndteepzkjzt`). With
 an account, islands are kept in the cloud and play on any device; friends add
 each other by name; and an owner who sets an island to *My friends* has co-op
 open itself while they play, so friends see it in their menu and join with one
@@ -234,9 +234,9 @@ detail behind the factory entries is in
       and darkened again; dawn did the reverse. Both renderers. Twilight now
       straddles the change, half each side. (Headless also only paints when
       something asks for a frame, so a screenshot is needed to see a change.)
-- [ ] Spitters and the Swarm Queen face away from the player while they back
-      off, because a creature faces the way it moves. Something that keeps its
-      distance should face what it is shooting at.
+- [x] Spitters and the Swarm Queen faced away from the player while they
+      backed off, because a creature faced the way it moved. They now face
+      what they are shooting at.
 - [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
       again on the next tick, so it rarely reached a second target. Each shot
       now remembers what it went through.
@@ -363,8 +363,12 @@ detail behind the factory entries is in
       Hold E to search one; it spills a cache that grows with distance, and a
       shrine also grants an upgrade. They show on the map once explored.
       Islands grown before this (worldgen 2 and older) have none.
-- [ ] Guarded landmarks: a nest of creatures round the rarest finds, so a
-      shrine far out is a fight as well as a walk.
+- [x] Guarded landmarks: ruins wake three crawlers, supply pods two spitters
+      and a brute, shrines two shellbacks and three wisps, when a player first
+      comes within seven tiles. They hold their post day and night, chase no
+      further than about ten tiles from it, and are not cleared at dawn.
+      Peaceful islands have none. A reload puts them back, since mobs are not
+      saved.
 - [ ] A count of landmarks found and left on the island map.
 - [x] A late-game megaproject: the **Skyward Beacon**. Research it (logic,
       power and engineering packs, after Solar Power and High-Pressure
@@ -377,9 +381,14 @@ detail behind the factory entries is in
 - [ ] A lit beacon should light the night like the campfire does. Left for
       after the engine thread's night-layer rework (PR #47), which owns
       the lighting code.
-- [ ] What a lit beacon gives back beyond the XP: a reason to keep feeding
-      the island after it (an endless tier, a second island, a prestige).
-
+- [x] What a lit beacon gives back beyond the XP: it burns processors, one a
+      minute, from a reserve of up to 20, and while it burns every machine,
+      miner and lab on the island works 30% faster. Out of fuel it banks to an
+      ember and the boost stops, so running it for good needs a processor line.
+- [ ] The beacon screen still labels its slots "Delivered" once lit, where
+      "Fuel" would say what they are for now.
+- [ ] A burning beacon could also calm the nights near it, or ward the camp,
+      so its light means something after dark as well as for the factory.
 - [x] Around fifty level-up upgrades (49): 26 perks you can stack up to a
       cap (range, crits, armour, thorns, lifesteal, pierce, knockback, a
       finisher, night and camp damage, dash, revive, day speed, map sight,
@@ -606,6 +615,15 @@ detail behind the factory entries is in
 - [x] Level-up choices were plain text boxes. Each card now carries its kind
       (weapon, mastery, attack, survival, explore, growth) as a colour and an
       icon, pips for how far a stacking perk has gone, and a New or Rare flag.
+- [x] The island map drew explored ground as flat tile squares, so a start
+      was one bright green blob with a hard pixel edge. It is now painted like
+      a chart: grain and broad light and shade, shallows and a surf line on
+      the coast, ore as speckles, trees and rocks, a faint grid, and a soft
+      edge to the fog. Painted once per island; only the fog is redone, and
+      only when more ground is known.
+- [ ] The island map shows the whole island at one size, so the first hour is
+      a small lit disc in a dark square. Zoom and pan (wheel, pinch, drag)
+      centred on the player would make it useful from the start.
 - [ ] Number keys could pick a level-up card on desktop (1 to 4), with the key
       shown on each card.
 - [ ] HUD panels are still placed with hand-tuned `top` offsets per breakpoint
@@ -923,6 +941,9 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Landmark keepers on day one. A shrine's shellbacks take 3 off every
+      hit, so a first-day sling does half damage; whether a player who walks
+      out early reads that as "come back later" or as unfair is unplayed.
 - [ ] Accounts against the real Supabase project once it exists. Everything was
       driven against the same services run locally (Supabase Auth, PostgREST,
       Postgres 16), not supabase.co itself; the new "publishable" keys in

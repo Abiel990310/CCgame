@@ -1,4 +1,14 @@
-import { BEACON_LIT, BEACON_STAGES, BEACON_STAGE_BY_ID, BEACON_XP, type BeaconStage } from '../data/beacon';
+import {
+  BEACON_BOOST,
+  BEACON_BURN_SECONDS,
+  BEACON_FUEL_CAP,
+  BEACON_LIT,
+  BEACON_STAGES,
+  BEACON_STAGE_BY_ID,
+  BEACON_XP,
+  type BeaconStage,
+} from '../data/beacon';
+import type { ResearchBonuses } from './research';
 import { tileCenter } from './grid';
 import { grantXp } from './progression';
 import { addToSlots, countIn, takeFromSlots } from './slots';
@@ -14,8 +24,14 @@ export function beaconLit(machine: Machine): boolean {
   return machine.recipe === BEACON_LIT;
 }
 
-/** How many more of an item the current stage still wants. */
+/** Seconds a lit beacon will keep burning on what it has already caught. */
+export function beaconBurning(machine: Machine): boolean {
+  return beaconLit(machine) && machine.progress > 0;
+}
+
+/** How many more of an item the current stage still wants; once lit, its fuel. */
 export function beaconWants(machine: Machine, item: ItemId): number {
+  if (beaconLit(machine)) return item === 'processor' ? Math.max(0, BEACON_FUEL_CAP - countIn(machine.input, item)) : 0;
   const current = beaconStage(machine);
   const need = current?.stage.needs.find((n) => n.id === item);
   return need ? Math.max(0, need.count - countIn(machine.input, item)) : 0;
@@ -31,10 +47,15 @@ export function insertIntoBeacon(machine: Machine, item: ItemId, slotSize: numbe
  * A stage is raised the moment everything it needs is in the grid. What it
  * swallowed is gone for good; the next stage starts on an empty grid.
  */
-export function stepBeacon(world: World, machine: Machine): void {
+export function stepBeacon(world: World, machine: Machine, dt: number): void {
   const current = beaconStage(machine);
   if (!current) {
-    machine.stalled = false;
+    // Lit: \`progress\` is the seconds of burn left on the processor it last took.
+    machine.progress = Math.max(0, machine.progress - dt);
+    if (machine.progress <= 0 && takeFromSlots(machine.input, 'processor', 1) === 1) {
+      machine.progress = BEACON_BURN_SECONDS;
+    }
+    machine.stalled = machine.progress <= 0;
     return;
   }
   machine.recipe ??= current.stage.id;
@@ -50,4 +71,18 @@ export function stepBeacon(world: World, machine: Machine): void {
   const lit = !next;
   world.events.push({ kind: 'beacon', pos: tileCenter(machine.tx, machine.ty), stage: current.index + 1, lit });
   if (lit) for (const player of world.players.values()) grantXp(world, player, BEACON_XP);
+}
+
+/**
+ * Research bonuses with any burning beacon's boost added on. Read once a tick
+ * before the machines step, so every machine that tick sees the same number.
+ */
+export function withBeacon(world: World, bonuses: ResearchBonuses): ResearchBonuses {
+  if (!world.machines.some((m) => m.type === 'beacon' && beaconBurning(m))) return bonuses;
+  return {
+    ...bonuses,
+    crafting: bonuses.crafting + BEACON_BOOST,
+    mining: bonuses.mining + BEACON_BOOST,
+    lab: bonuses.lab + BEACON_BOOST,
+  };
 }

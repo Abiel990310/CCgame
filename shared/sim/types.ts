@@ -103,6 +103,11 @@ export interface ResourceNode {
   maxCharges: number;
   /** Seconds until a depleted node regrows. */
   regrow: number;
+  /**
+   * A landmark whose guards have already woken. Not saved, like the mobs
+   * themselves, so a reload finds the keepers back at their post.
+   */
+  woken?: boolean;
 }
 
 export interface Mob {
@@ -125,6 +130,10 @@ export interface Mob {
   summonCd?: number;
   /** Called in by another mob: worth no XP or orbs, so a boss left alive is not a farm. */
   brood?: boolean;
+  /** The post a landmark's keeper holds: it leaves it only for a player close by, and dawn does not clear it. */
+  post?: Vec2;
+  /** Which way it looks, in radians, when that is not the way it moves: something backing off still faces what it shoots at. */
+  look?: number;
 }
 
 export type MobTypeId =
@@ -440,6 +449,7 @@ export type SimEvent =
   | { kind: 'blast'; pos: Vec2; radius: number }
   | { kind: 'spit'; pos: Vec2 }
   | { kind: 'summon'; pos: Vec2 }
+  | { kind: 'guardsWoke'; pos: Vec2; landmark: ResourceKind }
   | { kind: 'boss'; pos: Vec2; type: MobTypeId }
   | { kind: 'beacon'; pos: Vec2; stage: number; lit: boolean }
   | { kind: 'landmark'; pos: Vec2; landmark: ResourceKind; playerId: number }

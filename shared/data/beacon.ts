@@ -67,4 +67,15 @@ export const BEACON_LIT = 'beacon:lit';
 /** XP every player on the island gets when a beacon is lit. */
 export const BEACON_XP = 400;
 
+/**
+ * A lit beacon keeps burning only while it is fed. Each processor keeps it
+ * alight this many seconds, so an island running it for good needs a steady
+ * processor line, the last thing the tree teaches, rather than a stockpile.
+ */
+export const BEACON_BURN_SECONDS = 60;
+/** Most processors a lit beacon holds in reserve. */
+export const BEACON_FUEL_CAP = 20;
+/** What a burning beacon adds to every machine, miner and lab on the island, as a share. */
+export const BEACON_BOOST = 0.3;
+
 export const BEACON_STAGE_BY_ID = new Map(BEACON_STAGES.map((s, i) => [s.id, { stage: s, index: i }]));
