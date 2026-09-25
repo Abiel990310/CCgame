@@ -1,0 +1,226 @@
+/* ---------- Accounts: the account screen, menu button, cloud cards ---------- */
+
+.account-screen,
+.account-ask {
+  position: fixed;
+  z-index: 60;
+}
+
+.account-ask {
+  z-index: 70;
+}
+
+.account-inner {
+  position: relative;
+  width: min(460px, 100%);
+}
+
+.account-inner .blurb {
+  margin-bottom: 14px;
+}
+
+.account-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+
+.account-close:hover {
+  color: var(--ink);
+}
+
+.account-fields {
+  display: grid;
+  gap: 8px;
+}
+
+.account-input {
+  width: 100%;
+}
+
+.account-status {
+  min-height: 20px;
+  margin: 10px 0;
+  font-size: 13px;
+  color: var(--ink-dim);
+  line-height: 1.45;
+}
+
+.account-status.bad {
+  color: var(--danger);
+}
+
+.account-links {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: var(--gold);
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.account-head h2 {
+  margin-bottom: 0;
+}
+
+.account-email {
+  font-size: 12.5px;
+  margin-top: 4px;
+}
+
+.account-friends {
+  text-align: left;
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.account-add {
+  flex-wrap: nowrap;
+}
+
+.account-add .account-input {
+  flex: 1;
+}
+
+.account-list {
+  display: grid;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.account-person {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(20, 24, 32, 0.66);
+  border: 1px solid var(--line);
+}
+
+.account-who {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+
+.account-who b {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-who span {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+
+.account-person .armed {
+  color: #fff;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+/* The menu's account button sits above the logo, on the right. */
+.menu-account {
+  float: right;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 180px;
+  padding: 7px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--line-strong);
+  background: rgba(20, 24, 32, 0.7);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.menu-account span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-account:hover {
+  border-color: var(--gold-line);
+  color: var(--gold);
+}
+
+.save-thumb.synced,
+.save-thumb.cloud {
+  color: #fff;
+}
+
+.save-thumb.cloud {
+  background: radial-gradient(circle at 50% 40%, #4d7ea0, #253c52);
+}
+
+.save-thumb .ico {
+  font-size: 17px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.save-thumb.live {
+  box-shadow: inset 0 0 0 2px var(--good);
+}
+
+.friend-world .save-open {
+  cursor: default;
+}
+
+.save-tool.join {
+  padding: 0 12px;
+  color: var(--ink);
+  background: var(--gold-soft);
+  border-color: var(--gold-line);
+}
+
+.save-tool.join:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.menu-cloud-error {
+  font-size: 12px;
+  color: var(--danger);
+  margin-bottom: 6px;
+}
+.account-ask .blurb { margin-bottom: 16px; }

@@ -13,7 +13,7 @@ Status, plan, and the decisions behind both. Updated as phases move.
 | 2 | Persistence in `localStorage` | ✅ Done |
 | 3 | Factory tiers 1–3: ore, miners, belts, furnaces, assemblers, chests | ✅ Done |
 | 4 | Factory tiers 4–5: power, steel, deeper chains, tech tree | Next |
-| 5 | Multiplayer: co-op on the host's island (done); dedicated server worlds | In progress |
+| 5 | Multiplayer: co-op on the host's island (done); accounts, cloud islands and friends (built, waiting on the Supabase project); dedicated server worlds | In progress |
 | 6 | The long game: logistics, megaproject, blueprints, statistics | Planned |
 
 Live at <https://abiel990310.github.io/CCgame/>.
@@ -97,6 +97,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Rendering between ticks | Draw moving things blended between their last two tick positions, one tick behind the sim | The sim ticks at 30 Hz and screens refresh at 60 or more; drawing raw positions showed each one for two frames or more, so walking read as 10–15 fps. Lives in `src/render/interpolate.ts`, never in `shared/`. The same blend is what multiplayer needs for other players. |
 | Co-op netcode | The host's browser runs the island; guests replay its ticks | Guests send what they press and click; the host applies it between ticks and sends every guest that tick's orders and inputs, so each copy of the deterministic sim takes the same step. A tick costs about 150 bytes where state snapshots would cost tens of kilobytes, and a fingerprint every second replaces a copy that drifts. Every click that changes the island is a `Command` in `shared/sim/commands.ts`. |
 | Co-op transport | WebRTC data channels, signalled through the public PeerJS broker | No server to run or pay for, on static hosting. The page talks to the broker only when someone hosts or joins, and speaks its protocol directly so there is still no runtime dependency. Friends' characters are saved on the host's side, beside the island. |
+| Accounts | Supabase (Auth plus Postgres), called with plain `fetch`; every call is a function in `docs/cloud/schema.sql`, and the tables grant the browser nothing | The site is static, so accounts need a hosted backend; Supabase's free plan covers sign-in and a database with no server to run. Hand-writing the dozen calls keeps the page free of a second runtime dependency, and putting every rule in SQL functions keeps the security in one file. A cloud island is the local slot bundled as-is, so the save format needs no second migration path, and a per-world lease keeps two devices from overwriting each other. |
 | Renderer | PixiJS (WebGL) by default, Canvas as the fallback, both drawing the same art through a Canvas-shaped adapter | Abiel chose it on 2026-09-25 as the engine web games use, so the game can grow on it. The first runtime dependency, loaded only when the GPU renderer is on. The art stays written once against the Canvas API, so the two renderers cannot drift apart while Pixi is proven. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
@@ -170,6 +171,12 @@ the five-letter code, or open the invite link. The host's browser runs the
 island and owns the save; guests replay its ticks (see the decision log). What
 follows is the dedicated-server version the co-op path grows into.
 
+**Accounts are built and waiting on the Supabase project** (2026-09-25). With
+an account, islands are kept in the cloud and play on any device; friends add
+each other by name; and an owner who sets an island to *My friends* has co-op
+open itself while they play, so friends see it in their menu and join with one
+click. `docs/cloud/README.md` has the steps to turn it on and how it works.
+
 Architecture is already in place: `shared/` is deterministic and headless so the
 server can run the identical simulation.
 
@@ -204,7 +211,8 @@ Unresolved, and worth a deliberate answer rather than a default.
   parallel lines?
 - **How early do blueprints arrive?** They remove enormous tedium, but also
   remove the learning that early tedium teaches.
-- **How are private world invite lists managed** — accounts, or share codes?
+- ~~**How are private world invite lists managed**~~ Answered: accounts and a
+  friends list, with share codes still working underneath (2026-09-25).
 - **Does the camp stay freeform** or move to slot-based upgrade tiers?
 
 ## Backlog
@@ -308,6 +316,21 @@ detail behind the factory entries is in
 
 
 ### New features
+
+- [ ] Accounts: friends can open a shared island while its owner is away, not
+      only join while someone is on it. Needs the save lease to allow a
+      friend, and the owner's character to wait at camp.
+- [ ] Accounts: a per-island list of who may drop in, beside "Only me" and
+      "My friends".
+- [ ] Accounts: see which friends are online and on which island, not only
+      islands open to you.
+- [ ] Accounts: invite a friend straight to your island from the friends list,
+      as a notice in their menu.
+- [ ] Accounts: sign in with Google or Discord as well as email.
+- [ ] Accounts: a way to change email or password, and to delete the account.
+- [ ] Accounts: the host checks a joining friend's sign-in, so a leaked room
+      code cannot pass for an account. Today the code alone lets anyone in,
+      as it always has.
 
 - [x] **Landmarks** on new mainlands: buried caches, old ruins, crashed supply
       pods and essence shrines, placed so the rarer ones lie further from camp.
@@ -818,6 +841,14 @@ detail behind the factory entries is in
       a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
 
 ### Needs testing
+
+- [ ] Accounts against the real Supabase project once it exists. Everything was
+      driven against the same services run locally (Supabase Auth, PostgREST,
+      Postgres 16), not supabase.co itself; the new "publishable" keys in
+      particular were not tried.
+- [ ] Pushing a cloud island when the tab is closed rather than quit. Only the
+      local save is certain then; the push waits for the next open on that
+      device, and the lease takes 45 seconds to lapse.
 
 - [ ] Frame rate near the camp on Abiel's own machine. Every number so far is
       headless Chromium without a GPU, which rasterises canvas on the CPU.

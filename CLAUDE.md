@@ -45,6 +45,8 @@ src/               Browser client
     gpu/           PixiJS renderer: a Canvas-shaped context that turns the
                    same painters' calls into Pixi sprites and graphics
   audio/           Web Audio mixer: every sound is synthesised, none is a file
+  account/         Sign-in, cloud islands, friends: a fetch client for the
+                   Supabase functions in docs/cloud/schema.sql
   ui/              DOM overlay: HUD, build palette, inventory screen, modals
 .github/workflows/ CI and Pages deployment
 ```
@@ -108,8 +110,10 @@ on purpose and should stay true as tiers are added.
   renderer (2026-09-25). It is bundled, and loaded from the same site only when
   that renderer is on. The page makes zero external network requests. Do not
   add a font CDN, an analytics snippet, or a UI library without asking.
-  Keeping this true is a feature. The one exception is co-op, which reaches a
-  WebRTC signalling broker, and only once someone chooses to host or join. **This is why every
+  Keeping this true is a feature. The exceptions are co-op, which reaches a
+  WebRTC signalling broker only once someone chooses to host or join, and
+  accounts, which reach the Supabase project in `src/account/config.ts` only
+  once someone signs in (see `docs/cloud/README.md`). **This is why every
   sound is synthesised** rather than sampled: a sound pack would be the first
   asset the page ever fetched.
 - **Imports**: client code uses the `@shared/*` alias; `shared/` uses relative

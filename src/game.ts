@@ -67,6 +67,8 @@ import { Interpolator } from './render/interpolate';
 import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { SlotLock, type EvictReason } from './tablock';
+import type { CloudSession } from './account/sync';
+import type { WorldAccess } from './account/cloud';
 import { CoopGuest } from './net/guest';
 import { GuestBook } from './net/guests';
 import { CoopHost } from './net/host';
@@ -91,6 +93,8 @@ const MAX_CATCHUP = 0.25;
 export interface GameCallbacks {
   /** Hand control back to the main menu, with a line to show there if any. */
   onQuit: (notice?: string) => void;
+  /** The owner changed who may drop in on the cloud island being played. */
+  onSetAccess?: (access: WorldAccess) => Promise<void>;
 }
 
 export class Game {
@@ -131,6 +135,8 @@ export class Game {
   /** Set while playing on a friend's island; the world here is a copy of theirs. */
   private guest: CoopGuest | null = null;
   private coop: CoopPanel;
+  /** Set while this island is also kept in the player's account; see `account/sync.ts`. */
+  private cloud: { session: CloudSession; access: WorldAccess } | null = null;
 
   constructor(canvas: HTMLCanvasElement, private callbacks: GameCallbacks) {
     this.renderer = new Renderer(canvas);
@@ -175,6 +181,7 @@ export class Game {
     this.coop = new CoopPanel({
       onHost: () => this.startHosting(),
       onStopHosting: () => this.stopHosting('The host stopped inviting.'),
+      onSetAccess: (access) => this.callbacks.onSetAccess?.(access) ?? Promise.resolve(),
     });
 
     // A host's tab in the background gets no animation frames, and the island
@@ -354,6 +361,7 @@ export class Game {
 
   private quitToMenu(): void {
     this.persist();
+    this.detachCloud();
     this.stopHosting('The host closed the island.');
     if (this.guest) {
       this.guest.leave();
@@ -397,8 +405,8 @@ export class Game {
   }
 
   /** Step onto a friend's island, as a copy of their world that follows theirs. */
-  async joinGame(code: string, name: string): Promise<void> {
-    const guest = await CoopGuest.join(code, name, guestToken());
+  async joinGame(code: string, name: string, token = guestToken()): Promise<void> {
+    const guest = await CoopGuest.join(code, name, token);
     guest.onEnd = (reason) => {
       if (this.guest !== guest) return;
       this.guest = null;
@@ -407,6 +415,7 @@ export class Game {
     };
     if (this.slot) {
       this.persist();
+      this.detachCloud();
       this.stopHosting('The host closed the island.');
       this.lock.release(this.slot.id);
     }
@@ -424,10 +433,87 @@ export class Game {
   private leave(): void {
     this.running = false;
     this.slot = null;
+    // Every way off an island that should push has already closed the session.
+    this.cloud?.session.halt();
+    this.cloud = null;
+    this.coop.setAccess(null);
     this.coop.setSolo();
     this.hud.setPauseOpen(false);
     this.hud.setBuildMode(false);
     this.hud.closeInventory();
+  }
+
+  /**
+   * Keep the island being played in the player's account: the session pushes
+   * what `persist` saves, and friends see the island while it is open to them.
+   */
+  attachCloud(session: CloudSession, access: WorldAccess): void {
+    if (!this.slot || this.slot.id !== session.slotId) {
+      void session.close();
+      return;
+    }
+    this.cloud = { session, access };
+    this.coop.setAccess(access);
+    if (access === 'friends') void this.openToFriends();
+  }
+
+  /** Who may drop in changed, from the pause screen or elsewhere. */
+  setCloudAccess(access: WorldAccess): void {
+    if (!this.cloud) return;
+    this.cloud.access = access;
+    this.coop.setAccess(access);
+    if (access === 'friends') void this.openToFriends();
+    else void this.cloud.session.beat();
+  }
+
+  /** The co-op code friends may see, which is none unless the island is open to them. */
+  cloudRoom(): string | null {
+    return this.cloud?.access === 'friends' && this.host ? this.host.code : null;
+  }
+
+  /** Another device took this island; carry on there, not here. */
+  cloudLost(): void {
+    if (!this.cloud || !this.slot) return;
+    const name = this.slot.name;
+    this.cloud = null;
+    this.persist();
+    this.stopHosting('The host closed the island.');
+    this.lock.release(this.slot.id);
+    this.leave();
+    this.callbacks.onQuit(`${name} was opened on another device, so it was closed here.`);
+  }
+
+  cloudNotice(text: string, tone: 'good' | 'warn'): void {
+    if (this.running) this.hud.toast(text, tone);
+  }
+
+  /** Open co-op for friends and tell the account the code at once. */
+  private async openToFriends(): Promise<void> {
+    const cloud = this.cloud;
+    try {
+      await this.startHosting();
+    } catch (error) {
+      this.hud.toast(
+        `Friends cannot drop in right now: ${error instanceof Error ? error.message : 'co-op did not open'}`,
+        'warn',
+      );
+      return;
+    }
+    if (cloud && this.cloud === cloud) void cloud.session.beat();
+  }
+
+  /** Save now rather than at the next autosave, as before an island goes up to the cloud. */
+  saveNow(): void {
+    this.persist();
+  }
+
+  /** Stop keeping the island in the account, pushing the last of it first. */
+  private detachCloud(): void {
+    const cloud = this.cloud;
+    if (!cloud) return;
+    this.cloud = null;
+    this.coop.setAccess(null);
+    void cloud.session.close();
   }
 
   /**
@@ -442,6 +528,9 @@ export class Game {
       if (this.hud.isInventoryOpen) this.act({ k: 'stow' });
       this.persist();
     }
+    // The tab taking over shares this browser's lease, so it is not handed back.
+    this.cloud?.session.halt();
+    this.cloud = null;
     this.stopHosting('The host closed the island.');
     this.leave();
     this.callbacks.onQuit(

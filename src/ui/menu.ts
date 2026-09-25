@@ -12,6 +12,7 @@ import {
   suggestName,
   type SaveSlot,
 } from '../saves';
+import type { CloudWorld } from '../account/cloud';
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -25,6 +26,26 @@ export interface MenuCallbacks {
    * which case `peaceful` decides whether nights ever raid it.
    */
   onPlay: (slot: SaveSlot, peaceful: boolean) => void;
+  /** Everything below is for accounts, and never called when they are off. */
+  onAccount?: () => void;
+  /** Play an island that is in the account but not yet on this device. */
+  onPlayCloud?: (world: CloudWorld) => void;
+  /** Keep a local island in the account too. */
+  onUpload?: (slot: SaveSlot) => Promise<void>;
+  onDeleteCloud?: (world: CloudWorld) => Promise<void>;
+  onRenamed?: (slot: SaveSlot) => void;
+  /** Drop in on a friend who is playing. */
+  onJoinFriend?: (world: CloudWorld) => void;
+}
+
+/** What the menu knows about the account, when there is one. */
+export interface MenuCloud {
+  /** Null while signed out. */
+  userId: string | null;
+  name: string;
+  /** Null until the first list arrives. */
+  worlds: CloudWorld[] | null;
+  error: string;
 }
 
 /**
@@ -46,6 +67,11 @@ export class MainMenu {
   /** The slot whose delete button is armed, so a stray click cannot wipe a save. */
   private armedDelete: string | null = null;
   private sound: SoundPanel;
+  private cloud: MenuCloud | null = null;
+  /** Slots and worlds with a request in flight, so a double click sends one. */
+  private pending = new Set<string>();
+  private accountButton: HTMLButtonElement | null = null;
+  private friendsBox: HTMLElement | null = null;
 
   constructor(private callbacks: MenuCallbacks) {
     // Mounted here as well as in the pause screen so the first thing a player
@@ -54,10 +80,47 @@ export class MainMenu {
 
     this.els.continue.addEventListener('click', () => {
       const slot = lastPlayed() ?? listSaves()[0];
+      const remote = this.cloudOnly()[0];
       if (slot) this.play(slot);
-      else this.startNew();
+      else if (remote) {
+        audio.play('open');
+        this.callbacks.onPlayCloud?.(remote);
+      } else this.startNew();
     });
     this.els.new.addEventListener('click', () => this.startNew());
+  }
+
+  /** Turn the account parts of the menu on, once, when this build has accounts. */
+  enableAccounts(): void {
+    if (this.accountButton) return;
+    const button = document.createElement('button');
+    button.className = 'menu-account';
+    button.addEventListener('click', () => {
+      audio.play('click');
+      this.callbacks.onAccount?.();
+    });
+    this.els.root.querySelector('.menu-head')?.prepend(button);
+    this.accountButton = button;
+
+    const box = document.createElement('section');
+    box.className = 'saves friends-worlds hidden';
+    this.els.saves.after(box);
+    this.friendsBox = box;
+    this.cloud = { userId: null, name: '', worlds: null, error: '' };
+    this.render();
+  }
+
+  setCloud(cloud: MenuCloud): void {
+    const who = this.cloud?.userId;
+    this.cloud = cloud;
+    // The local cards only depend on who is signed in, and redrawing them would
+    // throw away a rename being typed, so a list refresh leaves them be.
+    if (who !== cloud.userId) this.render();
+    else this.renderCloudOnly();
+  }
+
+  get isOpen(): boolean {
+    return !this.els.root.classList.contains('hidden');
   }
 
   /** `notice` replaces the usual summary line, for news the player must see. */
@@ -104,6 +167,159 @@ export class MainMenu {
 
     this.els.list.innerHTML = '';
     for (const slot of saves) this.els.list.appendChild(this.card(slot));
+    this.renderCloudOnly();
+  }
+
+  /** The account's islands that this device has no slot for, newest first. */
+  private cloudOnly(): CloudWorld[] {
+    const cloud = this.cloud;
+    if (!cloud?.userId || !cloud.worlds) return [];
+    const linked = new Set(listSaves().map((s) => s.cloud?.id).filter(Boolean));
+    return cloud.worlds.filter((w) => w.mine && !linked.has(w.id));
+  }
+
+  /**
+   * The parts that follow the account: the sign-in button, islands only in
+   * the account, and friends' islands. Redrawn on every list refresh without
+   * touching the local cards, so a rename in progress survives it.
+   */
+  private renderCloudOnly(): void {
+    const cloud = this.cloud;
+    if (!cloud || !this.accountButton || !this.friendsBox) return;
+    const button = this.accountButton;
+    button.innerHTML = `${icon('user')}<span></span>`;
+    (button.querySelector('span') as HTMLElement).textContent = cloud.userId ? cloud.name || 'Account' : 'Sign in';
+    button.title = cloud.userId ? 'Your account and friends' : 'Keep islands in the cloud and play with friends';
+
+    for (const old of Array.from(this.els.list.querySelectorAll('.save-card.cloud-only'))) old.remove();
+    const worlds = cloud.userId ? cloud.worlds ?? [] : [];
+    const mine = this.cloudOnly();
+    for (const world of mine) this.els.list.appendChild(this.cloudCard(world));
+    const local = listSaves().length;
+    this.els.saves.classList.toggle('hidden', local === 0 && mine.length === 0);
+    // With nothing on this device, Continue picks up the account's newest island.
+    if (local === 0) {
+      const span = this.els.continue.querySelector('span');
+      if (span) span.textContent = mine[0] ? `Continue ${mine[0].name}` : 'Start your first island';
+      this.els.new.classList.toggle('hidden', mine.length === 0);
+      if (mine[0]) this.els.note.textContent = `In your account · night ${mine[0].summary.night ?? 0} · level ${mine[0].summary.level ?? 1}`;
+    }
+
+    const theirs = worlds.filter((w) => !w.mine);
+    const box = this.friendsBox;
+    box.innerHTML = '';
+    box.classList.toggle('hidden', !cloud.userId || (theirs.length === 0 && !cloud.error));
+    const title = document.createElement('h2');
+    title.className = 'saves-title';
+    title.textContent = "Friends' islands";
+    box.appendChild(title);
+    if (cloud.error) {
+      const note = document.createElement('p');
+      note.className = 'menu-cloud-error';
+      note.textContent = cloud.error;
+      box.appendChild(note);
+    }
+    const list = document.createElement('div');
+    list.className = 'save-list';
+    for (const world of theirs) list.appendChild(this.friendCard(world));
+    box.appendChild(list);
+  }
+
+  /** An island in the account that this device has not got yet. */
+  private cloudCard(world: CloudWorld): HTMLElement {
+    const card = document.createElement('article');
+    card.className = 'save-card cloud-only';
+    const thumb = document.createElement('div');
+    thumb.className = 'save-thumb cloud';
+    thumb.innerHTML = icon('cloud');
+    card.appendChild(thumb);
+
+    const title = document.createElement('button');
+    title.className = 'save-open';
+    const s = world.summary;
+    title.innerHTML =
+      `<b></b><span>In your account · Night ${s.night ?? 0} · Level ${s.level ?? 1}` +
+      `${world.live ? ' · open on another device' : ''}</span><em>${describeAge(world.updatedAt)}</em>`;
+    (title.querySelector('b') as HTMLElement).textContent = world.name;
+    title.disabled = this.pending.has(world.id);
+    title.addEventListener('click', () => {
+      audio.play('open');
+      this.callbacks.onPlayCloud?.(world);
+    });
+    card.appendChild(title);
+
+    const tools = document.createElement('div');
+    tools.className = 'save-tools';
+    const remove = document.createElement('button');
+    remove.className = 'save-tool danger';
+    const armed = this.armedDelete === world.id;
+    if (armed) remove.classList.add('armed');
+    if (armed) remove.textContent = 'Delete?';
+    else remove.innerHTML = icon('trash');
+    remove.title = armed ? 'Click again to delete this island from your account for good' : 'Delete from your account';
+    remove.disabled = this.pending.has(world.id);
+    remove.addEventListener('click', () => {
+      audio.play(this.armedDelete === world.id ? 'removed' : 'denied');
+      if (this.armedDelete !== world.id) {
+        this.armedDelete = world.id;
+        this.render();
+        return;
+      }
+      this.armedDelete = null;
+      void this.busy(world.id, () => this.callbacks.onDeleteCloud?.(world));
+    });
+    tools.appendChild(remove);
+    card.appendChild(tools);
+    return card;
+  }
+
+  private friendCard(world: CloudWorld): HTMLElement {
+    const card = document.createElement('article');
+    card.className = 'save-card friend-world';
+    const thumb = document.createElement('div');
+    thumb.className = `save-thumb${world.live ? ' live' : ''}`;
+    thumb.innerHTML = icon('users');
+    card.appendChild(thumb);
+
+    const text = document.createElement('div');
+    text.className = 'save-open';
+    const joinable = world.live && !!world.room;
+    text.innerHTML = `<b></b><span></span>`;
+    (text.querySelector('b') as HTMLElement).textContent = world.name;
+    (text.querySelector('span') as HTMLElement).textContent =
+      `${world.ownerName}'s island · ` +
+      (joinable ? 'playing now' : world.live ? 'playing, co-op not open yet' : 'nobody on it right now');
+    card.appendChild(text);
+
+    const tools = document.createElement('div');
+    tools.className = 'save-tools';
+    const join = document.createElement('button');
+    join.className = 'save-tool join';
+    join.textContent = 'Join';
+    join.disabled = !joinable;
+    join.title = joinable ? `Drop in on ${world.ownerName}` : 'You can join while someone is on it';
+    join.addEventListener('click', () => {
+      audio.play('open');
+      this.callbacks.onJoinFriend?.(world);
+    });
+    tools.appendChild(join);
+    card.appendChild(tools);
+    return card;
+  }
+
+  /** Run an account request for one card, keeping its buttons off meanwhile. */
+  private async busy(id: string, work: () => Promise<void> | undefined): Promise<void> {
+    this.pending.add(id);
+    this.render();
+    try {
+      await work();
+    } catch (error) {
+      this.els.note.textContent = error instanceof Error ? error.message : 'That did not work — try again';
+      audio.play('denied');
+    } finally {
+      this.pending.delete(id);
+      this.render();
+    }
   }
 
   private card(slot: SaveSlot): HTMLElement {
@@ -112,10 +328,18 @@ export class MainMenu {
 
     const thumb = document.createElement('div');
     thumb.className = 'save-thumb';
+    const userId = this.cloud?.userId ?? null;
+    const inAccount = !!userId && slot.cloud?.owner === userId;
+    if (inAccount) {
+      thumb.classList.add('synced');
+      thumb.innerHTML = icon('cloud');
+      thumb.title = 'Kept in your account';
+    }
     card.appendChild(thumb);
 
     const title = document.createElement('button');
     title.className = 'save-open';
+    title.disabled = this.pending.has(slot.id);
     title.innerHTML =
       `<b></b><span>Night ${slot.night} · Level ${slot.level} · ` +
       `${describePlaytime(slot.playSeconds)}</span>` +
@@ -141,9 +365,15 @@ export class MainMenu {
     remove.className = 'save-tool danger';
     const armed = this.armedDelete === slot.id;
     if (armed) remove.classList.add('armed');
-    if (armed) remove.textContent = 'Delete?';
+    if (armed) remove.textContent = inAccount ? 'Remove?' : 'Delete?';
     else remove.innerHTML = icon('trash');
-    remove.title = armed ? 'Click again to delete this island for good' : 'Delete';
+    remove.title = inAccount
+      ? armed
+        ? 'Click again to remove it from this device. It stays in your account.'
+        : 'Remove from this device'
+      : armed
+        ? 'Click again to delete this island for good'
+        : 'Delete';
     remove.addEventListener('click', () => {
       audio.play(this.armedDelete === slot.id ? 'removed' : 'denied');
       if (this.armedDelete === slot.id) {
@@ -155,7 +385,20 @@ export class MainMenu {
       this.render();
     });
 
-    tools.append(rename, remove);
+    tools.append(rename);
+    if (userId && !slot.cloud) {
+      const upload = document.createElement('button');
+      upload.className = 'save-tool';
+      upload.innerHTML = icon('cloud');
+      upload.title = 'Keep in your account, to play it on any device';
+      upload.disabled = this.pending.has(slot.id);
+      upload.addEventListener('click', () => {
+        audio.play('click');
+        void this.busy(slot.id, () => this.callbacks.onUpload?.(slot));
+      });
+      tools.append(upload);
+    }
+    tools.append(remove);
     card.appendChild(tools);
     return card;
   }
@@ -168,6 +411,8 @@ export class MainMenu {
 
     const commit = (): void => {
       renameSlot(slot.id, input.value);
+      const renamed = listSaves().find((s) => s.id === slot.id);
+      if (renamed && renamed.name !== slot.name) this.callbacks.onRenamed?.(renamed);
       this.render();
     };
     input.addEventListener('keydown', (e) => {
