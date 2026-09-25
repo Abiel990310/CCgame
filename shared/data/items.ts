@@ -28,6 +28,7 @@ export type ItemShape =
   | 'pick'
   | 'rod'
   | 'basket'
+  | 'pack'
   | 'crate';
 
 export interface ItemDef {
@@ -42,6 +43,12 @@ export interface ItemDef {
    * its kind are gathered. Only the best one of a kind counts.
    */
   tool?: { kind: ToolKind; speed: number };
+  /**
+   * A bag, by tier. Made at the workbench, it is sewn onto the player's bag
+   * at once instead of landing in it: a bag carried in a slot could be put in
+   * a chest, and the bag would shrink out from under what it held.
+   */
+  bag?: number;
 }
 
 /** Every crafted machine is also an item, drawn as a crate in the machine's colour. */
@@ -126,6 +133,9 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   steelPick: tool('steelPick', 'Steel Pickaxe', '#7e9bc4', 'pick', 3.2),
   fishingRod: tool('fishingRod', 'Fishing Rod', '#b9854e', 'rod', 1.8),
   forageBasket: tool('forageBasket', 'Forage Basket', '#c9a36a', 'hand', 1.6),
+  satchel: { id: 'satchel', name: 'Woven Satchel', color: '#b89660', stack: 1, shape: 'pack', bag: 1 },
+  ironPack: { id: 'ironPack', name: 'Iron-Frame Pack', color: '#8a7768', stack: 1, shape: 'pack', bag: 2 },
+  steelPack: { id: 'steelPack', name: 'Steel Rucksack', color: '#5f7488', stack: 1, shape: 'pack', bag: 3 },
 
   ...MACHINE_ITEMS,
 };
@@ -134,6 +144,9 @@ function tool(id: ItemId, name: string, color: string, kind: ToolKind, speed: nu
   const shape: ItemShape = kind === 'hand' ? 'basket' : kind;
   return { id, name, color, stack: 1, shape, tool: { kind, speed } };
 }
+
+/** The last bag the workbench sews on. */
+export const BAG_MAX = Math.max(...Object.values(ITEMS).map((i) => i.bag ?? 0));
 
 /** Every item in table order, which is the order an item picker offers them. */
 export const ITEM_ORDER = Object.keys(ITEMS) as ItemId[];

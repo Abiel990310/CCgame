@@ -6,7 +6,8 @@ import { backfillPrerequisites, newResearch } from '@shared/sim/research';
 import { catchUpGoals } from '@shared/sim/goals';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
-import { INVENTORY_SLOTS } from '@shared/sim/inventory';
+import { bagSlots } from '@shared/sim/inventory';
+import { BAG_MAX } from '@shared/data/items';
 import { asStack, normalizeSlots } from '@shared/sim/slots';
 import type {
   Belt,
@@ -268,7 +269,10 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
       player.gatherProgress = 0;
       // Version 3 turned the bag into a fixed grid. Saves before it stored a
       // compacted list, which reads back as the first N slots of the grid.
-      player.inventory = normalizeSlots(player.inventory, INVENTORY_SLOTS);
+      // A bag count that is not a whole number in range reads as none sewn on.
+      const bag = player.bag;
+      if (typeof bag !== 'number' || !Number.isInteger(bag) || bag < 0 || bag > BAG_MAX) player.bag = 0;
+      player.inventory = normalizeSlots(player.inventory, bagSlots(player));
       player.cursor = asStack(player.cursor);
       // Goals arrived without a version bump: the field is simply missing on
       // an older island, whose player starts at the first goal not yet met.

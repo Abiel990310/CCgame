@@ -271,6 +271,35 @@ describe('older saves', () => {
  * exactly where an island gets silently emptied, so an island written before
  * it has to load as having researched nothing, not fail to load.
  */
+describe('a bag in a save', () => {
+  it('keeps the rows a bag added, and what is in them', () => {
+    const world = island();
+    const player = [...world.players.values()][0];
+    player.bag = 2;
+    player.inventory = addSlotsTo(player.inventory, 40);
+    player.inventory[39] = { id: 'gear', count: 7 };
+    expect(saveWorld(world, SLOT)).toBe(true);
+    const back = [...loadWorld(SLOT)!.players.values()][0];
+    expect(back.bag).toBe(2);
+    expect(back.inventory).toHaveLength(40);
+    expect(back.inventory[39]).toEqual({ id: 'gear', count: 7 });
+  });
+
+  it('reads an island from before bags as a plain 24-slot bag', () => {
+    const world = island();
+    const player = [...world.players.values()][0];
+    delete player.bag;
+    expect(saveWorld(world, SLOT)).toBe(true);
+    const back = [...loadWorld(SLOT)!.players.values()][0];
+    expect(back.bag).toBe(0);
+    expect(back.inventory).toHaveLength(24);
+  });
+});
+
+function addSlotsTo<T>(slots: (T | null)[], size: number): (T | null)[] {
+  return [...slots, ...Array<T | null>(size - slots.length).fill(null)];
+}
+
 describe('research in a save', () => {
   it('comes back exactly as it went in', () => {
     const world = island();
