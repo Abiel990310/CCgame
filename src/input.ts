@@ -118,9 +118,7 @@ export class InputManager {
       // Fingers set the pointer from touch events, which know which finger is
       // walking and which is pointing.
       if (e.pointerType === 'touch') return;
-      const rect = this.target.getBoundingClientRect();
-      this.pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      this.hovering = e.pointerType !== 'touch';
+      this.aim(e);
     });
     this.target.addEventListener('pointerleave', () => (this.hovering = false));
     // Right-click removes, so the browser menu must not fight it.
@@ -129,6 +127,10 @@ export class InputManager {
     this.target.addEventListener('pointerdown', (e) => {
       this.touched = e.pointerType === 'touch';
       if (e.pointerType === 'touch') return;
+      // A mouse that moved while a screen covered the island never told the
+      // canvas where it went, so a click straight after closing that screen
+      // would land wherever the cursor last was over the world.
+      this.aim(e);
       // Shift with either button copies a machine's settings or pastes them,
       // the pair Factorio players already have in their hands.
       if (e.shiftKey && (e.button === 0 || e.button === 2)) {
@@ -148,6 +150,12 @@ export class InputManager {
     });
 
     this.bindTouch();
+  }
+
+  private aim(e: PointerEvent): void {
+    const rect = this.target.getBoundingClientRect();
+    this.pointer = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    this.hovering = true;
   }
 
   private bindTouch(): void {
