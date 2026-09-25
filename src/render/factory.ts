@@ -546,19 +546,22 @@ function drawMachineLive(
       gear(ctx, x - TILE * 0.08, cy, TILE * 0.15, spin, shift(def.color, 30));
       gear(ctx, x + TILE * 0.14, cy + TILE * 0.07, TILE * 0.09, -spin * 1.6, accent);
 
-      const arm = running ? Math.sin(rate * 4) * TILE * 0.1 : 0;
-      ctx.strokeStyle = shift(accent, -20);
-      ctx.lineWidth = 2.4;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(x - TILE * 0.3, cy - TILE * 0.2);
-      ctx.lineTo(x + arm, cy - TILE * 0.06);
-      ctx.stroke();
-      ctx.lineCap = 'butt';
-      ctx.fillStyle = accent;
-      ctx.beginPath();
-      ctx.arc(x + arm, cy - TILE * 0.06, 2.4, 0, Math.PI * 2);
-      ctx.fill();
+      const reach = running ? Math.round(Math.sin(rate * 4) * REACH_STEPS) : 0;
+      const box = { left: TILE * 0.3 + 2, right: TILE * 0.1 + 4, top: TILE * 0.2 + 2, bottom: 4 };
+      blitCached(ctx, `reach:${accent}:${reach}`, x, cy, box, (c) => {
+        const arm = (reach / REACH_STEPS) * TILE * 0.1;
+        c.strokeStyle = shift(accent, -20);
+        c.lineWidth = 2.4;
+        c.lineCap = 'round';
+        c.beginPath();
+        c.moveTo(-TILE * 0.3, -TILE * 0.2);
+        c.lineTo(arm, -TILE * 0.06);
+        c.stroke();
+        c.fillStyle = accent;
+        c.beginPath();
+        c.arc(arm, -TILE * 0.06, 2.4, 0, Math.PI * 2);
+        c.fill();
+      });
       break;
     }
     case 'splitter': {
@@ -884,10 +887,13 @@ function drawInserter(
   }
 }
 
-/** Steps an arm's swing is baked at, and a gear's and a drill's turn. */
+/** Steps an arm's swing is baked at, a gear's and a drill's turn, an
+ * assembler arm's reach either side of centre, and a progress bar's fill. */
 const ARM_STEPS = 24;
 const GEAR_STEPS = 12;
 const DRILL_STEPS = 16;
+const REACH_STEPS = 8;
+const METER_STEPS = 48;
 
 /** An inserter's plate and post, standing on its tile centre at the origin. */
 function drawInserterBase(ctx: CanvasRenderingContext2D, def: MachineDef): void {
@@ -1028,7 +1034,13 @@ function drawProgress(
   const duration = cycleLength(machine);
   if (duration <= 0 || machine.progress <= 0) return;
 
-  meter(ctx, x, y + TILE * 0.47, TILE * 0.72, 3, machine.progress / duration, UI.xp);
+  // Baked per fill step: a factory shows one of these per working machine,
+  // and the GPU renderer would otherwise rebuild each bar every frame.
+  const f = Math.round(Math.min(machine.progress / duration, 1) * METER_STEPS);
+  const half = TILE * 0.36;
+  blitCached(ctx, `meter:${f}`, x, y + TILE * 0.47, { left: half, right: half, top: 0, bottom: 3 }, (c) =>
+    meter(c, 0, 0, TILE * 0.72, 3, f / METER_STEPS, UI.xp),
+  );
 }
 
 /**
