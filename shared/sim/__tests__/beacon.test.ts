@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BEACON_LIT, BEACON_STAGES, BEACON_XP } from '../../data/beacon';
+import { BEACON_BOOST, BEACON_BURN_SECONDS, BEACON_FUEL_CAP, BEACON_LIT, BEACON_STAGES, BEACON_XP } from '../../data/beacon';
 import { GOAL_BY_ID } from '../../data/goals';
-import { beaconStage } from '../beacon';
+import { beaconBurning, beaconStage, withBeacon } from '../beacon';
+import { researchBonuses } from '../research';
 import { clickSlot, quickMove } from '../containers';
 import { countIn } from '../slots';
 import type { Machine } from '../types';
@@ -74,5 +75,49 @@ describe('beacon stages', () => {
     // Something no stage wants is refused outright.
     b.player.cursor = { id: 'gear', count: 5 };
     expect(clickSlot(b.world, b.player, m.id, { area: 'input', index: 2 })).toBe(false);
+  });
+});
+
+describe('a lit beacon', () => {
+  function lit(b: Bench): Machine {
+    const m = beacon(b);
+    m.recipe = BEACON_LIT;
+    return m;
+  }
+
+  it('stays banked until it is fed, then burns a processor a minute', () => {
+    const b = bench();
+    const m = lit(b);
+    advance(b.world, 1);
+    expect(beaconBurning(m)).toBe(false);
+    fill(m.input, 'processor', 3);
+    advance(b.world, 1);
+    expect(beaconBurning(m)).toBe(true);
+    expect(countIn(m.input, 'processor')).toBe(2);
+    advance(b.world, BEACON_BURN_SECONDS * 3);
+    expect(countIn(m.input, 'processor')).toBe(0);
+    expect(beaconBurning(m)).toBe(false);
+  });
+
+  it('speeds every machine on the island while it burns', () => {
+    const b = bench();
+    const m = lit(b);
+    const plain = researchBonuses(b.world);
+    expect(withBeacon(b.world, plain).crafting).toBe(plain.crafting);
+    m.progress = 10;
+    const boosted = withBeacon(b.world, plain);
+    expect(boosted.crafting).toBeCloseTo(plain.crafting + BEACON_BOOST, 6);
+    expect(boosted.mining).toBeCloseTo(plain.mining + BEACON_BOOST, 6);
+    expect(boosted.lab).toBeCloseTo(plain.lab + BEACON_BOOST, 6);
+  });
+
+  it('takes processors by hand up to its reserve, and nothing else', () => {
+    const b = bench();
+    const m = lit(b);
+    b.player.cursor = { id: 'processor', count: 50 };
+    expect(clickSlot(b.world, b.player, m.id, { area: 'input', index: 0 })).toBe(true);
+    expect(countIn(m.input, 'processor')).toBe(BEACON_FUEL_CAP);
+    b.player.cursor = { id: 'steelPlate', count: 5 };
+    expect(clickSlot(b.world, b.player, m.id, { area: 'input', index: 1 })).toBe(false);
   });
 });
