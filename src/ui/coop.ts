@@ -1,6 +1,7 @@
 import { audio } from '../audio';
 import { cleanCode, CODE_LENGTH, MAX_GUESTS } from '../net/protocol';
 import { icon } from './icons';
+import type { WorldAccess } from '../account/cloud';
 import './coop.css';
 
 const NAME_KEY = 'ccgame.coop.name';
@@ -14,7 +15,7 @@ export function playerName(): string {
   }
 }
 
-function rememberName(name: string): void {
+export function rememberName(name: string): void {
   try {
     localStorage.setItem(NAME_KEY, name.replace(/\s+/g, ' ').trim().slice(0, 16));
   } catch {
@@ -45,6 +46,8 @@ export interface CoopPanelCallbacks {
   /** Open the island to friends; resolves with the room code. */
   onHost: () => Promise<string>;
   onStopHosting: () => void;
+  /** Change who may drop in on this cloud island. */
+  onSetAccess: (access: WorldAccess) => Promise<void>;
 }
 
 type Mode = { kind: 'solo' } | { kind: 'host'; code: string } | { kind: 'guest'; code: string };
@@ -60,6 +63,9 @@ export class CoopPanel {
   private chip = el('div', 'coop-chip panel hidden');
   private busy = false;
   private error = '';
+  /** Who may drop in, for an island kept in the player's account; null for any other. */
+  private access: WorldAccess | null = null;
+  private accessBusy = false;
 
   constructor(private callbacks: CoopPanelCallbacks) {
     const sound = document.getElementById('pause-sound');
@@ -83,6 +89,11 @@ export class CoopPanel {
   setGuest(code: string, names: string[]): void {
     this.mode = { kind: 'guest', code };
     this.names = names;
+    this.render();
+  }
+
+  setAccess(access: WorldAccess | null): void {
+    this.access = access;
     this.render();
   }
 
@@ -115,6 +126,10 @@ export class CoopPanel {
     const s = this.section;
     s.innerHTML = '';
     s.appendChild(el('p', 'eyebrow', 'Co-op'));
+    if (this.access && mode.kind !== 'guest') {
+      s.appendChild(this.accessRow(this.access));
+      if (this.error && mode.kind === 'host') s.appendChild(el('p', 'coop-error')).textContent = this.error;
+    }
 
     if (mode.kind === 'solo') {
       s.appendChild(
@@ -174,6 +189,52 @@ export class CoopPanel {
       s.appendChild(row);
     } else {
       s.appendChild(el('p', 'coop-blurb', 'The host keeps the save. What you gather and build stays on their island for next time.'));
+    }
+  }
+
+  /** The owner's choice of who may drop in, for an island kept in their account. */
+  private accessRow(current: WorldAccess): HTMLElement {
+    const box = el('div', 'coop-access');
+    box.appendChild(el('span', 'coop-access-label', 'Who can drop in'));
+    const group = el('div', 'coop-access-options');
+    const options: [WorldAccess, string][] = [
+      ['private', 'Only me'],
+      ['friends', 'My friends'],
+    ];
+    for (const [access, label] of options) {
+      const button = el('button', `ghost-btn small${access === current ? ' on' : ''}`, label);
+      button.disabled = this.accessBusy;
+      button.setAttribute('aria-pressed', String(access === current));
+      button.addEventListener('click', () => void this.changeAccess(access));
+      group.appendChild(button);
+    }
+    box.appendChild(group);
+    box.appendChild(
+      el(
+        'p',
+        'coop-blurb',
+        current === 'friends'
+          ? 'Friends see this island in their menu while you are on it, and join with one click.'
+          : 'Only you. A code below still lets someone in if you give it to them.',
+      ),
+    );
+    return box;
+  }
+
+  private async changeAccess(access: WorldAccess): Promise<void> {
+    if (this.accessBusy || access === this.access) return;
+    this.accessBusy = true;
+    this.error = '';
+    this.render();
+    try {
+      await this.callbacks.onSetAccess(access);
+      audio.play('click');
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : 'Could not change who can drop in';
+      audio.play('denied');
+    } finally {
+      this.accessBusy = false;
+      this.render();
     }
   }
 

@@ -20,6 +20,20 @@ export interface SaveSlot {
   night: number;
   level: number;
   playSeconds: number;
+  /** Set once the island is kept in an account as well as here; see `account/sync.ts`. */
+  cloud?: SlotCloud;
+}
+
+/** How a slot relates to its copy in the cloud. */
+export interface SlotCloud {
+  /** The world's id in the account. */
+  id: string;
+  /** The account it belongs to, so another account signed in here leaves it alone. */
+  owner: string;
+  /** The cloud revision this slot last matched. */
+  rev: number;
+  /** Saved here since it last matched the cloud. */
+  dirty: boolean;
 }
 
 interface SaveIndex {
@@ -237,8 +251,40 @@ export function touchSlot(
   slot.level = summary.level;
   slot.playSeconds = summary.playSeconds;
   slot.updatedAt = Date.now();
+  if (slot.cloud) slot.cloud.dirty = true;
   index.lastPlayed = id;
   writeIndex(index);
+}
+
+/** Link a slot to its cloud copy, or unlink it with null. */
+export function setSlotCloud(id: string, cloud: SlotCloud | null): SaveSlot | null {
+  const index = readIndex();
+  const slot = index.slots.find((s) => s.id === id);
+  if (!slot) return null;
+  if (cloud) slot.cloud = { ...cloud };
+  else delete slot.cloud;
+  writeIndex(index);
+  return slot;
+}
+
+/** Overwrite a slot's menu summary, as when its island comes down from the cloud. */
+export function setSlotSummary(
+  id: string,
+  summary: Pick<SaveSlot, 'night' | 'level' | 'playSeconds' | 'updatedAt'> & { name?: string },
+): void {
+  const index = readIndex();
+  const slot = index.slots.find((s) => s.id === id);
+  if (!slot) return;
+  slot.night = summary.night;
+  slot.level = summary.level;
+  slot.playSeconds = summary.playSeconds;
+  slot.updatedAt = summary.updatedAt;
+  if (summary.name) slot.name = summary.name.slice(0, 40);
+  writeIndex(index);
+}
+
+export function findSlot(id: string): SaveSlot | null {
+  return readIndex().slots.find((s) => s.id === id) ?? null;
 }
 
 export function renameSlot(id: string, name: string): void {
