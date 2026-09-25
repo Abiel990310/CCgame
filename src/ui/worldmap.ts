@@ -9,13 +9,17 @@ import './worldmap.css';
 
 /** Terrain in the order `TERRAIN_ORDER` stores it: deep, water, sand, grass, forest, rock. */
 const LAND: [number, number, number][] = [
-  [24, 58, 86],
-  [48, 118, 146],
-  [214, 196, 150],
-  [108, 158, 84],
-  [70, 118, 66],
-  [134, 138, 140],
+  [22, 52, 82],
+  [42, 104, 138],
+  [208, 190, 142],
+  [102, 148, 80],
+  [64, 108, 62],
+  [128, 130, 130],
 ];
+/** Water right against the land, so the coast has a lighter shelf around it. */
+const SHALLOWS: [number, number, number] = [74, 142, 160];
+/** The surf line drawn on the land's edge where it meets the water. */
+const FOAM: [number, number, number] = [226, 232, 214];
 /** Ore in `ORE_ORDER`, index 0 being none. */
 const ORE: ([number, number, number] | null)[] = [null, [120, 150, 190], [210, 128, 70], [40, 40, 48]];
 /** Unseen ground is shown as a dim ghost of itself, so the coast still reads. */
@@ -28,6 +32,44 @@ const LANDMARK_MARK: Partial<Record<ResourceKind, string>> = {
   shrine: '#c49cff',
 };
 const FOG_SHOW = 0.16;
+/** Roughly how many pixels across the painted map is, whatever the island's size. */
+const MAP_PIXELS = 768;
+/** Terrain water indices in `TERRAIN_ORDER`. */
+const DEEP = 0;
+const WATER = 1;
+
+/** A fixed pseudo-random value in [0, 1) for a pixel, so the grain never shimmers. */
+function hash(x: number, y: number): number {
+  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/** `hash` over a 256-pixel square, looked up per pixel instead of computed: the map has a million of them. */
+const GRAIN_SIZE = 256;
+let grainTable: Float32Array | null = null;
+function grainAt(x: number, y: number): number {
+  if (!grainTable) {
+    grainTable = new Float32Array(GRAIN_SIZE * GRAIN_SIZE);
+    for (let i = 0; i < grainTable.length; i++) grainTable[i] = hash(i % GRAIN_SIZE, Math.floor(i / GRAIN_SIZE));
+  }
+  return grainTable[(y & (GRAIN_SIZE - 1)) * GRAIN_SIZE + (x & (GRAIN_SIZE - 1))];
+}
+
+/** Smooth noise over cells of `size` tiles, for meadow-sized patches of light and shade. */
+function patch(x: number, y: number, size: number): number {
+  const gx = x / size;
+  const gy = y / size;
+  const x0 = Math.floor(gx);
+  const y0 = Math.floor(gy);
+  const fx = gx - x0;
+  const fy = gy - y0;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const a = hash(x0, y0) + (hash(x0 + 1, y0) - hash(x0, y0)) * sx;
+  const b = hash(x0, y0 + 1) + (hash(x0 + 1, y0 + 1) - hash(x0, y0 + 1)) * sx;
+  return a + (b - a) * sy;
+}
 
 export type MapTab = 'map' | 'ledger';
 
@@ -50,6 +92,7 @@ export function dryMiners(world: World): Machine[] {
 export class WorldMap {
   private root: HTMLElement;
   private canvas: HTMLCanvasElement;
+  private fogCanvas: HTMLCanvasElement;
   private overlay: HTMLCanvasElement;
   private share: HTMLElement;
   private open = false;
@@ -61,6 +104,19 @@ export class WorldMap {
   private tabs: HTMLElement[];
   private dryCount = 0;
   private dryTimer = 0;
+  /** The island fully known and as a ghost, painted once per island; see `paintBases`. */
+  private seenBase: HTMLCanvasElement | null = null;
+  private fogBase: HTMLCanvasElement | null = null;
+  private baseKey = '';
+  /** The known island with its trees and rocks, redone each time the map opens so felled forest shows. */
+  private seenFull = document.createElement('canvas');
+  private detailFresh = false;
+  private detailLive = -1;
+  /** The explored mask at one pixel a tile, and blurred at two, to soften the fog's edge. */
+  private mask = document.createElement('canvas');
+  private soft = document.createElement('canvas');
+  /** How many tiles were known at the last repaint; the fog is only redone when it grows. */
+  private knownCount = -1;
 
   constructor(parent: HTMLElement, private onClose: () => void) {
     this.root = document.createElement('div');
@@ -77,6 +133,7 @@ export class WorldMap {
         </header>
         <div class="worldmap-view" data-role="view">
         <div class="worldmap-frame">
+          <canvas class="worldmap-land" data-role="fog"></canvas>
           <canvas class="worldmap-land" data-role="land"></canvas>
           <canvas class="worldmap-marks" data-role="marks"></canvas>
         </div>
@@ -94,6 +151,7 @@ export class WorldMap {
       </div>`;
     const role = <T extends HTMLElement>(name: string) => this.root.querySelector<T>(`[data-role="${name}"]`)!;
     this.canvas = role<HTMLCanvasElement>('land');
+    this.fogCanvas = role<HTMLCanvasElement>('fog');
     this.overlay = role<HTMLCanvasElement>('marks');
     this.share = role('share');
     this.view = role('view');
@@ -120,6 +178,8 @@ export class WorldMap {
     this.open = open;
     this.root.classList.toggle('hidden', !open);
     this.paintedKey = '';
+    this.detailFresh = false;
+    this.knownCount = -1;
     this.showTab(tab);
   }
 
@@ -157,34 +217,203 @@ export class WorldMap {
     this.paintMarks(world, selfId);
   }
 
+  /**
+   * The island is painted like a chart rather than one flat square per tile:
+   * a grain over every colour, broad patches of light and shade, a pale shelf
+   * of shallows and a surf line along the coast, and ore as speckles over the
+   * ground it lies in. It is costly, so it is done once per island; only the
+   * fog over it changes as you walk.
+   */
+  private paintBases(world: World): void {
+    const n = MAP_TILES;
+    const k = Math.max(2, Math.round(MAP_PIXELS / n));
+    const size = n * k;
+    const seen = document.createElement('canvas');
+    seen.width = seen.height = size;
+    const sctx = seen.getContext('2d');
+    const ghost = document.createElement('canvas');
+    ghost.width = ghost.height = n;
+    const gctx = ghost.getContext('2d');
+    if (!sctx || !gctx) return;
+    const seenImg = sctx.createImageData(size, size);
+    const ghostImg = gctx.createImageData(n, n);
+    const sp = seenImg.data;
+    const gp = ghostImg.data;
+    const terrain = world.terrain;
+    const wet = (tx: number, ty: number): boolean => {
+      if (tx < 0 || ty < 0 || tx >= n || ty >= n) return true;
+      const t = terrain[ty * n + tx];
+      return t === DEEP || t === WATER;
+    };
+
+    for (let ty = 0; ty < n; ty++) {
+      for (let tx = 0; tx < n; tx++) {
+        const i = ty * n + tx;
+        const t = terrain[i];
+        const land = LAND[t] ?? LAND[DEEP];
+        // Unseen ground shows only its terrain, never its ore.
+        gp[i * 4] = FOG[0] + (land[0] - FOG[0]) * FOG_SHOW;
+        gp[i * 4 + 1] = FOG[1] + (land[1] - FOG[1]) * FOG_SHOW;
+        gp[i * 4 + 2] = FOG[2] + (land[2] - FOG[2]) * FOG_SHOW;
+        gp[i * 4 + 3] = 255;
+
+        const water = t === DEEP || t === WATER;
+        let base = land;
+        if (t === WATER && (!wet(tx - 1, ty) || !wet(tx + 1, ty) || !wet(tx, ty - 1) || !wet(tx, ty + 1))) {
+          base = SHALLOWS;
+        }
+        const ore = water ? null : ORE[world.ore[i]];
+        // Which sides of a land tile face the sea, for the surf line.
+        const surfW = !water && wet(tx - 1, ty);
+        const surfE = !water && wet(tx + 1, ty);
+        const surfN = !water && wet(tx, ty - 1);
+        const surfS = !water && wet(tx, ty + 1);
+        const shade = 0.9 + patch(tx, ty, water ? 14 : 7) * 0.2;
+        for (let py = 0; py < k; py++) {
+          const y = ty * k + py;
+          const edgeY = (surfN && py === 0) || (surfS && py === k - 1);
+          for (let px = 0; px < k; px++) {
+            const x = tx * k + px;
+            const g = grainAt(x, y);
+            let c = base;
+            let lit = shade * (0.95 + g * 0.1);
+            if (ore && grainAt(y + 101, x + 37) < 0.62) {
+              c = ore;
+              lit = 0.85 + g * 0.3;
+            }
+            let r = c[0] * lit;
+            let gr = c[1] * lit;
+            let b = c[2] * lit;
+            if (edgeY || (surfW && px === 0) || (surfE && px === k - 1)) {
+              r = r * 0.35 + FOAM[0] * 0.65;
+              gr = gr * 0.35 + FOAM[1] * 0.65;
+              b = b * 0.35 + FOAM[2] * 0.65;
+            }
+            const o = (y * size + x) * 4;
+            sp[o] = r;
+            sp[o + 1] = gr;
+            sp[o + 2] = b;
+            sp[o + 3] = 255;
+          }
+        }
+      }
+    }
+    sctx.putImageData(seenImg, 0, 0);
+    gctx.putImageData(ghostImg, 0, 0);
+
+    const fog = document.createElement('canvas');
+    fog.width = fog.height = size;
+    const fctx = fog.getContext('2d');
+    if (!fctx) return;
+    fctx.imageSmoothingEnabled = false;
+    fctx.drawImage(ghost, 0, 0, size, size);
+
+    // A faint survey grid, so distances on the map can be judged by eye.
+    const step = 16 * k;
+    for (const ctx of [sctx, fctx]) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      for (let v = step; v < size; v += step) {
+        ctx.fillRect(v, 0, 1, size);
+        ctx.fillRect(0, v, size, 1);
+      }
+    }
+    this.seenBase = seen;
+    this.fogBase = fog;
+  }
+
+  /** The known island with trees as dark crowns and rocks as pale flecks, so explored ground is not bare. */
+  private paintDetail(world: World, seen: HTMLCanvasElement): void {
+    const size = seen.width;
+    const full = this.seenFull;
+    if (full.width !== size) {
+      full.width = size;
+      full.height = size;
+    }
+    const ctx = full.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(seen, 0, 0);
+    const scale = size / (MAP_TILES * TILE);
+    const r = Math.max(1.5, TILE * scale * 0.42);
+    const sprites = mapSprites(r);
+    const half = sprites.size / 2;
+    for (const node of world.nodes) {
+      if (node.charges <= 0) continue;
+      const sprite = node.kind === 'tree' ? sprites.trees[node.seed % 2] : node.kind === 'rock' ? sprites.rock : null;
+      if (!sprite) continue;
+      ctx.drawImage(sprite, Math.round(node.pos.x * scale - half), Math.round(node.pos.y * scale - half));
+    }
+  }
+
   private paintLand(world: World): void {
     const n = MAP_TILES;
-    if (this.canvas.width !== n) {
-      this.canvas.width = n;
-      this.canvas.height = n;
+    const key = `${world.seed}|${world.worldgen}|${n}`;
+    if (key !== this.baseKey || !this.seenBase) {
+      this.paintBases(world);
+      this.baseKey = key;
+      this.detailFresh = false;
+      this.detailLive = -1;
+      if (this.fogBase) {
+        this.fogCanvas.width = this.fogCanvas.height = this.fogBase.width;
+        this.fogCanvas.getContext('2d')?.drawImage(this.fogBase, 0, 0);
+      }
+    }
+    const seen = this.seenBase;
+    const fog = this.fogBase;
+    if (!seen || !fog) return;
+    if (!this.detailFresh) {
+      // Stamping thousands of trees is the dearest part of opening the map,
+      // so it is skipped when nothing has been felled or regrown since.
+      let live = 0;
+      for (const node of world.nodes) if (node.charges > 0) live++;
+      if (live !== this.detailLive) {
+        this.paintDetail(world, seen);
+        this.detailLive = live;
+        this.knownCount = -1;
+      }
+      this.detailFresh = true;
+    }
+
+    let known = 0;
+    for (let i = 0; i < n * n; i++) known += world.explored[i];
+    if (known === this.knownCount) return;
+    this.knownCount = known;
+
+    const size = seen.width;
+    if (this.canvas.width !== size) {
+      this.canvas.width = this.canvas.height = size;
     }
     const ctx = this.canvas.getContext('2d');
-    if (!ctx) return;
-    const image = ctx.createImageData(n, n);
-    const px = image.data;
-    for (let i = 0; i < n * n; i++) {
-      const seen = world.explored[i] === 1;
-      const ore = seen ? ORE[world.ore[i]] : null;
-      const base = ore ?? LAND[world.terrain[i]] ?? LAND[0];
-      const o = i * 4;
-      if (seen) {
-        px[o] = base[0];
-        px[o + 1] = base[1];
-        px[o + 2] = base[2];
-      } else {
-        px[o] = FOG[0] + (base[0] - FOG[0]) * FOG_SHOW;
-        px[o + 1] = FOG[1] + (base[1] - FOG[1]) * FOG_SHOW;
-        px[o + 2] = FOG[2] + (base[2] - FOG[2]) * FOG_SHOW;
-      }
-      px[o + 3] = 255;
+    const mctx = this.mask.getContext('2d');
+    const sctx = this.soft.getContext('2d');
+    if (!ctx || !mctx || !sctx) return;
+
+    if (this.mask.width !== n) {
+      this.mask.width = this.mask.height = n;
+      this.soft.width = this.soft.height = n * 2;
     }
-    ctx.putImageData(image, 0, 0);
+    const image = mctx.createImageData(n, n);
+    const px = image.data;
+    for (let i = 0; i < n * n; i++) px[i * 4 + 3] = world.explored[i] === 1 ? 255 : 0;
+    mctx.putImageData(image, 0, 0);
+
+    // The known part is cut out of the full-colour island by the explored
+    // mask, blurred at low resolution and stretched smoothly so the fog's
+    // edge is soft; the ghost of the island shows through from the canvas
+    // beneath. Blurring at full size cost more than the rest of the map.
+    sctx.clearRect(0, 0, n * 2, n * 2);
+    sctx.filter = 'blur(3px)';
+    sctx.drawImage(this.mask, 0, 0, n * 2, n * 2);
+    sctx.filter = 'none';
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.clearRect(0, 0, size, size);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(this.soft, 0, 0, size, size);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.drawImage(this.seenFull, 0, 0);
+    ctx.globalCompositeOperation = 'source-over';
   }
+
 
   private paintMarks(world: World, selfId: number): void {
     const frame = this.overlay.parentElement!;
@@ -283,4 +512,45 @@ export class WorldMap {
       ctx.restore();
     }
   }
+}
+
+let spriteCache: { r: number; size: number; trees: HTMLCanvasElement[]; rock: HTMLCanvasElement } | null = null;
+
+/** A tree crown and a rock drawn once, then stamped for each of the island's thousands. */
+function mapSprites(r: number): { size: number; trees: HTMLCanvasElement[]; rock: HTMLCanvasElement } {
+  if (spriteCache && spriteCache.r === r) return spriteCache;
+  const size = Math.ceil(r * 3);
+  const make = (draw: (ctx: CanvasRenderingContext2D) => void): HTMLCanvasElement => {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    if (ctx) {
+      ctx.translate(size / 2, size / 2);
+      draw(ctx);
+    }
+    return c;
+  };
+  const tree = (crown: string) =>
+    make((ctx) => {
+      ctx.fillStyle = 'rgba(16, 36, 22, 0.55)';
+      ctx.beginPath();
+      ctx.arc(r * 0.3, r * 0.35, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = crown;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(160, 210, 130, 0.35)';
+      ctx.beginPath();
+      ctx.arc(-r * 0.3, -r * 0.35, r * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  const rock = make((ctx) => {
+    ctx.fillStyle = 'rgba(20, 22, 26, 0.5)';
+    ctx.fillRect(-r * 0.5, -r * 0.2, r * 1.3, r * 0.9);
+    ctx.fillStyle = '#a9adb0';
+    ctx.fillRect(-r * 0.65, -r * 0.55, r * 1.2, r * 0.9);
+  });
+  spriteCache = { r, size, trees: [tree('#356b3e'), tree('#3f7a4a')], rock };
+  return spriteCache;
 }
