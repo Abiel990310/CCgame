@@ -13,7 +13,7 @@ Status, plan, and the decisions behind both. Updated as phases move.
 | 2 | Persistence in `localStorage` | ✅ Done |
 | 3 | Factory tiers 1–3: ore, miners, belts, furnaces, assemblers, chests | ✅ Done |
 | 4 | Factory tiers 4–5: power, steel, deeper chains, tech tree | Next |
-| 5 | Multiplayer: co-op on the host's island (done); dedicated server worlds | In progress |
+| 5 | Multiplayer: co-op on the host's island (done); accounts, cloud islands and friends (built, waiting on the Supabase project); dedicated server worlds | In progress |
 | 6 | The long game: logistics, megaproject, blueprints, statistics | Planned |
 
 Live at <https://abiel990310.github.io/CCgame/>.
@@ -97,6 +97,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Rendering between ticks | Draw moving things blended between their last two tick positions, one tick behind the sim | The sim ticks at 30 Hz and screens refresh at 60 or more; drawing raw positions showed each one for two frames or more, so walking read as 10–15 fps. Lives in `src/render/interpolate.ts`, never in `shared/`. The same blend is what multiplayer needs for other players. |
 | Co-op netcode | The host's browser runs the island; guests replay its ticks | Guests send what they press and click; the host applies it between ticks and sends every guest that tick's orders and inputs, so each copy of the deterministic sim takes the same step. A tick costs about 150 bytes where state snapshots would cost tens of kilobytes, and a fingerprint every second replaces a copy that drifts. Every click that changes the island is a `Command` in `shared/sim/commands.ts`. |
 | Co-op transport | WebRTC data channels, signalled through the public PeerJS broker | No server to run or pay for, on static hosting. The page talks to the broker only when someone hosts or joins, and speaks its protocol directly so there is still no runtime dependency. Friends' characters are saved on the host's side, beside the island. |
+| Accounts | Supabase (Auth plus Postgres), called with plain `fetch`; every call is a function in `docs/cloud/schema.sql`, and the tables grant the browser nothing | The site is static, so accounts need a hosted backend; Supabase's free plan covers sign-in and a database with no server to run. Hand-writing the dozen calls keeps the page free of a second runtime dependency, and putting every rule in SQL functions keeps the security in one file. A cloud island is the local slot bundled as-is, so the save format needs no second migration path, and a per-world lease keeps two devices from overwriting each other. |
 | Renderer | PixiJS (WebGL) by default, Canvas as the fallback, both drawing the same art through a Canvas-shaped adapter | Abiel chose it on 2026-09-25 as the engine web games use, so the game can grow on it. The first runtime dependency, loaded only when the GPU renderer is on. The art stays written once against the Canvas API, so the two renderers cannot drift apart while Pixi is proven. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
@@ -160,7 +161,8 @@ world a levelling curve at last.
 - Steel and resin: recipes six or more steps from raw ore.
 - Belt tiers or not (see open questions).
 - Production statistics, so a player can find their own bottleneck. This is a
-  core factory-game affordance, not a nicety.
+  core factory-game affordance, not a nicety. **Done 2026-09-25:** the
+  Production tab beside the map (L).
 
 ## Phase 5 — multiplayer
 
@@ -169,6 +171,12 @@ friends*; up to three friends choose *Join a friend* on the main menu and type
 the five-letter code, or open the invite link. The host's browser runs the
 island and owns the save; guests replay its ticks (see the decision log). What
 follows is the dedicated-server version the co-op path grows into.
+
+**Accounts are built and waiting on the Supabase project** (2026-09-25). With
+an account, islands are kept in the cloud and play on any device; friends add
+each other by name; and an owner who sets an island to *My friends* has co-op
+open itself while they play, so friends see it in their menu and join with one
+click. `docs/cloud/README.md` has the steps to turn it on and how it works.
 
 Architecture is already in place: `shared/` is deterministic and headless so the
 server can run the identical simulation.
@@ -204,7 +212,8 @@ Unresolved, and worth a deliberate answer rather than a default.
   parallel lines?
 - **How early do blueprints arrive?** They remove enormous tedium, but also
   remove the learning that early tedium teaches.
-- **How are private world invite lists managed** — accounts, or share codes?
+- ~~**How are private world invite lists managed**~~ Answered: accounts and a
+  friends list, with share codes still working underneath (2026-09-25).
 - **Does the camp stay freeform** or move to slot-based upgrade tiers?
 
 ## Backlog
@@ -218,9 +227,13 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] Night 15 in headless Chromium with the GPU renderer showed no night
-      darkness: the island was lit like day while the HUD read Night.
-      Unconfirmed on a real GPU; the darkness is a DOM layer since PR #47.
+- [x] Night 15 in headless Chromium with the GPU renderer showed no night
+      darkness: the island was lit like day while the HUD read Night. The
+      darkness curve ran each twilight twice, on both sides of the change of
+      phase, so every dusk darkened to 68%, snapped back to 5% as night began
+      and darkened again; dawn did the reverse. Both renderers. Twilight now
+      straddles the change, half each side. (Headless also only paints when
+      something asks for a frame, so a screenshot is needed to see a change.)
 - [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
       again on the next tick, so it rarely reached a second target. Each shot
       now remembers what it went through.
@@ -274,9 +287,12 @@ detail behind the factory entries is in
       one lump each second. A worker now keeps the host's beat whenever frames
       stall: friends get 30 even ticks a second, hidden or not.
 
-- [ ] The first click on a machine after closing another machine's screen with
-      Esc sometimes opens nothing; the second click works. Seen once while
-      driving copy and paste in a browser, not yet isolated.
+- [x] The first click on a machine after closing another machine's screen with
+      Esc sometimes opened nothing. A mouse moving over an open screen never
+      told the island where it went, so the click aimed at the old spot. A
+      press now updates the cursor itself, which also fixes shift-click paste.
+- [ ] Hover cards after closing a screen still describe the old spot until
+      the mouse moves; a pointerenter on the canvas would refresh them.
 - [x] On a phone the build palette covers the column of action buttons, so
       Build and Bag cannot be pressed while it is open. The palette is now
       narrower than the screen and the buttons stay beside it.
@@ -323,6 +339,21 @@ detail behind the factory entries is in
 
 
 ### New features
+
+- [ ] Accounts: friends can open a shared island while its owner is away, not
+      only join while someone is on it. Needs the save lease to allow a
+      friend, and the owner's character to wait at camp.
+- [ ] Accounts: a per-island list of who may drop in, beside "Only me" and
+      "My friends".
+- [ ] Accounts: see which friends are online and on which island, not only
+      islands open to you.
+- [ ] Accounts: invite a friend straight to your island from the friends list,
+      as a notice in their menu.
+- [ ] Accounts: sign in with Google or Discord as well as email.
+- [ ] Accounts: a way to change email or password, and to delete the account.
+- [ ] Accounts: the host checks a joining friend's sign-in, so a leaked room
+      code cannot pass for an account. Today the code alone lets anyone in,
+      as it always has.
 
 - [x] **Landmarks** on new mainlands: buried caches, old ruins, crashed supply
       pods and essence shrines, placed so the rarer ones lie further from camp.
@@ -454,9 +485,13 @@ detail behind the factory entries is in
 - [ ] **Belt-fed turrets** — ammo becomes a production line and the factory
       starts defending itself. The cleanest way to make the two halves of the
       game touch.
-- [ ] **Production ledger** — items per minute per item, with a graph and a
-      personal best. Already listed as a Phase 4 need; this is the concrete
-      shape of it.
+- [x] **Production ledger** — items per minute per item, with a graph and a
+      personal best. A Production tab beside the island map (L on desktop):
+      ten minutes of island time per item, the busiest first, and the best
+      whole minute each has reached, kept per island beside the save.
+- [x] **Dry-miner warning** — a miner that pulls up the last ore in reach
+      raises a toast once, and shows as a red ring on the map until moved; the
+      Production tab counts them and links to the map.
 - [ ] **The Beacon megaproject** — five stages at camp, each a sustained
       delivery rate, the tower visibly growing. A progress bar standing in the
       world.
@@ -535,6 +570,13 @@ detail behind the factory entries is in
       Graphics that machines' live parts, lamps and bars are rebuilt into
       every frame. Fine for a real GPU; if Abiel's numbers disappoint, keep
       those Graphics between frames or bake the live parts per phase.
+- [x] Machine live parts are baked per phase: status lamps, fuel and power
+      signs, gears (12 steps a tooth), miner drills (16 a blade), furnace
+      mouths, lab domes, and inserter bases, arms (24 swing steps) and filter
+      chips. A frozen 1,000-machine factory on Pixi, pixels taken out, went
+      from 99 to 14 ms a frame (10 to 45 fps headless); screenshots against
+      main match in both renderers. Still live: progress bars, furnace smoke,
+      lab bubbles, the assembler's working arm, belt items.
       History: the first plan was hand-written WebGL (2026-09-24), rejecting
       PixiJS as a dependency for a few hundred lines; the Canvas fixes in PR
       #47 then took every measured scene to 2 to 3 times its frame rate.
@@ -745,8 +787,13 @@ detail behind the factory entries is in
       make a big order of machines feel like work being done.
 - [ ] Tools never wear out. Durability would make tools a steady sink for
       iron and steel instead of a one-off purchase.
-- [ ] Hover cards could show a machine's rate (items a minute) once the
+- [ ] Hover cards could show a machine's rate (items a minute) now that the
       production ledger exists.
+- [ ] The ledger counts what is made, not what is used. A consumed column
+      beside it would name a shortfall outright instead of leaving the player
+      to compare two lines.
+- [ ] A dry miner looks the same in the world as a blocked one (a red light).
+      A distinct mark on the machine itself would save opening the map.
 - [ ] Carry the goal chain past the first Mk2 machine: steel, the logic pack,
       resonance and, once it exists, the megaproject, so there is always a
       named next step in the late game. Rows in `shared/data/goals.ts`.
@@ -859,6 +906,14 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Accounts against the real Supabase project once it exists. Everything was
+      driven against the same services run locally (Supabase Auth, PostgREST,
+      Postgres 16), not supabase.co itself; the new "publishable" keys in
+      particular were not tried.
+- [ ] Pushing a cloud island when the tab is closed rather than quit. Only the
+      local save is certain then; the push waits for the next open on that
+      device, and the lease takes 45 seconds to lapse.
+
 - [ ] Frame rate near the camp on Abiel's own machine. Every number so far is
       headless Chromium without a GPU, which rasterises canvas on the CPU.
 - [ ] Walking on the 256-tile map with full scenery, headless on a 2x
@@ -905,6 +960,8 @@ detail behind the factory entries is in
 - [ ] Old islands load with every machine unlocked, verified in the browser on
       a rewritten version 6 save. Not yet tried against a real island saved on
       the live site before this change.
+- [ ] Dry-miner toasts on a big patch: its miners empty at different moments,
+      so each says so on its own. Fine for a handful; unknown for forty.
 - [ ] Coal cost of burners. One coal per four plates means a Mk2 furnace bank
       eats a quarter as much coal as it makes plates; nobody has played a coal
       patch dry against it yet.

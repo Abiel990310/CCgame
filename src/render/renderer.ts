@@ -804,20 +804,20 @@ function toolFor(world: World, player: Player): Tool {
   }
 }
 
-/** 0 at full day, 1 at deep night, eased across the twilight windows. */
+/**
+ * 0 at full day, 1 at deep night. Each twilight straddles the change of phase,
+ * half on either side, so the dark keeps going the same way across it rather
+ * than finishing early and snapping back.
+ */
 export function nightDarkness(world: World): number {
   const { twilightSeconds } = CYCLE;
+  const half = (t: number): number => 0.5 * Math.min(Math.max(t / twilightSeconds, 0), 1);
   if (world.phase === 'day') {
-    // Dusk creeps in over the last stretch of the day.
     const into = CYCLE.daySeconds - world.phaseTime;
-    if (world.phaseTime < twilightSeconds) return 1 - world.phaseTime / twilightSeconds;
-    if (into < twilightSeconds) return 1 - into / twilightSeconds;
-    return 0;
+    return Math.max(half(twilightSeconds - world.phaseTime), half(twilightSeconds - into));
   }
-  if (world.phaseTime < twilightSeconds) return world.phaseTime / twilightSeconds;
   const into = CYCLE.nightSeconds - world.phaseTime;
-  if (into < twilightSeconds) return into / twilightSeconds;
-  return 1;
+  return 1 - Math.max(half(twilightSeconds - world.phaseTime), half(twilightSeconds - into));
 }
 
 /**

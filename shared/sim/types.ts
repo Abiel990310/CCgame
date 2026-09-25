@@ -428,7 +428,7 @@ export type SimEvent =
   | { kind: 'hit'; pos: Vec2; amount: number }
   | { kind: 'shot'; pos: Vec2; weapon: WeaponId }
   | { kind: 'collected'; pos: Vec2; item: ItemId | null; count: number; playerId: number }
-  | { kind: 'produced'; pos: Vec2; machine: MachineId; item: ItemId }
+  | { kind: 'produced'; pos: Vec2; machine: MachineId; item: ItemId; count: number }
   | { kind: 'placed'; pos: Vec2; what: MachineId | 'belt' }
   | { kind: 'removed'; pos: Vec2 }
   | { kind: 'mobDied'; pos: Vec2; type: MobTypeId }
@@ -446,4 +446,6 @@ export type SimEvent =
   | { kind: 'crafted'; pos: Vec2; item: ItemId }
   | { kind: 'research'; tech: string; level: number; next: string | null }
   | { kind: 'goal'; playerId: number; goal: string; next: string | null }
-  | { kind: 'oreChanged'; tx: number; ty: number };
+  | { kind: 'oreChanged'; tx: number; ty: number }
+  /** A miner pulled up the last ore within its reach and will now stand idle. */
+  | { kind: 'minerDry'; pos: Vec2; machine: MachineId; ore: OreKind };
