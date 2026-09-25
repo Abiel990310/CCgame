@@ -291,6 +291,12 @@ function stepMiner(world: World, machine: Machine, dt: number, bonus: ResearchBo
   if (!takeOre(world, source.tx, source.ty)) return;
   addToSlots(machine.output, ore, 1, def.slotSize);
   announce(world, machine, ore);
+  // Said once, on the ore that emptied it: from here on a stalled miner looks
+  // the same as one whose belt has backed up, and the player needs to know
+  // this one will not start again.
+  if (!minerSource(world, machine, ore)) {
+    world.events.push({ kind: 'minerDry', pos: tileCenter(machine.tx, machine.ty), machine: machine.type, ore });
+  }
 }
 
 /**
@@ -315,20 +321,21 @@ function stepTrap(world: World, machine: Machine, dt: number): void {
   machine.progress -= TRAP_TIME;
   const catchOf = rollDrop(world, 'fish');
   addToSlots(machine.output, catchOf.item, catchOf.count, def.slotSize);
-  announce(world, machine, catchOf.item);
+  announce(world, machine, catchOf.item, catchOf.count);
 }
 
 /**
- * Tell the client one item came out of this machine. Positions are the tile
+ * Tell the client what came out of this machine. Positions are the tile
  * centre rather than the machine, so a listener can place the sound without
  * needing the grid.
  */
-function announce(world: World, machine: Machine, item: ItemId): void {
+function announce(world: World, machine: Machine, item: ItemId, count = 1): void {
   world.events.push({
     kind: 'produced',
     pos: tileCenter(machine.tx, machine.ty),
     machine: machine.type,
     item,
+    count,
   });
 }
 
@@ -575,7 +582,7 @@ function stepCrafter(
   machine.progress = 0;
   for (const out of recipe.outputs) {
     addToSlots(machine.output, out.id, out.count, def.slotSize);
-    announce(world, machine, out.id);
+    announce(world, machine, out.id, out.count);
   }
 }
 

@@ -1,7 +1,10 @@
 import { MACHINES } from '@shared/data/machines';
 import { MAP_TILES, TILE } from '@shared/sim/constants';
 import { exploredShare } from '@shared/sim/explore';
-import type { ResourceKind, World } from '@shared/sim/types';
+import { minerOreLeft } from '@shared/sim/ore';
+import type { Machine, ResourceKind, World } from '@shared/sim/types';
+import type { Ledger } from '../ledger';
+import { LedgerView } from './ledger';
 import './worldmap.css';
 
 /** Terrain in the order `TERRAIN_ORDER` stores it: deep, water, sand, grass, forest, rock. */
@@ -26,6 +29,19 @@ const LANDMARK_MARK: Partial<Record<ResourceKind, string>> = {
 };
 const FOG_SHOW = 0.16;
 
+export type MapTab = 'map' | 'ledger';
+
+/**
+ * Miners that have pulled up everything within reach. They never start again
+ * on their own, so the map points them out rather than leaving the player to
+ * notice which of forty miners went quiet.
+ */
+export function dryMiners(world: World): Machine[] {
+  return world.machines.filter(
+    (m) => MACHINES[m.type].family === 'miner' && m.ore !== null && minerOreLeft(world, m) === 0,
+  );
+}
+
 /**
  * The island at a glance: what has been explored, where the ore lies, the
  * factory and the camp, and you. The terrain image is painted once per
@@ -39,6 +55,12 @@ export class WorldMap {
   private open = false;
   private paintedKey = '';
   private refresh = 0;
+  private tab: MapTab = 'map';
+  private view: HTMLElement;
+  private ledgerView: LedgerView;
+  private tabs: HTMLElement[];
+  private dryCount = 0;
+  private dryTimer = 0;
 
   constructor(parent: HTMLElement, private onClose: () => void) {
     this.root = document.createElement('div');
@@ -46,10 +68,14 @@ export class WorldMap {
     this.root.innerHTML = `
       <div class="worldmap-inner panel">
         <header class="worldmap-head">
-          <strong>Island map</strong>
+          <nav class="worldmap-tabs">
+            <button data-tab="map" title="Island map (M)">Map</button>
+            <button data-tab="ledger" title="Production (L)">Production</button>
+          </nav>
           <span class="worldmap-share" data-role="share"></span>
           <button class="icon-btn worldmap-close" title="Close (M)" data-role="close">&times;</button>
         </header>
+        <div class="worldmap-view" data-role="view">
         <div class="worldmap-frame">
           <canvas class="worldmap-land" data-role="land"></canvas>
           <canvas class="worldmap-marks" data-role="marks"></canvas>
@@ -61,13 +87,19 @@ export class WorldMap {
           <span><i class="dot-factory"></i>Factory</span>
           <span><i class="dot-camp"></i>Camp</span>
           <span><i class="dot-landmark"></i>Landmark</span>
+          <span><i class="dot-dry"></i>Dry miner</span>
           <span><i class="dot-you"></i>You</span>
         </footer>
+        </div>
       </div>`;
     const role = <T extends HTMLElement>(name: string) => this.root.querySelector<T>(`[data-role="${name}"]`)!;
     this.canvas = role<HTMLCanvasElement>('land');
     this.overlay = role<HTMLCanvasElement>('marks');
     this.share = role('share');
+    this.view = role('view');
+    this.ledgerView = new LedgerView(this.root.querySelector('.worldmap-inner')!, () => this.showTab('map'));
+    this.tabs = [...this.root.querySelectorAll<HTMLElement>('[data-tab]')];
+    for (const tab of this.tabs) tab.addEventListener('click', () => this.showTab(tab.dataset.tab as MapTab));
     role('close').addEventListener('click', () => this.onClose());
     // A click on the dimmed backdrop closes it, like every other sheet.
     this.root.addEventListener('pointerdown', (e) => {
@@ -80,14 +112,38 @@ export class WorldMap {
     return this.open;
   }
 
-  setOpen(open: boolean): void {
+  get currentTab(): MapTab {
+    return this.tab;
+  }
+
+  setOpen(open: boolean, tab: MapTab = this.tab): void {
     this.open = open;
     this.root.classList.toggle('hidden', !open);
     this.paintedKey = '';
+    this.showTab(tab);
   }
 
-  update(world: World, selfId: number, dt: number): void {
+  showTab(tab: MapTab): void {
+    this.tab = tab;
+    for (const el of this.tabs) el.classList.toggle('on', el.dataset.tab === tab);
+    this.view.classList.toggle('hidden', tab !== 'map');
+    this.share.classList.toggle('hidden', tab !== 'map');
+    this.ledgerView.setVisible(tab === 'ledger');
+    this.paintedKey = '';
+    this.dryTimer = 0;
+  }
+
+  update(world: World, selfId: number, dt: number, ledger: Ledger): void {
     if (!this.open) return;
+    if (this.tab === 'ledger') {
+      this.dryTimer -= dt;
+      if (this.dryTimer <= 0) {
+        this.dryCount = dryMiners(world).length;
+        this.dryTimer = 1;
+      }
+      this.ledgerView.update(ledger, this.dryCount);
+      return;
+    }
     // The explored mask only grows while walking, so repaint it now and then
     // rather than hashing it every frame.
     this.refresh -= dt;
@@ -165,6 +221,20 @@ export class WorldMap {
       ctx.stroke();
     };
     ring(world.camp.x, world.camp.y, 6, '#f0b94a', '#3a2a08');
+
+    // A dry miner gets a red ring big enough to find on a whole-island view.
+    for (const miner of dryMiners(world)) {
+      const cx = (miner.tx + 0.5) * TILE;
+      const cy = (miner.ty + 0.5) * TILE;
+      ctx.beginPath();
+      ctx.arc(cx * scale, cy * scale, 9 * dpr, 0, Math.PI * 2);
+      ctx.lineWidth = 2.5 * dpr;
+      ctx.strokeStyle = '#10141c';
+      ctx.stroke();
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.strokeStyle = '#ef6171';
+      ctx.stroke();
+    }
 
     // Landmarks show once their tile has been seen: a diamond in the colour
     // of what is there, so the map remembers where to come back to.

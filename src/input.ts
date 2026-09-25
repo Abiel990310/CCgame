@@ -31,6 +31,7 @@ export type ActionKey =
   | 'craft'
   | 'upgrade'
   | 'map'
+  | 'ledger'
   | `hotbar${HotbarKey}`
   | `bind${HotbarKey}`;
 
@@ -86,7 +87,7 @@ export class InputManager {
       // Typing a save name is not a move order.
       if (e.target instanceof HTMLInputElement) return;
       // Let the browser keep its own shortcuts; only claim game keys.
-      const claimed = ['Space', 'KeyE', 'KeyB', 'KeyR', 'KeyX', 'KeyM', 'KeyU', 'Tab', 'Escape'];
+      const claimed = ['Space', 'KeyE', 'KeyB', 'KeyR', 'KeyX', 'KeyM', 'KeyL', 'KeyU', 'Tab', 'Escape'];
       if (e.code in MOVE_KEYS || claimed.includes(e.code)) e.preventDefault();
 
       // A number picks a quick slot; with shift it binds the selected piece to
@@ -106,6 +107,7 @@ export class InputManager {
       if (e.code === 'KeyR') this.pending.push('rotate');
       if (e.code === 'KeyX') this.pending.push('remove');
       if (e.code === 'KeyM') this.pending.push(e.shiftKey ? 'mute' : 'map');
+      if (e.code === 'KeyL') this.pending.push('ledger');
       if (e.code === 'KeyC') this.pending.push('craft');
       if (e.code === 'KeyU') this.pending.push('upgrade');
       if (e.code === 'Tab') this.pending.push('inventory');
