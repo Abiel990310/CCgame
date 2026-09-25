@@ -78,4 +78,12 @@ export const BEACON_FUEL_CAP = 20;
 /** What a burning beacon adds to every machine, miner and lab on the island, as a share. */
 export const BEACON_BOOST = 0.3;
 
+/**
+ * A burning beacon's ward: creatures inside it move at this share of their
+ * speed, so its light means something after dark as well as for the factory.
+ * Wide enough to cover a camp built around it, not the whole island.
+ */
+export const BEACON_WARD_TILES = 10;
+export const BEACON_WARD_PACE = 0.6;
+
 export const BEACON_STAGE_BY_ID = new Map(BEACON_STAGES.map((s, i) => [s.id, { stage: s, index: i }]));

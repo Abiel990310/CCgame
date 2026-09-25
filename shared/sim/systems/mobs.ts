@@ -1,7 +1,9 @@
+import { BEACON_WARD_PACE } from '../../data/beacon';
 import { BUILDINGS } from '../../data/buildings';
 import { RESOURCES } from '../../data/items';
 import { MOBS, MOB_ORDER } from '../../data/mobs';
 import { CAMP, MAP_SIZE, PLAYER, TILE, WAVES } from '../constants';
+import { beaconWards } from '../beacon';
 import { damp, distance, normalize } from '../math';
 import { nextFloat } from '../progression';
 import { isWalkable, terrainAtIndex } from '../terrain';
@@ -67,6 +69,7 @@ export function stepLandmarkGuards(world: World): void {
 const CHILLED = 0.45;
 
 export function stepMobs(world: World, dt: number): void {
+  const wards = world.mobs.length > 0 ? beaconWards(world) : [];
   for (let i = world.mobs.length - 1; i >= 0; i--) {
     const mob = world.mobs[i];
     if (mob.hp <= 0) {
@@ -85,6 +88,7 @@ export function stepMobs(world: World, dt: number): void {
       mob.chill = Math.max(0, mob.chill - dt);
       speed *= CHILLED;
     }
+    if (wards.some((w) => distance(w.pos, mob.pos) < w.radius)) speed *= BEACON_WARD_PACE;
     let pace = 1;
     if (def.spit && target.player) {
       pace = spit(world, mob, target.pos, dt);

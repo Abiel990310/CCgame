@@ -3,6 +3,7 @@ import {
   BEACON_BURN_SECONDS,
   BEACON_FUEL_CAP,
   BEACON_LIT,
+  BEACON_WARD_TILES,
   BEACON_STAGES,
   BEACON_STAGE_BY_ID,
   BEACON_XP,
@@ -12,7 +13,8 @@ import type { ResearchBonuses } from './research';
 import { tileCenter } from './grid';
 import { grantXp } from './progression';
 import { addToSlots, countIn, takeFromSlots } from './slots';
-import type { ItemId, Machine, World } from './types';
+import { TILE } from './constants';
+import type { ItemId, Machine, Vec2, World } from './types';
 
 /** The stage a beacon is building, or null once it is lit. A new one starts at the first. */
 export function beaconStage(machine: Machine): { stage: BeaconStage; index: number } | null {
@@ -85,4 +87,13 @@ export function withBeacon(world: World, bonuses: ResearchBonuses): ResearchBonu
     mining: bonuses.mining + BEACON_BOOST,
     lab: bonuses.lab + BEACON_BOOST,
   };
+}
+
+/** Centres of every burning beacon, and how far each one's ward reaches. */
+export function beaconWards(world: World): { pos: Vec2; radius: number }[] {
+  const wards: { pos: Vec2; radius: number }[] = [];
+  for (const m of world.machines) {
+    if (m.type === 'beacon' && beaconBurning(m)) wards.push({ pos: tileCenter(m.tx, m.ty), radius: BEACON_WARD_TILES * TILE });
+  }
+  return wards;
 }

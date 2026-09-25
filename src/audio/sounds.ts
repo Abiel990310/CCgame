@@ -134,14 +134,106 @@ export const SOUNDS = {
     throttle: 0.035,
     layers: [NOISE(1800, 900, 0.5, 0.001, 0.05, 1.6), TONE('triangle', 620, 440, 0.3, 0.001, 0.04)],
   },
-  mobDied: {
+  // ---- Deaths: one voice per creature, so a raid is readable by ear ----
+  // A wet pop: a bubble bursting, then the goo settling.
+  diedSlime: {
     gain: 0.2,
-    vary: 0.1,
+    vary: 0.14,
     throttle: 0.05,
     layers: [
-      TONE('triangle', 420, 120, 0.6, 0.004, 0.22),
-      TONE('sine', 210, 70, 0.4, 0.004, 0.26, 0.02),
-      NOISE(1200, 300, 0.4, 0.002, 0.16, 1),
+      TONE('sine', 260, 620, 0.55, 0.003, 0.07),
+      TONE('sine', 180, 60, 0.45, 0.003, 0.2, 0.05),
+      NOISE(500, 150, 0.45, 0.004, 0.18, 0.8, 0.04, 'lowpass'),
+    ],
+  },
+  // Legs clicking shut: short, dry and high, since crawlers die in crowds.
+  diedCrawler: {
+    gain: 0.14,
+    vary: 0.18,
+    throttle: 0.04,
+    layers: [
+      TONE('square', 1900, 1100, 0.3, 0.001, 0.025),
+      TONE('square', 1500, 800, 0.3, 0.001, 0.025, 0.035),
+      NOISE(3200, 1800, 0.4, 0.001, 0.06, 2.4, 0.01),
+    ],
+  },
+  // A breath going out: a chime that rises and thins rather than falls.
+  diedWisp: {
+    gain: 0.14,
+    vary: 0.08,
+    throttle: 0.06,
+    layers: [
+      TONE('sine', 880, 1760, 0.4, 0.01, 0.4),
+      TONE('sine', 1320, 2400, 0.22, 0.02, 0.32, 0.05),
+      NOISE(4200, 7000, 0.25, 0.02, 0.35, 3, 0, 'highpass'),
+    ],
+  },
+  // A body hitting the ground: the heaviest of the common deaths.
+  diedBrute: {
+    gain: 0.3,
+    vary: 0.06,
+    throttle: 0.08,
+    layers: [
+      TONE('sawtooth', 130, 42, 0.5, 0.004, 0.32, 0, 10),
+      TONE('sine', 70, 34, 0.6, 0.006, 0.38, 0.03),
+      NOISE(420, 90, 0.6, 0.003, 0.3, 0.7, 0.02, 'lowpass'),
+    ],
+  },
+  // Its sac going: a gurgle under a hiss.
+  diedSpitter: {
+    gain: 0.18,
+    vary: 0.12,
+    throttle: 0.06,
+    layers: [
+      NOISE(2600, 700, 0.5, 0.003, 0.22, 1.6),
+      TONE('triangle', 300, 110, 0.4, 0.004, 0.2, 0.02, 20),
+      TONE('sine', 520, 200, 0.2, 0.004, 0.12, 0.08),
+    ],
+  },
+  // A shell cracking: a hard click, then the halves knocking.
+  diedShellback: {
+    gain: 0.22,
+    vary: 0.08,
+    throttle: 0.07,
+    layers: [
+      NOISE(3800, 2000, 0.6, 0.001, 0.05, 2),
+      TONE('triangle', 340, 170, 0.5, 0.002, 0.12, 0.03),
+      TONE('triangle', 260, 130, 0.4, 0.002, 0.14, 0.1),
+    ],
+  },
+  // A slime's pop, lower and longer: the brood spilling out of her.
+  diedMother: {
+    gain: 0.28,
+    vary: 0.06,
+    throttle: 0.1,
+    layers: [
+      TONE('sine', 150, 420, 0.55, 0.004, 0.12),
+      TONE('sine', 110, 38, 0.55, 0.004, 0.5, 0.08),
+      NOISE(380, 90, 0.55, 0.006, 0.45, 0.7, 0.06, 'lowpass'),
+      TONE('sine', 300, 700, 0.25, 0.003, 0.06, 0.22),
+    ],
+  },
+  // Stone coming apart: a long grinding collapse.
+  diedWarden: {
+    gain: 0.42,
+    vary: 0,
+    throttle: 0.5,
+    layers: [
+      NOISE(600, 70, 0.7, 0.01, 1.4, 0.6, 0, 'lowpass'),
+      TONE('sawtooth', 90, 30, 0.45, 0.01, 1.2, 0, 7),
+      NOISE(1800, 400, 0.35, 0.003, 0.2, 1.2, 0.25),
+      NOISE(1500, 300, 0.3, 0.003, 0.2, 1.2, 0.55),
+    ],
+  },
+  // A falling shriek, the summon buzz turned downward.
+  diedQueen: {
+    gain: 0.36,
+    vary: 0,
+    throttle: 0.5,
+    layers: [
+      TONE('sawtooth', 900, 140, 0.4, 0.01, 0.9, 0, 22),
+      TONE('square', 600, 90, 0.2, 0.02, 0.8, 0.05, 11),
+      NOISE(2400, 300, 0.35, 0.01, 0.8, 2),
     ],
   },
   playerHit: {

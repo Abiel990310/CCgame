@@ -385,10 +385,12 @@ detail behind the factory entries is in
       minute, from a reserve of up to 20, and while it burns every machine,
       miner and lab on the island works 30% faster. Out of fuel it banks to an
       ember and the boost stops, so running it for good needs a processor line.
-- [ ] The beacon screen still labels its slots "Delivered" once lit, where
-      "Fuel" would say what they are for now.
-- [ ] A burning beacon could also calm the nights near it, or ward the camp,
-      so its light means something after dark as well as for the factory.
+- [x] The beacon screen labels its slots "Fuel" once lit, not "Delivered".
+- [x] A burning beacon wards the ground within 10 tiles of it: creatures there
+      move at 60% pace, so a camp built round it holds better at night.
+- [ ] Draw the beacon's ward on the ground at night, a faint ring the raiders
+      visibly wade into. Waits for the engine thread's lighting layer, since a
+      ring drawn in the Y-sort would cross the sprites north of the beacon.
 - [x] Around fifty level-up upgrades (49): 26 perks you can stack up to a
       cap (range, crits, armour, thorns, lifesteal, pierce, knockback, a
       finisher, night and camp damage, dash, revive, day speed, map sight,
@@ -509,9 +511,11 @@ detail behind the factory entries is in
       world.
 - [ ] **Second island via a bridge** — a new generated region with its own ore
       tier and tech branch. Multiplies content instead of ending it.
-- [ ] **Mob voices** — every mob dies to the same sound. One row per mob in
-      `src/audio/sounds.ts` would make a wisp and a brute distinguishable with
-      your eyes on the belt you are laying.
+- [x] **Mob voices** — each of the nine creatures dies to its own sound: a
+      slime pops, crawlers click, a wisp rises away, a brute thuds, a spitter
+      gurgles, a shellback cracks, the Warden crumbles and the Queen shrieks.
+- [ ] Mob voices for attacks and hurt, not only deaths, so a brute winding up
+      behind you is audible before it lands.
 - [ ] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
       themselves. Movement is the verb the player does most and it is silent.
 - [ ] **A pitch per item on production sounds**, so a bank of furnaces reads as
