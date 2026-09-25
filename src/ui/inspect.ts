@@ -9,6 +9,9 @@ import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
 import { powerNetOf } from '@shared/sim/power';
+import { BEACON_STAGES } from '@shared/data/beacon';
+import { beaconStage } from '@shared/sim/beacon';
+import { countIn } from '@shared/sim/slots';
 import { nearWorkbench } from '@shared/sim/crafting';
 import { findNearestNode } from '@shared/sim/systems/gathering';
 import type { Machine, OreKind, Player, ToolKind, Vec2, World } from '@shared/sim/types';
@@ -286,6 +289,7 @@ export class Inspector {
 function describeMachine(world: World, machine: Machine): Card {
   const def = MACHINES[machine.type];
   if (def.family === 'pole' || def.generates) return describePower(world, machine);
+  if (def.family === 'beacon') return describeBeacon(machine);
   const rows: Array<[string, string]> = [];
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   if (def.family === 'miner' && machine.ore) rows.push(['Mining', ITEMS[machine.ore].name]);
@@ -316,6 +320,28 @@ function describeMachine(world: World, machine: Machine): Card {
     status,
     rows,
     hint: def.inputSlots + def.outputSlots > 0 ? 'Click to open' : undefined,
+  };
+}
+
+/** A beacon's card is its current stage and how far along each part of it is. */
+function describeBeacon(machine: Machine): Card {
+  const def = MACHINES[machine.type];
+  const current = beaconStage(machine);
+  const rows: Array<[string, string]> = current
+    ? [
+        ['Stage', `${current.index + 1} of ${BEACON_STAGES.length}: ${current.stage.name}`],
+        ...current.stage.needs.map((n): [string, string] => [
+          ITEMS[n.id].name,
+          `${Math.min(n.count, countIn(machine.input, n.id))} / ${n.count}`,
+        ]),
+      ]
+    : [];
+  return {
+    title: def.name,
+    icon: pieceIconVar(`machine:${machine.type}`),
+    status: current ? { text: 'Being built', tone: 'warn' } : { text: 'Lit', tone: 'good' },
+    rows,
+    hint: current ? 'Click to open' : undefined,
   };
 }
 

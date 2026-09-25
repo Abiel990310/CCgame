@@ -1,3 +1,4 @@
+import { drawBeacon } from './beacon';
 import { ITEMS } from '@shared/data/items';
 import type { MachineDef } from '@shared/data/machines';
 import { BELT_SPEED, INSERTER_SWING, MACHINES, TRAP_TIME } from '@shared/data/machines';
@@ -133,6 +134,10 @@ export function drawMachine(
   }
   if (def.family === 'pole') {
     drawPole(ctx, def, x, y);
+    return;
+  }
+  if (def.family === 'beacon') {
+    drawBeacon(ctx, machine, time);
     return;
   }
 

@@ -296,6 +296,20 @@ detail behind the factory entries is in
 
 ### New features
 
+- [x] A late-game megaproject: the **Skyward Beacon**. Research it (logic,
+      power and engineering packs, after Solar Power and High-Pressure
+      Steam), craft it, and raise it in five stages: foundation, spire,
+      wiring, lens and ignition. Each stage is fed by arm or by hand from
+      the whole tree, including three new tier-4 parts: **Processors**,
+      **Steel Frames** and **Resonant Lenses** (which take essence). The
+      spire grows a section per stage and throws a sweeping beam once lit.
+      Three goals follow the chain to it.
+- [ ] A lit beacon should light the night like the campfire does. Left for
+      after the engine thread's night-layer rework (PR #47), which owns
+      the lighting code.
+- [ ] What a lit beacon gives back beyond the XP: a reason to keep feeding
+      the island after it (an endless tier, a second island, a prestige).
+
 - [x] Around fifty level-up upgrades (49): 26 perks you can stack up to a
       cap (range, crits, armour, thorns, lifesteal, pierce, knockback, a
       finisher, night and camp damage, dash, revive, day speed, map sight,

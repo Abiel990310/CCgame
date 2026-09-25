@@ -280,6 +280,21 @@ export const TECHS: TechDef[] = [
     xp: 20,
   },
   {
+    id: 'skyward',
+    name: 'Skyward Beacon',
+    description: 'Plans for the island\'s last great build: a beacon raised in five stages from the whole factory\'s output.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+      { id: 'engineeringPack', count: 1 },
+    ],
+    cycles: 120,
+    time: 10,
+    requires: ['solarPower', 'steamPressure'],
+    unlocks: ['beacon'],
+    xp: 30,
+  },
+  {
     id: 'ballistics',
     name: 'Ballistics',
     description: 'Never finishes. Each level makes every weapon hit harder again.',

@@ -31,6 +31,9 @@ export type ItemId =
   | 'advancedCircuit'
   | 'pipe'
   | 'engineUnit'
+  | 'processor'
+  | 'frame'
+  | 'lens'
   // Consumed by labs
   | 'researchPack'
   | 'logicPack'
@@ -70,7 +73,8 @@ export type CraftedMachineId =
   | 'lab'
   | 'splitter'
   | 'generator'
-  | 'solar';
+  | 'solar'
+  | 'beacon';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -259,7 +263,8 @@ export type MachineFamily =
   | 'fishTrap'
   | 'generator'
   | 'solar'
-  | 'pole';
+  | 'pole'
+  | 'beacon';
 
 export type MachineId =
   | MachineFamily
@@ -422,6 +427,7 @@ export type SimEvent =
   | { kind: 'blast'; pos: Vec2; radius: number }
   | { kind: 'spit'; pos: Vec2 }
   | { kind: 'boss'; pos: Vec2; type: MobTypeId }
+  | { kind: 'beacon'; pos: Vec2; stage: number; lit: boolean }
   | { kind: 'levelUp'; playerId: number; level: number }
   | { kind: 'gathered'; pos: Vec2; item: ItemId }
   | { kind: 'phase'; phase: Phase; nightIndex: number }
