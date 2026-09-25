@@ -274,8 +274,12 @@ detail behind the factory entries is in
       mode now turns it a quarter, as belts already did, and the build bar has
       a turn button for the piece about to go down. Checked at 320, 390 and
       810px wide.
-- [ ] On a 320px phone the build bar's second card in each row is cut off by
-      the palette edge; it scrolls sideways, but nothing says so.
+- [x] On a 320px phone the build bar's second card in each row is cut off by
+      the palette edge; it scrolls sideways, but nothing says so. A row with
+      more cards now fades at its edge and shows an arrow that steps one card
+      along, and swipes snap to a card. Checked at 320, 390 and 800x360.
+- [ ] The Lab's "Workbench" note in the desktop build palette runs 5px past
+      its card's right edge at 1280px.
 - [x] The overlapping HUD panels are still showing after the UI revamp. The
       co-op code chip sat on the resource pouch at every screen size, and on
       a 320px phone the phase panel wrapped into it. The top-right corner is

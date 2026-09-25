@@ -294,9 +294,12 @@ export class Hud {
       const column = document.createElement('section');
       column.className = 'pal-group';
       column.innerHTML = groups.length > 1 ? `<h3>${group}</h3>` : '';
+      const row = document.createElement('div');
+      row.className = 'pal-row';
       const list = document.createElement('div');
       list.className = 'pal-list';
-      column.appendChild(list);
+      row.appendChild(list);
+      column.appendChild(row);
 
       for (const entry of entries.filter((e) => e.group === group)) {
         const key = selectionKey(entry.selection);
@@ -329,6 +332,7 @@ export class Hud {
         list.appendChild(button);
       }
       this.els.buildItems.appendChild(column);
+      watchOverflow(row, list);
     }
     this.detailKey = '';
   }
@@ -695,4 +699,36 @@ function formatCount(n: number): string {
   if (n < 10000) return String(n);
   if (n < 1000000) return `${Math.floor(n / 100) / 10}k`;
   return `${Math.floor(n / 100000) / 10}m`;
+}
+
+/**
+ * A phone shows each group as one sideways row wider than the screen, and a
+ * card sliced by the edge reads as a layout bug rather than as more to come.
+ * The row marks which ends hide cards so the edge can fade, and a tap on the
+ * arrow moves one card along for anyone who does not think to swipe.
+ */
+function watchOverflow(row: HTMLElement, list: HTMLElement): void {
+  const more = document.createElement('button');
+  more.className = 'pal-more';
+  more.type = 'button';
+  more.title = 'More';
+  more.innerHTML = icon('chevron');
+  more.addEventListener('click', () => {
+    const card = list.querySelector<HTMLElement>('.build-option');
+    list.scrollBy({ left: card ? card.offsetWidth + 5 : list.clientWidth / 2, behavior: 'smooth' });
+  });
+  row.appendChild(more);
+
+  const mark = (): void => {
+    // Desktop columns do not scroll, so a card a few pixels too wide there is
+    // clipped, not hidden. Rounding at fractional zoom can leave a pixel of
+    // scroll that shows nothing.
+    const scrolls = getComputedStyle(list).overflowX !== 'visible';
+    const hidden = scrolls ? list.scrollWidth - list.clientWidth : 0;
+    row.classList.toggle('more-left', hidden > 1 && list.scrollLeft > 1);
+    row.classList.toggle('more-right', list.scrollLeft < hidden - 1);
+  };
+  list.addEventListener('scroll', mark, { passive: true });
+  // The palette is built while hidden, so its widths only mean something once shown.
+  new ResizeObserver(mark).observe(list);
 }
