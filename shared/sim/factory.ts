@@ -1,4 +1,4 @@
-import { BELT_COST, MACHINES, placementCost } from '../data/machines';
+import { BELT_COST, MACHINES, TUNNEL_REACH, placementCost } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { buildingOnTile } from './building';
 import { giveOrDrop, payAll, hasAll } from './inventory';
@@ -109,6 +109,7 @@ export function placeMachine(
   dir: Direction,
 ): Machine | null {
   if (factoryPlacementError(world, player, type, tx, ty) !== null) return null;
+  type = tunnelEnd(world, type, tx, ty, dir);
 
   const existing = upgradeTarget(world, type, tx, ty);
   if (existing) return upgradeMachine(world, player, existing, type);
@@ -345,6 +346,55 @@ export function mergerSources(entity: { tx: number; ty: number; dir: Direction }
     inputTile(entity),
     step1(entity.tx, entity.ty, rotate(entity.dir)),
   ];
+}
+
+/**
+ * What placing `type` here actually puts down. An underground belt becomes the
+ * exit of the nearest entrance behind it that faces the same way and is still
+ * open, and an entrance otherwise, so one item in the palette lays both ends.
+ * Every other machine is itself.
+ */
+export function tunnelEnd(world: World, type: MachineId, tx: number, ty: number, dir: Direction): MachineId {
+  if (MACHINES[type].tunnel !== 'in') return type;
+  // An exit nearer than any entrance already closes the tunnel behind it, so
+  // this piece starts a new one.
+  const behind = tunnelPiece(world, { tx, ty, dir: opposite(dir) }, dir);
+  if (!behind || MACHINES[behind.type].tunnel !== 'in') return type;
+  return MACHINES[type].pairsWith ?? type;
+}
+
+/**
+ * The exit an underground entrance delivers to: the first tunnel end ahead of
+ * it, within reach, that faces the same way — when that end is an exit. A
+ * second entrance in the way means this one has nowhere to come up.
+ */
+export function tunnelExitOf(world: World, entrance: Machine): Machine | null {
+  const found = tunnelPiece(world, entrance, entrance.dir);
+  return found && MACHINES[found.type].tunnel === 'out' ? found : null;
+}
+
+/** The entrance feeding an underground exit, found the same way from the other end. */
+export function tunnelEntranceOf(world: World, exit: Machine): Machine | null {
+  const found = tunnelPiece(world, { tx: exit.tx, ty: exit.ty, dir: opposite(exit.dir) }, exit.dir);
+  return found && MACHINES[found.type].tunnel === 'in' ? found : null;
+}
+
+/**
+ * The nearest tunnel end facing `facing` along a line from `from`, within the
+ * reach of one tunnel. Belts, machines and ends facing elsewhere are passed
+ * under, which is the whole point of the thing.
+ */
+function tunnelPiece(
+  world: World,
+  from: { tx: number; ty: number; dir: Direction },
+  facing: Direction,
+): Machine | null {
+  for (let d = 1; d <= TUNNEL_REACH + 1; d++) {
+    const at = stepN(from.tx, from.ty, from.dir, d);
+    const machine = machineAt(world, at.tx, at.ty);
+    if (machine && machine.dir === facing && MACHINES[machine.type].tunnel) return machine;
+  }
+  return null;
 }
 
 export function isMerger(machine: Machine): boolean {

@@ -159,6 +159,10 @@ export function drawMachine(
     drawBeacon(ctx, machine, time);
     return;
   }
+  if (def.family === 'tunnel') {
+    drawTunnel(ctx, machine, def, time, x, y, cached);
+    return;
+  }
 
   if (cached && bodyScale > 0) blitBody(ctx, def, machine.dir, x, y);
   else drawBody(ctx, def, machine.dir, x, y);
@@ -167,6 +171,113 @@ export function drawMachine(
   if (outOfFuel(machine)) drawFuelSign(ctx, time, x, y);
   else if (machine.unpowered) drawPowerSign(ctx, time, x, y);
   drawProgress(ctx, machine, x, y);
+}
+
+/**
+ * An underground belt end is half a belt running into a hood. The belt half is
+ * the side the line joins, so the pair reads the way items flow: into the
+ * mouth of the entrance, out of the mouth of the exit. Its treads move with
+ * every other belt's, which is what makes the two ends look like one line.
+ */
+function drawTunnel(
+  ctx: CanvasRenderingContext2D,
+  machine: Machine,
+  def: MachineDef,
+  time: number,
+  x: number,
+  y: number,
+  cached: boolean,
+): void {
+  const phase = Math.floor((((time * BELT_SPEED * TILE) % BELT_SPACING) / BELT_SPACING) * BELT_PHASES);
+  const t = (phase / BELT_PHASES) * (BELT_SPACING / (BELT_SPEED * TILE));
+  if (cached) {
+    const r = TILE * 0.5 + 3;
+    blitCached(ctx, `tunnel:${def.id}:${machine.dir}:${phase}`, x, y, { left: r, right: r, top: r, bottom: r }, (c) =>
+      paintTunnel(c, def, machine.dir, t),
+    );
+  } else {
+    ctx.save();
+    ctx.translate(x, y);
+    paintTunnel(ctx, def, machine.dir, t);
+    ctx.restore();
+  }
+
+  // Only an entrance with nowhere to come up is stuck; the lamp sits on the
+  // hood, since the front face a block carries it on is not there.
+  if (!machine.stalled) return;
+  const angle = dirAngle(machine.dir);
+  const lx = x + Math.cos(angle) * TILE * 0.22;
+  const ly = y + Math.sin(angle) * TILE * 0.22;
+  ctx.globalAlpha = 0.55 + Math.sin(time * 6) * 0.35;
+  blitCached(ctx, 'lamp:tunnel', lx, ly, around(6.5), (c) => {
+    c.fillStyle = rgba(UI.danger, 0.25);
+    c.beginPath();
+    c.arc(0, 0, 5.5, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = UI.danger;
+    c.beginPath();
+    c.arc(0, 0, 2.4, 0, Math.PI * 2);
+    c.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+/** One tunnel end at the origin, turned to face `dir`, with its belt at time `t`. */
+function paintTunnel(ctx: CanvasRenderingContext2D, def: MachineDef, dir: Direction, t: number): void {
+  const h = TILE / 2;
+  // Local x runs the way items flow. An entrance shows its belt behind the
+  // hood, an exit in front of it.
+  const entrance = def.tunnel === 'in';
+  ctx.save();
+  ctx.rotate(dirAngle(dir));
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(entrance ? -h - 1 : 0, -h - 1, h + 1, TILE + 2);
+  ctx.clip();
+  drawBeltAt(ctx, 0, 0, 0, t, 0.5);
+  ctx.restore();
+
+  const x0 = entrance ? -TILE * 0.08 : -TILE * 0.47;
+  const w = TILE * 0.55;
+  ctx.fillStyle = 'rgba(10, 14, 20, 0.28)';
+  ctx.beginPath();
+  ctx.roundRect(x0 + 1, -TILE * 0.47 + 3, w, TILE * 0.94, 6);
+  ctx.fill();
+
+  // The hood: a dark casing with a lighter cap, and a lit rim along its back.
+  ctx.fillStyle = shift(def.color, -34);
+  ctx.beginPath();
+  ctx.roundRect(x0, -TILE * 0.47, w, TILE * 0.94, 6);
+  ctx.fill();
+  ctx.fillStyle = def.color;
+  ctx.beginPath();
+  ctx.roundRect(x0 + 3, -TILE * 0.41, w - 6, TILE * 0.82, 4);
+  ctx.fill();
+
+  // The mouth, on the side the belt meets.
+  const mouth = TILE * 0.13;
+  ctx.fillStyle = '#12161c';
+  ctx.beginPath();
+  ctx.roundRect(entrance ? x0 : x0 + w - mouth, -TILE * 0.34, mouth, TILE * 0.68, 3);
+  ctx.fill();
+
+  // Chevrons along the cap, pointing the way items go under it. An exit's
+  // point the same way, so a pair seen together reads as one arrow.
+  ctx.fillStyle = def.accent;
+  const cx = entrance ? x0 + w * 0.6 : x0 + w * 0.4;
+  for (const off of [-TILE * 0.1, TILE * 0.06]) {
+    ctx.beginPath();
+    ctx.moveTo(cx + off + TILE * 0.08, 0);
+    ctx.lineTo(cx + off - TILE * 0.02, -TILE * 0.16);
+    ctx.lineTo(cx + off - TILE * 0.02, -TILE * 0.08);
+    ctx.lineTo(cx + off + TILE * 0.03, 0);
+    ctx.lineTo(cx + off - TILE * 0.02, TILE * 0.08);
+    ctx.lineTo(cx + off - TILE * 0.02, TILE * 0.16);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /**

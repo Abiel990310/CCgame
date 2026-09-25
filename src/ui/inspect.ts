@@ -1,10 +1,10 @@
 import { BUILDINGS } from '@shared/data/buildings';
 import { ITEMS, RESOURCES } from '@shared/data/items';
-import { MACHINES } from '@shared/data/machines';
+import { MACHINES, TUNNEL_REACH } from '@shared/data/machines';
 import { MOBS } from '@shared/data/mobs';
 import { RECIPE_BY_ID } from '@shared/data/recipes';
 import { MAP_TILES } from '@shared/sim/constants';
-import { beltAt, machineAt } from '@shared/sim/factory';
+import { beltAt, machineAt, tunnelEntranceOf, tunnelExitOf } from '@shared/sim/factory';
 import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
@@ -310,7 +310,15 @@ function describeMachine(world: World, machine: Machine): Card {
   else if (def.choosesRecipe) rows.push(['Making', 'Nothing chosen']);
 
   let status: Card['status'];
-  if (def.family !== 'chest' && def.family !== 'splitter' && def.family !== 'merger') {
+  if (def.family === 'tunnel') {
+    // Which end pairs with which is decided by the ground between them, so the
+    // card names the other end rather than leaving the player to count tiles.
+    const other = def.tunnel === 'in' ? tunnelExitOf(world, machine) : tunnelEntranceOf(world, machine);
+    const gap = other ? Math.abs(other.tx - machine.tx) + Math.abs(other.ty - machine.ty) - 1 : 0;
+    if (other) rows.push([def.tunnel === 'in' ? 'Exit' : 'Entrance', `${gap} ${gap === 1 ? 'tile' : 'tiles'} under`]);
+    else if (def.tunnel === 'in') status = { text: `No exit within ${TUNNEL_REACH} tiles`, tone: 'bad' };
+    else status = { text: 'No entrance feeding it', tone: 'warn' };
+  } else if (def.family !== 'chest' && def.family !== 'splitter' && def.family !== 'merger') {
     if (outOfFuel(machine)) status = { text: 'Out of fuel', tone: 'bad' };
     else if (machine.unpowered) status = { text: powerNetOf(world, machine) ? 'No power' : 'No pole in reach', tone: 'bad' };
     else if (def.choosesRecipe && !recipe) status = { text: 'Pick a recipe', tone: 'warn' };

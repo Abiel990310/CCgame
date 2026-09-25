@@ -88,6 +88,10 @@ describe('co-op replay', () => {
       if (t === 400) {
         pending.push({ p: friend.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty + 1, dir: 1 } });
         pending.push({ p: player.id, c: { k: 'remove', tx: ore.tx + 2, ty: ore.ty } });
+        // An underground belt's second piece decides for itself that it is the
+        // exit, which a guest has to decide the same way.
+        pending.push({ p: player.id, c: { k: 'machine', what: 'tunnel', tx: ore.tx, ty: ore.ty + 3, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'tunnel', tx: ore.tx + 4, ty: ore.ty + 3, dir: 0 } });
       }
       const tick = hostTick(host, pending, inputs);
       pending = [];
@@ -97,6 +101,7 @@ describe('co-op replay', () => {
       }
     }
 
+    expect(host.machines.filter((m) => m.type === 'tunnelExit')).toHaveLength(1);
     expect(host.nightIndex).toBeGreaterThan(0);
     expect(host.players.size).toBe(2);
     expect(player.bag).toBe(1);
