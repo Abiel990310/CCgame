@@ -2,7 +2,7 @@ import { WORLDGEN, createWorld } from '@shared/sim/world';
 import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { TECH_BY_ID } from '@shared/data/techs';
-import { backfillPrerequisites, newResearch } from '@shared/sim/research';
+import { backfillPrerequisites, newResearch, pruneResearchQueue } from '@shared/sim/research';
 import { catchUpGoals } from '@shared/sim/goals';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
@@ -315,11 +315,17 @@ function loadResearch(
   if (typeof raw.current === 'string' && TECH_BY_ID.has(raw.current)) {
     research.current = raw.current;
   }
+  if (Array.isArray(raw.queue)) {
+    research.queue = raw.queue.filter((id): id is string => typeof id === 'string' && TECH_BY_ID.has(id));
+  }
   backfillPrerequisites(research);
   // Pointing the labs at a tech that has just been granted would waste them.
   if (research.current && (research.levels[research.current] ?? 0) > 0 && !TECH_BY_ID.get(research.current)?.repeatable) {
     research.current = null;
   }
+  // Islands saved before the queue load with an empty one, and a queue edited
+  // by hand is cut back to what the labs can actually reach in that order.
+  pruneResearchQueue(research);
   return research;
 }
 

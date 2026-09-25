@@ -312,10 +312,38 @@ describe('research in a save', () => {
     expect(saveWorld(world, SLOT)).toBe(true);
     expect(loadWorld(SLOT)?.research).toEqual({
       current: 'beltLogistics',
+      queue: [],
       progress: { beltLogistics: 7 },
       levels: { automation: 1, metallurgy: 1, angling: 1 },
       unlockedAll: false,
     });
+  });
+
+  it('keeps the research queue in the order the player left it', () => {
+    const world = island();
+    world.research.levels.automation = 1;
+    world.research.current = 'metallurgy';
+    world.research.queue = ['fireboxDesign', 'toolmaking'];
+    saveWorld(world, SLOT);
+
+    const research = loadWorld(SLOT)!.research;
+    expect(research.current).toBe('metallurgy');
+    expect(research.queue).toEqual(['fireboxDesign', 'toolmaking']);
+  });
+
+  it('cuts a queue back to what the labs can reach in that order', () => {
+    saveWorld(island(), SLOT);
+    const header = JSON.parse(store.get(slotKey(SLOT))!);
+    header.research = {
+      current: null,
+      queue: ['gone', 'beltLogistics', 'automation', 'automation', 7, 'toolmaking'],
+      progress: {},
+      levels: {},
+    };
+    store.set(slotKey(SLOT), JSON.stringify(header));
+
+    // Belt Logistics sits ahead of the Automation it needs, so it goes.
+    expect(loadWorld(SLOT)!.research.queue).toEqual(['automation', 'toolmaking']);
   });
 
   it('grants a tech added beneath one the island has already finished', () => {
@@ -349,6 +377,7 @@ describe('research in a save', () => {
 
     expect(loadWorld(SLOT)?.research).toEqual({
       current: null,
+      queue: [],
       progress: {},
       levels: {},
       unlockedAll: true,
@@ -364,6 +393,7 @@ describe('research in a save', () => {
 
     expect(loadWorld(SLOT)?.research).toEqual({
       current: null,
+      queue: [],
       progress: {},
       levels: {},
       unlockedAll: false,

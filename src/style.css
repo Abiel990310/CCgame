@@ -3085,3 +3085,63 @@ kbd {
   white-space: pre;
   pointer-events: none;
 }
+
+/* The lab's queue sits above the tree, one row per tech in the order labs take them. */
+.research-queue {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.research-queue .queue-hint {
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.queue-row.on {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.queue-row b {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-num,
+.queue-cycles {
+  font-size: 12px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.queue-num {
+  width: 16px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.queue-row .mini-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.offer.queued {
+  border-color: var(--gold-line);
+}
