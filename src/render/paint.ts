@@ -51,7 +51,13 @@ export function blitCached(
   const k = plain ? Math.round(m.a * 64) / 64 : Math.max(0.5, Math.ceil(deviceScale * 4) / 4);
   const id = `${key}@${k}`;
   let sprite = sprites.get(id);
-  if (!sprite) {
+  if (sprite) {
+    // Kept in order of last use, so the cap below drops what has not been
+    // drawn lately rather than what was baked first: creature frames come and
+    // go by the hundred, and must not push the forest out.
+    sprites.delete(id);
+    sprites.set(id, sprite);
+  } else {
     sprite = document.createElement('canvas');
     sprite.width = Math.max(1, Math.ceil(w * k));
     sprite.height = Math.max(1, Math.ceil(h * k));

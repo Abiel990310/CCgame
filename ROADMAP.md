@@ -496,10 +496,12 @@ detail behind the factory entries is in
       History: the first plan was hand-written WebGL (2026-09-24), rejecting
       PixiJS as a dependency for a few hundred lines; the Canvas fixes in PR
       #47 then took every measured scene to 2 to 3 times its frame rate.
-- [ ] Crawlers and slimes are still traced live (about 0.3 and 0.15 ms each on
-      a CPU canvas). Baking them like the brute needs their heading quantised,
-      and the sprite cache evicts by age rather than use, which a few hundred
-      creature frames would churn.
+- [x] Crawlers and slimes are baked like the brute: crawlers per heading (16)
+      and stride phase (12), slimes per hop phase (12) and the way they look
+      (8), both per hit flash. 76 of them around the camp went from 41 to 78
+      fps headless on a 2x screen. The sprite cache now drops what was drawn
+      least recently, so creature frames cannot push the forest out. A mother
+      slime still draws live, since her brood moves inside her.
 - [x] Level-up choices were plain text boxes. Each card now carries its kind
       (weapon, mastery, attack, survival, explore, growth) as a colour and an
       icon, pips for how far a stacking perk has gone, and a New or Rare flag.

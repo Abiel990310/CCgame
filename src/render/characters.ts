@@ -593,36 +593,76 @@ function healthBar(ctx: CanvasRenderingContext2D, x: number, y: number, width: n
   ctx.fill();
 }
 
+/** Hop phases and looking directions a slime is baked at. */
+const SLIME_HOPS = 12;
+const SLIME_LOOKS = 8;
+
+/** Where a slime is in its hop: crouch, spring, hang, land. */
+function slimeHop(p: number): { air: number; lift: number; sx: number; sy: number } {
+  const air = p > 0.15 && p < 0.85 ? Math.sin(((p - 0.15) / 0.7) * Math.PI) : 0;
+  const ground = p < 0.15 ? 1 - p / 0.15 : p > 0.85 ? (p - 0.85) / 0.15 : 0;
+  return { air, lift: air * 7, sx: 1 + ground * 0.16 - air * 0.07, sy: 1 - ground * 0.16 + air * 0.1 };
+}
+
+/**
+ * Slimes are baked per hop phase, the way they look and hit flash: a raid
+ * brings a crowd of them, and each traced live cost about 0.15 ms on a CPU
+ * canvas. A mother carries her live brood, so she is still drawn live.
+ */
 function drawSlime(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
-  const def = MOBS[mob.type];
-  const r = def.radius;
+  const r = MOBS[mob.type].radius;
   const { x, y } = mob.pos;
   const base = y + r * 0.45;
   const face = heading(mob);
-
-  // A hop: crouch, spring, hang, land. Squash and stretch sell the weight.
   const p = (time * 1.25 + rand(mob.seed, 1)) % 1;
-  const air = p > 0.15 && p < 0.85 ? Math.sin(((p - 0.15) / 0.7) * Math.PI) : 0;
-  const ground = p < 0.15 ? 1 - p / 0.15 : p > 0.85 ? (p - 0.85) / 0.15 : 0;
-  const lift = air * 7;
-  const sx = 1 + ground * 0.16 - air * 0.07;
-  const sy = 1 - ground * 0.16 + air * 0.1;
 
-  softShadow(ctx, x, base, r * (1.05 - air * 0.25), 0.36 - air * 0.12);
+  if (mob.type === 'mother') {
+    const hop = slimeHop(p);
+    softShadow(ctx, x, base, r * (1.05 - hop.air * 0.25), 0.36 - hop.air * 0.12);
+    ctx.translate(x, base);
+    drawSlimeBody(ctx, mob.type, hop, face, p, () => drawBrood(ctx, mob, time));
+    return;
+  }
 
-  ctx.translate(x, base - lift);
-  ctx.scale(sx, sy);
+  const step = Math.floor(p * SLIME_HOPS) % SLIME_HOPS;
+  const look = (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * SLIME_LOOKS) + SLIME_LOOKS) % SLIME_LOOKS;
+  const hop = slimeHop((step + 0.5) / SLIME_HOPS);
+  softShadow(ctx, x, base, r * (1.05 - hop.air * 0.25), 0.36 - hop.air * 0.12);
+  const a = (look / SLIME_LOOKS) * Math.PI * 2;
+  blitCached(
+    ctx,
+    `slime:${mob.type}:${step}:${look}:${paintFlash() > 0 ? 1 : 0}`,
+    x,
+    base,
+    { left: r * 1.3, right: r * 1.3, top: r * 1.9 + 8, bottom: r * 0.5 },
+    (c) => drawSlimeBody(c, mob.type, hop, { x: Math.cos(a), y: Math.sin(a) }, (step + 0.5) / SLIME_HOPS, null),
+  );
+}
 
-  const body = (): void => {
-    ctx.beginPath();
-    ctx.moveTo(-r, 0);
-    ctx.bezierCurveTo(-r * 1.05, -r * 1.05, -r * 0.5, -r * 1.55, 0, -r * 1.55);
-    ctx.bezierCurveTo(r * 0.5, -r * 1.55, r * 1.05, -r * 1.05, r, 0);
-    ctx.quadraticCurveTo(0, r * 0.3, -r, 0);
-    ctx.closePath();
-  };
+/**
+ * A slime standing at the origin (the middle of its base). `p` is its hop
+ * phase, which also carries the bubbles up through it. `belly` draws what it
+ * carries in place of the half-digested lump.
+ */
+function drawSlimeBody(
+  ctx: CanvasRenderingContext2D,
+  type: Mob['type'],
+  hop: { lift: number; sx: number; sy: number },
+  face: { x: number; y: number },
+  p: number,
+  belly: (() => void) | null,
+): void {
+  const def = MOBS[type];
+  const r = def.radius;
+  ctx.translate(0, -hop.lift);
+  ctx.scale(hop.sx, hop.sy);
 
-  body();
+  ctx.beginPath();
+  ctx.moveTo(-r, 0);
+  ctx.bezierCurveTo(-r * 1.05, -r * 1.05, -r * 0.5, -r * 1.55, 0, -r * 1.55);
+  ctx.bezierCurveTo(r * 0.5, -r * 1.55, r * 1.05, -r * 1.05, r, 0);
+  ctx.quadraticCurveTo(0, r * 0.3, -r, 0);
+  ctx.closePath();
   const gel = ctx.createRadialGradient(-r * 0.35, -r * 1.05, r * 0.1, 0, -r * 0.5, r * 1.5);
   gel.addColorStop(0, tint(tone(def.color, 0.45)));
   gel.addColorStop(0.5, tint(def.color));
@@ -632,8 +672,7 @@ function drawSlime(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void 
   ctx.globalAlpha = 1;
 
   // Something half-digested in the middle, and bubbles rising through it.
-  // A mother carries her brood there instead.
-  if (mob.type === 'mother') drawBrood(ctx, mob, time);
+  if (belly) belly();
   else {
     ctx.fillStyle = tint(tone(def.accent, -0.3));
     ctx.globalAlpha = 0.35;
@@ -644,9 +683,10 @@ function drawSlime(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void 
   ctx.globalAlpha = 0.5;
   ctx.fillStyle = tint(tone(def.color, 0.55));
   for (let i = 0; i < 3; i++) {
-    const t = (time * 0.6 + i / 3 + rand(mob.seed, i + 5)) % 1;
+    // Two bubbles' rise to a hop, so a baked hop loops without a jump.
+    const t = (p * 0.5 + i / 3) % 1;
     ctx.beginPath();
-    ctx.arc((rand(mob.seed, i + 9) - 0.5) * r, -t * r * 1.2, 0.9 + i * 0.3, 0, Math.PI * 2);
+    ctx.arc((rand(i, 9) - 0.5) * r, -t * r * 1.2, 0.9 + i * 0.3, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -675,23 +715,48 @@ function drawSlime(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void 
   }
 }
 
+/** Headings and stride phases a crawler is baked at. */
+const CRAWLER_TURNS = 16;
+const CRAWLER_STEPS = 12;
+
+/**
+ * Crawlers are baked per heading, stride phase and hit flash; six jointed
+ * legs traced live cost about 0.3 ms each on a CPU canvas, and they come in
+ * packs.
+ */
 function drawCrawler(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
-  const def = MOBS.crawler;
-  const r = def.radius;
+  const r = MOBS.crawler.radius;
   const { x, y } = mob.pos;
   const face = heading(mob);
   const moving = Math.hypot(mob.vel.x, mob.vel.y) > 5;
 
   softShadow(ctx, x, y + r * 0.35, r * 1.2, 0.36);
 
-  ctx.translate(x, y - r * 0.2);
+  const turn = (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * CRAWLER_TURNS) + CRAWLER_TURNS) % CRAWLER_TURNS;
+  const gait = time * (moving ? 18 : 3) + mob.seed;
+  const step = Math.floor((((gait / (Math.PI * 2)) % 1) + 1) % 1 * CRAWLER_STEPS) % CRAWLER_STEPS;
+  blitCached(
+    ctx,
+    `crawler:${turn}:${step}:${paintFlash() > 0 ? 1 : 0}`,
+    x,
+    y,
+    { left: r * 1.7, right: r * 1.7, top: r * 1.7, bottom: r * 1.4 },
+    (c) =>
+      drawCrawlerPose(c, (turn / CRAWLER_TURNS) * Math.PI * 2, ((step + 0.5) / CRAWLER_STEPS) * Math.PI * 2),
+  );
+}
+
+/** A crawler centred on the origin, facing `angle`, `gait` through its stride. */
+function drawCrawlerPose(ctx: CanvasRenderingContext2D, angle: number, gait: number): void {
+  const def = MOBS.crawler;
+  const r = def.radius;
+  ctx.translate(0, -r * 0.2);
   // Seen from above at an angle, so a heading squashes vertically.
   ctx.scale(1, 0.8);
-  ctx.rotate(Math.atan2(face.y, face.x));
+  ctx.rotate(angle);
 
   const shell = tone(def.color, -0.12);
   const chitin = tone(def.accent, -0.35);
-  const gait = time * (moving ? 18 : 3) + mob.seed;
 
   // Three legs a side, moving in alternating tripods.
   for (const side of [-1, 1]) {
@@ -745,7 +810,8 @@ function drawCrawler(ctx: CanvasRenderingContext2D, mob: Mob, time: number): voi
 
   // Mandibles.
   for (const side of [-1, 1]) {
-    const bite = Math.sin(time * 9 + mob.seed) * 0.12;
+    // The jaws work in time with the legs.
+    const bite = Math.sin(gait) * 0.12;
     ctx.beginPath();
     ctx.moveTo(r * 0.78, side * r * 0.14);
     ctx.quadraticCurveTo(r * 1.25, side * r * (0.32 + bite), r * 1.08, side * r * 0.02);
