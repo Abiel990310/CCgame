@@ -310,11 +310,11 @@ detail behind the factory entries is in
 - [x] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely. No longer overlapping
       at 390px as of 2026-09-24 (measured in Chromium at iPhone 13 size).
-- [ ] Shift-clicking a large stack into a two-slot machine fills **both** input
+- [x] Shift-clicking a large stack into a two-slot machine fills **both** input
       slots with one ingredient, so the second ingredient can never get in and
-      the machine deadlocks until you take some back out by hand. Belts are
-      guarded against exactly this (one slot reserved per ingredient); hand
-      loading is not. Found driving a research line in a browser.
+      the machine deadlocks until you take some back out by hand. Shift-click
+      now keeps to the same per-ingredient share a belt does (labs too); the
+      rest stays in the bag. Placing a stack on a chosen slot is still free.
 
 
 ### New features
