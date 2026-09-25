@@ -809,9 +809,17 @@ kbd {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), var(--rim);
 }
 
+/*
+ * One column per group while each can be at least 124px wide; below that the
+ * groups wrap onto a second row instead of squeezing names into slivers. The
+ * 1px keeps rounding from dropping a column when the width is exactly enough.
+ */
 .buildbar-items {
   display: grid;
-  grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(max(124px, calc((100% - (var(--cols, 5) - 1) * 8px) / var(--cols, 5) - 1px)), 1fr)
+  );
   gap: 8px;
   overflow-y: auto;
   min-height: 0;
@@ -2191,7 +2199,16 @@ kbd {
     left: max(14px, env(safe-area-inset-left));
     transform: none;
     width: calc(100vw - 112px);
+    max-height: calc(100vh - 370px);
     animation: none;
+  }
+  /* The palette's top edge is where toasts sit, so they move right, beside the goal. */
+  #ui:has(#buildbar:not(.hidden)) .toasts {
+    top: calc(max(14px, env(safe-area-inset-top)) + 172px);
+    left: auto;
+    right: max(14px, env(safe-area-inset-right));
+    transform: none;
+    align-items: flex-end;
   }
 }
 
@@ -2873,6 +2890,8 @@ kbd {
   /* Centred, so an equal margin each side keeps them off the button column. */
   .toast {
     max-width: calc(100vw - 150px);
+    white-space: normal;
+    text-align: center;
   }
 }
 
@@ -2887,6 +2906,16 @@ kbd {
 @media (max-width: 640px) {
   #ui:has(#buildbar:not(.hidden)) .goal-hint {
     display: none;
+  }
+  /*
+   * With the hint gone the goal is shorter, so toasts move up under it and the
+   * palette stops short of them (two toasts tall) rather than running under them.
+   */
+  #ui:has(#buildbar:not(.hidden)) .toasts {
+    top: calc(max(14px, env(safe-area-inset-top)) + 160px);
+  }
+  .buildbar {
+    max-height: min(56vh, calc(100vh - 356px));
   }
 }
 
