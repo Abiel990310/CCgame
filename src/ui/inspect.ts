@@ -122,7 +122,8 @@ export class Inspector {
     if (key !== this.promptKey) {
       this.promptKey = key;
       const cap = c.touch ? '<b class="cap tap">Hold</b>' : '<b class="cap">E</b>';
-      this.prompt.innerHTML = `${cap}<span>${VERB[def.tool]} ${def.name.toLowerCase()}</span>`;
+      const verb = def.landmark ? 'Search' : VERB[def.tool];
+      this.prompt.innerHTML = `${cap}<span>${verb} ${def.name.toLowerCase()}</span>`;
     }
     const at = c.camera.worldToScreen(node.pos.x, node.pos.y - PROMPT_LIFT[def.tool]);
     this.prompt.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px) translate(-50%, -100%)`;
@@ -188,6 +189,18 @@ export class Inspector {
       const up = node.kind === 'tree' ? 78 : def.radius * 1.6;
       const dx = Math.abs(node.pos.x - pos.x);
       if (dx < def.radius + 4 && pos.y < node.pos.y + def.radius * 0.7 && pos.y > node.pos.y - up) {
+        if (def.landmark) {
+          return {
+            title: def.name,
+            icon: itemIconVar(def.landmark.cache[0].item),
+            status: { text: 'Unsearched', tone: 'good' },
+            rows: [
+              ['Holds', def.landmark.cache.map((s) => ITEMS[s.item].name).join(', ')],
+              ...(def.landmark.boon === 'upgrade' ? [['Also', 'A free upgrade'] as [string, string]] : []),
+            ],
+            hint: 'Stand close and hold E to search',
+          };
+        }
         const drops = def.drops.map((d) => ITEMS[d.item].name).join(', ');
         return {
           title: def.name,

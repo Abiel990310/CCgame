@@ -92,6 +92,14 @@
   border-radius: 50%;
 }
 
+.worldmap-key .dot-landmark {
+  width: 8px;
+  height: 8px;
+  background: #c49cff;
+  transform: rotate(45deg);
+  border-radius: 1px;
+}
+
 .worldmap-key .dot-you {
   background: #fff;
   clip-path: polygon(100% 50%, 0 100%, 25% 50%, 0 0);

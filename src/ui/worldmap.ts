@@ -1,7 +1,7 @@
 import { MACHINES } from '@shared/data/machines';
 import { MAP_TILES, TILE } from '@shared/sim/constants';
 import { exploredShare } from '@shared/sim/explore';
-import type { World } from '@shared/sim/types';
+import type { ResourceKind, World } from '@shared/sim/types';
 import './worldmap.css';
 
 /** Terrain in the order `TERRAIN_ORDER` stores it: deep, water, sand, grass, forest, rock. */
@@ -17,6 +17,13 @@ const LAND: [number, number, number][] = [
 const ORE: ([number, number, number] | null)[] = [null, [120, 150, 190], [210, 128, 70], [40, 40, 48]];
 /** Unseen ground is shown as a dim ghost of itself, so the coast still reads. */
 const FOG = [18, 22, 30];
+/** Map colours for the landmarks; anything else on the island is not marked. */
+const LANDMARK_MARK: Partial<Record<ResourceKind, string>> = {
+  cache: '#f2e6a8',
+  ruin: '#c8c2b4',
+  pod: '#ff7a5a',
+  shrine: '#c49cff',
+};
 const FOG_SHOW = 0.16;
 
 /**
@@ -53,6 +60,7 @@ export class WorldMap {
           <span><i style="background:rgb(40,40,48)"></i>Coal</span>
           <span><i class="dot-factory"></i>Factory</span>
           <span><i class="dot-camp"></i>Camp</span>
+          <span><i class="dot-landmark"></i>Landmark</span>
           <span><i class="dot-you"></i>You</span>
         </footer>
       </div>`;
@@ -157,6 +165,30 @@ export class WorldMap {
       ctx.stroke();
     };
     ring(world.camp.x, world.camp.y, 6, '#f0b94a', '#3a2a08');
+
+    // Landmarks show once their tile has been seen: a diamond in the colour
+    // of what is there, so the map remembers where to come back to.
+    for (const node of world.nodes) {
+      const color = LANDMARK_MARK[node.kind];
+      if (!color || node.charges <= 0) continue;
+      const tx = Math.floor(node.pos.x / TILE);
+      const ty = Math.floor(node.pos.y / TILE);
+      if (world.explored[ty * MAP_TILES + tx] !== 1) continue;
+      const x = node.pos.x * scale;
+      const y = node.pos.y * scale;
+      const r = 5 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x + r, y);
+      ctx.lineTo(x, y + r);
+      ctx.lineTo(x - r, y);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.strokeStyle = '#10141c';
+      ctx.stroke();
+    }
 
     for (const player of world.players.values()) {
       const self = player.id === selfId;

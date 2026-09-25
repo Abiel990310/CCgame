@@ -298,6 +298,14 @@ detail behind the factory entries is in
 
 ### New features
 
+- [x] **Landmarks** on new mainlands: buried caches, old ruins, crashed supply
+      pods and essence shrines, placed so the rarer ones lie further from camp.
+      Hold E to search one; it spills a cache that grows with distance, and a
+      shrine also grants an upgrade. They show on the map once explored.
+      Islands grown before this (worldgen 2 and older) have none.
+- [ ] Guarded landmarks: a nest of creatures round the rarest finds, so a
+      shrine far out is a fight as well as a walk.
+- [ ] A count of landmarks found and left on the island map.
 - [x] A late-game megaproject: the **Skyward Beacon**. Research it (logic,
       power and engineering packs, after Solar Power and High-Pressure
       Steam), craft it, and raise it in five stages: foundation, spire,
@@ -750,6 +758,11 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Landmark cache sizes against the walk. A far shrine takes a few minutes
+      to reach on foot on day one; whether its essence and upgrade feel worth
+      it, and whether caches near camp break the early goal pace, is unplayed.
+- [ ] The hover card says "hold E" on phones too, where the prompt says Hold;
+      the tree and rock cards share the wording.
 - [ ] Stone Warden pacing: 520 health behind 3 armour in a one-minute night.
       Whether a night-5 player can kill it with the weapons they have by then
       is unplayed; a sling at level 3 barely scratches it.
