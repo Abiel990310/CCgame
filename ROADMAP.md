@@ -274,8 +274,12 @@ detail behind the factory entries is in
       mode now turns it a quarter, as belts already did, and the build bar has
       a turn button for the piece about to go down. Checked at 320, 390 and
       810px wide.
-- [ ] On a 320px phone the build bar's second card in each row is cut off by
-      the palette edge; it scrolls sideways, but nothing says so.
+- [x] On a 320px phone the build bar's second card in each row is cut off by
+      the palette edge; it scrolls sideways, but nothing says so. A row with
+      more cards now fades at its edge and shows an arrow that steps one card
+      along, and swipes snap to a card. Checked at 320, 390 and 800x360.
+- [ ] The Lab's "Workbench" note in the desktop build palette runs 5px past
+      its card's right edge at 1280px.
 - [x] The overlapping HUD panels are still showing after the UI revamp. The
       co-op code chip sat on the resource pouch at every screen size, and on
       a 320px phone the phase panel wrapped into it. The top-right corner is
@@ -327,8 +331,6 @@ detail behind the factory entries is in
       a machine. A tap now places in build mode and opens a machine outside it.
 - [x] Touch had no rotate. A belt line faces the way it is dragged, and tapping
       a placed belt turns it a quarter.
-- [ ] Machines still cannot be turned on a touchscreen: they face the last belt
-      direction. Dragging from a machine could turn it, the way a belt turns.
 - [x] On desktop at 1280x800 the build palette stays open over most of the
       screen while placing, so there is little ground left to click on. It now
       folds to its tabs and the selected piece while the mouse is out over the
