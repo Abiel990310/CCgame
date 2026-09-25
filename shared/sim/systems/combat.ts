@@ -271,7 +271,8 @@ export function damageMob(world: World, mob: Mob, amount: number, sourceId: numb
   world.events.push({ kind: 'mobDied', pos: { ...mob.pos }, type: mob.type });
 
   if (killer) {
-    grantXp(world, killer, def.xp);
+    // A toughened creature is worth what it took to kill.
+    grantXp(world, killer, Math.round((def.xp * mob.maxHp) / def.hp));
     const heal = perk(killer, 'vampiric');
     if (heal > 0 && killer.downed === 0) killer.hp = Math.min(killer.maxHp, killer.hp + heal);
   }

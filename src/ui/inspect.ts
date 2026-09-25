@@ -310,7 +310,7 @@ function describeMachine(world: World, machine: Machine): Card {
   else if (def.choosesRecipe) rows.push(['Making', 'Nothing chosen']);
 
   let status: Card['status'];
-  if (def.family !== 'chest' && def.family !== 'splitter') {
+  if (def.family !== 'chest' && def.family !== 'splitter' && def.family !== 'merger') {
     if (outOfFuel(machine)) status = { text: 'Out of fuel', tone: 'bad' };
     else if (machine.unpowered) status = { text: powerNetOf(world, machine) ? 'No power' : 'No pole in reach', tone: 'bad' };
     else if (def.choosesRecipe && !recipe) status = { text: 'Pick a recipe', tone: 'warn' };

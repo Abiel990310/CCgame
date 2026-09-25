@@ -159,6 +159,11 @@ Use Playwright against `npm run preview`, with Chromium at
 delete any harness script afterwards. `window.__ccgame` and `window.__ccfactory`
 expose live state and the placement API for driving the game.
 
+Launch Chromium without a proxy: the container's `HTTPS_PROXY` refuses
+localhost, so a browser routed through it gets 405 for the page. If preview
+ever fails to serve the bundle, `python3 -m http.server 4173 -d dist` after
+`npm run build` serves the same build.
+
 Report what you actually verified, and say plainly when you could not verify
 something.
 
