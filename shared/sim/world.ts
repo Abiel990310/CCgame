@@ -3,7 +3,7 @@ import { CYCLE, MAP_CENTER, MAP_TILES, PLAYER, TILE, setMapTiles } from './const
 import { makeRng } from './rng';
 import { isShore, isWalkable, terrainAtIndex, generateTerrain } from './terrain';
 import { generateOre, oreAt } from './ore';
-import type { Player, ResourceKind, Vec2, World } from './types';
+import type { LandmarkKind, Player, ResourceKind, Vec2, World } from './types';
 import { xpForLevel } from './progression';
 import { newResearch } from './research';
 import { newInventory } from './inventory';
@@ -57,13 +57,13 @@ export function createPlayer(id: number, name: string, pos: Vec2): Player {
  * stop applying an older island's scenery and ore deltas to ground they no
  * longer describe.
  */
-export const WORLDGEN = 2;
+export const WORLDGEN = 3;
 
 /**
  * How many tiles across each generation's island is. Generation 1 is the
  * first small island; an island keeps its generation, so it keeps its size.
  */
-export const WORLDGEN_TILES: Record<number, number> = { 1: 96, 2: 256 };
+export const WORLDGEN_TILES: Record<number, number> = { 1: 96, 2: 256, 3: 256 };
 
 export function createWorld(seed = 12345, peaceful = false, worldgen = WORLDGEN): World {
   setMapTiles(WORLDGEN_TILES[worldgen] ?? WORLDGEN_TILES[WORLDGEN]);
@@ -107,6 +107,8 @@ export function createWorld(seed = 12345, peaceful = false, worldgen = WORLDGEN)
 
   world.buildings.push({ id: world.nextId++, type: 'campfire', pos: { ...camp }, level: 1 });
   populateNodes(world);
+  // Generation 3 is generation 2's mainland with landmarks scattered over it.
+  if (worldgen >= 3) placeLandmarks(world);
   // The home clearing is known from the start, so the map is never blank.
   reveal(world, camp.x, camp.y, EXPLORE_RADIUS + 4);
   return world;
@@ -156,6 +158,55 @@ function populateNodes(world: World): void {
       else if (t === 'grass' && roll < 0.13) place('bush', tx, ty);
       else if (t === 'rock' && roll < 0.3) place('rock', tx, ty);
       else if (t === 'forest' && roll < 0.5) place('bush', tx, ty);
+    }
+  }
+}
+
+/**
+ * How many of each landmark a mainland gets, and the nearest to camp each may
+ * stand, in tiles: the better the find, the farther the walk.
+ */
+const LANDMARKS: Array<{ kind: LandmarkKind; count: number; minTiles: number }> = [
+  { kind: 'shrine', count: 4, minTiles: 80 },
+  { kind: 'pod', count: 6, minTiles: 60 },
+  { kind: 'ruin', count: 10, minTiles: 35 },
+  { kind: 'cache', count: 14, minTiles: 18 },
+];
+/** No two landmarks closer than this, in tiles, so each is its own destination. */
+const LANDMARK_SPACING = 14;
+
+/**
+ * Landmarks go down after the scenery, on their own random stream so the rest
+ * of the island is exactly generation 2's. Each clears the scenery around it,
+ * so it stands in a little clearing and reads from a distance.
+ */
+function placeLandmarks(world: World): void {
+  const rng = makeRng(world.seed ^ 0x1a2d3a4f);
+  const placed: Vec2[] = [];
+  for (const { kind, count, minTiles } of LANDMARKS) {
+    let left = count;
+    for (let attempt = 0; attempt < count * 80 && left > 0; attempt++) {
+      const tx = Math.floor(rng() * MAP_TILES);
+      const ty = Math.floor(rng() * MAP_TILES);
+      const t = terrainAtIndex(world.terrain, tx, ty);
+      if (!isWalkable(t) || isShore(world.terrain, tx, ty) || oreAt(world.ore, tx, ty) !== null) continue;
+      const pos = { x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE };
+      if (Math.hypot(pos.x - world.camp.x, pos.y - world.camp.y) < minTiles * TILE) continue;
+      if (placed.some((p) => Math.hypot(p.x - pos.x, p.y - pos.y) < LANDMARK_SPACING * TILE)) continue;
+
+      world.nodes = world.nodes.filter((n) => Math.hypot(n.pos.x - pos.x, n.pos.y - pos.y) > TILE * 1.6);
+      const def = RESOURCES[kind];
+      world.nodes.push({
+        id: world.nextId++,
+        kind,
+        pos,
+        seed: Math.floor(rng() * 65536),
+        charges: def.charges,
+        maxCharges: def.charges,
+        regrow: 0,
+      });
+      placed.push(pos);
+      left--;
     }
   }
 }

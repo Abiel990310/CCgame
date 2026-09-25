@@ -65,6 +65,10 @@ export class Effects {
         case 'spit':
           this.burst(event.pos, 4, '#c8e070', 60);
           break;
+        case 'landmark':
+          this.rings.push({ pos: { ...event.pos }, radius: 90, life: 0.8, maxLife: 0.8, color: '#ffe0a0' });
+          this.burst(event.pos, 22, '#ffe7a0', 170);
+          break;
         case 'beacon':
           this.rings.push({ pos: { ...event.pos }, radius: event.lit ? 320 : 120, life: 1.1, maxLife: 1.1, color: '#ffd46a' });
           this.burst(event.pos, event.lit ? 60 : 24, '#ffe7a0', event.lit ? 320 : 180);

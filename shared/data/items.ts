@@ -147,6 +147,12 @@ export interface ResourceDef {
   /** Weighted drop table; picked once per harvest tick. */
   drops: Array<{ item: ItemId; count: number; weight: number }>;
   xp: number;
+  /**
+   * Landmarks only. Searching one takes `work` times as long as a harvest,
+   * spills the whole `cache` at once, and the landmark is gone for good.
+   * The farther from camp it stands, the more the cache holds.
+   */
+  landmark?: { work: number; cache: Array<{ item: ItemId; count: number }>; boon?: 'upgrade' };
 }
 
 export const RESOURCES: Record<ResourceKind, ResourceDef> = {
@@ -198,5 +204,73 @@ export const RESOURCES: Record<ResourceKind, ResourceDef> = {
       { item: 'essence', count: 1, weight: 2 },
     ],
     xp: 4,
+  },
+  cache: {
+    kind: 'cache',
+    name: 'Buried Cache',
+    tool: 'hand',
+    radius: 14,
+    charges: 1,
+    drops: [],
+    xp: 12,
+    landmark: {
+      work: 2,
+      cache: [
+        { item: 'wood', count: 30 },
+        { item: 'ironPlate', count: 12 },
+        { item: 'coal', count: 20 },
+      ],
+    },
+  },
+  ruin: {
+    kind: 'ruin',
+    name: 'Old Ruins',
+    tool: 'hand',
+    radius: 22,
+    charges: 1,
+    drops: [],
+    xp: 25,
+    landmark: {
+      work: 3,
+      cache: [
+        { item: 'stone', count: 25 },
+        { item: 'iron', count: 10 },
+        { item: 'gold', count: 5 },
+        { item: 'gear', count: 8 },
+      ],
+    },
+  },
+  pod: {
+    kind: 'pod',
+    name: 'Crashed Supply Pod',
+    tool: 'hand',
+    radius: 20,
+    charges: 1,
+    drops: [],
+    xp: 40,
+    landmark: {
+      work: 4,
+      cache: [
+        { item: 'steelPlate', count: 20 },
+        { item: 'circuit', count: 12 },
+        { item: 'battery', count: 5 },
+        { item: 'motor', count: 4 },
+      ],
+    },
+  },
+  shrine: {
+    kind: 'shrine',
+    name: 'Essence Shrine',
+    tool: 'hand',
+    radius: 18,
+    charges: 1,
+    drops: [],
+    xp: 60,
+    landmark: {
+      work: 5,
+      cache: [{ item: 'essence', count: 12 }],
+      // A shrine also hands its finder a level-up pick of their own.
+      boon: 'upgrade',
+    },
   },
 };

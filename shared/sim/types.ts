@@ -2,7 +2,10 @@ export type Vec2 = { x: number; y: number };
 
 export type Terrain = 'deep' | 'water' | 'sand' | 'grass' | 'forest' | 'rock';
 
-export type ResourceKind = 'tree' | 'rock' | 'bush' | 'fish';
+export type ResourceKind = 'tree' | 'rock' | 'bush' | 'fish' | LandmarkKind;
+
+/** Places worth travelling to: searched once, never regrown. */
+export type LandmarkKind = 'cache' | 'ruin' | 'pod' | 'shrine';
 
 export type ItemId =
   // Hand-gathered
@@ -428,6 +431,7 @@ export type SimEvent =
   | { kind: 'spit'; pos: Vec2 }
   | { kind: 'boss'; pos: Vec2; type: MobTypeId }
   | { kind: 'beacon'; pos: Vec2; stage: number; lit: boolean }
+  | { kind: 'landmark'; pos: Vec2; landmark: ResourceKind; playerId: number }
   | { kind: 'levelUp'; playerId: number; level: number }
   | { kind: 'gathered'; pos: Vec2; item: ItemId }
   | { kind: 'phase'; phase: Phase; nightIndex: number }
