@@ -221,6 +221,10 @@ detail behind the factory entries is in
 - [ ] Night 15 in headless Chromium with the GPU renderer showed no night
       darkness: the island was lit like day while the HUD read Night.
       Unconfirmed on a real GPU; the darkness is a DOM layer since PR #47.
+      Not reproduced after the night-lighting rework (PR #69): with
+      `?renderer=pixi` in headless SwiftShader, nights 1 and 15 at full dark
+      both darken the scene as Canvas does. The darkness does not depend on
+      the night's number, so a screenshot at dusk or dawn is the likely cause.
 - [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
       again on the next tick, so it rarely reached a second target. Each shot
       now remembers what it went through.
