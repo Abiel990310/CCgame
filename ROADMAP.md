@@ -226,9 +226,13 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] Night 15 in headless Chromium with the GPU renderer showed no night
-      darkness: the island was lit like day while the HUD read Night.
-      Unconfirmed on a real GPU; the darkness is a DOM layer since PR #47.
+- [x] Night 15 in headless Chromium with the GPU renderer showed no night
+      darkness: the island was lit like day while the HUD read Night. The
+      darkness curve ran each twilight twice, on both sides of the change of
+      phase, so every dusk darkened to 68%, snapped back to 5% as night began
+      and darkened again; dawn did the reverse. Both renderers. Twilight now
+      straddles the change, half each side. (Headless also only paints when
+      something asks for a frame, so a screenshot is needed to see a change.)
 - [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
       again on the next tick, so it rarely reached a second target. Each shot
       now remembers what it went through.
@@ -556,6 +560,13 @@ detail behind the factory entries is in
       Graphics that machines' live parts, lamps and bars are rebuilt into
       every frame. Fine for a real GPU; if Abiel's numbers disappoint, keep
       those Graphics between frames or bake the live parts per phase.
+- [x] Machine live parts are baked per phase: status lamps, fuel and power
+      signs, gears (12 steps a tooth), miner drills (16 a blade), furnace
+      mouths, lab domes, and inserter bases, arms (24 swing steps) and filter
+      chips. A frozen 1,000-machine factory on Pixi, pixels taken out, went
+      from 99 to 14 ms a frame (10 to 45 fps headless); screenshots against
+      main match in both renderers. Still live: progress bars, furnace smoke,
+      lab bubbles, the assembler's working arm, belt items.
       History: the first plan was hand-written WebGL (2026-09-24), rejecting
       PixiJS as a dependency for a few hundred lines; the Canvas fixes in PR
       #47 then took every measured scene to 2 to 3 times its frame rate.
