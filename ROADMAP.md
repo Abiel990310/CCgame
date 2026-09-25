@@ -602,6 +602,15 @@ detail behind the factory entries is in
 - [x] Level-up choices were plain text boxes. Each card now carries its kind
       (weapon, mastery, attack, survival, explore, growth) as a colour and an
       icon, pips for how far a stacking perk has gone, and a New or Rare flag.
+- [x] The island map drew explored ground as flat tile squares, so a start
+      was one bright green blob with a hard pixel edge. It is now painted like
+      a chart: grain and broad light and shade, shallows and a surf line on
+      the coast, ore as speckles, trees and rocks, a faint grid, and a soft
+      edge to the fog. Painted once per island; only the fog is redone, and
+      only when more ground is known.
+- [ ] The island map shows the whole island at one size, so the first hour is
+      a small lit disc in a dark square. Zoom and pan (wheel, pinch, drag)
+      centred on the player would make it useful from the start.
 - [ ] Number keys could pick a level-up card on desktop (1 to 4), with the key
       shown on each card.
 - [ ] HUD panels are still placed with hand-tuned `top` offsets per breakpoint

@@ -57,9 +57,9 @@
   height: 100%;
 }
 
-/* Tiles stay crisp squares when scaled up, like a surveyed chart. */
+/* Painted at about a thousand pixels, so it is scaled smoothly. */
 .worldmap-land {
-  image-rendering: pixelated;
+  image-rendering: auto;
 }
 
 .worldmap-key {
