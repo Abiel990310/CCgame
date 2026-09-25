@@ -226,9 +226,13 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] Night 15 in headless Chromium with the GPU renderer showed no night
-      darkness: the island was lit like day while the HUD read Night.
-      Unconfirmed on a real GPU; the darkness is a DOM layer since PR #47.
+- [x] Night 15 in headless Chromium with the GPU renderer showed no night
+      darkness: the island was lit like day while the HUD read Night. The
+      darkness curve ran each twilight twice, on both sides of the change of
+      phase, so every dusk darkened to 68%, snapped back to 5% as night began
+      and darkened again; dawn did the reverse. Both renderers. Twilight now
+      straddles the change, half each side. (Headless also only paints when
+      something asks for a frame, so a screenshot is needed to see a change.)
 - [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
       again on the next tick, so it rarely reached a second target. Each shot
       now remembers what it went through.
