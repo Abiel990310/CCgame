@@ -229,11 +229,13 @@ detail behind the factory entries is in
       action buttons take two rows there, where the Map button had pushed Build
       under the hotbar. On a portrait tablet they climb the right edge, and the
       palette stays clear of them. Surveyed clean at 16 sizes.
-- [ ] On a portrait tablet (810px) the build palette squeezes six category
+- [x] On a portrait tablet (810px) the build palette squeezes six category
       columns into the width, so names wrap and "Workbench" is clipped on the
-      Lab card. Three columns and a scroll would read better there.
-- [ ] On a portrait phone a toast can land on the top edge of an open build
-      palette.
+      Lab card. Groups now wrap onto a second row once a column would drop
+      under 124px, and the palette stops short of the goal tracker.
+- [x] On a portrait phone a toast can land on the top edge of an open build
+      palette. Toasts wrap instead of running into the buttons, and in build
+      mode they sit under the goal, clear of the palette.
 - [x] The overlapping HUD panels are still showing after the UI revamp. The
       co-op code chip sat on the resource pouch at every screen size, and on
       a 320px phone the phase panel wrapped into it. The top-right corner is
