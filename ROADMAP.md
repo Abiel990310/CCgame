@@ -499,6 +499,13 @@ detail behind the factory entries is in
       Graphics that machines' live parts, lamps and bars are rebuilt into
       every frame. Fine for a real GPU; if Abiel's numbers disappoint, keep
       those Graphics between frames or bake the live parts per phase.
+- [x] Machine live parts are baked per phase: status lamps, fuel and power
+      signs, gears (12 steps a tooth), miner drills (16 a blade), furnace
+      mouths, lab domes, and inserter bases, arms (24 swing steps) and filter
+      chips. A frozen 1,000-machine factory on Pixi, pixels taken out, went
+      from 99 to 14 ms a frame (10 to 45 fps headless); screenshots against
+      main match in both renderers. Still live: progress bars, furnace smoke,
+      lab bubbles, the assembler's working arm, belt items.
       History: the first plan was hand-written WebGL (2026-09-24), rejecting
       PixiJS as a dependency for a few hundred lines; the Canvas fixes in PR
       #47 then took every measured scene to 2 to 3 times its frame rate.
