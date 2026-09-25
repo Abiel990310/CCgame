@@ -89,16 +89,18 @@ export class Renderer {
    * is painted into the stage canvas as before.
    */
   private night: {
-    dark: HTMLDivElement;
+    dark: HTMLCanvasElement;
+    darkCtx: CanvasRenderingContext2D | null;
     lights: HTMLCanvasElement;
     lightsCtx: CanvasRenderingContext2D | null;
     /** Eyes glow onto the night; name tags sit plainly over it. */
     eyes: Overlay;
     tags: Overlay;
-    /** The dark sheet's colour as last set, so the style is only touched on change. */
-    shade: string;
+    showing: boolean;
   } | null = null;
-  /** The night's lights, gathered at low resolution; see `drawLighting`. */
+  /** The night's shade and lights, gathered at low resolution; see `drawLighting`. */
+  private dark: HTMLCanvasElement | null = null;
+  private darkCtx: CanvasRenderingContext2D | null = null;
   private lights: HTMLCanvasElement | null = null;
   private lightsCtx: CanvasRenderingContext2D | null = null;
 
@@ -109,11 +111,11 @@ export class Renderer {
     this.stageCtx = ctx;
 
     // Night is laid over the scene by the browser's compositor rather than
-    // painted into it: a flat dark sheet, then the low-resolution light map
-    // stretched over everything and added on. Painting both into the canvas
-    // was a full-screen blend and a full-screen stretch every night frame.
+    // painted into it: the low-resolution shade with the lights cut out of it,
+    // then their warm tint added on. Painting both into the canvas was a
+    // full-screen blend and a full-screen stretch every night frame.
     if (typeof CSS !== 'undefined' && CSS.supports('mix-blend-mode', 'plus-lighter')) {
-      const dark = document.createElement('div');
+      const dark = document.createElement('canvas');
       const lights = document.createElement('canvas');
       const eyes = new Overlay('plus-lighter');
       const tags = new Overlay('normal');
@@ -129,7 +131,15 @@ export class Renderer {
       }
       lights.style.mixBlendMode = 'plus-lighter';
       canvas.after(dark, lights, eyes.canvas, tags.canvas);
-      this.night = { dark, lights, lightsCtx: lights.getContext('2d'), eyes, tags, shade: '' };
+      this.night = {
+        dark,
+        darkCtx: dark.getContext('2d'),
+        lights,
+        lightsCtx: lights.getContext('2d'),
+        eyes,
+        tags,
+        showing: false,
+      };
     }
 
     const choice = rendererChoice();
@@ -615,66 +625,70 @@ export class Renderer {
   }
 
   /**
-   * Night is a dark multiply layer punched through by warm radial lights from
-   * the campfire, lamps and each player — cheap, and it makes camp feel safe.
+   * Night is a dark shade with the campfire, lamps and each player cut out of
+   * it, and a faint warm tint where the fire is — cheap, and it makes camp feel
+   * safe. The lights take the dark away rather than adding brightness on top:
+   * added light lifts every colour by the same amount, which reads as fog and
+   * washes out whoever is standing in it.
    */
   private drawLighting(world: World, selfId: number, time: number): void {
     const darkness = nightDarkness(world);
     const night = this.night;
     if (darkness <= 0.01) {
-      if (night && night.shade !== '') {
-        night.shade = '';
+      if (night?.showing) {
+        night.showing = false;
         night.dark.style.display = 'none';
         night.lights.style.display = 'none';
       }
       return;
     }
+    if (night && !night.showing) {
+      night.showing = true;
+      night.dark.style.display = 'block';
+      night.lights.style.display = 'block';
+    }
 
     const ctx = this.ctx;
     const { width, height } = this.camera;
 
-    const shade = `rgba(12, 18, 38, ${(darkness * 0.72).toFixed(3)})`;
-    if (night) {
-      if (night.shade !== shade) {
-        if (night.shade === '') {
-          night.dark.style.display = 'block';
-          night.lights.style.display = 'block';
-        }
-        night.shade = shade;
-        night.dark.style.backgroundColor = shade;
-      }
-    } else {
-      ctx.save();
-      ctx.fillStyle = shade;
-      ctx.fillRect(0, 0, width, height);
-      ctx.restore();
-    }
-
-    // The lights are soft by nature, so they are gathered at a quarter of the
-    // screen's resolution and stretched over it. Filling each one's gradient
+    // Both layers are soft by nature, so they are gathered at a quarter of the
+    // screen's resolution and stretched over it. Filling each light's gradient
     // across the full screen was most of a night frame in a camp with a few
     // lamps.
     const lw = Math.max(1, Math.ceil(width / LIGHT_DOWNSCALE));
     const lh = Math.max(1, Math.ceil(height / LIGHT_DOWNSCALE));
     if (night) {
+      this.dark = night.dark;
+      this.darkCtx = night.darkCtx;
       this.lights = night.lights;
       this.lightsCtx = night.lightsCtx;
     } else if (!this.lights) {
+      this.dark = document.createElement('canvas');
+      this.darkCtx = this.dark.getContext('2d');
       this.lights = document.createElement('canvas');
       this.lightsCtx = this.lights.getContext('2d');
     }
-    const lights = this.lights;
-    const lc = this.lightsCtx;
-    if (!lights || !lc) return;
-    if (lights.width !== lw || lights.height !== lh) {
-      lights.width = lw;
-      lights.height = lh;
+    const { dark, darkCtx: dc, lights, lightsCtx: lc } = this;
+    if (!dark || !dc || !lights || !lc) return;
+    for (const layer of [dark, lights]) {
+      if (layer.width === lw && layer.height === lh) continue;
+      layer.width = lw;
+      layer.height = lh;
       // Stretched by exactly the downscale, so a light sits where it was drawn.
       if (night) {
-        lights.style.width = `${lw * LIGHT_DOWNSCALE}px`;
-        lights.style.height = `${lh * LIGHT_DOWNSCALE}px`;
+        layer.style.width = `${lw * LIGHT_DOWNSCALE}px`;
+        layer.style.height = `${lh * LIGHT_DOWNSCALE}px`;
       }
     }
+
+    dc.setTransform(1, 0, 0, 1, 0, 0);
+    dc.globalCompositeOperation = 'source-over';
+    dc.clearRect(0, 0, lw, lh);
+    dc.fillStyle = `rgba(12, 18, 38, ${(darkness * 0.74).toFixed(3)})`;
+    dc.fillRect(0, 0, lw, lh);
+    dc.setTransform(1 / LIGHT_DOWNSCALE, 0, 0, 1 / LIGHT_DOWNSCALE, 0, 0);
+    dc.globalCompositeOperation = 'destination-out';
+
     lc.setTransform(1, 0, 0, 1, 0, 0);
     lc.globalCompositeOperation = 'source-over';
     lc.clearRect(0, 0, lw, lh);
@@ -686,42 +700,54 @@ export class Renderer {
     let y0 = height;
     let x1 = 0;
     let y1 = 0;
-    const addLight = (world_pos: Vec2, radius: number, strength: number, color: string): void => {
+    /** `clear` is how much of the dark it lifts at its heart; `tint` how much colour it adds. */
+    const addLight = (world_pos: Vec2, radius: number, clear: number, tint: number, color: string): void => {
       const sx = (world_pos.x - this.camera.pos.x) * this.camera.zoom + width / 2;
       const sy = (world_pos.y - this.camera.pos.y) * this.camera.zoom + height / 2;
       const r = radius * this.camera.zoom;
       if (sx < -r || sy < -r || sx > width + r || sy > height + r) return;
+
+      // Eased rather than linear, so the pool has a lit middle and a soft rim.
+      const cut = dc.createRadialGradient(sx, sy, 0, sx, sy, r);
+      cut.addColorStop(0, `rgba(0,0,0,${clear})`);
+      cut.addColorStop(0.45, `rgba(0,0,0,${(clear * 0.7).toFixed(3)})`);
+      cut.addColorStop(1, 'rgba(0,0,0,0)');
+      dc.fillStyle = cut;
+      dc.fillRect(sx - r, sy - r, r * 2, r * 2);
+
+      if (tint <= 0) return;
       x0 = Math.min(x0, sx - r);
       y0 = Math.min(y0, sy - r);
       x1 = Math.max(x1, sx + r);
       y1 = Math.max(y1, sy + r);
-      const gradient = lc.createRadialGradient(sx, sy, 0, sx, sy, r);
-      gradient.addColorStop(0, rgba(color, strength * darkness));
-      gradient.addColorStop(1, rgba(color, 0));
-      lc.fillStyle = gradient;
+      const glow = lc.createRadialGradient(sx, sy, 0, sx, sy, r * 0.8);
+      glow.addColorStop(0, rgba(color, tint * darkness));
+      glow.addColorStop(1, rgba(color, 0));
+      lc.fillStyle = glow;
       lc.fillRect(sx - r, sy - r, r * 2, r * 2);
     };
 
     const flicker = 1 + Math.sin(time * 8) * 0.06;
     for (const building of world.buildings) {
-      if (building.type === 'campfire') addLight(building.pos, 230 * flicker, 0.5, '#ffb960');
-      else if (building.type === 'lamp') addLight(building.pos, 130 * flicker, 0.42, '#ffd98a');
+      if (building.type === 'campfire') addLight(building.pos, 250 * flicker, 0.95, 0.16, '#ffab4a');
+      else if (building.type === 'lamp') addLight(building.pos, 140 * flicker, 0.85, 0.12, '#ffd27a');
     }
     for (const player of world.players.values()) {
-      addLight(player.pos, 150, player.id === selfId ? 0.34 : 0.22, '#bcd8ff');
+      addLight(player.pos, 150, player.id === selfId ? 0.6 : 0.4, 0, '#bcd8ff');
     }
-    // Laid over the stage, the map is stretched by the compositor and added on.
+    // Laid over the stage, both maps are stretched by the compositor.
     if (night) return;
 
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(dark, 0, 0, lw, lh, 0, 0, lw * LIGHT_DOWNSCALE, lh * LIGHT_DOWNSCALE);
     // Snapped to the light map's own pixels so the stretch lines up with it.
     const bx0 = Math.max(0, Math.floor(x0 / LIGHT_DOWNSCALE));
     const by0 = Math.max(0, Math.floor(y0 / LIGHT_DOWNSCALE));
     const bx1 = Math.min(lw, Math.ceil(x1 / LIGHT_DOWNSCALE));
     const by1 = Math.min(lh, Math.ceil(y1 / LIGHT_DOWNSCALE));
     if (bx1 > bx0 && by1 > by0) {
-      ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.imageSmoothingEnabled = true;
       ctx.drawImage(
         lights,
         bx0,
@@ -733,8 +759,8 @@ export class Renderer {
         (bx1 - bx0) * LIGHT_DOWNSCALE,
         (by1 - by0) * LIGHT_DOWNSCALE,
       );
-      ctx.restore();
     }
+    ctx.restore();
   }
 }
 
