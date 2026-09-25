@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { BEACON_BOOST, BEACON_BURN_SECONDS, BEACON_FUEL_CAP, BEACON_LIT, BEACON_STAGES, BEACON_XP } from '../../data/beacon';
+import { BEACON_BOOST, BEACON_BURN_SECONDS, BEACON_FUEL_CAP, BEACON_LIT, BEACON_STAGES, BEACON_WARD_PACE, BEACON_WARD_TILES, BEACON_XP } from '../../data/beacon';
 import { GOAL_BY_ID } from '../../data/goals';
 import { beaconBurning, beaconStage, withBeacon } from '../beacon';
 import { researchBonuses } from '../research';
+import { tileCenter } from '../grid';
+import { TILE } from '../constants';
+import { spawnMob, stepMobs } from '../systems/mobs';
 import { clickSlot, quickMove } from '../containers';
 import { countIn } from '../slots';
 import type { Machine } from '../types';
@@ -119,5 +122,28 @@ describe('a lit beacon', () => {
     expect(countIn(m.input, 'processor')).toBe(BEACON_FUEL_CAP);
     b.player.cursor = { id: 'steelPlate', count: 5 };
     expect(clickSlot(b.world, b.player, m.id, { area: 'input', index: 1 })).toBe(false);
+  });
+
+  it('slows creatures inside its ward while it burns, and only there', () => {
+    // How far a slime walks in two seconds from a spot beside the beacon.
+    function walked(burning: boolean, tilesOut: number): number {
+      const b = bench();
+      const m = lit(b);
+      m.progress = burning ? 1000 : 0;
+      const c = tileCenter(m.tx, m.ty);
+      const mob = spawnMob(b.world, 'slime', { x: c.x, y: c.y + TILE * tilesOut });
+      const start = { ...mob.pos };
+      for (let i = 0; i < 20; i++) stepMobs(b.world, 0.1);
+      return Math.hypot(mob.pos.x - start.x, mob.pos.y - start.y);
+    }
+    const inside = BEACON_WARD_TILES / 3;
+    const free = walked(false, inside);
+    expect(free).toBeGreaterThan(TILE);
+    // Not exact: velocity eases toward the new pace rather than snapping to it.
+    const slowed = walked(true, inside) / free;
+    expect(slowed).toBeGreaterThan(BEACON_WARD_PACE - 0.1);
+    expect(slowed).toBeLessThan(BEACON_WARD_PACE + 0.15);
+    const outside = BEACON_WARD_TILES * 3;
+    expect(walked(true, outside)).toBeCloseTo(walked(false, outside), 3);
   });
 });

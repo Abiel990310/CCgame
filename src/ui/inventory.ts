@@ -13,8 +13,8 @@ import {
   techLevel,
 } from '@shared/sim/research';
 import { countIn, totalIn } from '@shared/sim/slots';
-import { BEACON_BOOST, BEACON_STAGES } from '@shared/data/beacon';
-import { beaconStage } from '@shared/sim/beacon';
+import { BEACON_BOOST, BEACON_STAGES, BEACON_WARD_TILES } from '@shared/data/beacon';
+import { beaconLit, beaconStage } from '@shared/sim/beacon';
 import { audio } from '../audio';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import { filterOf, hasSettings, hasSlotFilters } from '@shared/sim/factory';
@@ -285,7 +285,9 @@ export class InventoryScreen {
     this.els.inputLabel.textContent = lab
       ? 'Packs'
       : def.family === 'beacon'
-        ? 'Delivered'
+        ? beaconLit(machine)
+          ? 'Fuel'
+          : 'Delivered'
       : def.choosesRecipe
         ? 'In'
         : arm
@@ -500,9 +502,10 @@ export class InventoryScreen {
           .join(', ') +
         '.'
       : machine.progress > 0
-        ? `Burning: every machine, miner and lab on the island works ${Math.round(BEACON_BOOST * 100)}% faster. ` +
+        ? `Burning: every machine, miner and lab on the island works ${Math.round(BEACON_BOOST * 100)}% faster, ` +
+          `and creatures within ${BEACON_WARD_TILES} tiles of it slow down. ` +
           `${countIn(machine.input, 'processor')} processors in reserve, ${Math.ceil(machine.progress)}s on the one alight.`
-        : `Lit, but banked. Feed it processors and it burns, one a minute, for ${Math.round(BEACON_BOOST * 100)}% faster machines, miners and labs across the island.`;
+        : `Lit, but banked. Feed it processors and it burns, one a minute, for ${Math.round(BEACON_BOOST * 100)}% faster machines, miners and labs across the island, and a ward that slows creatures near it.`;
     if (this.els.blurb.textContent !== text) this.els.blurb.textContent = text;
   }
 

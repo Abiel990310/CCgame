@@ -1,6 +1,6 @@
 import { MACHINES } from '@shared/data/machines';
 import { TILE } from '@shared/sim/constants';
-import type { MachineFamily, SimEvent, Vec2, World } from '@shared/sim/types';
+import type { MachineFamily, MobTypeId, SimEvent, Vec2, World } from '@shared/sim/types';
 import { Ambience } from './ambience';
 import { Music } from './music';
 import { SOUNDS, type SoundDef, type SoundId } from './sounds';
@@ -235,7 +235,7 @@ export class GameAudio {
           this.play('hit', { pos: event.pos });
           break;
         case 'mobDied':
-          this.play('mobDied', { pos: event.pos });
+          this.play(MOB_DEATH[event.type], { pos: event.pos });
           break;
         case 'blast':
           this.play('blast', { pos: event.pos });
@@ -319,6 +319,18 @@ const SHOT_SOUND = {
   ember: 'shotEmber',
   frost: 'shotFrost',
 } as const satisfies Record<string, SoundId>;
+
+const MOB_DEATH = {
+  slime: 'diedSlime',
+  crawler: 'diedCrawler',
+  wisp: 'diedWisp',
+  brute: 'diedBrute',
+  spitter: 'diedSpitter',
+  shellback: 'diedShellback',
+  mother: 'diedMother',
+  warden: 'diedWarden',
+  queen: 'diedQueen',
+} as const satisfies Record<MobTypeId, SoundId>;
 
 /**
  * A chest never produces and a splitter only passes items along, but the table
