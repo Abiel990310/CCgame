@@ -408,8 +408,13 @@ detail behind the factory entries is in
       double harvests, per-resource gathering, more essence, a fourth
       choice) and a mastery for each weapon once it is at its last level.
       Rarer perks turn up less often; a perk taken again shows its numeral.
-- [ ] A small list of the perks you hold, in the bag screen, so a build is
-      readable after thirty levels.
+- [x] A small list of the perks you hold, in the bag screen, so a build is
+      readable after thirty levels. "Your build" under the bag shows each
+      weapon and perk as a chip in its card colour with level pips, and the
+      plain boosts as totals (+32% damage, +40 max health).
+- [ ] Plain stat boosts (Sharpened, Hearty and the rest) are folded into
+      `stats` rather than counted, so the build list can show only their
+      totals, not which boosts were taken or how often.
 
 - [x] More to fight: the **Spitter** (night 4) keeps its distance and spits,
       the armoured **Shellback** (night 5) shrugs off weak hits, the **Mother

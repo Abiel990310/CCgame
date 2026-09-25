@@ -22,6 +22,7 @@ import type { ItemId, Machine, MachineFamily, Player, Slot, World } from '@share
 import { itemIconVar } from '../render/items';
 import { pieceIconVar } from '../render/pieces';
 import { icon } from './icons';
+import { buildKey, buildSummary } from './upgradecard';
 
 export interface InventoryCallbacks {
   /** A slot was clicked: pick up, put down, split, or send across. */
@@ -90,6 +91,9 @@ export class InventoryScreen {
     research: HTMLElement;
     bagGrid: HTMLElement;
     bagNote: HTMLElement;
+    build: HTMLElement;
+    buildNote: HTMLElement;
+    buildList: HTMLElement;
     close: HTMLButtonElement;
     carried: HTMLElement;
   };
@@ -103,6 +107,7 @@ export class InventoryScreen {
   /** Signature of what is drawn, so the DOM is only touched when it changes. */
   private painted = '';
   private recipeKey = '';
+  private buildKey = '';
   /**
    * While on, a click on a chest slot sets its filter instead of moving items.
    * A mode rather than a modifier, so it is discoverable and works by touch.
@@ -142,6 +147,9 @@ export class InventoryScreen {
       research: must('inv-research'),
       bagGrid: must('inv-bag-grid'),
       bagNote: must('inv-bag-note'),
+      build: must('inv-build'),
+      buildNote: must('inv-build-note'),
+      buildList: must('inv-build-list'),
       close: must<HTMLButtonElement>('inv-close'),
       carried: must('inv-carried'),
     };
@@ -210,6 +218,7 @@ export class InventoryScreen {
     this.machine = machine;
     this.painted = '';
     this.recipeKey = '';
+    this.buildKey = '';
     this.pressRef = null;
     this.root.classList.remove('hidden');
     this.layout(machine);
@@ -255,8 +264,10 @@ export class InventoryScreen {
       this.els.container.classList.add('hidden');
       this.els.research.classList.add('hidden');
       this.els.recipes.innerHTML = '';
+      this.els.build.classList.remove('hidden');
       return;
     }
+    this.els.build.classList.add('hidden');
 
     const def = MACHINES[machine.type];
     const lab = def.family === 'lab';
@@ -388,7 +399,16 @@ export class InventoryScreen {
     }
     if (machine && MACHINES[machine.type].family === 'lab') this.updateResearchNote(world);
     if (machine && MACHINES[machine.type].family === 'beacon') this.updateBeacon(machine);
+    if (!machine) this.updateBuild(player);
     this.updatePanel(world, machine);
+  }
+
+  private updateBuild(player: Player): void {
+    const key = buildKey(player) + player.level;
+    if (key === this.buildKey) return;
+    this.buildKey = key;
+    this.els.buildNote.textContent = `Level ${player.level}`;
+    this.els.buildList.innerHTML = buildSummary(player);
   }
 
   private signature(player: Player, machine: Machine | null): string {
