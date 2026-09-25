@@ -70,6 +70,7 @@ import { SlotLock, type EvictReason } from './tablock';
 import { CoopGuest } from './net/guest';
 import { GuestBook } from './net/guests';
 import { CoopHost } from './net/host';
+import { Ticker } from './net/ticker';
 import { CoopPanel, playerName } from './ui/coop';
 import { Hud } from './ui/hud';
 import { Inspector } from './ui/inspect';
@@ -87,6 +88,8 @@ const SAVE_INTERVAL = 8;
 const SAVE_DEBOUNCE = 2;
 /** Never simulate more than this much wall time in one frame after a stall. */
 const MAX_CATCHUP = 0.25;
+/** Frames this far apart mean the tab is in the background, not just slow. */
+const FRAMES_STALLED_MS = 150;
 
 export interface GameCallbacks {
   /** Hand control back to the main menu, with a line to show there if any. */
@@ -106,6 +109,14 @@ export class Game {
   private worldMap: WorldMap;
 
   private accumulator = 0;
+  private backgroundTicker: Ticker;
+  /** When the last animation frame ran, to tell when the browser stopped sending them. */
+  private lastPaint = 0;
+  /**
+   * How far apart the last two frames were. A tab rationed to a frame a second
+   * still gets that frame, and the worker should not stand down for it.
+   */
+  private paintGap = 0;
   private readonly interpolator = new Interpolator();
   private lastFrame = 0;
   private saveTimer = SAVE_INTERVAL;
@@ -177,15 +188,19 @@ export class Game {
       onStopHosting: () => this.stopHosting('The host stopped inviting.'),
     });
 
-    // A host's tab in the background gets no animation frames, and the island
-    // would stop for everyone on it. Timers still run there, if slowly.
-    window.setInterval(() => {
-      if (!document.hidden || !this.running || !this.host) return;
+    // A host's tab in the background gets no animation frames, or one a
+    // second, and the island would lurch for everyone on it. The page's own
+    // timers crawl there too, so while hosting a worker keeps the beat at the
+    // tick rate, and takes over whenever frames stop arriving: friends then
+    // get ticks as evenly as when the host is watching.
+    this.backgroundTicker = new Ticker(() => {
       const now = performance.now();
+      const stalled = now - this.lastPaint > FRAMES_STALLED_MS || this.paintGap > FRAMES_STALLED_MS;
+      if (!this.running || !this.host || !stalled) return;
       const elapsed = Math.min((now - this.lastFrame) / 1000, 1.5);
       this.lastFrame = now;
       this.simulate(elapsed, EMPTY_INPUT, 50);
-    }, 100);
+    });
 
     this.world = createWorld(Date.now() & 0xffff);
     window.addEventListener('resize', () => this.renderer.resize());
@@ -382,6 +397,7 @@ export class Game {
       throw new Error('The island was closed');
     }
     this.host = host;
+    this.backgroundTicker.start(TICK_DT * 1000);
     // Everyone sees a name over each head, so the host needs one too.
     this.self.name = playerName();
     this.coop.setHosting(host.code, host.names(this.world));
@@ -392,6 +408,7 @@ export class Game {
     const host = this.host;
     if (!host) return;
     this.host = null;
+    this.backgroundTicker.stop();
     host.close(this.world, reason);
     this.coop.setSolo();
   }
@@ -947,6 +964,9 @@ export class Game {
   private frame(now: number): void {
     if (!this.running) return;
     requestAnimationFrame((t) => this.frame(t));
+    const painted = performance.now();
+    this.paintGap = painted - this.lastPaint;
+    this.lastPaint = painted;
 
     const elapsed = Math.min((now - this.lastFrame) / 1000, MAX_CATCHUP);
     this.lastFrame = now;
