@@ -13,7 +13,7 @@ Status, plan, and the decisions behind both. Updated as phases move.
 | 2 | Persistence in `localStorage` | ✅ Done |
 | 3 | Factory tiers 1–3: ore, miners, belts, furnaces, assemblers, chests | ✅ Done |
 | 4 | Factory tiers 4–5: power, steel, deeper chains, tech tree | Next |
-| 5 | Multiplayer: co-op on the host's island (done); accounts, cloud islands and friends (built, waiting on the Supabase project); dedicated server worlds | In progress |
+| 5 | Multiplayer: co-op on the host's island (done); accounts, cloud islands and friends (live 2026-09-25); dedicated server worlds | In progress |
 | 6 | The long game: logistics, megaproject, blueprints, statistics | Planned |
 
 Live at <https://abiel990310.github.io/CCgame/>.
@@ -172,7 +172,7 @@ the five-letter code, or open the invite link. The host's browser runs the
 island and owns the save; guests replay its ticks (see the decision log). What
 follows is the dedicated-server version the co-op path grows into.
 
-**Accounts are built and waiting on the Supabase project** (2026-09-25). With
+**Accounts are live** (2026-09-25, Supabase project `qidagnlgbndteepzkjzt`). With
 an account, islands are kept in the cloud and play on any device; friends add
 each other by name; and an owner who sets an island to *My friends* has co-op
 open itself while they play, so friends see it in their menu and join with one
