@@ -731,6 +731,11 @@ export class Game {
       this.worldMap.isOpen;
 
     for (const action of this.input.drainActions()) {
+      // With the draft open the number keys pick a card instead of a quick slot.
+      if (action.startsWith('hotbar') && this.hud.isDraftOpen && !this.hud.isPauseOpen) {
+        this.hud.pickOffer(Number(action.slice(6)) - 1);
+        continue;
+      }
       // A quick slot picks what to place, so it also turns build mode on; the
       // keys stay dead behind an open screen, like every other build key.
       if (action.startsWith('hotbar') && !blocked) {

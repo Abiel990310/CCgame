@@ -596,6 +596,12 @@ export class Hud {
     this.draftOpen = false;
   }
 
+  /** Pick the nth card of the open draft, as a click on it would. */
+  pickOffer(index: number): void {
+    if (!this.draftOpen) return;
+    this.els.offers.querySelectorAll<HTMLButtonElement>('.offer')[index]?.click();
+  }
+
   private updateOffers(player: Player): void {
     const waiting = player.pendingUpgrades > 0 && player.offers.length > 0;
     if (!waiting) this.draftOpen = false;
