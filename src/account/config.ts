@@ -9,8 +9,8 @@
  * A build can point somewhere else with `VITE_CLOUD_URL` and `VITE_CLOUD_KEY`,
  * which is how a local test backend is used without touching this file.
  */
-const LIVE_URL = '';
-const LIVE_KEY = '';
+const LIVE_URL = 'https://qidagnlgbndteepzkjzt.supabase.co';
+const LIVE_KEY = 'sb_publishable_itx3oWsjuUDypqZCrywetg_GBeAxTYa';
 
 export interface CloudConfig {
   url: string;
