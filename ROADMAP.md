@@ -493,6 +493,11 @@ detail behind the factory entries is in
       sprites into an atlas so they batch, then move night and lights into a
       shader pass so the DOM layers go. Canvas stays the default until Pixi is
       faster on a real GPU.
+      Measured since: at a 300-machine factory the Pixi path uploads about
+      860 KB of vertices a frame in 127 buffer writes, nearly all from the
+      Graphics that machines' live parts, lamps and bars are rebuilt into
+      every frame. Fine for a real GPU; if Abiel's numbers disappoint, keep
+      those Graphics between frames or bake the live parts per phase.
       History: the first plan was hand-written WebGL (2026-09-24), rejecting
       PixiJS as a dependency for a few hundred lines; the Canvas fixes in PR
       #47 then took every measured scene to 2 to 3 times its frame rate.
@@ -815,6 +820,10 @@ detail behind the factory entries is in
 
 - [ ] Frame rate near the camp on Abiel's own machine. Every number so far is
       headless Chromium without a GPU, which rasterises canvas on the CPU.
+- [ ] Walking on the 256-tile map with full scenery, headless on a 2x
+      screen, has no frame over 7 ms of drawing work (p99 4.5 ms, ground
+      chunks at most 4 ms); the few 33 ms frames left come from rasterising,
+      not from the game's code. Worth feeling on a real machine.
 - [ ] The GPU (PixiJS) renderer on a real machine: Pause → Graphics shows the
       frame rate; compare Canvas and Try GPU at a busy factory and at night.
 - [ ] Landmark cache sizes against the walk. A far shrine takes a few minutes
