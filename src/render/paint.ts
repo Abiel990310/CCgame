@@ -24,6 +24,11 @@ export function paintScale(): number {
 
 const sprites = new Map<string, HTMLCanvasElement>();
 
+/** A square box of `r` about the anchor, for small baked parts. */
+export function around(r: number): { left: number; right: number; top: number; bottom: number } {
+  return { left: r, right: r, top: r, bottom: r };
+}
+
 /**
  * Draw something detailed from a bitmap baked at device resolution.
  *
