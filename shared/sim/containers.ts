@@ -4,6 +4,7 @@ import { isResearchPack } from '../data/techs';
 import { hasSlotFilters, isSplitter, setSideFilter, setSlotFilter, splitterAccepts } from './factory';
 import { beaconStage, beaconWants } from './beacon';
 import { giveOrDrop } from './inventory';
+import { handLoadRoom } from './systems/factory';
 import { addToSlots, slotCap, slotTakes, sortSlots, takeFromSlots } from './slots';
 import type { SlotFilters } from './slots';
 import type { ItemId, Machine, Player, Slot, World } from './types';
@@ -244,7 +245,9 @@ export function quickMove(
     for (const area of ['fuel', 'input'] as const) {
       const target = slotsFor(player, machine, area);
       if (!target || !accepts(machine, area, slot.id)) continue;
-      const wants = area === 'input' && MACHINES[machine.type].family === 'beacon' ? beaconWants(machine, slot.id) : Infinity;
+      const wants = area === 'fuel' ? Infinity
+        : MACHINES[machine.type].family === 'beacon' ? beaconWants(machine, slot.id)
+        : handLoadRoom(machine, slot.id);
       moved += addToSlots(target, slot.id, Math.min(wants, slot.count - moved), size, filtersIn(machine, area));
     }
     if (moved === 0) return false;
