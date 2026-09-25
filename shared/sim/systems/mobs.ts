@@ -183,13 +183,14 @@ function edgeSpawn(world: World): Vec2 {
 
 export function spawnMob(world: World, type: MobTypeId, pos: Vec2): Mob {
   const def = MOBS[type];
+  const hp = Math.round(def.hp * toughness(world, type));
   const mob: Mob = {
     id: world.nextId++,
     type,
     pos: { ...pos },
     vel: { x: 0, y: 0 },
-    hp: def.hp,
-    maxHp: def.hp,
+    hp,
+    maxHp: hp,
     attackCd: 0,
     seed: Math.floor(nextFloat(world) * 65536),
     hitFlash: 0,
@@ -231,9 +232,26 @@ export function stepWaves(world: World, dt: number): void {
 
 export function nightBudget(world: World): number {
   const players = Math.max(1, world.players.size);
-  return (
+  const n = world.nightIndex;
+  return Math.round(
     WAVES.baseBudget +
-    WAVES.budgetPerNight * world.nightIndex +
-    WAVES.budgetPerExtraPlayer * (players - 1)
+      WAVES.budgetPerNight * n +
+      WAVES.budgetPerNightSq * n * n +
+      WAVES.budgetPerExtraPlayer * (players - 1),
   );
+}
+
+/**
+ * How much tougher than its table row a creature born tonight is. Only
+ * nights count, never the clock, so it is the same for host and guest. A
+ * returning boss grows by visit rather than by night, so the fifth-night
+ * Warden stays the fight it was tuned as.
+ */
+export function toughness(world: World, type: MobTypeId): number {
+  const def = MOBS[type];
+  if (def.bossEvery) {
+    const visits = Math.floor(world.nightIndex / def.bossEvery) - Math.floor(def.minNight / def.bossEvery);
+    return 1 + WAVES.bossReturnHp * Math.max(0, visits);
+  }
+  return 1 + WAVES.hardenPerNight * Math.max(0, world.nightIndex - WAVES.hardenFrom);
 }
