@@ -2,7 +2,7 @@ import { BUILDINGS } from '@shared/data/buildings';
 import { applyOrder, type Command } from '@shared/sim/commands';
 import { CRAFT_BY_ID } from '@shared/data/crafting';
 import { BELT_COST, MACHINES, placementCost } from '@shared/data/machines';
-import { ITEMS } from '@shared/data/items';
+import { ITEMS, RESOURCES } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
 import { BEACON_STAGES } from '@shared/data/beacon';
 import { CAMP, TICK_DT } from '@shared/sim/constants';
@@ -1123,6 +1123,16 @@ export class Game {
   /** Goals and level-ups are said once, and the tracker makes way for the next goal. */
   private announceGoals(): void {
     for (const event of this.world.events) {
+      if (event.kind === 'landmark' && event.playerId === this.selfId) {
+        const found = RESOURCES[event.landmark].name;
+        this.hud.toast(
+          RESOURCES[event.landmark].landmark?.boon === 'upgrade'
+            ? `${found} searched. It grants you an upgrade.`
+            : `${found} searched`,
+          'good',
+        );
+        continue;
+      }
       if (event.kind === 'beacon') {
         const stage = BEACON_STAGES[event.stage - 1];
         const next = BEACON_STAGES[event.stage];

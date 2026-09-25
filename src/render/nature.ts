@@ -1,4 +1,5 @@
 import type { ResourceNode } from '@shared/sim/types';
+import { drawLandmark } from './landmarks';
 import { INK, blitCached, fillInk, litFill, rand, softShadow, tone } from './paint';
 
 /**
@@ -48,6 +49,9 @@ export function drawNature(ctx: CanvasRenderingContext2D, node: ResourceNode, ti
     case 'fish':
       drawFishing(ctx, node, time);
       break;
+    default:
+      drawLandmark(ctx, node, time);
+      return;
   }
 
   if (node.charges < node.maxCharges) {

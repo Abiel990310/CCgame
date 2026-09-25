@@ -35,8 +35,8 @@ function fingerprint(world: World): string {
  * in `shared/sim/world.ts` and then update these.
  */
 const EXPECTED: { worldgen: number; islands: Record<number, string> } = {
-  worldgen: 2,
-  islands: { 1: 'b3136af8', 4242: 'e1a2d970', 65535: 'eb6d5dec' },
+  worldgen: 3,
+  islands: { 1: '66167a56', 4242: '16ee058d', 65535: 'f3d02382' },
 };
 
 /**
@@ -45,6 +45,7 @@ const EXPECTED: { worldgen: number; islands: Record<number, string> } = {
  */
 const FROZEN: Record<number, Record<number, string>> = {
   1: { 1: '27970376', 4242: 'f113de12', 65535: 'fff3a353' },
+  2: { 1: 'b3136af8', 4242: 'e1a2d970', 65535: 'eb6d5dec' },
 };
 
 describe('worldgen', () => {

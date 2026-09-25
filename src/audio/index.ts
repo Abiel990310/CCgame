@@ -246,6 +246,9 @@ export class GameAudio {
         case 'boss':
           this.play('boss');
           break;
+        case 'landmark':
+          this.play('goal', { pos: event.pos });
+          break;
         case 'beacon':
           this.play(event.lit ? 'beaconLit' : 'beaconStage');
           break;
