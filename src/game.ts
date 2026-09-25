@@ -78,6 +78,7 @@ import { Ticker } from './net/ticker';
 import { CoopPanel, playerName } from './ui/coop';
 import { Hud } from './ui/hud';
 import { Inspector } from './ui/inspect';
+import { PerfMeter } from './ui/perfmeter';
 import { WorkbenchScreen } from './ui/workbench';
 
 /** A finger has no hover and no E key, so its prompts say so. */
@@ -111,6 +112,7 @@ export class Game {
   private input: InputManager;
   private hud: Hud;
   private graphics: GraphicsPanel | null = null;
+  private perf: PerfMeter;
   private goals: GoalTracker;
   private worldMap: WorldMap;
   /** What the factory makes a minute; the island's own, or a blank one off a guest. */
@@ -158,6 +160,7 @@ export class Game {
     this.input = new InputManager(canvas);
     const graphics = document.getElementById('pause-graphics');
     if (graphics) this.graphics = new GraphicsPanel(graphics, this.renderer);
+    this.perf = new PerfMeter(this.renderer);
     const ui = document.getElementById('ui') ?? document.body;
     this.inspector = new Inspector(ui, () => this.toggleCrafting());
     this.workbench = new WorkbenchScreen(ui, {
@@ -1107,8 +1110,10 @@ export class Game {
       : this.hud.isBuildMode
         ? { ...raw, interact: false }
         : raw;
+    const simStart = performance.now();
     if (this.guest) this.simulateGuest(this.guest, elapsed, playerInput);
     else if (!paused || this.host) this.simulate(elapsed, playerInput, 8);
+    const simTime = performance.now() - simStart;
 
     this.renderer.effects.update(elapsed);
     // Everything from here to `restore` sees positions blended between the
@@ -1122,7 +1127,16 @@ export class Game {
       // should be able to hear.
       audio.listenFrom(this.renderer.camera.pos, this.renderer.camera.width / this.renderer.camera.zoom);
       const time = this.world.time - (1 - alpha) * TICK_DT;
+      const drawStart = performance.now();
       this.renderer.render(this.world, this.selfId, time, ghost, removal);
+      const w = this.world;
+      this.perf.record(
+        painted,
+        this.paintGap,
+        simTime,
+        performance.now() - drawStart,
+        `${w.mobs.length} mobs · ${w.machines.length} machines · ${w.belts.length} belts`,
+      );
     } finally {
       this.interpolator.restore();
     }
