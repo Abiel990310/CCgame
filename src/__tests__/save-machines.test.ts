@@ -171,3 +171,17 @@ describe('saving an island with burners on it', () => {
     expect(loaded.heat).toBe(0);
   });
 });
+
+describe('saving a merger', () => {
+  it('brings back whose turn it is', () => {
+    const world = createWorld(7, true);
+    const merger = machine('merger', 30, 30);
+    merger.turn = 2;
+    world.machines.push(merger);
+
+    expect(saveWorld(world, 'a')).toBe(true);
+    const loaded = loadWorld('a')!.machines[0];
+    expect(loaded.turn).toBe(2);
+    expect(loaded.filters).toBeUndefined();
+  });
+});

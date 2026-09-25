@@ -123,7 +123,7 @@ describe('taking items out of a chest', () => {
   it('leaves behind whatever the bag has no room for', () => {
     const { world, player, chest } = chestWith([['coal', 300]]);
     // Fill every slot the bag has with something else.
-    for (let i = 0; i < INVENTORY_SLOTS; i++) player.inventory[i] = { id: 'gear', count: 999 };
+    for (let i = 0; i < player.inventory.length; i++) player.inventory[i] = { id: 'gear', count: 999 };
 
     expect(takeAll(world, player, chest.id)).toBe(0);
     expect(countIn(chest.input, 'coal')).toBe(300);
@@ -238,7 +238,7 @@ describe('the held stack', () => {
   it('falls at the player’s feet rather than vanishing when the bag is full', () => {
     const { world, player, chest } = chestWith([['ironPlate', 12]]);
     clickSlot(world, player, chest.id, { area: 'input', index: 0 }, 'left');
-    for (let i = 0; i < INVENTORY_SLOTS; i++) player.inventory[i] = { id: 'gear', count: 999 };
+    for (let i = 0; i < player.inventory.length; i++) player.inventory[i] = { id: 'gear', count: 999 };
 
     stowCursor(world, player);
 

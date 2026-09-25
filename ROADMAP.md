@@ -141,7 +141,7 @@ Research is in too. A **Lab** eats research packs off a belt, and `TECHS` in
 two of them repeatable forever. Every tech is a multiplier on machines that
 already exist — mining, crafting, belt and inserter speed, lab speed, research
 XP — and the tiers above the first are unlocked by it: automation opens the
-steel miner, belt logistics the splitter and long inserter, metallurgy the
+steel miner, belt logistics the splitter, merger and long inserter, metallurgy the
 steel furnace, assembler Mk2 and steel chest, robotic arms the fast inserter,
 angling the fish trap, and resonance, which eats essence, the three electric
 machines and the stack inserter. A finished tree still compounds
@@ -382,9 +382,13 @@ detail behind the factory entries is in
       filtered against. A side is set by dropping an item on it in the machine
       screen, and a splitter with both sides filtered is a sorter — it refuses
       what it cannot route rather than jamming on it.
-- [ ] **Merger** — two belts into one, the splitter read backwards. A splitter
-      can feed two lines now, but joining two lines still takes a chest and an
-      inserter.
+- [x] **Merger** — two belts into one, the splitter read backwards. Built:
+      a crafted `merger` row, unlocked with the splitter by Belt Logistics.
+      Belts on its left, behind and right run into it and it sends one line
+      out of its front. It takes from the feeding belts turn by turn rather
+      than being pushed into, so with the line ahead full each feed still gets
+      an even share; plain side-loading hands every gap to whichever belt
+      ticks first. The turn is saved.
 - [x] **Long inserter** — an arm that reaches two tiles instead of one, so a
       machine can be loaded from across a belt. Built: a `MACHINES` row with
       `reach: 2`, slower than the short arm.
@@ -680,6 +684,10 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] A merger with a priority side, draining one feed first and topping up
+      from the other, for a main line that should never starve.
+- [ ] Splitters and mergers draw no status light, so one jammed on a full line
+      looks the same as one working. A small light on a stalled one would help.
 - [ ] Power: an accumulator that stores daytime solar surplus for the night.
 - [ ] Power: a production-stats panel per network (supply, demand, coal per
       minute over time).
