@@ -1,4 +1,4 @@
-import type { CraftedMachineId, ItemId, ResourceKind, ToolKind } from '../sim/types';
+import type { CraftedMachineId, ItemId, MobTypeId, ResourceKind, ToolKind } from '../sim/types';
 import { CRAFTED_MACHINES, MACHINES } from './machines';
 
 /**
@@ -152,7 +152,16 @@ export interface ResourceDef {
    * spills the whole `cache` at once, and the landmark is gone for good.
    * The farther from camp it stands, the more the cache holds.
    */
-  landmark?: { work: number; cache: Array<{ item: ItemId; count: number }>; boon?: 'upgrade' };
+  landmark?: {
+    work: number;
+    cache: Array<{ item: ItemId; count: number }>;
+    boon?: 'upgrade';
+    /**
+     * Creatures that wake when a player first comes near and hold the ground
+     * around it, day or night. The rarer finds are a fight as well as a walk.
+     */
+    guards?: Array<{ type: MobTypeId; count: number }>;
+  };
 }
 
 export const RESOURCES: Record<ResourceKind, ResourceDef> = {
@@ -238,6 +247,7 @@ export const RESOURCES: Record<ResourceKind, ResourceDef> = {
         { item: 'gold', count: 5 },
         { item: 'gear', count: 8 },
       ],
+      guards: [{ type: 'crawler', count: 3 }],
     },
   },
   pod: {
@@ -256,6 +266,10 @@ export const RESOURCES: Record<ResourceKind, ResourceDef> = {
         { item: 'battery', count: 5 },
         { item: 'motor', count: 4 },
       ],
+      guards: [
+        { type: 'spitter', count: 2 },
+        { type: 'brute', count: 1 },
+      ],
     },
   },
   shrine: {
@@ -271,6 +285,10 @@ export const RESOURCES: Record<ResourceKind, ResourceDef> = {
       cache: [{ item: 'essence', count: 12 }],
       // A shrine also hands its finder a level-up pick of their own.
       boon: 'upgrade',
+      guards: [
+        { type: 'shellback', count: 2 },
+        { type: 'wisp', count: 3 },
+      ],
     },
   },
 };

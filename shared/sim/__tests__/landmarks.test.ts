@@ -6,6 +6,8 @@ import { step } from '../step';
 import { isWalkable, terrainAtIndex } from '../terrain';
 import type { LandmarkKind, Player, ResourceNode, World } from '../types';
 import { addPlayer, createWorld } from '../world';
+import { EMPTY_INPUT } from '../step';
+import { stepCycle } from '../systems/cycle';
 
 const KINDS: LandmarkKind[] = ['cache', 'ruin', 'pod', 'shrine'];
 const landmarks = (world: World): ResourceNode[] =>
@@ -77,5 +79,61 @@ describe('landmarks', () => {
     expect(shrine.charges).toBe(0);
     expect(player.pendingUpgrades).toBeGreaterThanOrEqual(1);
     expect(player.offers.length).toBeGreaterThan(0);
+  });
+
+  describe('keepers', () => {
+    function walkUp(kind: LandmarkKind) {
+      const world = createWorld(4242);
+      world.mobs.length = 0;
+      const player = addPlayer(world, 'Scout');
+      player.hp = player.maxHp = 1e6;
+      const node = landmarks(world).find((n) => n.kind === kind)!;
+      player.pos = { x: node.pos.x + 150, y: node.pos.y };
+      const idle = new Map([[player.id, EMPTY_INPUT]]);
+      for (let t = 0; t < 30; t++) step(world, idle);
+      return { world, player, node, idle };
+    }
+
+    it('wake once when a player walks up to a far find, and not for a cache', () => {
+      const { world, node, idle } = walkUp('shrine');
+      const guards = RESOURCES.shrine.landmark!.guards!.reduce((n, g) => n + g.count, 0);
+      expect(node.woken).toBe(true);
+      expect(world.mobs.filter((m) => m.post).length).toBe(guards);
+      for (let t = 0; t < 60; t++) step(world, idle);
+      expect(world.mobs.filter((m) => m.post).length).toBeLessThanOrEqual(guards);
+      expect(RESOURCES.cache.landmark!.guards).toBeUndefined();
+    });
+
+    it('hold their ground rather than follow a player back to camp', () => {
+      const { world, player, node } = walkUp('pod');
+      player.pos = { ...world.camp };
+      const idle = new Map([[player.id, EMPTY_INPUT]]);
+      for (let t = 0; t < 30 * 20; t++) {
+        player.pos = { ...world.camp };
+        step(world, idle);
+      }
+      for (const mob of world.mobs.filter((m) => m.post)) {
+        expect(Math.hypot(mob.pos.x - node.pos.x, mob.pos.y - node.pos.y)).toBeLessThan(200);
+      }
+    });
+
+    it('are still there after dawn', () => {
+      const { world } = walkUp('ruin');
+      const before = world.mobs.filter((m) => m.post).length;
+      world.phase = 'night';
+      world.phaseTime = 0;
+      stepCycle(world, 0);
+      expect(world.phase).toBe('day');
+      expect(world.mobs.length).toBe(before);
+    });
+
+    it('never wake on a peaceful island', () => {
+      const world = createWorld(4242, true);
+      const player = addPlayer(world, 'Scout');
+      const node = landmarks(world).find((n) => n.kind === 'shrine')!;
+      player.pos = { x: node.pos.x + 60, y: node.pos.y };
+      for (let t = 0; t < 30; t++) step(world, new Map([[player.id, EMPTY_INPUT]]));
+      expect(world.mobs.some((m) => m.post)).toBe(false);
+    });
   });
 });
