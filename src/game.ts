@@ -975,7 +975,9 @@ export class Game {
     this.paintGap = painted - this.lastPaint;
     this.lastPaint = painted;
 
-    const elapsed = Math.min((now - this.lastFrame) / 1000, MAX_CATCHUP);
+    // The worker's beat stamps `lastFrame` with the clock now, which can run a
+    // hair ahead of the frame's own timestamp.
+    const elapsed = Math.min(Math.max(now - this.lastFrame, 0) / 1000, MAX_CATCHUP);
     this.lastFrame = now;
 
     this.handleActions();
