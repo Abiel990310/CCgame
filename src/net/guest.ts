@@ -4,7 +4,7 @@ import { step } from '@shared/sim/step';
 import type { PlayerInput, World } from '@shared/sim/types';
 import { Broker } from './broker';
 import { Link } from './link';
-import { BUILD, peerId, type GuestMessage, type HostMessage, type TickMessage } from './protocol';
+import { BUILD, olderBuild, peerId, type GuestMessage, type HostMessage, type TickMessage } from './protocol';
 
 const JOIN_TIMEOUT_MS = 20_000;
 /** Resend an unchanged input this often, so a lost-and-found host still hears it. */
@@ -39,7 +39,7 @@ export class CoopGuest {
 
   private constructor(
     private broker: Broker,
-    code: string,
+    private code: string,
     token: string,
     name: string,
   ) {
@@ -104,6 +104,15 @@ export class CoopGuest {
     }
     switch (message.t) {
       case 'reject':
+        // Once only: if even a fresh load is still older (a stale cache in
+        // between), a loop of reloads would help nobody.
+        if (message.build && olderBuild(BUILD, message.build) && !new URLSearchParams(location.search).has('fresh')) {
+          // This page is the out-of-date one: fetch the host's version and come
+          // straight back to the same island.
+          this.end(message.reason);
+          reloadInto(this.code);
+          return;
+        }
         this.end(message.reason);
         return;
       case 'bye':
@@ -143,9 +152,10 @@ export class CoopGuest {
       const arrived = this.arrived;
       this.arrived = null;
       this.failed = null;
-      // Once the channel is open the game runs browser to browser; keeping the
-      // broker would only let its hiccups end a game that no longer needs it.
-      this.broker.close();
+      // Once a direct channel is open the game runs browser to browser, and
+      // keeping the broker would only let its hiccups end a game that no longer
+      // needs it. A relayed game runs through the broker, so it stays.
+      if (!this.link.relayed) this.broker.close();
       arrived();
     }
   }
@@ -217,4 +227,14 @@ export class CoopGuest {
     if (this.failed) this.failed(new Error(reason));
     else this.onEnd(reason);
   }
+}
+
+/** Reload onto the newest build, landing back on the join screen for this code. */
+function reloadInto(code: string): void {
+  const url = new URL(location.href);
+  url.searchParams.set('join', code);
+  // A new query string also skips a cached copy of the page, which GitHub
+  // Pages lets browsers keep for ten minutes.
+  url.searchParams.set('fresh', Date.now().toString(36));
+  location.replace(url.toString());
 }

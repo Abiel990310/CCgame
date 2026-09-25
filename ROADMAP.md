@@ -343,6 +343,13 @@ detail behind the factory entries is in
 
 ### New features
 
+- [ ] Co-op: a TURN server (Cloudflare or Metered free tier) so friends on
+      strict networks get a direct connection rather than the slower relay.
+- [ ] Co-op: signal through the Supabase project as well as the PeerJS broker,
+      so joining still works if the public broker is down.
+- [ ] Tell a player on an old tab that a new version is out, before a join
+      finds out the hard way.
+
 - [ ] Accounts: friends can open a shared island while its owner is away, not
       only join while someone is on it. Needs the save lease to allow a
       friend, and the owner's character to wait at camp.
@@ -939,6 +946,11 @@ detail behind the factory entries is in
       a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
 
 ### Needs testing
+
+- [ ] Joining through the relay on two real networks. When a direct connection
+      does not open within 6 seconds, the game now carries the session through
+      the PeerJS broker instead. That was driven locally with WebRTC blocked on
+      the guest, not over the public broker, which may throttle heavy use.
 
 - [ ] Landmark keepers on day one. A shrine's shellbacks take 3 off every
       hit, so a first-day sling does half damage; whether a player who walks

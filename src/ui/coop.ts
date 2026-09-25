@@ -317,13 +317,14 @@ export class JoinScreen {
     }
   }
 
-  open(code = ''): void {
+  open(code = '', go = false): void {
     this.code.value = code;
     this.name.value = playerName() === 'Islander' ? '' : playerName();
     this.status.textContent = '';
     this.status.classList.remove('bad');
     this.root.classList.remove('hidden');
     (code ? this.name : this.code).focus();
+    if (go && code) void this.join();
   }
 
   close(): void {

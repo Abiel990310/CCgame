@@ -444,38 +444,43 @@ export class AccountScreen {
 }
 
 /**
- * A yes-or-no question over whatever is on screen. Resolves true for yes; an
- * outside click or Escape is no.
+ * A question over whatever is on screen, answered by one of `options`. The
+ * first option is the primary one and what Enter picks; an outside click or
+ * Escape answers null.
  */
-export function ask(title: string, text: string, yes: string, no = 'Cancel'): Promise<boolean> {
+export function choose<T extends string>(title: string, text: string, options: [T, string][]): Promise<T | null> {
   return new Promise((resolve) => {
     const root = el('div', 'modal account-ask');
     const inner = el('div', 'modal-inner');
     inner.appendChild(el('h2', '', title));
     inner.appendChild(el('p', 'blurb', text));
     const row = el('div', 'start-row');
-    const ok = button(yes, 'primary-btn');
-    const cancel = button(no, 'ghost-btn');
-    row.append(ok, cancel);
-    inner.appendChild(row);
-    root.appendChild(inner);
-    document.body.appendChild(root);
-    const done = (answer: boolean): void => {
+    const done = (answer: T | null): void => {
       root.remove();
       window.removeEventListener('keydown', onKey, true);
       resolve(answer);
     };
+    const buttons = options.map(([value, label], i) => {
+      const b = button(label, i === 0 ? 'primary-btn' : 'ghost-btn');
+      b.addEventListener('click', () => done(value));
+      row.appendChild(b);
+      return b;
+    });
+    const cancel = button('Cancel', 'ghost-btn');
+    cancel.addEventListener('click', () => done(null));
+    row.appendChild(cancel);
+    inner.appendChild(row);
+    root.appendChild(inner);
+    document.body.appendChild(root);
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape' && e.key !== 'Enter') return;
       e.stopPropagation();
-      done(e.key === 'Enter');
+      done(e.key === 'Enter' ? options[0][0] : null);
     };
     window.addEventListener('keydown', onKey, true);
-    ok.addEventListener('click', () => done(true));
-    cancel.addEventListener('click', () => done(false));
     root.addEventListener('click', (e) => {
-      if (e.target === root) done(false);
+      if (e.target === root) done(null);
     });
-    ok.focus();
+    buttons[0]?.focus();
   });
 }
