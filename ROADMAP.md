@@ -234,9 +234,9 @@ detail behind the factory entries is in
       and darkened again; dawn did the reverse. Both renderers. Twilight now
       straddles the change, half each side. (Headless also only paints when
       something asks for a frame, so a screenshot is needed to see a change.)
-- [ ] Spitters and the Swarm Queen face away from the player while they back
-      off, because a creature faces the way it moves. Something that keeps its
-      distance should face what it is shooting at.
+- [x] Spitters and the Swarm Queen faced away from the player while they
+      backed off, because a creature faced the way it moved. They now face
+      what they are shooting at.
 - [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
       again on the next tick, so it rarely reached a second target. Each shot
       now remembers what it went through.
@@ -363,8 +363,12 @@ detail behind the factory entries is in
       Hold E to search one; it spills a cache that grows with distance, and a
       shrine also grants an upgrade. They show on the map once explored.
       Islands grown before this (worldgen 2 and older) have none.
-- [ ] Guarded landmarks: a nest of creatures round the rarest finds, so a
-      shrine far out is a fight as well as a walk.
+- [x] Guarded landmarks: ruins wake three crawlers, supply pods two spitters
+      and a brute, shrines two shellbacks and three wisps, when a player first
+      comes within seven tiles. They hold their post day and night, chase no
+      further than about ten tiles from it, and are not cleared at dawn.
+      Peaceful islands have none. A reload puts them back, since mobs are not
+      saved.
 - [ ] A count of landmarks found and left on the island map.
 - [x] A late-game megaproject: the **Skyward Beacon**. Research it (logic,
       power and engineering packs, after Solar Power and High-Pressure
@@ -515,8 +519,11 @@ detail behind the factory entries is in
 - [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
       A crafted satchel is an obvious early sink and a reason to build a
       workbench.
-- [ ] A frame-time overlay behind a debug flag, so performance regressions show
-      up while playing rather than only under a profiler.
+- [x] A frame-time overlay behind a debug flag, so performance regressions show
+      up while playing rather than only under a profiler. F3 (or `?perf=1`,
+      which sticks) shows fps, the 95th-percentile and worst frame over two
+      seconds, sim and draw time, and what is on the island; on GPU also how
+      many sprites and shapes were drawn.
 
 ### Changes
 
@@ -928,6 +935,9 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Landmark keepers on day one. A shrine's shellbacks take 3 off every
+      hit, so a first-day sling does half damage; whether a player who walks
+      out early reads that as "come back later" or as unfair is unplayed.
 - [ ] Accounts against the real Supabase project once it exists. Everything was
       driven against the same services run locally (Supabase Auth, PostgREST,
       Postgres 16), not supabase.co itself; the new "publishable" keys in

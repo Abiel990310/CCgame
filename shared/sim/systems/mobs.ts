@@ -1,4 +1,5 @@
 import { BUILDINGS } from '../../data/buildings';
+import { RESOURCES } from '../../data/items';
 import { MOBS, MOB_ORDER } from '../../data/mobs';
 import { CAMP, MAP_SIZE, PLAYER, TILE, WAVES } from '../constants';
 import { damp, distance, normalize } from '../math';
@@ -10,11 +11,15 @@ import { damageMob, damagePlayer } from './combat';
 import { resolveMachines } from './movement';
 
 /** Mobs head for the nearest standing player, or the camp when nobody is up. */
+/** How far from its post a keeper will chase a player before turning back. */
+const POST_LEASH = 340;
+
 function findTarget(world: World, mob: Mob): { pos: Vec2; player: boolean } {
-  let best: Vec2 = world.camp;
+  let best: Vec2 = mob.post ?? world.camp;
   let bestDist = Infinity;
   for (const player of world.players.values()) {
     if (player.downed > 0) continue;
+    if (mob.post && distance(player.pos, mob.post) > POST_LEASH) continue;
     const d = distance(player.pos, mob.pos);
     if (d < bestDist) {
       bestDist = d;
@@ -22,6 +27,40 @@ function findTarget(world: World, mob: Mob): { pos: Vec2; player: boolean } {
     }
   }
   return { pos: best, player: bestDist < Infinity };
+}
+
+/** How close a player comes before a landmark's keepers wake. */
+const WAKE_RANGE = TILE * 7;
+
+/**
+ * Wakes the keepers of any unsearched landmark a player has walked up to.
+ * They spawn in a ring round it and hold that ground until killed.
+ */
+export function stepLandmarkGuards(world: World): void {
+  // Twice a second is plenty for a walk-up, and spares a scan of every node each tick.
+  if (world.peaceful || world.tick % 15 !== 0) return;
+  for (const node of world.nodes) {
+    if (node.woken || node.charges <= 0) continue;
+    const guards = RESOURCES[node.kind].landmark?.guards;
+    if (!guards) continue;
+    let near = false;
+    for (const player of world.players.values()) {
+      if (player.downed === 0 && distance(player.pos, node.pos) < WAKE_RANGE) near = true;
+    }
+    if (!near) continue;
+    node.woken = true;
+    const total = guards.reduce((n, g) => n + g.count, 0);
+    let k = 0;
+    for (const group of guards) {
+      for (let i = 0; i < group.count; i++, k++) {
+        const angle = (k / total) * Math.PI * 2 + nextFloat(world) * 0.4;
+        const at = { x: node.pos.x + Math.cos(angle) * 60, y: node.pos.y + Math.sin(angle) * 40 };
+        const mob = spawnMob(world, group.type, at);
+        mob.post = { ...at };
+      }
+    }
+    world.events.push({ kind: 'guardsWoke', pos: { ...node.pos }, landmark: node.kind });
+  }
 }
 
 /** How much frost holds a mob back, as a share of its speed. */
@@ -47,7 +86,10 @@ export function stepMobs(world: World, dt: number): void {
       speed *= CHILLED;
     }
     let pace = 1;
-    if (def.spit && target.player) pace = spit(world, mob, target.pos, dt);
+    if (def.spit && target.player) {
+      pace = spit(world, mob, target.pos, dt);
+      mob.look = Math.atan2(target.pos.y - mob.pos.y, target.pos.x - mob.pos.x);
+    } else mob.look = undefined;
     if (def.summons) summon(world, mob, dt);
 
     mob.vel.x = damp(mob.vel.x, dir.x * speed * pace, 8, dt);

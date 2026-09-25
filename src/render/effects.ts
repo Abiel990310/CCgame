@@ -65,6 +65,10 @@ export class Effects {
         case 'spit':
           this.burst(event.pos, 4, '#c8e070', 60);
           break;
+        case 'guardsWoke':
+          this.rings.push({ pos: { ...event.pos }, radius: 200, life: 0.9, maxLife: 0.9, color: '#ff7a5a' });
+          this.shake = Math.min(8, this.shake + 3);
+          break;
         case 'summon':
           this.rings.push({ pos: { ...event.pos }, radius: 70, life: 0.5, maxLife: 0.5, color: '#c9a0ff' });
           this.burst(event.pos, 10, '#b48cf0', 120);

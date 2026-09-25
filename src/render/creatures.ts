@@ -9,6 +9,7 @@ import { INK, blitCached, capsule, fillInk, litFill, paintFlash, rand, softShado
  */
 
 function heading(mob: Mob): { x: number; y: number } {
+  if (mob.look !== undefined) return { x: Math.cos(mob.look), y: Math.sin(mob.look) };
   const len = Math.hypot(mob.vel.x, mob.vel.y);
   if (len > 1) return { x: mob.vel.x / len, y: mob.vel.y / len };
   const a = rand(mob.seed, 3) * Math.PI * 2;
