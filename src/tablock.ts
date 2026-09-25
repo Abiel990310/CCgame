@@ -50,7 +50,7 @@ export class SlotLock {
       this.channel.onmessage = (e: MessageEvent<Message>) => this.receive(e.data);
     } catch {
       // Without a channel the storage record below still keeps the tabs apart;
-      // only the save-before-handing-over courtesy is lost.
+      // `claim` waits for the old tab to notice it instead of asking it to save.
       this.channel = null;
     }
 
@@ -78,7 +78,17 @@ export class SlotLock {
         await new Promise((resolve) => setTimeout(resolve, POLL_MS));
       }
     }
+    const unanswered = !!current && current.tab !== this.tab && readLock(slot)?.tab === current.tab;
     this.recorded = writeLock(slot, { tab: this.tab, at: Date.now() });
+    if (unanswered && this.recorded) {
+      // Nobody handed the island over — there is no channel, or the old tab
+      // never answered — so it may still be playing, not yet seeing this
+      // record, and autosave once more. Reading only after it has had time to
+      // see the record means that last save is loaded here rather than
+      // landing underneath this tab, where saves that skip unchanged sections
+      // would leave it half overwritten.
+      await new Promise((resolve) => setTimeout(resolve, HANDOVER_MS));
+    }
     this.held = slot;
   }
 
