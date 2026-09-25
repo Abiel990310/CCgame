@@ -51,14 +51,19 @@ interface Drawable {
 /** Where the choice of renderer is remembered; `?renderer=pixi` or `?renderer=canvas` sets it. */
 const RENDERER_KEY = 'ccgame.renderer';
 
-/** Whether this browser session asked for the Pixi renderer. */
-function pixiWanted(): boolean {
+/**
+ * Which renderer this player chose, or `auto` when they never chose. Auto
+ * means Pixi: Abiel found it the smoother of the two on his machine
+ * (2026-09-25), which is the case the switch existed to settle.
+ */
+function rendererChoice(): 'pixi' | 'canvas' | 'auto' {
   try {
     const asked = new URLSearchParams(location.search).get('renderer');
     if (asked === 'pixi' || asked === 'canvas') localStorage.setItem(RENDERER_KEY, asked);
-    return localStorage.getItem(RENDERER_KEY) === 'pixi';
+    const stored = localStorage.getItem(RENDERER_KEY);
+    return stored === 'pixi' || stored === 'canvas' ? stored : 'auto';
   } catch {
-    return false;
+    return 'auto';
   }
 }
 
@@ -127,7 +132,10 @@ export class Renderer {
       this.night = { dark, lights, lightsCtx: lights.getContext('2d'), eyes, tags, shade: '' };
     }
 
-    if (pixiWanted()) void this.startGpu();
+    const choice = rendererChoice();
+    // A browser that only offers WebGL in software would run Pixi far slower
+    // than Canvas, so Pixi is taken by default only on a real graphics card.
+    if (choice !== 'canvas') void this.startGpu(choice === 'auto');
   }
 
   /**
@@ -141,7 +149,7 @@ export class Renderer {
       // A private window forgets the choice; the switch still happens.
     }
     if (kind === 'pixi') {
-      await this.startGpu();
+      await this.startGpu(false);
     } else if (this.gpu) {
       const gpu = this.gpu;
       this.gpu = null;
@@ -155,12 +163,12 @@ export class Renderer {
 
   private starting: Promise<void> | null = null;
 
-  private startGpu(): Promise<void> {
+  private startGpu(hardwareOnly: boolean): Promise<void> {
     // The Pixi renderer relies on the night being laid over it, since it has
     // no way to blend the dark and the lights into itself yet.
     if (this.gpu || !this.night) return Promise.resolve();
     this.starting ??= import('./gpu/stage')
-      .then(({ GpuStage }) => GpuStage.create())
+      .then(({ GpuStage }) => GpuStage.create(hardwareOnly))
       .then((stage) => this.attachGpu(stage))
       .catch((err: unknown) => console.warn('Pixi renderer unavailable, staying on Canvas', err))
       .finally(() => {
