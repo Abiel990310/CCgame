@@ -1702,7 +1702,10 @@ kbd {
   z-index: 20;
   overflow-y: auto;
   display: flex;
-  align-items: center;
+  /* Centred by auto margins on the inner column, which give way when it is
+     taller than the screen; centring the flex line would push the title
+     above the top edge, out of scroll reach, on a sideways phone. */
+  align-items: flex-start;
   padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
     max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
   background: linear-gradient(90deg, rgba(7, 10, 15, 0.92) 0%, rgba(7, 10, 15, 0.72) 34%, rgba(7, 10, 15, 0.1) 70%),
@@ -1712,6 +1715,8 @@ kbd {
 .menu-inner {
   width: min(440px, 100%);
   margin-left: clamp(0px, 6vw, 90px);
+  margin-top: auto;
+  margin-bottom: auto;
   animation: menu-in 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 
@@ -2440,6 +2445,18 @@ kbd {
   }
   .menu-actions {
     flex-direction: column;
+  }
+}
+
+/* The narrowest phones keep the title on one line beside the mark. */
+@media (max-width: 360px) {
+  .menu-head h1 {
+    font-size: 32px;
+    white-space: nowrap;
+  }
+  .logo-mark {
+    width: 52px;
+    height: 52px;
   }
 }
 

@@ -294,6 +294,10 @@ detail behind the factory entries is in
       Esc sometimes opened nothing. A mouse moving over an open screen never
       told the island where it went, so the click aimed at the old spot. A
       press now updates the cursor itself, which also fixes shift-click paste.
+- [x] The main menu's Sign in button sat beside the title and pushed "The
+      Island" onto two lines on every screen. It now sits in the screen's
+      top-right corner. A sideways phone also cut the top of the menu off with
+      no way to scroll to it; the menu now centres only while it fits.
 - [ ] Hover cards after closing a screen still describe the old spot until
       the mouse moves; a pointerenter on the canvas would refresh them.
 - [x] On a phone the build palette covers the column of action buttons, so

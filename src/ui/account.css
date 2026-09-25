@@ -155,9 +155,12 @@
   border-color: var(--danger);
 }
 
-/* The menu's account button sits above the logo, on the right. */
+/* The menu's account button sits in the screen's top-right corner, where games keep the player's profile. */
 .menu-account {
-  float: right;
+  position: absolute;
+  top: max(18px, env(safe-area-inset-top));
+  right: max(18px, env(safe-area-inset-right));
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -165,7 +168,10 @@
   padding: 7px 12px;
   border-radius: 99px;
   border: 1px solid var(--line-strong);
-  background: rgba(20, 24, 32, 0.7);
+  background: rgba(20, 24, 32, 0.78);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   color: var(--ink);
   font: inherit;
   font-size: 13px;
