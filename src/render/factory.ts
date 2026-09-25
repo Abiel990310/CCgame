@@ -178,24 +178,28 @@ function drawPowerSign(ctx: CanvasRenderingContext2D, time: number, x: number, y
   const sx = x - TILE * 0.28;
   const sy = y - TILE * 0.36;
   ctx.globalAlpha = 0.7 + Math.sin(time * 5) * 0.3;
-  ctx.fillStyle = 'rgba(12, 16, 22, 0.75)';
-  ctx.beginPath();
-  ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = UI.danger;
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
+  blitCached(ctx, 'sign:power', sx, sy, around(7.5), (c) => {
+    c.fillStyle = 'rgba(12, 16, 22, 0.75)';
+    c.beginPath();
+    c.arc(0, 0, 5.5, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = UI.danger;
+    c.lineWidth = 1.5;
+    c.stroke();
+  });
   ctx.globalAlpha = 1;
-  ctx.fillStyle = UI.gold;
-  ctx.beginPath();
-  ctx.moveTo(sx + 1, sy - 4);
-  ctx.lineTo(sx - 2.5, sy + 0.6);
-  ctx.lineTo(sx - 0.2, sy + 0.6);
-  ctx.lineTo(sx - 1, sy + 4);
-  ctx.lineTo(sx + 2.5, sy - 0.8);
-  ctx.lineTo(sx + 0.2, sy - 0.8);
-  ctx.closePath();
-  ctx.fill();
+  blitCached(ctx, 'sign:bolt', sx, sy, around(5.5), (c) => {
+    c.fillStyle = UI.gold;
+    c.beginPath();
+    c.moveTo(1, -4);
+    c.lineTo(-2.5, 0.6);
+    c.lineTo(-0.2, 0.6);
+    c.lineTo(-1, 4);
+    c.lineTo(2.5, -0.8);
+    c.lineTo(0.2, -0.8);
+    c.closePath();
+    c.fill();
+  });
 }
 
 /** Height of a pole's crossarm above its tile centre, where wires meet it. */
@@ -253,11 +257,13 @@ function drawFuelSign(ctx: CanvasRenderingContext2D, time: number, x: number, y:
   const sx = x - TILE * 0.28;
   const sy = y - TILE * 0.36;
   ctx.globalAlpha = 0.7 + Math.sin(time * 5) * 0.3;
-  ctx.strokeStyle = UI.danger;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(sx, sy, 5.5, 0, Math.PI * 2);
-  ctx.stroke();
+  blitCached(ctx, 'sign:fuel', sx, sy, around(7.5), (c) => {
+    c.strokeStyle = UI.danger;
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.arc(0, 0, 5.5, 0, Math.PI * 2);
+    c.stroke();
+  });
   ctx.globalAlpha = 1;
   drawItemSprite(ctx, sx, sy, 3.6, 'coal');
 }
@@ -486,28 +492,40 @@ function drawMachineLive(
     case 'miner': {
       // The drill only turns while the miner is actually working.
       const spin = running ? rate * 5 : 0.4;
-      ctx.fillStyle = accent;
-      ctx.beginPath();
-      for (let i = 0; i < 3; i++) {
-        const a = spin + (i / 3) * Math.PI * 2;
-        ctx.moveTo(x + Math.cos(a) * TILE * 0.2, cy + Math.sin(a) * TILE * 0.2);
-        ctx.lineTo(x + Math.cos(a + 2.2) * TILE * 0.06, cy + Math.sin(a + 2.2) * TILE * 0.06);
-        ctx.lineTo(x + Math.cos(a - 0.5) * TILE * 0.07, cy + Math.sin(a - 0.5) * TILE * 0.07);
-      }
-      ctx.fill();
-      ctx.fillStyle = shift(accent, -60);
-      ctx.beginPath();
-      ctx.arc(x, cy, 2.4, 0, Math.PI * 2);
-      ctx.fill();
+      // Three blades look the same a third of a turn on.
+      const third = (Math.PI * 2) / 3;
+      const step = Math.round((((spin % third) + third) % third / third) * DRILL_STEPS) % DRILL_STEPS;
+      blitCached(ctx, `drill:${accent}:${step}`, x, cy, around(TILE * 0.2 + 1), (c) => {
+        const turn = (step / DRILL_STEPS) * third;
+        c.fillStyle = accent;
+        c.beginPath();
+        for (let i = 0; i < 3; i++) {
+          const a = turn + (i / 3) * Math.PI * 2;
+          c.moveTo(Math.cos(a) * TILE * 0.2, Math.sin(a) * TILE * 0.2);
+          c.lineTo(Math.cos(a + 2.2) * TILE * 0.06, Math.sin(a + 2.2) * TILE * 0.06);
+          c.lineTo(Math.cos(a - 0.5) * TILE * 0.07, Math.sin(a - 0.5) * TILE * 0.07);
+        }
+        c.fill();
+        c.fillStyle = shift(accent, -60);
+        c.beginPath();
+        c.arc(0, 0, 2.4, 0, Math.PI * 2);
+        c.fill();
+      });
       break;
     }
     case 'furnace': {
       // The fire glows while it smelts, and the chimney smokes.
       const glow = running ? 0.75 + Math.sin(rate * 7) * 0.2 : 0.18;
-      ctx.fillStyle = rgba(accent, glow);
-      ctx.beginPath();
-      ctx.roundRect(x - TILE * 0.2, cy - TILE * 0.08, TILE * 0.32, TILE * 0.22, [TILE * 0.12, TILE * 0.12, 2, 2]);
-      ctx.fill();
+      // The mouth is baked once and faded, rather than filled at a new alpha
+      // every frame.
+      ctx.globalAlpha = glow;
+      blitCached(ctx, `mouth:${accent}`, x, cy, { left: TILE * 0.2 + 1, right: TILE * 0.12 + 1, top: TILE * 0.08 + 1, bottom: TILE * 0.14 + 1 }, (c) => {
+        c.fillStyle = accent;
+        c.beginPath();
+        c.roundRect(-TILE * 0.2, -TILE * 0.08, TILE * 0.32, TILE * 0.22, [TILE * 0.12, TILE * 0.12, 2, 2]);
+        c.fill();
+      });
+      ctx.globalAlpha = 1;
       if (!running) break;
       ctx.fillStyle = rgba('#fff2c4', glow * 0.8);
       ctx.fillRect(x - TILE * 0.14, cy + TILE * 0.06, TILE * 0.2, TILE * 0.05);
@@ -634,18 +652,20 @@ function drawMachineLive(
     case 'lab': {
       // A glass dome with something rising through it. A lab has no output
       // side and no moving arm, so the bubbles are the only sign it is working.
-      ctx.fillStyle = shift(def.color, -46);
-      ctx.beginPath();
-      ctx.ellipse(x, cy + TILE * 0.08, TILE * 0.28, TILE * 0.1, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = rgba(accent, running ? 0.45 : 0.16);
-      ctx.beginPath();
-      ctx.arc(x, cy + TILE * 0.08, TILE * 0.26, Math.PI, 0);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-      ctx.beginPath();
-      ctx.arc(x - TILE * 0.1, cy - TILE * 0.06, TILE * 0.05, 0, Math.PI * 2);
-      ctx.fill();
+      blitCached(ctx, `dome:${def.id}:${running ? 1 : 0}`, x, cy, { left: TILE * 0.3, right: TILE * 0.3, top: TILE * 0.2, bottom: TILE * 0.2 }, (c) => {
+        c.fillStyle = shift(def.color, -46);
+        c.beginPath();
+        c.ellipse(0, TILE * 0.08, TILE * 0.28, TILE * 0.1, 0, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = rgba(accent, running ? 0.45 : 0.16);
+        c.beginPath();
+        c.arc(0, TILE * 0.08, TILE * 0.26, Math.PI, 0);
+        c.fill();
+        c.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        c.beginPath();
+        c.arc(-TILE * 0.1, -TILE * 0.06, TILE * 0.05, 0, Math.PI * 2);
+        c.fill();
+      });
 
       ctx.fillStyle = rgba(accent, running ? 0.95 : 0.3);
       for (let i = 0; i < 3; i++) {
@@ -685,20 +705,27 @@ function gear(
   color: string,
 ): void {
   const teeth = 8;
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  for (let i = 0; i < teeth * 2; i++) {
-    const a = angle + (i / (teeth * 2)) * Math.PI * 2;
-    const rr = i % 2 === 0 ? r : r * 0.72;
-    if (i === 0) ctx.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
-    else ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = 'rgba(16, 20, 26, 0.55)';
-  ctx.beginPath();
-  ctx.arc(x, y, r * 0.3, 0, Math.PI * 2);
-  ctx.fill();
+  // A gear looks the same a tooth later, so a tooth's turn in steps is every
+  // frame it can show.
+  const tooth = (Math.PI * 2) / teeth;
+  const step = Math.round((((angle % tooth) + tooth) % tooth / tooth) * GEAR_STEPS) % GEAR_STEPS;
+  blitCached(ctx, `gear:${r}:${color}:${step}`, x, y, around(r + 1), (c) => {
+    const turn = (step / GEAR_STEPS) * tooth;
+    c.fillStyle = color;
+    c.beginPath();
+    for (let i = 0; i < teeth * 2; i++) {
+      const a = turn + (i / (teeth * 2)) * Math.PI * 2;
+      const rr = i % 2 === 0 ? r : r * 0.72;
+      if (i === 0) c.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      else c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    c.closePath();
+    c.fill();
+    c.fillStyle = 'rgba(16, 20, 26, 0.55)';
+    c.beginPath();
+    c.arc(0, 0, r * 0.3, 0, Math.PI * 2);
+    c.fill();
+  });
 }
 
 /**
@@ -724,21 +751,28 @@ function drawStatusLight(
   const color = !machine.stalled ? UI.good : blocked ? UI.danger : UI.gold;
   const pulse = blocked ? 0.55 + Math.sin(time * 6) * 0.35 : 1;
 
-  ctx.fillStyle = 'rgba(10, 14, 20, 0.6)';
-  ctx.beginPath();
-  ctx.arc(lx, ly, 3.2, 0, Math.PI * 2);
-  ctx.fill();
+  // Baked, like the machine bodies: a factory shows one lamp per machine, and
+  // on the GPU renderer every path drawn live is rebuilt into geometry each
+  // frame while a baked lamp is one quad.
+  blitCached(ctx, 'lamp:base', lx, ly, around(4.2), (c) => {
+    c.fillStyle = 'rgba(10, 14, 20, 0.6)';
+    c.beginPath();
+    c.arc(0, 0, 3.2, 0, Math.PI * 2);
+    c.fill();
+  });
   ctx.globalAlpha = pulse;
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(lx, ly, 2.1, 0, Math.PI * 2);
-  ctx.fill();
-  if (blocked) {
-    ctx.fillStyle = rgba(UI.danger, 0.25);
-    ctx.beginPath();
-    ctx.arc(lx, ly, 5.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  blitCached(ctx, `lamp:${color}:${blocked ? 1 : 0}`, lx, ly, around(6.5), (c) => {
+    c.fillStyle = color;
+    c.beginPath();
+    c.arc(0, 0, 2.1, 0, Math.PI * 2);
+    c.fill();
+    if (blocked) {
+      c.fillStyle = rgba(UI.danger, 0.25);
+      c.beginPath();
+      c.arc(0, 0, 5.5, 0, Math.PI * 2);
+      c.fill();
+    }
+  });
   ctx.globalAlpha = 1;
 }
 
@@ -764,78 +798,43 @@ function drawInserter(
 ): void {
   const def = MACHINES[machine.type];
   const hand = machine.input[0];
-  // Empty-handed, the arm rests back over its source, waiting.
-  const swing = hand ? Math.min(machine.progress / INSERTER_SWING, 1) : 0;
+  // Empty-handed, the arm rests back over its source, waiting. The swing is
+  // taken in steps so the arm can be baked; a step is a frame or so of it.
+  const swing = hand ? Math.round(Math.min(machine.progress / INSERTER_SWING, 1) * ARM_STEPS) : 0;
   const angle = dirAngle(machine.dir);
   // -1 is fully back over the source tile, +1 fully forward over the target.
   // The hand stops half a tile short of the far tile's centre, so a long arm
   // visibly clears the tile it reaches over instead of resting on top of it.
-  const along = (swing * 2 - 1) * TILE * (def.reach - 0.5);
+  const span = TILE * (def.reach - 0.5);
+  const along = ((swing / ARM_STEPS) * 2 - 1) * span;
   const pivotY = y - TILE * 0.22;
   const handX = x + Math.cos(angle) * along;
   const handY = pivotY + Math.sin(angle) * along;
-
-  shadow(ctx, x + 1, y + TILE * 0.24, TILE * 0.26, 0.26);
-
-  // A round base plate, so an arm reads as a machine and not as a post.
-  ctx.fillStyle = shift(def.color, -24);
-  ctx.beginPath();
-  ctx.ellipse(x, y + TILE * 0.14, TILE * 0.26, TILE * 0.15, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = shift(def.color, 18);
-  ctx.beginPath();
-  ctx.ellipse(x, y + TILE * 0.1, TILE * 0.24, TILE * 0.12, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // The post.
-  ctx.fillStyle = shift(def.color, -14);
-  ctx.beginPath();
-  ctx.roundRect(x - TILE * 0.1, pivotY, TILE * 0.2, y + TILE * 0.12 - pivotY, 3);
-  ctx.fill();
-  ctx.fillStyle = shift(def.color, 30);
-  ctx.fillRect(x - TILE * 0.1 + 1.5, pivotY + 2, 1.5, y + TILE * 0.08 - pivotY);
-
-  // The arm: a dark outline under the lit rod, so it holds up over any ground.
   const tint = machine.stalled ? UI.danger : def.accent;
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = 'rgba(10, 14, 20, 0.55)';
-  ctx.lineWidth = 4.6;
-  ctx.beginPath();
-  ctx.moveTo(x, pivotY);
-  ctx.lineTo(handX, handY);
-  ctx.stroke();
-  ctx.strokeStyle = tint;
-  ctx.lineWidth = 2.6;
-  ctx.stroke();
-  ctx.lineCap = 'butt';
 
-  // The claw.
-  ctx.fillStyle = shift(tint, -40);
-  ctx.beginPath();
-  ctx.arc(handX, handY, 3.2, 0, Math.PI * 2);
-  ctx.fill();
-
-  // A lit cap on the pivot.
-  ctx.fillStyle = tint;
-  ctx.beginPath();
-  ctx.arc(x, pivotY, 3.4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.beginPath();
-  ctx.arc(x - 1, pivotY - 1, 1.2, 0, Math.PI * 2);
-  ctx.fill();
+  // Base and arm are baked: a bank of arms is the densest live drawing a
+  // factory has, and each one was a dozen paths a frame.
+  blitCached(ctx, `arm-base:${def.id}`, x, y, { left: TILE * 0.3, right: TILE * 0.3, top: TILE * 0.3, bottom: TILE * 0.4 }, (c) =>
+    drawInserterBase(c, def),
+  );
+  blitCached(ctx, `arm:${def.id}:${machine.dir}:${swing}:${tint}`, x, pivotY, around(span + 6), (c) =>
+    drawInserterArm(c, Math.cos(angle) * along, Math.sin(angle) * along, tint),
+  );
 
   // A filtered arm carries a chip of what it is set to, so a bank of arms
   // taking different items out of one chest can be told apart without
   // opening every one of them.
   if (machine.filter) {
-    // A pale plate behind it, because the darkest items in the table are
-    // nearly the colour of the post and would otherwise leave no chip at all.
-    ctx.fillStyle = '#e4e9f2';
-    ctx.beginPath();
-    ctx.roundRect(x - TILE * 0.13, y + TILE * 0.06, TILE * 0.26, TILE * 0.2, 3);
-    ctx.fill();
-    drawItemSprite(ctx, x, y + TILE * 0.16, TILE * 0.09, machine.filter);
+    const filter = machine.filter;
+    blitCached(ctx, `arm-chip:${filter}`, x, y + TILE * 0.16, { left: TILE * 0.14, right: TILE * 0.14, top: TILE * 0.11, bottom: TILE * 0.11 }, (c) => {
+      // A pale plate behind it, because the darkest items in the table are
+      // nearly the colour of the post and would otherwise leave no chip at all.
+      c.fillStyle = '#e4e9f2';
+      c.beginPath();
+      c.roundRect(-TILE * 0.13, -TILE * 0.1, TILE * 0.26, TILE * 0.2, 3);
+      c.fill();
+      drawItemSprite(c, 0, 0, TILE * 0.09, filter);
+    });
   }
 
   // The carried item goes on last: mid-swing the hand is over the post, and an
@@ -848,6 +847,72 @@ function drawInserter(
 
     drawItemSprite(ctx, handX, handY, 5.2, hand.id);
   }
+}
+
+/** Steps an arm's swing is baked at, and a gear's and a drill's turn. */
+const ARM_STEPS = 24;
+const GEAR_STEPS = 12;
+const DRILL_STEPS = 16;
+
+/** A square box of `r` about the anchor, for small baked parts. */
+function around(r: number): { left: number; right: number; top: number; bottom: number } {
+  return { left: r, right: r, top: r, bottom: r };
+}
+
+/** An inserter's plate and post, standing on its tile centre at the origin. */
+function drawInserterBase(ctx: CanvasRenderingContext2D, def: MachineDef): void {
+  const pivotY = -TILE * 0.22;
+  shadow(ctx, 1, TILE * 0.24, TILE * 0.26, 0.26);
+
+  // A round base plate, so an arm reads as a machine and not as a post.
+  ctx.fillStyle = shift(def.color, -24);
+  ctx.beginPath();
+  ctx.ellipse(0, TILE * 0.14, TILE * 0.26, TILE * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = shift(def.color, 18);
+  ctx.beginPath();
+  ctx.ellipse(0, TILE * 0.1, TILE * 0.24, TILE * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // The post.
+  ctx.fillStyle = shift(def.color, -14);
+  ctx.beginPath();
+  ctx.roundRect(-TILE * 0.1, pivotY, TILE * 0.2, TILE * 0.12 - pivotY, 3);
+  ctx.fill();
+  ctx.fillStyle = shift(def.color, 30);
+  ctx.fillRect(-TILE * 0.1 + 1.5, pivotY + 2, 1.5, TILE * 0.08 - pivotY);
+}
+
+/** An inserter's arm from its pivot at the origin to the hand at (hx, hy). */
+function drawInserterArm(ctx: CanvasRenderingContext2D, hx: number, hy: number, tint: string): void {
+  // A dark outline under the lit rod, so it holds up over any ground.
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(10, 14, 20, 0.55)';
+  ctx.lineWidth = 4.6;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(hx, hy);
+  ctx.stroke();
+  ctx.strokeStyle = tint;
+  ctx.lineWidth = 2.6;
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+
+  // The claw.
+  ctx.fillStyle = shift(tint, -40);
+  ctx.beginPath();
+  ctx.arc(hx, hy, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // A lit cap on the pivot.
+  ctx.fillStyle = tint;
+  ctx.beginPath();
+  ctx.arc(0, 0, 3.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.beginPath();
+  ctx.arc(-1, -1, 1.2, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 /**
