@@ -601,6 +601,41 @@ function drawMachineLive(
       ctx.restore();
       break;
     }
+    case 'merger': {
+      // The splitter's T turned round: two arms pointing in, one stem out the front.
+      ctx.save();
+      ctx.translate(x, cy);
+      ctx.rotate(dirAngle(machine.dir));
+
+      ctx.strokeStyle = shift(def.color, -50);
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(TILE * 0.2, 0);
+      ctx.moveTo(0, -TILE * 0.3);
+      ctx.lineTo(0, TILE * 0.3);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+
+      ctx.fillStyle = accent;
+      for (const away of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(0, away * TILE * 0.08);
+        ctx.lineTo(-TILE * 0.1, away * TILE * 0.24);
+        ctx.lineTo(TILE * 0.1, away * TILE * 0.24);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.moveTo(TILE * 0.34, 0);
+      ctx.lineTo(TILE * 0.2, -TILE * 0.1);
+      ctx.lineTo(TILE * 0.2, TILE * 0.1);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      break;
+    }
     case 'fishTrap': {
       // A ripple spreading from a float that bobs while the trap is fishing
       // and lies still once its catch has nowhere to go.
@@ -743,8 +778,8 @@ function drawStatusLight(
   x: number,
   y: number,
 ): void {
-  // A chest has nothing to report, and a splitter passes items straight on.
-  if (def.family === 'chest' || def.family === 'splitter') return;
+  // A chest has nothing to report, and a splitter or merger passes items straight on.
+  if (def.family === 'chest' || def.family === 'splitter' || def.family === 'merger') return;
   const lx = x + TILE * 0.32;
   const ly = y + TILE * 0.27;
   const blocked = machine.stalled && isBlocked(machine, def);
@@ -993,7 +1028,7 @@ function drawProgress(
   const def = MACHINES[machine.type];
   // A chest has no cycle, an inserter's arm already is its progress bar, and a
   // splitter passes items straight through.
-  if (def.family === 'chest' || def.family === 'inserter' || def.family === 'splitter') return;
+  if (def.family === 'chest' || def.family === 'inserter' || def.family === 'splitter' || def.family === 'merger') return;
 
   const duration = cycleLength(machine);
   if (duration <= 0 || machine.progress <= 0) return;

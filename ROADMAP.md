@@ -141,7 +141,7 @@ Research is in too. A **Lab** eats research packs off a belt, and `TECHS` in
 two of them repeatable forever. Every tech is a multiplier on machines that
 already exist — mining, crafting, belt and inserter speed, lab speed, research
 XP — and the tiers above the first are unlocked by it: automation opens the
-steel miner, belt logistics the splitter and long inserter, metallurgy the
+steel miner, belt logistics the splitter, merger and long inserter, metallurgy the
 steel furnace, assembler Mk2 and steel chest, robotic arms the fast inserter,
 angling the fish trap, and resonance, which eats essence, the three electric
 machines and the stack inserter. A finished tree still compounds
@@ -218,6 +218,9 @@ detail behind the factory entries is in
 
 ### Bugs
 
+- [ ] Night 15 in headless Chromium with the GPU renderer showed no night
+      darkness: the island was lit like day while the HUD read Night.
+      Unconfirmed on a real GPU; the darkness is a DOM layer since PR #47.
 - [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
       again on the next tick, so it rarely reached a second target. Each shot
       now remembers what it went through.
@@ -247,6 +250,16 @@ detail behind the factory entries is in
 - [x] On a portrait phone a toast can land on the top edge of an open build
       palette. Toasts wrap instead of running into the buttons, and in build
       mode they sit under the goal, clear of the palette.
+- [x] Toasts still landed on an open palette on a portrait phone once two or
+      three stacked up, since each wraps to three lines there. With the palette
+      open a phone shows only the newest toast.
+- [x] Machines could not be turned on a touchscreen: there is no R key, and
+      tapping a placed machine did nothing. A tap on any placed piece in build
+      mode now turns it a quarter, as belts already did, and the build bar has
+      a turn button for the piece about to go down. Checked at 320, 390 and
+      810px wide.
+- [ ] On a 320px phone the build bar's second card in each row is cut off by
+      the palette edge; it scrolls sideways, but nothing says so.
 - [x] The overlapping HUD panels are still showing after the UI revamp. The
       co-op code chip sat on the resource pouch at every screen size, and on
       a 320px phone the phase panel wrapped into it. The top-right corner is
@@ -255,8 +268,11 @@ detail behind the factory entries is in
 - [x] Co-op: "Lost the matchmaking service" when the broker's socket dropped,
       which also threw a guest out of a game that no longer needed it. The
       broker now reconnects quietly, and guests let go of it once they are in.
-- [ ] Co-op: when the host's tab goes to the background, browsers throttle its
-      timers and the island slows or stutters for everyone on it.
+- [x] Co-op: when the host's tab goes to the background, browsers throttle its
+      timers and the island slows or stutters for everyone on it. A covered
+      host tab got one frame a second, so friends got 7.5 ticks a second in
+      one lump each second. A worker now keeps the host's beat whenever frames
+      stall: friends get 30 even ticks a second, hidden or not.
 
 - [ ] The first click on a machine after closing another machine's screen with
       Esc sometimes opens nothing; the second click works. Seen once while
@@ -268,20 +284,19 @@ detail behind the factory entries is in
       Between 641px and 900px the phase moves right and the pouch becomes a
       strip under the top row. A landscape phone's palette also sat 2px over the
       hotbar.
-- [ ] `npm run preview` answers 404 to the browser's own request for the
-      module bundle in this container — vite's preview server rejects
-      `Sec-Fetch-Dest: script`, though curl for the same URL is fine. Serving
-      `dist/` with `python3 -m http.server` works. Costs a session twenty
-      minutes if nobody says so.
+- [x] `npm run preview` was reported to 404 the module bundle in the cloud
+      container. It did not reproduce on 2026-09-25 (Chromium launched plainly
+      loads it; through `HTTPS_PROXY` localhost gets 405). CLAUDE.md now says
+      so and gives the `python3 -m http.server` fallback.
 - [x] Two tabs open on the same island overwrote each other, and the
       skipped-write cache could make one skip a section the other had already
       replaced. Now whoever opens an island last owns it: the other tab saves,
       hands it over and returns to the menu saying why, and never writes to it
       again unless it is opened there once more.
-- [ ] In a browser without `BroadcastChannel` the tab losing an island is
-      told only through storage, so it cannot save first, and for the instant
-      before it sees the new owner it could still autosave over the new tab.
-      Every current browser has the channel.
+- [x] In a browser without `BroadcastChannel` the tab losing an island could
+      autosave underneath the new tab in the instant before it saw the new
+      owner. When nobody hands the island over, the new tab now records itself
+      and waits 0.8s before reading, so that last save is loaded, not buried.
 - [x] Touch had no way to remove anything. In build mode, holding a finger
       still on a piece for half a second now removes it.
 - [x] Tapping the canvas placed nothing, so a phone could not build or inspect
@@ -300,11 +315,11 @@ detail behind the factory entries is in
 - [x] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely. No longer overlapping
       at 390px as of 2026-09-24 (measured in Chromium at iPhone 13 size).
-- [ ] Shift-clicking a large stack into a two-slot machine fills **both** input
+- [x] Shift-clicking a large stack into a two-slot machine fills **both** input
       slots with one ingredient, so the second ingredient can never get in and
-      the machine deadlocks until you take some back out by hand. Belts are
-      guarded against exactly this (one slot reserved per ingredient); hand
-      loading is not. Found driving a research line in a browser.
+      the machine deadlocks until you take some back out by hand. Shift-click
+      now keeps to the same per-ingredient share a belt does (labs too); the
+      rest stays in the bag. Placing a stack on a chosen slot is still free.
 
 
 ### New features
@@ -382,9 +397,13 @@ detail behind the factory entries is in
       filtered against. A side is set by dropping an item on it in the machine
       screen, and a splitter with both sides filtered is a sorter — it refuses
       what it cannot route rather than jamming on it.
-- [ ] **Merger** — two belts into one, the splitter read backwards. A splitter
-      can feed two lines now, but joining two lines still takes a chest and an
-      inserter.
+- [x] **Merger** — two belts into one, the splitter read backwards. Built:
+      a crafted `merger` row, unlocked with the splitter by Belt Logistics.
+      Belts on its left, behind and right run into it and it sends one line
+      out of its front. It takes from the feeding belts turn by turn rather
+      than being pushed into, so with the line ahead full each feed still gets
+      an even share; plain side-loading hands every gap to whichever belt
+      ticks first. The turn is saved.
 - [x] **Long inserter** — an arm that reaches two tiles instead of one, so a
       machine can be loaded from across a belt. Built: a `MACHINES` row with
       `reach: 2`, slower than the short arm.
@@ -463,6 +482,18 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [x] **Nights keep getting harder.** A scripted player showed nights 6 to 9
+      costing less health than night 5, and night 20 barely scratched: the
+      wave budget grew in a straight line while player power compounds. The
+      budget now has a quadratic term, creatures toughen by 8% a night from
+      night 7 (and pay out XP in proportion), and the Warden carries 60% more
+      health each time it returns. Measured with the same bot, health lost per
+      night now climbs steadily from about 10 at night 6 to about 170 at 25.
+- [ ] Bosses beyond the Warden: one returning boss every five nights is the
+      whole late-night story. A second boss from night 15 (a flier, or one
+      that calls adds) would give the curve a new shape rather than more hp.
+- [ ] Mob damage does not scale with nights, only health. If late nights
+      read as sponge fights, trade some of the health for bite.
 - [x] Belts, machine bodies and belt items are baked sprites copied to whole
       pixels (belts at 16 tread phases per facing). A dense factory, 300
       machines and 600 belts on a 2x screen, went from 17 to 29 fps headless.
@@ -687,6 +718,10 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] A merger with a priority side, draining one feed first and topping up
+      from the other, for a main line that should never starve.
+- [ ] Splitters and mergers draw no status light, so one jammed on a full line
+      looks the same as one working. A small light on a stalled one would help.
 - [ ] Power: an accumulator that stores daytime solar surplus for the night.
 - [ ] Power: a production-stats panel per network (supply, demand, coal per
       minute over time).
@@ -835,14 +870,19 @@ detail behind the factory entries is in
 - [x] The GPU (PixiJS) renderer on a real machine: Abiel found it smoother
       than Canvas on his PC (2026-09-25), so it is now the default.
 - [ ] The GPU renderer on a phone and on a laptop with built-in graphics.
+- [ ] Co-op with the host's tab in the background for over five minutes, and
+      in Firefox and Safari. Tested in Chromium for 30 s; Chrome rations a
+      page's own timers harder after five minutes, which the worker should
+      dodge, and a phone may suspend a background tab outright.
 - [ ] Landmark cache sizes against the walk. A far shrine takes a few minutes
       to reach on foot on day one; whether its essence and upgrade feel worth
       it, and whether caches near camp break the early goal pace, is unplayed.
 - [ ] The hover card says "hold E" on phones too, where the prompt says Hold;
       the tree and rock cards share the wording.
-- [ ] Stone Warden pacing: 520 health behind 3 armour in a one-minute night.
-      Whether a night-5 player can kill it with the weapons they have by then
-      is unplayed; a sling at level 3 barely scratches it.
+- [ ] Stone Warden pacing on a real run. A scripted player that kites and
+      picks upgrades at random killed the night-5 Warden on four islands out
+      of six; standing still, it was downed three or four times that night.
+      A player who picks weapons on purpose should do better; unplayed.
 
 - [ ] Co-op across two real networks through the public PeerJS broker. It was
       driven with two browsers on one machine through a local copy of the same

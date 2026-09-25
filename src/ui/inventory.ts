@@ -269,7 +269,9 @@ export class InventoryScreen {
         ? 'Machine'
         : arm
           ? 'Arm'
-          : 'Storage';
+          : def.family === 'splitter' || def.family === 'merger'
+            ? 'Logistics'
+            : 'Storage';
     this.els.title.textContent = def.name;
     this.els.icon.classList.remove('hidden');
     this.els.icon.style.backgroundImage = pieceIconVar(`machine:${machine.type}`);
@@ -288,7 +290,7 @@ export class InventoryScreen {
         ? 'In'
         : arm
           ? 'Holding'
-          : def.family === 'splitter'
+          : def.family === 'splitter' || def.family === 'merger'
             ? 'Passing through'
             : 'Stored';
     this.els.inputGrid.parentElement?.classList.toggle('hidden', def.inputSlots === 0);
@@ -300,7 +302,7 @@ export class InventoryScreen {
     // A splitter's buffer is a queue of one item; there is nothing to tidy.
     this.els.sortInput.classList.toggle(
       'hidden',
-      def.inputSlots < 2 || def.family === 'splitter',
+      def.inputSlots < 2 || def.family === 'splitter' || def.family === 'merger',
     );
     this.els.filterBlock.classList.toggle('hidden', def.family !== 'splitter');
     this.els.filterMode.classList.toggle('hidden', !hasSlotFilters(machine));

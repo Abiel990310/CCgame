@@ -51,6 +51,7 @@ import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
 import { craftError, nearWorkbench } from '@shared/sim/crafting';
 import type {
+  Belt,
   Direction,
   MachineFamily,
   ItemStack,
@@ -70,6 +71,7 @@ import { SlotLock, type EvictReason } from './tablock';
 import { CoopGuest } from './net/guest';
 import { GuestBook } from './net/guests';
 import { CoopHost } from './net/host';
+import { Ticker } from './net/ticker';
 import { CoopPanel, playerName } from './ui/coop';
 import { Hud } from './ui/hud';
 import { Inspector } from './ui/inspect';
@@ -87,6 +89,8 @@ const SAVE_INTERVAL = 8;
 const SAVE_DEBOUNCE = 2;
 /** Never simulate more than this much wall time in one frame after a stall. */
 const MAX_CATCHUP = 0.25;
+/** Frames this far apart mean the tab is in the background, not just slow. */
+const FRAMES_STALLED_MS = 150;
 
 export interface GameCallbacks {
   /** Hand control back to the main menu, with a line to show there if any. */
@@ -106,6 +110,14 @@ export class Game {
   private worldMap: WorldMap;
 
   private accumulator = 0;
+  private backgroundTicker: Ticker;
+  /** When the last animation frame ran, to tell when the browser stopped sending them. */
+  private lastPaint = 0;
+  /**
+   * How far apart the last two frames were. A tab rationed to a frame a second
+   * still gets that frame, and the worker should not stand down for it.
+   */
+  private paintGap = 0;
   private readonly interpolator = new Interpolator();
   private lastFrame = 0;
   private saveTimer = SAVE_INTERVAL;
@@ -146,6 +158,7 @@ export class Game {
     this.hud = new Hud({
       onChooseUpgrade: (id) => this.chooseUpgrade(id),
       onToggleBuild: () => this.toggleBuild(),
+      onTurn: () => (this.buildDir = rotate(this.buildDir)),
       onSelect: () => this.hud.setBuildMode(true),
       onSetRecipe: (machineId, recipeId) => {
         if (this.act({ k: 'recipe', machine: machineId, recipe: recipeId })) this.requestSave();
@@ -177,15 +190,19 @@ export class Game {
       onStopHosting: () => this.stopHosting('The host stopped inviting.'),
     });
 
-    // A host's tab in the background gets no animation frames, and the island
-    // would stop for everyone on it. Timers still run there, if slowly.
-    window.setInterval(() => {
-      if (!document.hidden || !this.running || !this.host) return;
+    // A host's tab in the background gets no animation frames, or one a
+    // second, and the island would lurch for everyone on it. The page's own
+    // timers crawl there too, so while hosting a worker keeps the beat at the
+    // tick rate, and takes over whenever frames stop arriving: friends then
+    // get ticks as evenly as when the host is watching.
+    this.backgroundTicker = new Ticker(() => {
       const now = performance.now();
+      const stalled = now - this.lastPaint > FRAMES_STALLED_MS || this.paintGap > FRAMES_STALLED_MS;
+      if (!this.running || !this.host || !stalled) return;
       const elapsed = Math.min((now - this.lastFrame) / 1000, 1.5);
       this.lastFrame = now;
       this.simulate(elapsed, EMPTY_INPUT, 50);
-    }, 100);
+    });
 
     this.world = createWorld(Date.now() & 0xffff);
     window.addEventListener('resize', () => this.renderer.resize());
@@ -382,6 +399,7 @@ export class Game {
       throw new Error('The island was closed');
     }
     this.host = host;
+    this.backgroundTicker.start(TICK_DT * 1000);
     // Everyone sees a name over each head, so the host needs one too.
     this.self.name = playerName();
     this.coop.setHosting(host.code, host.names(this.world));
@@ -392,6 +410,7 @@ export class Game {
     const host = this.host;
     if (!host) return;
     this.host = null;
+    this.backgroundTicker.stop();
     host.close(this.world, reason);
     this.coop.setSolo();
   }
@@ -809,8 +828,13 @@ export class Game {
     }
 
     // Placing a belt on a belt turns it: to the chosen direction with a mouse,
-    // a quarter turn per tap with a finger, which has no R key.
-    const existing = what === 'belt' && error === 'occupied' ? beltAt(this.world, tx, ty) : null;
+    // a quarter turn per tap with a finger, which has no R key. A finger turns
+    // machines the same way, since it has no other way to reach one already down.
+    let existing: Belt | Machine | null = null;
+    if (error === 'occupied') {
+      if (this.input.isTouch) existing = entityAt(this.world, tx, ty);
+      else if (what === 'belt') existing = beltAt(this.world, tx, ty);
+    }
     if (existing) {
       const dir = this.input.isTouch ? rotate(existing.dir) : this.buildDir;
       // A finger that stays down removes the belt anyway, so the hold is
@@ -947,8 +971,13 @@ export class Game {
   private frame(now: number): void {
     if (!this.running) return;
     requestAnimationFrame((t) => this.frame(t));
+    const painted = performance.now();
+    this.paintGap = painted - this.lastPaint;
+    this.lastPaint = painted;
 
-    const elapsed = Math.min((now - this.lastFrame) / 1000, MAX_CATCHUP);
+    // The worker's beat stamps `lastFrame` with the clock now, which can run a
+    // hair ahead of the frame's own timestamp.
+    const elapsed = Math.min(Math.max(now - this.lastFrame, 0) / 1000, MAX_CATCHUP);
     this.lastFrame = now;
 
     this.handleActions();

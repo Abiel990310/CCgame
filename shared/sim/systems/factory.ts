@@ -18,8 +18,10 @@ import {
   beltAt,
   filterOf,
   inputTile,
+  isMerger,
   isSplitter,
   machineAt,
+  mergerSources,
   outputTile,
   sideTiles,
   splitterAccepts,
@@ -67,7 +69,9 @@ function handoff(world: World, belt: Belt, item: ItemId): boolean {
   }
 
   const machine = machineAt(world, tx, ty);
-  if (machine) return insertIntoMachine(machine, item);
+  // A merger takes from the belts feeding it by turns. Letting them push would
+  // hand the whole line to whichever belt happens to tick first.
+  if (machine) return !isMerger(machine) && insertIntoMachine(machine, item);
 
   return false;
 }
@@ -171,21 +175,51 @@ function ingredientFits(
   ingredients: number,
   item: ItemId,
 ): boolean {
+  return ingredientRoom(input, def, ingredients, item) > 0;
+}
+
+/**
+ * How many more of one ingredient the input grid can take while every other
+ * ingredient keeps its share: room in the stacks it already holds, plus the
+ * new slots its share still allows.
+ */
+function ingredientRoom(
+  input: Slot[],
+  def: MachineDef,
+  ingredients: number,
+  item: ItemId,
+): number {
   const cap = slotCap(item, def.slotSize);
   let owned = 0;
   let free = 0;
+  let room = 0;
 
   for (const slot of input) {
     if (slot === null) free++;
     else if (slot.id === item) {
-      // Room in a stack this ingredient already owns costs no new slot.
-      if (slot.count < cap) return true;
       owned++;
+      room += Math.max(0, cap - slot.count);
     }
   }
 
-  if (free === 0) return false;
-  return owned < Math.max(1, Math.floor(def.inputSlots / ingredients));
+  const share = Math.max(1, Math.floor(def.inputSlots / ingredients));
+  return room + Math.min(free, Math.max(0, share - owned)) * cap;
+}
+
+/**
+ * How many of an item a hand may load into a machine's input grid at once. A
+ * shift-click is held to the same per-ingredient share a belt is, or one big
+ * stack fills every slot and the recipe's other ingredient never gets in. A
+ * single click on a chosen slot stays free: that player is arranging the grid
+ * on purpose and can take it back out.
+ */
+export function handLoadRoom(machine: Machine, item: ItemId): number {
+  const def = MACHINES[machine.type];
+  if (def.family === 'lab') return ingredientRoom(machine.input, def, RESEARCH_PACKS.length, item);
+  if (!def.choosesRecipe) return Infinity;
+  const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
+  if (!recipe) return Infinity;
+  return ingredientRoom(machine.input, def, recipe.inputs.length, item);
 }
 
 export function stepMachines(world: World, dt: number): void {
@@ -228,6 +262,9 @@ export function stepMachines(world: World, dt: number): void {
         break;
       case 'splitter':
         stepSplitter(world, machine);
+        break;
+      case 'merger':
+        stepMerger(world, machine);
         break;
       case 'fishTrap':
         stepTrap(world, machine, dt);
@@ -516,9 +553,65 @@ function giveToTile(
 
   const target = machineAt(world, tile.tx, tile.ty);
   if (!target) return false;
-  // Two splitters aimed at each other would pass the same item back and forth.
+  // Two splitters aimed at each other would pass the same item back and forth,
+  // and so would a merger emptying into whatever feeds it.
   if (isSplitter(target) && facesBack(target, machine)) return false;
+  if (isMerger(target)) {
+    const out = outputTile(target);
+    if (out.tx === machine.tx && out.ty === machine.ty) return false;
+  }
   return insertIntoMachine(target, item);
+}
+
+/**
+ * A merger passes its buffer out of its front, then refills it from the belts
+ * running into it, one item from each in turn. Taking rather than being given
+ * is the point: with the line ahead full, every waiting belt still gets its
+ * share of the gaps instead of the first one in the tick order taking them all.
+ * The turn only advances past a belt that gave something, as on a splitter.
+ */
+function stepMerger(world: World, machine: Machine): void {
+  const cap = MACHINES[machine.type].slotSize;
+  machine.stalled = false;
+
+  for (let guard = 0; guard < cap; guard++) {
+    const slot = machine.input.find((s): s is ItemStack => s !== null && s.count > 0);
+    if (!slot) break;
+    if (!giveToTile(world, machine, outputTile(machine), slot.id)) {
+      machine.stalled = true;
+      break;
+    }
+    takeStack(machine.input, slot.id, 1);
+  }
+
+  const sources = mergerSources(machine);
+  for (let guard = 0; guard < cap; guard++) {
+    if (!takeFromFeeds(world, machine, sources)) return;
+  }
+}
+
+/** Lift the front item off the first feeding belt, from whose turn it is. */
+function takeFromFeeds(
+  world: World,
+  machine: Machine,
+  sources: { tx: number; ty: number }[],
+): boolean {
+  const first = machine.turn ?? 0;
+  for (let i = 0; i < sources.length; i++) {
+    const at = (first + i) % sources.length;
+    const belt = beltAt(world, sources[at].tx, sources[at].ty);
+    if (!belt) continue;
+    const out = outputTile(belt);
+    if (out.tx !== machine.tx || out.ty !== machine.ty) continue;
+    const front = belt.items[0];
+    if (!front || front.offset < 1) continue;
+    if (addToSlots(machine.input, front.item, 1, MACHINES[machine.type].slotSize) !== 1) return false;
+
+    belt.items.shift();
+    machine.turn = (at + 1) % sources.length;
+    return true;
+  }
+  return false;
 }
 
 function facesBack(splitter: Machine, at: Machine): boolean {

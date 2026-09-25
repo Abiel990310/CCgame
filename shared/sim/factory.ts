@@ -137,6 +137,7 @@ export function placeMachine(
     machine.filters = [null, null];
     machine.turn = 0;
   }
+  if (def.family === 'merger') machine.turn = 0;
   if (def.family === 'chest') machine.filters = new Array<ItemId | null>(def.inputSlots).fill(null);
   if (def.fuelSlots > 0) {
     machine.fuel = makeSlots(def.fuelSlots);
@@ -326,6 +327,28 @@ export function sideTiles(entity: { tx: number; ty: number; dir: Direction }): [
     step1(entity.tx, entity.ty, turnLeft(entity.dir)),
     step1(entity.tx, entity.ty, rotate(entity.dir)),
   ];
+}
+
+/**
+ * The tiles a merger takes from, in the order it takes turns: left, behind,
+ * right. It is the splitter read backwards, with the stem as the way out, and
+ * behind is included so a straight line can run through one and be joined
+ * from the side.
+ */
+export function mergerSources(entity: { tx: number; ty: number; dir: Direction }): [
+  { tx: number; ty: number },
+  { tx: number; ty: number },
+  { tx: number; ty: number },
+] {
+  return [
+    step1(entity.tx, entity.ty, turnLeft(entity.dir)),
+    inputTile(entity),
+    step1(entity.tx, entity.ty, rotate(entity.dir)),
+  ];
+}
+
+export function isMerger(machine: Machine): boolean {
+  return MACHINES[machine.type].family === 'merger';
 }
 
 /** Keyed on the family, so a faster splitter tier would need no changes here. */
