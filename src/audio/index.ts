@@ -328,6 +328,7 @@ const PRODUCED_SOUND = {
   inserter: 'slot',
   chest: 'slot',
   splitter: 'slot',
+  merger: 'slot',
   lab: null,
   // A trap landing a catch is the rod's sound, since it is the rod's catch.
   fishTrap: 'gathered',

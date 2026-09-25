@@ -40,6 +40,8 @@ const $ = <T extends HTMLElement>(id: string): T => {
 export interface HudCallbacks {
   onChooseUpgrade: (id: string) => void;
   onToggleBuild: () => void;
+  /** Turn the piece about to be placed; the R key's button, for fingers. */
+  onTurn: () => void;
   onSelect: (selection: BuildSelection) => void;
   onToggleBag: () => void;
   onDash: () => void;
@@ -87,6 +89,7 @@ export class Hud {
     buildItems: $('buildbar-items'),
     buildDetail: $('buildbar-detail'),
     buildClose: $<HTMLButtonElement>('buildbar-close'),
+    buildTurn: $<HTMLButtonElement>('buildbar-turn'),
     stick: $('stick'),
     stickKnob: $('stick-knob'),
     btnBuild: $<HTMLButtonElement>('btn-build'),
@@ -148,6 +151,10 @@ export class Hud {
     });
 
     this.els.btnBuild.addEventListener('click', () => this.callbacks.onToggleBuild());
+    this.els.buildTurn.addEventListener('click', () => {
+      audio.play('click');
+      this.callbacks.onTurn();
+    });
     this.els.buildClose.addEventListener('click', () => {
       audio.play('click');
       this.callbacks.onToggleBuild();

@@ -2925,8 +2925,25 @@ kbd {
   #ui:has(#buildbar:not(.hidden)) .toasts {
     top: calc(max(14px, env(safe-area-inset-top)) + 160px);
   }
+  /* Toasts wrap to three lines this narrow, so only the newest fits that gap. */
+  #ui:has(#buildbar:not(.hidden)) .toast:not(:last-child) {
+    display: none;
+  }
   .buildbar {
     max-height: min(56vh, calc(100vh - 356px));
+  }
+}
+
+/* The smallest phones fit both tabs beside the turn and close buttons only as words. */
+@media (max-width: 360px) {
+  .buildbar-tabs {
+    min-width: 0;
+  }
+  .tab {
+    padding: 7px 4px;
+  }
+  .tab .ico {
+    display: none;
   }
 }
 
