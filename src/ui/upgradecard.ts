@@ -58,6 +58,7 @@ export function upgradeCard(offer: UpgradeOffer, player: Player, index: number):
     (isNew ? '<span class="up-flag">New</span>' : rare ? '<span class="up-flag">Rare</span>' : '') +
     `</span>` +
     `<span class="up-icon">${icon(look.icon)}</span>` +
-    `<b>${offer.title}</b><span class="up-desc">${description}</span>${foot}`;
+    `<b>${offer.title}</b><span class="up-desc">${description}</span>${foot}` +
+    `<kbd class="up-key">${index + 1}</kbd>`;
   return button;
 }

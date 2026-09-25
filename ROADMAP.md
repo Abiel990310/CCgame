@@ -647,8 +647,8 @@ detail behind the factory entries is in
       was a small lit disc in a dark square. It now zooms (wheel, pinch, or
       + and - buttons) and pans by dragging, opens fitted to what you have
       explored and centred on you, and has a button to find yourself again.
-- [ ] Number keys could pick a level-up card on desktop (1 to 4), with the key
-      shown on each card.
+- [x] Number keys pick a level-up card on desktop (1 to 4), with the key
+      shown in each card's corner. Touch screens do not show the keys.
 - [ ] HUD panels are still placed with hand-tuned `top` offsets per breakpoint
       (goal, toasts, left column). Turning the left column into a stack like
       the top-right one would stop the next new panel colliding.
