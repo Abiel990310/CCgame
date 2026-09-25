@@ -42,6 +42,8 @@ shared/            Deterministic simulation — no DOM, no rendering
 src/               Browser client
   render/          Canvas renderer: terrain mesh, entities, factory, lighting,
                    effects, palette, shapes, camera
+    gpu/           PixiJS renderer: a Canvas-shaped context that turns the
+                   same painters' calls into Pixi sprites and graphics
   audio/           Web Audio mixer: every sound is synthesised, none is a file
   ui/              DOM overlay: HUD, build palette, inventory screen, modals
 .github/workflows/ CI and Pages deployment
@@ -102,11 +104,12 @@ on purpose and should stay true as tiers are added.
 - **TypeScript strict**, no `any`. `noUnusedLocals` is on, so dead imports fail
   the build.
 - **Comments explain why, not what.** Do not narrate the code.
-- **No runtime dependencies.** The bundle currently has zero, and zero external
-  network requests. Do not add a font CDN, an analytics snippet, or a UI
-  library without asking. Keeping this true is a feature. The one exception is
-  co-op, which reaches a WebRTC signalling broker, and only once someone
-  chooses to host or join. **This is why every
+- **No runtime dependencies** beyond PixiJS, which Abiel chose as the GPU
+  renderer (2026-09-25). It is bundled, and loaded from the same site only when
+  that renderer is on. The page makes zero external network requests. Do not
+  add a font CDN, an analytics snippet, or a UI library without asking.
+  Keeping this true is a feature. The one exception is co-op, which reaches a
+  WebRTC signalling broker, and only once someone chooses to host or join. **This is why every
   sound is synthesised** rather than sampled: a sound pack would be the first
   asset the page ever fetched.
 - **Imports**: client code uses the `@shared/*` alias; `shared/` uses relative
