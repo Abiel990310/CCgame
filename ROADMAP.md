@@ -281,20 +281,19 @@ detail behind the factory entries is in
       Between 641px and 900px the phase moves right and the pouch becomes a
       strip under the top row. A landscape phone's palette also sat 2px over the
       hotbar.
-- [ ] `npm run preview` answers 404 to the browser's own request for the
-      module bundle in this container — vite's preview server rejects
-      `Sec-Fetch-Dest: script`, though curl for the same URL is fine. Serving
-      `dist/` with `python3 -m http.server` works. Costs a session twenty
-      minutes if nobody says so.
+- [x] `npm run preview` was reported to 404 the module bundle in the cloud
+      container. It did not reproduce on 2026-09-25 (Chromium launched plainly
+      loads it; through `HTTPS_PROXY` localhost gets 405). CLAUDE.md now says
+      so and gives the `python3 -m http.server` fallback.
 - [x] Two tabs open on the same island overwrote each other, and the
       skipped-write cache could make one skip a section the other had already
       replaced. Now whoever opens an island last owns it: the other tab saves,
       hands it over and returns to the menu saying why, and never writes to it
       again unless it is opened there once more.
-- [ ] In a browser without `BroadcastChannel` the tab losing an island is
-      told only through storage, so it cannot save first, and for the instant
-      before it sees the new owner it could still autosave over the new tab.
-      Every current browser has the channel.
+- [x] In a browser without `BroadcastChannel` the tab losing an island could
+      autosave underneath the new tab in the instant before it saw the new
+      owner. When nobody hands the island over, the new tab now records itself
+      and waits 0.8s before reading, so that last save is loaded, not buried.
 - [x] Touch had no way to remove anything. In build mode, holding a finger
       still on a piece for half a second now removes it.
 - [x] Tapping the canvas placed nothing, so a phone could not build or inspect
