@@ -629,7 +629,8 @@ export class Game {
       const name = ITEMS[recipe.output].name;
       this.flush();
       this.workbench.pulse(id);
-      this.hud.toast(`Crafted ${name}`, 'good');
+      const bag = ITEMS[recipe.output].bag;
+      this.hud.toast(bag !== undefined ? `${name} sewn on: ${this.self.inventory.length} slots` : `Crafted ${name}`, 'good');
       this.requestSave();
       return;
     }
@@ -640,6 +641,8 @@ export class Game {
       locked: def?.unlock ? `Research ${UNLOCKED_BY.get(def.unlock)?.name ?? 'more'} first` : 'Locked',
       cost: def ? this.costMessage(def.cost) : 'Missing materials',
       room: 'No room in your bag',
+      order: 'Sew on the smaller bag first',
+      owned: 'Already sewn onto your bag',
     };
     audio.play('denied');
     this.hud.toast(messages[error ?? 'unknown'], 'warn');

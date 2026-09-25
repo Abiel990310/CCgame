@@ -11,7 +11,7 @@ export interface CraftDef {
   output: ItemId;
   count: number;
   cost: ItemStack[];
-  group: 'tools' | 'machines';
+  group: 'tools' | 'bags' | 'machines';
   /** The machine whose research gate this recipe shares, if any. */
   unlock?: MachineId;
 }
@@ -53,12 +53,37 @@ const TOOLS: CraftDef[] = [
   ]),
 ];
 
+/**
+ * Each is sewn on in turn and adds a row of the bag. Priced at the tier that
+ * starts to overflow 24 slots: fibre early, then iron once plates pile up,
+ * then steel once the tree is deep enough to carry a dozen kinds of part.
+ */
+const BAGS: CraftDef[] = [
+  bag('satchel', [
+    { id: 'fiber', count: 30 },
+    { id: 'wood', count: 12 },
+  ]),
+  bag('ironPack', [
+    { id: 'ironPlate', count: 16 },
+    { id: 'fiber', count: 20 },
+  ]),
+  bag('steelPack', [
+    { id: 'steelPlate', count: 12 },
+    { id: 'gear', count: 4 },
+  ]),
+];
+
+function bag(output: ItemId, cost: ItemStack[]): CraftDef {
+  return { id: output, output, count: 1, cost, group: 'bags' };
+}
+
 function tool(output: ItemId, cost: ItemStack[]): CraftDef {
   return { id: output, output, count: 1, cost, group: 'tools' };
 }
 
 export const CRAFTS: CraftDef[] = [
   ...TOOLS,
+  ...BAGS,
   ...CRAFTED_MACHINES.map(
     (id): CraftDef => ({
       id,

@@ -403,6 +403,8 @@ export class InventoryScreen {
   }
 
   private paint(player: Player, machine: Machine | null): void {
+    // A bag sewn on at the workbench grows the grid by a row.
+    this.buildGrid('bag', player.inventory.length);
     this.paintGrid('bag', player.inventory);
     if (machine) {
       this.paintGrid('input', machine.input, hasSlotFilters(machine) ? machine.filters : undefined);
@@ -416,7 +418,7 @@ export class InventoryScreen {
     }
 
     const used = player.inventory.filter((s) => s !== null).length;
-    this.els.bagNote.textContent = `${used} / ${INVENTORY_SLOTS} slots`;
+    this.els.bagNote.textContent = `${used} / ${player.inventory.length} slots`;
     this.paintCarried(player);
   }
 
@@ -639,7 +641,8 @@ export class InventoryScreen {
     };
 
     chip(null);
-    for (const item of ITEM_ORDER) chip(item);
+    // A bag is sewn on at the bench and never exists as an item to filter.
+    for (const item of ITEM_ORDER) if (ITEMS[item].bag === undefined) chip(item);
   }
 
   private onPointerDown(event: PointerEvent): void {

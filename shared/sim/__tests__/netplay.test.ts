@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { CRAFT_BY_ID } from '../../data/crafting';
 import { applyOrder, type Order } from '../commands';
+import { addItem } from '../inventory';
 import { makeRng } from '../rng';
 import { checksum, decode, encode, restoreSnapshot, takeSnapshot, type Snapshot } from '../snapshot';
 import { step } from '../step';
@@ -66,6 +68,10 @@ describe('co-op replay', () => {
     for (let t = 0; t < 60; t++) {
       hostTick(host, orders[t] ?? [], new Map([[player.id, wander(rng)]]));
     }
+    // A workbench at the player's feet and what a satchel costs, so the run
+    // covers a bag being sewn on as well.
+    host.buildings.push({ id: host.nextId++, type: 'workbench', pos: { ...player.pos }, level: 1 });
+    for (const c of CRAFT_BY_ID.get('satchel')!.cost) addItem(player, c.id, c.count);
     const snap = decode<Snapshot>(encode(takeSnapshot(host)));
     const guest = restoreSnapshot(snap);
     expect(checksum(guest)).toBe(checksum(host));
@@ -78,6 +84,7 @@ describe('co-op replay', () => {
         [player.id, wander(rng)],
         [friend.id, wander(rng)],
       ]);
+      if (t === 61) pending.push({ p: player.id, c: { k: 'craft', id: 'satchel' } });
       if (t === 400) {
         pending.push({ p: friend.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty + 1, dir: 1 } });
         pending.push({ p: player.id, c: { k: 'remove', tx: ore.tx + 2, ty: ore.ty } });
@@ -92,6 +99,8 @@ describe('co-op replay', () => {
 
     expect(host.nightIndex).toBeGreaterThan(0);
     expect(host.players.size).toBe(2);
+    expect(player.bag).toBe(1);
+    expect(guest.players.get(player.id)!.inventory).toHaveLength(player.inventory.length);
     expect(encode(takeSnapshot(guest))).toBe(encode(takeSnapshot(host)));
   });
 

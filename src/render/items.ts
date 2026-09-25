@@ -537,6 +537,34 @@ function basket(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, 
   ctx.fill();
 }
 
+/** A bag worn on the back: a rounded body, a buckled flap and a strap loop. */
+function pack(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  const { lit, shade, line } = tones(color);
+  ctx.beginPath();
+  ctx.arc(x, y - s * 0.62, s * 0.26, Math.PI, 0);
+  ctx.strokeStyle = line;
+  ctx.lineWidth = Math.max(1, s * 0.16);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.roundRect(x - s * 0.72, y - s * 0.6, s * 1.44, s * 1.45, s * 0.34);
+  ctx.fillStyle = shade;
+  ctx.fill();
+  outline(ctx, s, line);
+  ctx.beginPath();
+  ctx.roundRect(x - s * 0.72, y - s * 0.6, s * 1.44, s * 0.7, [s * 0.34, s * 0.34, s * 0.2, s * 0.2]);
+  ctx.fillStyle = lit;
+  ctx.fill();
+  outline(ctx, s, line);
+  if (s < 5) return;
+  ctx.fillStyle = '#e8c35a';
+  ctx.fillRect(x - s * 0.13, y - s * 0.02, s * 0.26, s * 0.24);
+  ctx.beginPath();
+  ctx.roundRect(x - s * 0.46, y + s * 0.36, s * 0.92, s * 0.34, s * 0.1);
+  ctx.strokeStyle = line;
+  ctx.lineWidth = Math.max(0.6, s * 0.07);
+  ctx.stroke();
+}
+
 /** A packed machine: a banded crate in the machine's own colour. */
 function crate(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
   const { lit, shade, line } = tones(color);
@@ -563,6 +591,7 @@ const SHAPES: Record<ItemShape, ShapeFn> = {
   pick,
   rod,
   basket,
+  pack,
   crate,
   chunk,
   nugget,

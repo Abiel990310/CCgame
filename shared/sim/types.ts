@@ -56,7 +56,10 @@ export type ToolItemId =
   | 'steelAxe'
   | 'steelPick'
   | 'fishingRod'
-  | 'forageBasket';
+  | 'forageBasket'
+  | 'satchel'
+  | 'ironPack'
+  | 'steelPack';
 
 /**
  * Machines too advanced to knock together on the spot. Each is crafted at a
@@ -220,8 +223,10 @@ export interface Player {
   offers: UpgradeOffer[];
   /** Index into `GOALS` of the goal this player is working on. */
   goal: number;
-  /** Fixed grid of `INVENTORY_SLOTS` cells, arranged by the player. */
+  /** Fixed grid of `bagSlots(player)` cells, arranged by the player. */
   inventory: Slot[];
+  /** Bags sewn at the workbench, each a row more. Absent on older islands. */
+  bag?: number;
   /** The stack held on the pointer while rearranging. Saved, so it is never lost. */
   cursor: Slot;
   weapons: WeaponState[];

@@ -4,7 +4,7 @@ import { ITEMS, RESOURCES } from '../../data/items';
 import { CRAFTED_MACHINES, MACHINES, MACHINE_ORDER, placementCost } from '../../data/machines';
 import { craft, craftError, toolSpeed, WORKBENCH_REACH } from '../crafting';
 import { factoryPlacementError } from '../factory';
-import { INVENTORY_SLOTS, addItem } from '../inventory';
+import { BAG_ROW, INVENTORY_SLOTS, addItem } from '../inventory';
 import { countIn } from '../slots';
 import { stepGathering } from '../systems/gathering';
 import type { Player, World } from '../types';
@@ -106,6 +106,42 @@ describe('crafting at a workbench', () => {
     expect(craftError(world, player, 'stonePick')).toBe('room');
     expect(craft(world, player, 'stonePick')).toBe(false);
     expect(countIn(player.inventory, 'stone')).toBe(8);
+  });
+});
+
+describe('bags', () => {
+  it('sews a satchel onto the bag as a new row, keeping everything where it was', () => {
+    const { world, player } = atBench();
+    stock(player, 'satchel');
+    player.inventory[INVENTORY_SLOTS - 1] = { id: 'berry', count: 5 };
+    expect(craft(world, player, 'satchel')).toBe(true);
+    expect(player.bag).toBe(1);
+    expect(player.inventory).toHaveLength(INVENTORY_SLOTS + BAG_ROW);
+    expect(player.inventory[INVENTORY_SLOTS - 1]).toEqual({ id: 'berry', count: 5 });
+    expect(player.inventory.slice(INVENTORY_SLOTS).every((s) => s === null)).toBe(true);
+    // It is sewn on, not carried: nothing to lose in a chest.
+    expect(countIn(player.inventory, 'satchel')).toBe(0);
+    expect(countIn(player.inventory, 'fiber')).toBe(0);
+  });
+
+  it('sews them on in order, each once', () => {
+    const { world, player } = atBench();
+    for (const id of ['satchel', 'ironPack', 'steelPack']) stock(player, id);
+    expect(craftError(world, player, 'ironPack')).toBe('order');
+    expect(craft(world, player, 'satchel')).toBe(true);
+    expect(craftError(world, player, 'satchel')).toBe('owned');
+    expect(craft(world, player, 'ironPack')).toBe(true);
+    expect(craft(world, player, 'steelPack')).toBe(true);
+    expect(player.inventory).toHaveLength(INVENTORY_SLOTS + 3 * BAG_ROW);
+  });
+
+  it('can be sewn on when the bag is already full, which is when it is wanted', () => {
+    const { world, player } = atBench();
+    stock(player, 'satchel');
+    for (let i = 0; i < INVENTORY_SLOTS; i++) addItem(player, 'berry', 999);
+    expect(craftError(world, player, 'satchel')).toBe(null);
+    expect(craft(world, player, 'satchel')).toBe(true);
+    expect(addItem(player, 'stone', 5)).toBe(5);
   });
 });
 

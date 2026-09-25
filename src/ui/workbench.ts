@@ -2,7 +2,7 @@ import { CRAFTS, type CraftDef } from '@shared/data/crafting';
 import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { UNLOCKED_BY } from '@shared/data/techs';
-import { countItem } from '@shared/sim/inventory';
+import { BAG_ROW, countItem } from '@shared/sim/inventory';
 import { isUnlocked } from '@shared/sim/research';
 import type { Player, ToolKind, World } from '@shared/sim/types';
 import { itemIconVar } from '../render/items';
@@ -13,6 +13,7 @@ const VERB: Record<ToolKind, string> = { axe: 'chopping', pick: 'mining', hand: 
 
 const GROUPS: Array<{ id: CraftDef['group']; title: string; note: string }> = [
   { id: 'tools', title: 'Tools', note: 'Carry one and you gather faster. The best of each kind counts.' },
+  { id: 'bags', title: 'Bags', note: 'Sewn onto your bag for good, each one a row of 8 more slots.' },
   {
     id: 'machines',
     title: 'Machines',
@@ -78,7 +79,7 @@ export class WorkbenchScreen {
     if (!this.open) return;
     const key = CRAFTS.map(
       (c) =>
-        `${countItem(player, c.output)}:${c.unlock && !isUnlocked(world, c.unlock) ? 'L' : ''}:` +
+        `${countItem(player, c.output)}:${player.bag ?? 0}:${c.unlock && !isUnlocked(world, c.unlock) ? 'L' : ''}:` +
         c.cost.map((p) => Math.min(countItem(player, p.id), p.count)).join(','),
     ).join('|');
     if (key === this.painted) return;
@@ -109,7 +110,10 @@ function card(world: World, player: Player, c: CraftDef): string {
   const have = countItem(player, c.output);
 
   let sub = '';
+  const sewn = item.bag !== undefined && (player.bag ?? 0) >= item.bag;
+  const needsLast = item.bag !== undefined && (player.bag ?? 0) < item.bag - 1;
   if (item.tool) sub = `${item.tool.speed}× ${VERB[item.tool.kind]}`;
+  else if (item.bag !== undefined) sub = `+${BAG_ROW} slots`;
   else if (c.unlock) {
     const tier = MACHINES[c.unlock].tier;
     sub = tier > 1 ? `<span class="tier t${tier}">Mk${tier}</span>` : 'Machine';
@@ -125,9 +129,13 @@ function card(world: World, player: Player, c: CraftDef): string {
     })
     .join('');
 
-  const state = locked ? 'locked' : affordable ? 'ready' : 'poor';
-  const foot = locked
+  const state = sewn ? 'owned' : locked || needsLast ? 'locked' : affordable ? 'ready' : 'poor';
+  const foot = sewn
+    ? `<em class="craft-have">Sewn on</em>`
+    : locked
     ? `<em class="craft-lock">Research ${locked.name}</em>`
+    : needsLast
+    ? `<em class="craft-lock">Sew on the one before</em>`
     : have > 0
       ? `<em class="craft-have">${have} in bag</em>`
       : '';

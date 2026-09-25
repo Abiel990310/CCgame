@@ -1,7 +1,8 @@
 import { CRAFT_BY_ID } from '../data/crafting';
 import { ITEMS } from '../data/items';
 import { distance } from './math';
-import { hasAll, payAll, roomForItem, addItem } from './inventory';
+import { addItem, bagSlots, hasAll, payAll, roomForItem } from './inventory';
+import { normalizeSlots } from './slots';
 import { isUnlocked } from './research';
 import type { Building, Player, ToolKind, World } from './types';
 
@@ -12,7 +13,7 @@ import type { Building, Player, ToolKind, World } from './types';
  */
 export const WORKBENCH_REACH = 110;
 
-export type CraftError = 'unknown' | 'far' | 'locked' | 'cost' | 'room' | null;
+export type CraftError = 'unknown' | 'far' | 'locked' | 'order' | 'owned' | 'cost' | 'room' | null;
 
 /** The workbench this player is standing at, nearest first. */
 export function nearWorkbench(world: World, player: Player): Building | null {
@@ -34,8 +35,14 @@ export function craftError(world: World, player: Player, id: string): CraftError
   const def = CRAFT_BY_ID.get(id);
   if (!def) return 'unknown';
   if (def.unlock && !isUnlocked(world, def.unlock)) return 'locked';
+  const bag = ITEMS[def.output].bag;
+  if (bag !== undefined) {
+    if ((player.bag ?? 0) >= bag) return 'owned';
+    if ((player.bag ?? 0) < bag - 1) return 'order';
+  }
   if (!nearWorkbench(world, player)) return 'far';
   if (!hasAll(player, def.cost)) return 'cost';
+  if (bag !== undefined) return null;
   // Checked before paying, so a full bag never eats the ingredients.
   if (roomForItem(player, def.output) < def.count) return 'room';
   return null;
@@ -45,7 +52,11 @@ export function craft(world: World, player: Player, id: string): boolean {
   const def = CRAFT_BY_ID.get(id);
   if (!def || craftError(world, player, id) !== null) return false;
   if (!payAll(player, def.cost)) return false;
-  addItem(player, def.output, def.count);
+  const bag = ITEMS[def.output].bag;
+  if (bag !== undefined) {
+    player.bag = bag;
+    player.inventory = normalizeSlots(player.inventory, bagSlots(player));
+  } else addItem(player, def.output, def.count);
   world.events.push({ kind: 'crafted', pos: { ...player.pos }, item: def.output });
   return true;
 }
