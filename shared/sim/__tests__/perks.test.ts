@@ -23,6 +23,17 @@ describe('the upgrade pool', () => {
     expect(new Set(UPGRADES.map((u) => u.id)).size).toBe(UPGRADES.length);
   });
 
+  it('states the cap the level-up screen draws, and stops at it', () => {
+    for (const def of UPGRADES) {
+      if (def.max === undefined || def.id.startsWith('weapon:')) continue;
+      const { player } = arena();
+      if (!def.available(player)) continue;
+      for (let i = 0; i < def.max; i++) def.apply(player);
+      expect(def.available(player), def.id).toBe(false);
+    }
+    expect(UPGRADES.filter((u) => u.id.startsWith('weapon:')).every((u) => u.max === WEAPON_MAX_LEVEL)).toBe(true);
+  });
+
   it('stops offering a perk once it is maxed', () => {
     const { player } = arena();
     const keen = byId('keenEye');

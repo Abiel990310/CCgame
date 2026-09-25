@@ -10,6 +10,7 @@ import { pieceIconVar } from '../render/pieces';
 import { icon } from './icons';
 import { InventoryScreen } from './inventory';
 import { SoundPanel } from './sound';
+import { upgradeCard } from './upgradecard';
 import {
   GROUPS,
   TABS,
@@ -604,24 +605,22 @@ export class Hud {
     if (key === this.offerKey) return;
     this.offerKey = key;
 
-    this.els.levelupTitle.textContent =
+    this.els.levelupTitle.innerHTML =
       player.pendingUpgrades > 1
-        ? `Choose an upgrade (${player.pendingUpgrades} pending)`
+        ? `Choose an upgrade<span class="levelup-pending">+${player.pendingUpgrades - 1} more</span>`
         : 'Choose an upgrade';
 
     this.els.offers.innerHTML = '';
     // Four choices sit two by two rather than three and a straggler.
     this.els.offers.classList.toggle('pairs', player.offers.length === 4);
-    for (const offer of player.offers) {
-      const button = document.createElement('button');
-      button.className = 'offer';
-      button.innerHTML = `<b>${offer.title}</b><span>${offer.description}</span>`;
+    player.offers.forEach((offer, i) => {
+      const button = upgradeCard(offer, player, i);
       button.addEventListener('click', () => {
         audio.play('levelUp');
         this.callbacks.onChooseUpgrade(offer.id);
       });
       this.els.offers.appendChild(button);
-    }
+    });
   }
 
   private updateBuildAffordability(world: World, player: Player): void {
