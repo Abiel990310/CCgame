@@ -221,8 +221,18 @@ detail behind the factory entries is in
       again on the next tick, so it rarely reached a second target. Each shot
       now remembers what it went through.
 
-- [ ] The game gets very laggy near the campfire. *Hold lifted 2026-09-24; the
-      engine thread is on it (WebGL world drawing, Canvas fix first).*
+- [x] The game gets very laggy near the campfire. Not the campfire: the
+      island's centre is its thickest forest, and each tree was blitted at a
+      fractional pixel, so the rasteriser filtered every one. Sprites now land
+      on whole device pixels and night lights are gathered at quarter
+      resolution. Headless, 2x screen: a fresh camp by day went from 37 to 98
+      fps, a camp with 12 lamps at night from 20 to 47. Full notes under
+      Changes, "Move drawing to PixiJS".
+- [x] Walking stuttered: scrolling the one big ground cache copied it onto
+      itself and painted the incoming strip, 35 to 95 ms a few times a second
+      on a 2x screen. The ground is now fixed 4-tile chunks (`groundcache.ts`)
+      painted once and a couple ahead of the view each frame; walking went from
+      about 15 frames over 33 ms per 12 s to none.
 - [x] On a phone held sideways (iPhone 13 landscape, 750×342) the day panel
       covers the right half of the health and XP bars. Sideways phones up to
       900px wide now get compact vitals and a narrower phase panel. The five
@@ -452,6 +462,41 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [x] Belts, machine bodies and belt items are baked sprites copied to whole
+      pixels (belts at 16 tread phases per facing). A dense factory, 300
+      machines and 600 belts on a 2x screen, went from 17 to 29 fps headless.
+      What is left in a factory frame is each machine's live parts (drill,
+      gears, smoke, lamp), traced every frame.
+- [x] Night is laid over the stage by the browser's compositor: a dark
+      sheet, the quarter-resolution light map added on with `plus-lighter`,
+      and small canvases for eyes and name tags that are hidden when empty.
+      A camp with 12 lamps at night went from 48 to 80 fps headless. Browsers
+      without `plus-lighter` still paint the night into the canvas.
+- [x] Brutes are baked per stride phase (24 a cycle), facing and hit flash:
+      forty on screen went from 27 to 133 fps headless. Crawlers (about
+      0.3 ms each on a CPU canvas) and slimes are still traced live.
+- [ ] **Move drawing to PixiJS** (Abiel, 2026-09-25: "just use the one
+      everyone use for web gaming so we can expand"). The first plan, below,
+      was hand-written WebGL (first decided 2026-09-24). Profiled on the live build: the
+      simulation, HUD and lighting maths cost under 1 ms a frame; the rest is
+      Canvas 2D rasterising sprites, gradients and full-screen composites, and
+      everything past a fresh island (a factory, a night camp, a raid) still
+      sits at 12 to 30 fps on a 2x screen in headless Chromium. Canvas stays as
+      the art painter (every sprite is already baked into a bitmap); WebGL
+      becomes the compositor: one atlas, batched quads, the ground as one
+      texture with grain in a shader, lights and night as a shader pass. Hand
+      written, no library, so the bundle keeps zero dependencies. Rejected:
+      PixiJS (a dependency for what is a few hundred lines here) and a full
+      engine such as Godot or Unity (a rewrite of the sim and co-op in another
+      language for no visual gain the art cannot already give).
+      Since then (PR #47) the Canvas fixes above took every measured scene to
+      2 to 3 times its frame rate. Pixi v8 adds about 145 KB gzipped (the game
+      is 85 KB); it draws the existing baked art as textures, behind a switch
+      until it matches the Canvas renderer.
+- [ ] Crawlers and slimes are still traced live (about 0.3 and 0.15 ms each on
+      a CPU canvas). Baking them like the brute needs their heading quantised,
+      and the sprite cache evicts by age rather than use, which a few hundred
+      creature frames would churn.
 - [x] Level-up choices were plain text boxes. Each card now carries its kind
       (weapon, mastery, attack, survival, explore, growth) as a colour and an
       icon, pips for how far a stacking perk has gone, and a New or Rare flag.
@@ -605,10 +650,10 @@ detail behind the factory entries is in
       with nearly the same name, in the same palette, two tabs apart.
 - [ ] Camp placement keeps scenery away with a fixed 14px clearance while
       regrowth uses each node's real radius. Two numbers for one question.
-- [ ] The ground cache is still the biggest allocation in the client: 29 MB at
-      `devicePixelRatio` 2 on a 1280×800 viewport, set by `GROUND_MARGIN`. A
-      smaller margin shrinks it but makes the cache scroll more often; worth
-      tuning against a real phone rather than by guesswork.
+- [ ] The ground cache keeps the chunks in view plus two rings around it,
+      roughly 40 MB at `devicePixelRatio` 2 on a 1280×800 viewport. One ring
+      would halve it at the cost of more painting while walking; worth tuning
+      against a real phone.
 - [ ] The camera now snaps to whole device pixels, which is what lets the
       ground cache blit without resampling. Walking advances it in 4- and
       5-pixel steps where it used to be a continuous 4.29, so motion is
@@ -763,6 +808,8 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Frame rate near the camp on Abiel's own machine. Every number so far is
+      headless Chromium without a GPU, which rasterises canvas on the CPU.
 - [ ] Landmark cache sizes against the walk. A far shrine takes a few minutes
       to reach on foot on day one; whether its essence and upgrade feel worth
       it, and whether caches near camp break the early goal pace, is unplayed.

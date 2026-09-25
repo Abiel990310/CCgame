@@ -41,7 +41,14 @@ export function blitCached(
 ): void {
   const w = box.left + box.right;
   const h = box.top + box.bottom;
-  const k = Math.max(0.5, Math.ceil(deviceScale * 4) / 4);
+  // Blitting a sprite at a fractional pixel, or a scale other than the one it
+  // was baked at, makes the rasteriser filter every pixel of it. With a few
+  // hundred trees on screen that filtering was most of the frame, so where the
+  // transform is a plain scale the sprite is baked at exactly that scale and
+  // copied to a whole device pixel.
+  const m = ctx.getTransform();
+  const plain = m.b === 0 && m.c === 0 && m.a === m.d && m.a > 0;
+  const k = plain ? Math.round(m.a * 64) / 64 : Math.max(0.5, Math.ceil(deviceScale * 4) / 4);
   const id = `${key}@${k}`;
   let sprite = sprites.get(id);
   if (!sprite) {
@@ -65,7 +72,13 @@ export function blitCached(
       if (oldest !== undefined) sprites.delete(oldest);
     }
   }
-  ctx.drawImage(sprite, x - box.left, y - box.top, w, h);
+  if (!plain) {
+    ctx.drawImage(sprite, x - box.left, y - box.top, w, h);
+    return;
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(sprite, Math.round(m.a * (x - box.left) + m.e), Math.round(m.d * (y - box.top) + m.f));
+  ctx.setTransform(m);
 }
 
 let shadowSprite: HTMLCanvasElement | null = null;
@@ -112,6 +125,11 @@ let flash = 0;
 
 export function setFlash(amount: number): void {
   flash = Math.max(0, Math.min(1, amount));
+}
+
+/** The flash currently set, for art that bakes itself and must key on it. */
+export function paintFlash(): number {
+  return flash;
 }
 
 function mix(hex: string, amount: number): string {

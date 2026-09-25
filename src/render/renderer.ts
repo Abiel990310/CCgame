@@ -30,7 +30,7 @@ import {
   type Tool,
 } from './entities';
 import { UI, rgba } from './palette';
-import { GroundMesh } from './terrain';
+import { GroundCache } from './groundcache';
 import { setItemScale } from './items';
 import { setPaintScale } from './paint';
 import { polygon } from './shapes';
@@ -38,8 +38,8 @@ import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFa
 import { drawPowerCoverage, drawPowerWires } from './power';
 import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
 
-/** How far past the viewport the pre-scaled ground reaches, in device pixels. */
-const GROUND_MARGIN = 320;
+/** How much coarser than the screen, in CSS pixels, the night's lights are gathered. */
+const LIGHT_DOWNSCALE = 4;
 
 /** Anything that needs depth sorting, collected once per frame. */
 interface Drawable {
@@ -51,35 +51,58 @@ export class Renderer {
   readonly camera = new Camera();
   readonly effects = new Effects();
   private ctx: CanvasRenderingContext2D;
-  private mesh: GroundMesh | null = null;
-  private groundTerrain: Uint8Array | null = null;
+  private ground = new GroundCache();
   private dpr = 1;
-  /**
-   * The island, pre-scaled to the zoom it is actually shown at, covering the
-   * viewport plus a margin. Redrawn only when the camera walks off the edge of
-   * it, so the common frame blits it one-to-one instead of painting the mesh
-   * every time.
-   */
-  private ground: HTMLCanvasElement | null = null;
-  private groundCtx: CanvasRenderingContext2D | null = null;
-  private groundX = 0;
-  private groundY = 0;
-  private groundScale = 0;
-  /**
-   * Tiles whose ore has visibly changed since the last frame, packed as tile
-   * keys. Ore is baked into the cached ground, so a patch thinning has to be
-   * repainted there — but only the tiles that changed, since repainting the
-   * whole cache costs as much as a zoom.
-   */
-  private oreDirty: number[] = [];
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
   private visibleBelts: Belt[] = [];
   private visibleMachines: Machine[] = [];
+  /**
+   * The night layers stacked over the stage, where the browser supports
+   * adding one layer onto another; see the constructor. Without them the night
+   * is painted into the stage canvas as before.
+   */
+  private night: {
+    dark: HTMLDivElement;
+    lights: HTMLCanvasElement;
+    lightsCtx: CanvasRenderingContext2D | null;
+    /** Eyes glow onto the night; name tags sit plainly over it. */
+    eyes: Overlay;
+    tags: Overlay;
+    /** The dark sheet's colour as last set, so the style is only touched on change. */
+    shade: string;
+  } | null = null;
+  /** The night's lights, gathered at low resolution; see `drawLighting`. */
+  private lights: HTMLCanvasElement | null = null;
+  private lightsCtx: CanvasRenderingContext2D | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('2D canvas context unavailable');
     this.ctx = ctx;
+
+    // Night is laid over the scene by the browser's compositor rather than
+    // painted into it: a flat dark sheet, then the low-resolution light map
+    // stretched over everything and added on. Painting both into the canvas
+    // was a full-screen blend and a full-screen stretch every night frame.
+    if (typeof CSS !== 'undefined' && CSS.supports('mix-blend-mode', 'plus-lighter')) {
+      const dark = document.createElement('div');
+      const lights = document.createElement('canvas');
+      const eyes = new Overlay('plus-lighter');
+      const tags = new Overlay('normal');
+      for (const el of [dark, lights]) {
+        Object.assign(el.style, {
+          position: 'fixed',
+          inset: '0',
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          display: 'none',
+        });
+      }
+      lights.style.mixBlendMode = 'plus-lighter';
+      canvas.after(dark, lights, eyes.canvas, tags.canvas);
+      this.night = { dark, lights, lightsCtx: lights.getContext('2d'), eyes, tags, shade: '' };
+    }
   }
 
   resize(): void {
@@ -92,6 +115,10 @@ export class Renderer {
     this.camera.height = h;
     this.dpr = dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (this.night) {
+      this.night.eyes.resize(this.canvas.width, this.canvas.height);
+      this.night.tags.resize(this.canvas.width, this.canvas.height);
+    }
     // Zoom with viewport so a phone shows a sensible slice of the island.
     this.camera.zoom = clamp(Math.min(w, h) / 560, 1.15, 2.4);
   }
@@ -125,22 +152,13 @@ export class Renderer {
     const originX = Math.round((width / 2 + shakeX) * this.dpr - this.camera.pos.x * scale);
     const originY = Math.round((height / 2 + shakeY) * this.dpr - this.camera.pos.y * scale);
 
-    this.ensureGround(world);
-    this.repaintOre(world);
-    if (this.ground) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(
-        this.ground,
-        originX + this.groundX * this.groundScale,
-        originY + this.groundY * this.groundScale,
-      );
-    }
+    const view = this.camera.bounds();
+    this.ground.draw(ctx, world, view, scale, originX, originY);
     ctx.setTransform(scale, 0, 0, scale, originX, originY);
     setItemScale(scale);
     setFactoryScale(scale);
     setPaintScale(scale);
 
-    const view = this.camera.bounds();
     const visible = (p: Vec2, pad = 0): boolean =>
       p.x >= view.minX - pad && p.x <= view.maxX + pad && p.y >= view.minY - pad && p.y <= view.maxY + pad;
 
@@ -209,165 +227,37 @@ export class Renderer {
 
     this.drawLighting(world, selfId, time);
 
-    // Names stay readable after dark, so they go over the night layer.
-    ctx.save();
-    ctx.setTransform(scale, 0, 0, scale, originX, originY);
-    drawNameTags(ctx, world, selfId, visible);
-    ctx.restore();
+    // Names and eyes stay visible after dark, so they go over the night.
+    const darkness = nightDarkness(world);
+    const night = this.night;
+    const names = world.players.size > 1;
+    const tags = night ? night.tags.begin(names) : ctx;
+    if (names && tags) {
+      tags.save();
+      tags.setTransform(scale, 0, 0, scale, originX, originY);
+      drawNameTags(tags, world, selfId, visible);
+      tags.restore();
+    }
 
     // Eyes in the dark: drawn over the night layer so a raid gives itself away.
-    const darkness = nightDarkness(world);
-    if (darkness > 0.05 && world.mobs.length > 0) {
-      ctx.save();
-      ctx.setTransform(scale, 0, 0, scale, originX, originY);
-      ctx.globalCompositeOperation = 'lighter';
+    const glowing = darkness > 0.05 && world.mobs.length > 0;
+    const eyes = night ? night.eyes.begin(glowing) : ctx;
+    if (glowing && eyes) {
+      eyes.save();
+      eyes.setTransform(scale, 0, 0, scale, originX, originY);
+      eyes.globalCompositeOperation = 'lighter';
       for (const mob of world.mobs) {
-        if (visible(mob.pos, 60)) drawMobGlow(ctx, mob, time, darkness);
+        if (visible(mob.pos, 60)) drawMobGlow(eyes, mob, time, darkness);
       }
-      ctx.restore();
+      eyes.restore();
     }
   }
 
-  /**
-   * Keep the pre-scaled ground covering the view. With a margin this wide the
-   * cache only runs out about once a second while walking, and when it does it
-   * scrolls and paints the strip that came in rather than the whole thing.
-   */
-  private ensureGround(world: World): void {
-    if (this.mesh === null || this.mesh.seed !== world.seed) {
-      this.mesh = new GroundMesh(world.seed);
-    }
-    // A different island under the same camera — the menu's backdrop, then
-    // the game — must not keep the old island's ground and scroll the new one
-    // in beside it at the edges.
-    if (this.groundTerrain !== world.terrain) {
-      this.groundTerrain = world.terrain;
-      this.groundScale = 0;
-    }
-
-    const scale = this.camera.zoom * this.dpr;
-    const w = Math.ceil(this.camera.width * this.dpr) + GROUND_MARGIN * 2;
-    const h = Math.ceil(this.camera.height * this.dpr) + GROUND_MARGIN * 2;
-
-    if (!this.ground || this.ground.width !== w || this.ground.height !== h) {
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      this.ground = canvas;
-      this.groundCtx = canvas.getContext('2d', { alpha: false });
-      this.groundScale = 0;
-    }
-    const ctx = this.groundCtx;
-    if (!ctx) return;
-
-    const coverW = w / scale;
-    const coverH = h / scale;
-    const halfW = this.camera.width / 2 / this.camera.zoom;
-    const halfH = this.camera.height / 2 / this.camera.zoom;
-    if (
-      this.groundScale === scale &&
-      this.camera.pos.x - halfW >= this.groundX &&
-      this.camera.pos.x + halfW <= this.groundX + coverW &&
-      this.camera.pos.y - halfH >= this.groundY &&
-      this.camera.pos.y + halfH <= this.groundY + coverH
-    ) {
-      return;
-    }
-
-    const prevX = this.groundX;
-    const prevY = this.groundY;
-    const sameScale = this.groundScale === scale;
-
-    // Land the cache's own origin on a whole device pixel, so blitting it is a
-    // straight copy rather than a resample.
-    this.groundX = Math.round((this.camera.pos.x - coverW / 2) * scale) / scale;
-    this.groundY = Math.round((this.camera.pos.y - coverH / 2) * scale) / scale;
-    this.groundScale = scale;
-
-    const dx = Math.round((prevX - this.groundX) * scale);
-    const dy = Math.round((prevY - this.groundY) * scale);
-
-    // Walking shifts the cache by a fraction of its own size, so slide what is
-    // still good and paint only the edges that have come into view. Zooming
-    // changes every pixel of it, and that is the case that repaints the lot.
-    if (sameScale && Math.abs(dx) < w && Math.abs(dy) < h) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(ctx.canvas, dx, dy);
-      if (dx !== 0) this.paintGround(world, dx > 0 ? 0 : w + dx, 0, Math.abs(dx), h);
-      if (dy !== 0) {
-        this.paintGround(world, dx > 0 ? dx : 0, dy > 0 ? 0 : h + dy, w - Math.abs(dx), Math.abs(dy));
-      }
-      return;
-    }
-
-    this.paintGround(world, 0, 0, w, h);
-    // Everything in the cache has just been drawn from the live ore grid.
-    this.oreDirty.length = 0;
-  }
-
-  /**
-   * Take the ore changes the simulation reported this tick. Nothing is painted
-   * here: the cache may still be about to scroll or be rebuilt entirely.
-   */
+  /** Take the ore changes the simulation reported; the ground cache repaints what they touch. */
   noteEvents(events: SimEvent[]): void {
     for (const event of events) {
-      if (event.kind === 'oreChanged') this.oreDirty.push(tileKey(event.tx, event.ty));
+      if (event.kind === 'oreChanged') this.ground.oreChanged(event.tx, event.ty);
     }
-  }
-
-  /**
-   * Redraw the cached ground under tiles whose ore has thinned or run out. The
-   * clip in `paintGround` is what makes this safe to do a tile at a time, and a
-   * tile of margin covers the ore stain and pebbles that spill onto neighbours.
-   */
-  private repaintOre(world: World): void {
-    if (this.oreDirty.length === 0 || !this.ground || this.groundScale === 0) return;
-
-    const scale = this.groundScale;
-    for (const key of this.oreDirty) {
-      const tx = key % MAP_TILES;
-      const ty = (key - tx) / MAP_TILES;
-      const left = Math.floor((tx * TILE - TILE - this.groundX) * scale);
-      const top = Math.floor((ty * TILE - TILE - this.groundY) * scale);
-      const size = Math.ceil(TILE * 3 * scale) + 2;
-
-      // Off the edge of the cache is not a problem: whatever scrolls in later
-      // is painted from the ore grid as it stands then.
-      const x = Math.max(0, left);
-      const y = Math.max(0, top);
-      const w = Math.min(this.ground.width, left + size) - x;
-      const h = Math.min(this.ground.height, top + size) - y;
-      if (w > 0 && h > 0) this.paintGround(world, x, y, w, h);
-    }
-    this.oreDirty.length = 0;
-  }
-
-  /**
-   * Repaint one rectangle of the ground cache, given in its own device pixels.
-   * The clip is what makes a partial repaint safe: the mesh reaches a tile past
-   * whatever it is asked for, and shore foam and ore are drawn with alpha, so
-   * letting it spill onto cache that is already right would darken it twice.
-   */
-  private paintGround(world: World, x: number, y: number, w: number, h: number): void {
-    const ctx = this.groundCtx;
-    if (!ctx || !this.mesh || w <= 0 || h <= 0) return;
-    const scale = this.groundScale;
-
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.beginPath();
-    ctx.rect(x, y, w, h);
-    ctx.clip();
-    ctx.fillStyle = '#12232e';
-    ctx.fillRect(x, y, w, h);
-    ctx.setTransform(scale, 0, 0, scale, -this.groundX * scale, -this.groundY * scale);
-    this.mesh.paint(ctx, world.terrain, world.ore, world.oreLeft, {
-      x: this.groundX + x / scale,
-      y: this.groundY + y / scale,
-      w: w / scale,
-      h: h / scale,
-    });
-    ctx.restore();
   }
 
   /**
@@ -616,27 +506,86 @@ export class Renderer {
    */
   private drawLighting(world: World, selfId: number, time: number): void {
     const darkness = nightDarkness(world);
-    if (darkness <= 0.01) return;
+    const night = this.night;
+    if (darkness <= 0.01) {
+      if (night && night.shade !== '') {
+        night.shade = '';
+        night.dark.style.display = 'none';
+        night.lights.style.display = 'none';
+      }
+      return;
+    }
 
     const ctx = this.ctx;
     const { width, height } = this.camera;
 
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = `rgba(12, 18, 38, ${darkness * 0.72})`;
-    ctx.fillRect(0, 0, width, height);
+    const shade = `rgba(12, 18, 38, ${(darkness * 0.72).toFixed(3)})`;
+    if (night) {
+      if (night.shade !== shade) {
+        if (night.shade === '') {
+          night.dark.style.display = 'block';
+          night.lights.style.display = 'block';
+        }
+        night.shade = shade;
+        night.dark.style.backgroundColor = shade;
+      }
+    } else {
+      ctx.save();
+      ctx.fillStyle = shade;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    }
 
-    ctx.globalCompositeOperation = 'lighter';
+    // The lights are soft by nature, so they are gathered at a quarter of the
+    // screen's resolution and stretched over it. Filling each one's gradient
+    // across the full screen was most of a night frame in a camp with a few
+    // lamps.
+    const lw = Math.max(1, Math.ceil(width / LIGHT_DOWNSCALE));
+    const lh = Math.max(1, Math.ceil(height / LIGHT_DOWNSCALE));
+    if (night) {
+      this.lights = night.lights;
+      this.lightsCtx = night.lightsCtx;
+    } else if (!this.lights) {
+      this.lights = document.createElement('canvas');
+      this.lightsCtx = this.lights.getContext('2d');
+    }
+    const lights = this.lights;
+    const lc = this.lightsCtx;
+    if (!lights || !lc) return;
+    if (lights.width !== lw || lights.height !== lh) {
+      lights.width = lw;
+      lights.height = lh;
+      // Stretched by exactly the downscale, so a light sits where it was drawn.
+      if (night) {
+        lights.style.width = `${lw * LIGHT_DOWNSCALE}px`;
+        lights.style.height = `${lh * LIGHT_DOWNSCALE}px`;
+      }
+    }
+    lc.setTransform(1, 0, 0, 1, 0, 0);
+    lc.globalCompositeOperation = 'source-over';
+    lc.clearRect(0, 0, lw, lh);
+    lc.setTransform(1 / LIGHT_DOWNSCALE, 0, 0, 1 / LIGHT_DOWNSCALE, 0, 0);
+    lc.globalCompositeOperation = 'lighter';
+
+    // Only the part of the screen some light reaches is stretched back over it.
+    let x0 = width;
+    let y0 = height;
+    let x1 = 0;
+    let y1 = 0;
     const addLight = (world_pos: Vec2, radius: number, strength: number, color: string): void => {
       const sx = (world_pos.x - this.camera.pos.x) * this.camera.zoom + width / 2;
       const sy = (world_pos.y - this.camera.pos.y) * this.camera.zoom + height / 2;
       const r = radius * this.camera.zoom;
       if (sx < -r || sy < -r || sx > width + r || sy > height + r) return;
-      const gradient = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+      x0 = Math.min(x0, sx - r);
+      y0 = Math.min(y0, sy - r);
+      x1 = Math.max(x1, sx + r);
+      y1 = Math.max(y1, sy + r);
+      const gradient = lc.createRadialGradient(sx, sy, 0, sx, sy, r);
       gradient.addColorStop(0, rgba(color, strength * darkness));
       gradient.addColorStop(1, rgba(color, 0));
-      ctx.fillStyle = gradient;
-      ctx.fillRect(sx - r, sy - r, r * 2, r * 2);
+      lc.fillStyle = gradient;
+      lc.fillRect(sx - r, sy - r, r * 2, r * 2);
     };
 
     const flicker = 1 + Math.sin(time * 8) * 0.06;
@@ -647,7 +596,31 @@ export class Renderer {
     for (const player of world.players.values()) {
       addLight(player.pos, 150, player.id === selfId ? 0.34 : 0.22, '#bcd8ff');
     }
-    ctx.restore();
+    // Laid over the stage, the map is stretched by the compositor and added on.
+    if (night) return;
+
+    // Snapped to the light map's own pixels so the stretch lines up with it.
+    const bx0 = Math.max(0, Math.floor(x0 / LIGHT_DOWNSCALE));
+    const by0 = Math.max(0, Math.floor(y0 / LIGHT_DOWNSCALE));
+    const bx1 = Math.min(lw, Math.ceil(x1 / LIGHT_DOWNSCALE));
+    const by1 = Math.min(lh, Math.ceil(y1 / LIGHT_DOWNSCALE));
+    if (bx1 > bx0 && by1 > by0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(
+        lights,
+        bx0,
+        by0,
+        bx1 - bx0,
+        by1 - by0,
+        bx0 * LIGHT_DOWNSCALE,
+        by0 * LIGHT_DOWNSCALE,
+        (bx1 - bx0) * LIGHT_DOWNSCALE,
+        (by1 - by0) * LIGHT_DOWNSCALE,
+      );
+      ctx.restore();
+    }
   }
 }
 
@@ -705,4 +678,45 @@ export function nightDarkness(world: World): number {
   const into = CYCLE.nightSeconds - world.phaseTime;
   if (into < twilightSeconds) return into / twilightSeconds;
   return 1;
+}
+
+/**
+ * A full-screen canvas over the night for the few things drawn above it. It
+ * is hidden, and never cleared, while it has nothing to show, which is most of
+ * the time.
+ */
+class Overlay {
+  readonly canvas = document.createElement('canvas');
+  private ctx = this.canvas.getContext('2d');
+  private used = false;
+
+  constructor(blend: 'normal' | 'plus-lighter') {
+    Object.assign(this.canvas.style, {
+      position: 'fixed',
+      inset: '0',
+      width: '100%',
+      height: '100%',
+      pointerEvents: 'none',
+      display: 'none',
+      mixBlendMode: blend,
+    });
+  }
+
+  resize(width: number, height: number): void {
+    this.canvas.width = width;
+    this.canvas.height = height;
+    this.used = false;
+  }
+
+  /** Clear what the last frame left and show or hide the layer; null when hidden. */
+  begin(show: boolean): CanvasRenderingContext2D | null {
+    const ctx = this.ctx;
+    if (this.used && ctx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    if (show !== this.used) this.canvas.style.display = show ? 'block' : 'none';
+    this.used = show;
+    return show ? ctx : null;
+  }
 }
