@@ -214,6 +214,11 @@ export class Renderer {
     return this.gpu ? 'pixi' : 'canvas';
   }
 
+  /** Sprites and shapes the GPU renderer drew last frame, for the frame meter. */
+  get drawnObjects(): number {
+    return this.gpu ? this.gpu.ctx.root.children.length : 0;
+  }
+
   resize(): void {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = this.canvas.clientWidth;

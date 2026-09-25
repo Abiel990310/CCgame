@@ -515,8 +515,11 @@ detail behind the factory entries is in
 - [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
       A crafted satchel is an obvious early sink and a reason to build a
       workbench.
-- [ ] A frame-time overlay behind a debug flag, so performance regressions show
-      up while playing rather than only under a profiler.
+- [x] A frame-time overlay behind a debug flag, so performance regressions show
+      up while playing rather than only under a profiler. F3 (or `?perf=1`,
+      which sticks) shows fps, the 95th-percentile and worst frame over two
+      seconds, sim and draw time, and what is on the island; on GPU also how
+      many sprites and shapes were drawn.
 
 ### Changes
 
