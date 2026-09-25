@@ -546,6 +546,11 @@ detail behind the factory entries is in
       and small canvases for eyes and name tags that are hidden when empty.
       A camp with 12 lamps at night went from 48 to 80 fps headless. Browsers
       without `plus-lighter` still paint the night into the canvas.
+- [x] Night firelight washed everything inside it out like fog, the player
+      included, because lights were added on top of the dark sheet. Lights
+      now cut the dark sheet away (`destination-out`) and add only a faint
+      warm tint on a separate layer, so what a campfire lights keeps its own
+      colours. Same on Canvas, Pixi and the no-`plus-lighter` fallback.
 - [x] Brutes are baked per stride phase (24 a cycle), facing and hit flash:
       forty on screen went from 27 to 133 fps headless. Crawlers (about
       0.3 ms each on a CPU canvas) and slimes are still traced live.
