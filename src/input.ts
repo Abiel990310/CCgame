@@ -123,6 +123,11 @@ export class InputManager {
       this.aim(e);
     });
     this.target.addEventListener('pointerleave', () => (this.hovering = false));
+    // A screen closing under a still mouse sends no move, only this, so without
+    // it hover cards stay off, or describe wherever the cursor was before.
+    this.target.addEventListener('pointerenter', (e) => {
+      if (e.pointerType !== 'touch') this.aim(e);
+    });
     // Right-click removes, so the browser menu must not fight it.
     this.target.addEventListener('contextmenu', (e) => e.preventDefault());
 

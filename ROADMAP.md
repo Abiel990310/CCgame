@@ -298,8 +298,9 @@ detail behind the factory entries is in
       Island" onto two lines on every screen. It now sits in the screen's
       top-right corner. A sideways phone also cut the top of the menu off with
       no way to scroll to it; the menu now centres only while it fits.
-- [ ] Hover cards after closing a screen still describe the old spot until
-      the mouse moves; a pointerenter on the canvas would refresh them.
+- [x] Hover cards after closing a screen stayed off, or described the old
+      spot, until the mouse moved. The canvas now takes the cursor's place
+      from the pointerenter a closing screen sends.
 - [x] On a phone the build palette covers the column of action buttons, so
       Build and Bag cannot be pressed while it is open. The palette is now
       narrower than the screen and the buttons stay beside it.
