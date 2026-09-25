@@ -2,6 +2,7 @@ import { MOBS } from '@shared/data/mobs';
 import type { Mob, Player } from '@shared/sim/types';
 import {
   INK,
+  around,
   blitCached,
   capsule,
   fillInk,
@@ -610,7 +611,7 @@ function slimeHop(p: number): { air: number; lift: number; sx: number; sy: numbe
 /**
  * Slimes are baked per hop phase, the way they look and hit flash: a raid
  * brings a crowd of them, and each traced live cost about 0.15 ms on a CPU
- * canvas. A mother carries her live brood, so she is still drawn live.
+ * canvas. A mother is baked in two layers with her brood drawn live between.
  */
 function drawSlime(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
   const r = MOBS[mob.type].radius;
@@ -619,33 +620,41 @@ function drawSlime(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void 
   const face = heading(mob);
   const p = (time * 1.25 + rand(mob.seed, 1)) % 1;
 
-  if (mob.type === 'mother') {
-    const hop = slimeHop(p);
-    softShadow(ctx, x, base, r * (1.05 - hop.air * 0.25), 0.36 - hop.air * 0.12);
-    ctx.translate(x, base);
-    drawSlimeBody(ctx, mob.type, hop, face, p, () => drawBrood(ctx, mob, time));
-    return;
-  }
-
   const step = Math.floor(p * SLIME_HOPS) % SLIME_HOPS;
   const look = (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * SLIME_LOOKS) + SLIME_LOOKS) % SLIME_LOOKS;
-  const hop = slimeHop((step + 0.5) / SLIME_HOPS);
+  const phase = (step + 0.5) / SLIME_HOPS;
+  const hop = slimeHop(phase);
   softShadow(ctx, x, base, r * (1.05 - hop.air * 0.25), 0.36 - hop.air * 0.12);
   const a = (look / SLIME_LOOKS) * Math.PI * 2;
-  blitCached(
-    ctx,
-    `slime:${mob.type}:${step}:${look}:${paintFlash() > 0 ? 1 : 0}`,
-    x,
-    base,
-    { left: r * 1.3, right: r * 1.3, top: r * 1.9 + 8, bottom: r * 0.5 },
-    (c) => drawSlimeBody(c, mob.type, hop, { x: Math.cos(a), y: Math.sin(a) }, (step + 0.5) / SLIME_HOPS, null),
+  const eyes = { x: Math.cos(a), y: Math.sin(a) };
+  const flash = paintFlash() > 0 ? 1 : 0;
+  const box = { left: r * 1.3, right: r * 1.3, top: r * 1.9 + 8, bottom: r * 0.5 };
+
+  if (mob.type !== 'mother') {
+    blitCached(ctx, `slime:${mob.type}:${step}:${look}:${flash}`, x, base, box, (c) =>
+      drawSlimeBody(c, mob.type, hop, eyes, phase, 'all'),
+    );
+    return;
+  }
+  // A mother's brood moves inside her, so it is drawn live between her gel
+  // and what sits on top of it.
+  blitCached(ctx, `slime:mother:${step}:gel:${flash}`, x, base, box, (c) =>
+    drawSlimeBody(c, mob.type, hop, eyes, phase, 'gel'),
+  );
+  ctx.save();
+  ctx.translate(x, base - hop.lift);
+  ctx.scale(hop.sx, hop.sy);
+  drawBrood(ctx, mob, time);
+  ctx.restore();
+  blitCached(ctx, `slime:mother:${step}:${look}:top:${flash}`, x, base, box, (c) =>
+    drawSlimeBody(c, mob.type, hop, eyes, phase, 'top'),
   );
 }
 
 /**
  * A slime standing at the origin (the middle of its base). `p` is its hop
- * phase, which also carries the bubbles up through it. `belly` draws what it
- * carries in place of the half-digested lump.
+ * phase, which also carries the bubbles up through it. `part` picks the gel
+ * alone, what sits on top of it, or both with a half-digested lump between.
  */
 function drawSlimeBody(
   ctx: CanvasRenderingContext2D,
@@ -653,30 +662,32 @@ function drawSlimeBody(
   hop: { lift: number; sx: number; sy: number },
   face: { x: number; y: number },
   p: number,
-  belly: (() => void) | null,
+  part: 'all' | 'gel' | 'top',
 ): void {
   const def = MOBS[type];
   const r = def.radius;
   ctx.translate(0, -hop.lift);
   ctx.scale(hop.sx, hop.sy);
 
-  ctx.beginPath();
-  ctx.moveTo(-r, 0);
-  ctx.bezierCurveTo(-r * 1.05, -r * 1.05, -r * 0.5, -r * 1.55, 0, -r * 1.55);
-  ctx.bezierCurveTo(r * 0.5, -r * 1.55, r * 1.05, -r * 1.05, r, 0);
-  ctx.quadraticCurveTo(0, r * 0.3, -r, 0);
-  ctx.closePath();
-  const gel = ctx.createRadialGradient(-r * 0.35, -r * 1.05, r * 0.1, 0, -r * 0.5, r * 1.5);
-  gel.addColorStop(0, tint(tone(def.color, 0.45)));
-  gel.addColorStop(0.5, tint(def.color));
-  gel.addColorStop(1, tint(tone(def.color, -0.45)));
-  ctx.globalAlpha = 0.94;
-  fillInk(ctx, gel, 1.3, tone(def.accent, -0.6));
-  ctx.globalAlpha = 1;
+  if (part !== 'top') {
+    ctx.beginPath();
+    ctx.moveTo(-r, 0);
+    ctx.bezierCurveTo(-r * 1.05, -r * 1.05, -r * 0.5, -r * 1.55, 0, -r * 1.55);
+    ctx.bezierCurveTo(r * 0.5, -r * 1.55, r * 1.05, -r * 1.05, r, 0);
+    ctx.quadraticCurveTo(0, r * 0.3, -r, 0);
+    ctx.closePath();
+    const gel = ctx.createRadialGradient(-r * 0.35, -r * 1.05, r * 0.1, 0, -r * 0.5, r * 1.5);
+    gel.addColorStop(0, tint(tone(def.color, 0.45)));
+    gel.addColorStop(0.5, tint(def.color));
+    gel.addColorStop(1, tint(tone(def.color, -0.45)));
+    ctx.globalAlpha = 0.94;
+    fillInk(ctx, gel, 1.3, tone(def.accent, -0.6));
+    ctx.globalAlpha = 1;
+  }
+  if (part === 'gel') return;
 
   // Something half-digested in the middle, and bubbles rising through it.
-  if (belly) belly();
-  else {
+  if (part === 'all') {
     ctx.fillStyle = tint(tone(def.accent, -0.3));
     ctx.globalAlpha = 0.35;
     ctx.beginPath();
@@ -834,6 +845,9 @@ function drawCrawlerPose(ctx: CanvasRenderingContext2D, angle: number, gait: num
   }
 }
 
+/** Looking directions a wisp's body is baked at. */
+const WISP_LOOKS = 8;
+
 function drawWisp(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
   const def = MOBS.wisp;
   const r = def.radius;
@@ -874,26 +888,33 @@ function drawWisp(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
   ctx.fillStyle = tail;
   ctx.fill();
 
-  // The body: a lantern of light, white at the heart.
-  ctx.beginPath();
-  ctx.arc(x, cy, r * 0.82, 0, Math.PI * 2);
-  const core = ctx.createRadialGradient(x - r * 0.2, cy - r * 0.25, r * 0.05, x, cy, r * 0.85);
-  core.addColorStop(0, tint('#ffffff'));
-  core.addColorStop(0.35, tint('#dcd4ff'));
-  core.addColorStop(1, tint(def.color));
-  ctx.fillStyle = core;
-  ctx.fill();
-  ctx.lineWidth = 1.1;
-  ctx.strokeStyle = tone(def.accent, -0.35);
-  ctx.stroke();
+  // The body: a lantern of light, white at the heart. Baked per the way it
+  // looks and hit flash, since wisps come in swarms.
+  const look = (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * WISP_LOOKS) + WISP_LOOKS) % WISP_LOOKS;
+  blitCached(ctx, `wisp:${look}:${paintFlash() > 0 ? 1 : 0}`, x, cy, around(r * 0.85 + 2), (c) => {
+    const a = (look / WISP_LOOKS) * Math.PI * 2;
+    const fx = Math.cos(a);
+    const fy = Math.sin(a);
+    c.beginPath();
+    c.arc(0, 0, r * 0.82, 0, Math.PI * 2);
+    const core = c.createRadialGradient(-r * 0.2, -r * 0.25, r * 0.05, 0, 0, r * 0.85);
+    core.addColorStop(0, tint('#ffffff'));
+    core.addColorStop(0.35, tint('#dcd4ff'));
+    core.addColorStop(1, tint(def.color));
+    c.fillStyle = core;
+    c.fill();
+    c.lineWidth = 1.1;
+    c.strokeStyle = tone(def.accent, -0.35);
+    c.stroke();
 
-  // Hollow eyes, looking ahead.
-  ctx.fillStyle = '#2a1f55';
-  for (const side of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(x + face.x * r * 0.22 + side * r * 0.26, cy - r * 0.05 + face.y * r * 0.1, r * 0.1, r * 0.18, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+    // Hollow eyes, looking ahead.
+    c.fillStyle = '#2a1f55';
+    for (const side of [-1, 1]) {
+      c.beginPath();
+      c.ellipse(fx * r * 0.22 + side * r * 0.26, -r * 0.05 + fy * r * 0.1, r * 0.1, r * 0.18, 0, 0, Math.PI * 2);
+      c.fill();
+    }
+  });
 
   // Motes circling it.
   ctx.fillStyle = 'rgba(235, 228, 255, 0.9)';

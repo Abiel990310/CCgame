@@ -587,6 +587,12 @@ detail behind the factory entries is in
       History: the first plan was hand-written WebGL (2026-09-24), rejecting
       PixiJS as a dependency for a few hundred lines; the Canvas fixes in PR
       #47 then took every measured scene to 2 to 3 times its frame rate.
+- [x] Spitters (per facing, sac fill and speckle pattern), shellbacks (per
+      heading and stride, like crawlers) and wisps' bodies (per look) are
+      baked; a mother slime is baked in two layers with her brood live
+      between. An 80-creature night raid on Pixi, pixels taken out, went from
+      21 to 4 ms a frame (8 to 33 fps headless). Still live: the wisp's tail,
+      aura and motes, the warden, health bars and spit.
 - [x] Crawlers and slimes are baked like the brute: crawlers per heading (16)
       and stride phase (12), slimes per hop phase (12) and the way they look
       (8), both per hit flash. 76 of them around the camp went from 41 to 78

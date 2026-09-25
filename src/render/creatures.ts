@@ -1,6 +1,6 @@
 import { MOBS } from '@shared/data/mobs';
 import type { Mob } from '@shared/sim/types';
-import { INK, capsule, fillInk, litFill, rand, softShadow, tint, tone } from './paint';
+import { INK, blitCached, capsule, fillInk, litFill, paintFlash, rand, softShadow, tint, tone } from './paint';
 
 /**
  * The creatures that only come later in a run: each has to read at a glance
@@ -15,7 +15,16 @@ function heading(mob: Mob): { x: number; y: number } {
   return { x: Math.cos(a), y: Math.sin(a) };
 }
 
-/** A squat frog-like thing with a swollen throat sac that pulses before it spits. */
+/** Sac fill levels and speckle patterns a spitter is baked at. */
+const SPITTER_CHARGES = 6;
+const SPITTER_SPOTS = 4;
+
+/**
+ * A squat frog-like thing with a swollen throat sac that pulses before it
+ * spits. Baked per facing, sac fill, speckle pattern and hit flash, since
+ * spitters come in raids and the GPU renderer rebuilt each one's shapes every
+ * frame; the hop only moves the sprite.
+ */
 export function drawSpitter(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
   const def = MOBS.spitter;
   const r = def.radius;
@@ -28,8 +37,27 @@ export function drawSpitter(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
   const hop = Math.abs(Math.sin(time * 5 + mob.seed)) * (Math.hypot(mob.vel.x, mob.vel.y) > 5 ? 3 : 0.6);
 
   softShadow(ctx, x, feet, r * 1.1, 0.36);
-  ctx.translate(x, feet - hop);
-  if (face.x < 0) ctx.scale(-1, 1);
+  const flip = face.x < 0;
+  const fill = Math.round(charge * (SPITTER_CHARGES - 1));
+  const spots = mob.seed % SPITTER_SPOTS;
+  const edge = r * 1.3 + 2;
+  blitCached(
+    ctx,
+    `spitter:${flip ? 1 : 0}:${fill}:${spots}:${paintFlash() > 0 ? 1 : 0}`,
+    x,
+    feet - hop,
+    { left: edge, right: edge, top: r * 1.5 + 2, bottom: r * 0.3 + 2 },
+    (c) => {
+      if (flip) c.scale(-1, 1);
+      drawSpitterPose(c, fill / (SPITTER_CHARGES - 1), spots);
+    },
+  );
+}
+
+/** A spitter standing at the origin (between its feet), facing right. */
+function drawSpitterPose(ctx: CanvasRenderingContext2D, charge: number, seed: number): void {
+  const def = MOBS.spitter;
+  const r = def.radius;
 
   // Back legs folded under.
   for (const side of [-1, 1]) {
@@ -45,7 +73,7 @@ export function drawSpitter(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
   ctx.fillStyle = tint(tone(def.color, -0.35));
   for (let i = 0; i < 5; i++) {
     ctx.beginPath();
-    ctx.arc((rand(mob.seed, i) - 0.5) * r * 1.3, -r * (0.7 + rand(mob.seed, i + 7) * 0.5), r * 0.09, 0, Math.PI * 2);
+    ctx.arc((rand(seed, i) - 0.5) * r * 1.3, -r * (0.7 + rand(seed, i + 7) * 0.5), r * 0.09, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -79,7 +107,14 @@ export function drawSpitter(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
   ctx.stroke();
 }
 
-/** A beetle under a heavy domed plate: the plate is what soaks the damage. */
+/** Headings and stride phases a shellback is baked at. */
+const SHELLBACK_TURNS = 16;
+const SHELLBACK_STEPS = 12;
+
+/**
+ * A beetle under a heavy domed plate: the plate is what soaks the damage.
+ * Baked per heading, stride phase and hit flash, like the crawler.
+ */
 export function drawShellback(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
   const def = MOBS.shellback;
   const r = def.radius;
@@ -89,9 +124,31 @@ export function drawShellback(ctx: CanvasRenderingContext2D, mob: Mob, time: num
   const gait = time * (moving ? 12 : 2) + mob.seed;
 
   softShadow(ctx, x, y + r * 0.4, r * 1.25, 0.4);
-  ctx.translate(x, y - r * 0.25);
+  const turn =
+    (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * SHELLBACK_TURNS) + SHELLBACK_TURNS) % SHELLBACK_TURNS;
+  const step = Math.floor(((((gait / (Math.PI * 2)) % 1) + 1) % 1) * SHELLBACK_STEPS) % SHELLBACK_STEPS;
+  const reach = r * 1.35 + 2;
+  blitCached(
+    ctx,
+    `shellback:${turn}:${step}:${paintFlash() > 0 ? 1 : 0}`,
+    x,
+    y - r * 0.25,
+    { left: reach, right: reach, top: reach * 0.78 + 1, bottom: reach * 0.78 + 1 },
+    (c) =>
+      drawShellbackPose(
+        c,
+        (turn / SHELLBACK_TURNS) * Math.PI * 2,
+        ((step + 0.5) / SHELLBACK_STEPS) * Math.PI * 2,
+      ),
+  );
+}
+
+/** A shellback centred on the origin, facing `angle`, `gait` through its stride. */
+function drawShellbackPose(ctx: CanvasRenderingContext2D, angle: number, gait: number): void {
+  const def = MOBS.shellback;
+  const r = def.radius;
   ctx.scale(1, 0.78);
-  ctx.rotate(Math.atan2(face.y, face.x));
+  ctx.rotate(angle);
 
   // Stubby legs peeking out from under the plate.
   for (const side of [-1, 1]) {

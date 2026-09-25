@@ -10,7 +10,7 @@ import { dirAngle, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
 import type { Belt, Direction, Machine, MachineId } from '@shared/sim/types';
 import { drawItemSprite } from './items';
-import { blitCached } from './paint';
+import { around, blitCached } from './paint';
 import { UI, rgba, shift } from './palette';
 import { meter, shadow } from './shapes';
 
@@ -888,11 +888,6 @@ function drawInserter(
 const ARM_STEPS = 24;
 const GEAR_STEPS = 12;
 const DRILL_STEPS = 16;
-
-/** A square box of `r` about the anchor, for small baked parts. */
-function around(r: number): { left: number; right: number; top: number; bottom: number } {
-  return { left: r, right: r, top: r, bottom: r };
-}
 
 /** An inserter's plate and post, standing on its tile centre at the origin. */
 function drawInserterBase(ctx: CanvasRenderingContext2D, def: MachineDef): void {
