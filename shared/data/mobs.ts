@@ -20,11 +20,15 @@ export interface MobDef {
   spit?: { range: number; interval: number; speed: number; damage: number };
   /** Bursts into smaller mobs when it dies. */
   splits?: { into: MobTypeId; count: number };
+  /** Calls a few of these in around itself every `interval` seconds while it lives. */
+  summons?: { into: MobTypeId; count: number; interval: number };
   /**
    * Never bought from a night's budget: one walks in at the start of every
    * night that is a multiple of this, once it has reached `minNight`.
    */
   bossEvery?: number;
+  /** Shifts which nights a boss walks in on: those where (night - phase) is a multiple of `bossEvery`. */
+  bossPhase?: number;
   /** Orbs it drops, and the share of them that are essence. Default 1–2 at a quarter. */
   loot?: { orbs: number; essence: number };
 }
@@ -140,6 +144,28 @@ export const MOBS: Record<MobTypeId, MobDef> = {
     armor: 3,
     bossEvery: 5,
     loot: { orbs: 16, essence: 0.6 },
+  },
+  queen: {
+    id: 'queen',
+    name: 'Swarm Queen',
+    // Off the Warden's nights, so a late run gets a boss every few nights
+    // instead of two at once. She hangs back and lets her brood do the biting:
+    // the fight is getting to her through them.
+    hp: 640,
+    speed: 46,
+    damage: 16,
+    radius: 24,
+    xp: 120,
+    cost: 0,
+    minNight: 13,
+    color: '#6d4f8f',
+    accent: '#f0c850',
+    armor: 1,
+    spit: { range: 290, interval: 2.4, speed: 250, damage: 12 },
+    summons: { into: 'crawler', count: 3, interval: 9 },
+    bossEvery: 5,
+    bossPhase: 3,
+    loot: { orbs: 20, essence: 0.6 },
   },
 };
 

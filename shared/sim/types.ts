@@ -121,6 +121,10 @@ export interface Mob {
   chill?: number;
   /** Seconds until a mob that spits can spit again. */
   spitCd?: number;
+  /** Seconds until a mob that calls for help calls again. */
+  summonCd?: number;
+  /** Called in by another mob: worth no XP or orbs, so a boss left alive is not a farm. */
+  brood?: boolean;
 }
 
 export type MobTypeId =
@@ -131,7 +135,8 @@ export type MobTypeId =
   | 'spitter'
   | 'shellback'
   | 'mother'
-  | 'warden';
+  | 'warden'
+  | 'queen';
 
 export interface Projectile {
   id: number;
@@ -434,6 +439,7 @@ export type SimEvent =
   | { kind: 'mobDied'; pos: Vec2; type: MobTypeId }
   | { kind: 'blast'; pos: Vec2; radius: number }
   | { kind: 'spit'; pos: Vec2 }
+  | { kind: 'summon'; pos: Vec2 }
   | { kind: 'boss'; pos: Vec2; type: MobTypeId }
   | { kind: 'beacon'; pos: Vec2; stage: number; lit: boolean }
   | { kind: 'landmark'; pos: Vec2; landmark: ResourceKind; playerId: number }

@@ -243,6 +243,9 @@ export class GameAudio {
         case 'spit':
           this.play('spit', { pos: event.pos });
           break;
+        case 'summon':
+          this.play('summon', { pos: event.pos });
+          break;
         case 'boss':
           this.play('boss');
           break;
