@@ -35,8 +35,17 @@ function fingerprint(world: World): string {
  * in `shared/sim/world.ts` and then update these.
  */
 const EXPECTED: { worldgen: number; islands: Record<number, string> } = {
-  worldgen: 1,
-  islands: { 1: '27970376', 4242: 'f113de12', 65535: 'fff3a353' },
+  worldgen: 3,
+  islands: { 1: '66167a56', 4242: '16ee058d', 65535: 'f3d02382' },
+};
+
+/**
+ * Every older generation is still grown for the islands saved under it, so its
+ * fingerprints must never change at all.
+ */
+const FROZEN: Record<number, Record<number, string>> = {
+  1: { 1: '27970376', 4242: 'f113de12', 65535: 'fff3a353' },
+  2: { 1: 'b3136af8', 4242: 'e1a2d970', 65535: 'eb6d5dec' },
 };
 
 describe('worldgen', () => {
@@ -46,6 +55,16 @@ describe('worldgen', () => {
       actual[seed] = fingerprint(createWorld(seed));
     }
     expect({ worldgen: WORLDGEN, islands: actual }).toEqual(EXPECTED);
+  });
+
+  it('still grows every older generation exactly as it did', () => {
+    for (const [gen, islands] of Object.entries(FROZEN)) {
+      const actual: Record<number, string> = {};
+      for (const seed of Object.keys(islands).map(Number)) {
+        actual[seed] = fingerprint(createWorld(seed, false, Number(gen)));
+      }
+      expect(actual).toEqual(islands);
+    }
   });
 
   it('does not depend on whether the island is peaceful', () => {

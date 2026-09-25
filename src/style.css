@@ -454,6 +454,7 @@ kbd {
 .phase-text strong {
   font-size: 15px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .phase-text span {
@@ -496,10 +497,22 @@ kbd {
 
 /* ---------- Pouch ---------- */
 
-.pouch {
+/*
+ * The top-right corner is a stack, not a set of guessed offsets: the resource
+ * pouch and anything that joins it (the co-op chip) flow one under the other,
+ * so a pouch that grows a row pushes the rest down instead of sliding under it.
+ */
+.corner-right {
   position: absolute;
   top: max(14px, env(safe-area-inset-top));
   right: max(14px, env(safe-area-inset-right));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.pouch {
   display: grid;
   grid-template-columns: repeat(4, auto);
   gap: 4px;
@@ -796,9 +809,17 @@ kbd {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), var(--rim);
 }
 
+/*
+ * One column per group while each can be at least 124px wide; below that the
+ * groups wrap onto a second row instead of squeezing names into slivers. The
+ * 1px keeps rounding from dropping a column when the width is exactly enough.
+ */
 .buildbar-items {
   display: grid;
-  grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(max(124px, calc((100% - (var(--cols, 5) - 1) * 8px) / var(--cols, 5) - 1px)), 1fr)
+  );
   gap: 8px;
   overflow-y: auto;
   min-height: 0;
@@ -1091,6 +1112,10 @@ kbd {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.offers.pairs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .offer {
@@ -2147,10 +2172,13 @@ kbd {
     right: max(14px, env(safe-area-inset-right));
     transform: none;
   }
-  .pouch {
+  .corner-right {
     top: calc(max(14px, env(safe-area-inset-top)) + 82px);
     left: max(14px, env(safe-area-inset-left));
     right: max(14px, env(safe-area-inset-right));
+  }
+  .pouch {
+    align-self: stretch;
     max-width: none;
     display: flex;
     flex-wrap: wrap;
@@ -2162,6 +2190,25 @@ kbd {
   }
   #ui .goal {
     top: calc(max(14px, env(safe-area-inset-top)) + 128px);
+  }
+  /* Five buttons no longer fit beside the hotbar, so they climb the right edge. */
+  .actions {
+    flex-direction: column-reverse;
+  }
+  .buildbar {
+    left: max(14px, env(safe-area-inset-left));
+    transform: none;
+    width: calc(100vw - 112px);
+    max-height: calc(100vh - 370px);
+    animation: none;
+  }
+  /* The palette's top edge is where toasts sit, so they move right, beside the goal. */
+  #ui:has(#buildbar:not(.hidden)) .toasts {
+    top: calc(max(14px, env(safe-area-inset-top)) + 172px);
+    left: auto;
+    right: max(14px, env(safe-area-inset-right));
+    transform: none;
+    align-items: flex-end;
   }
 }
 
@@ -2237,11 +2284,21 @@ kbd {
     height: 4px;
   }
 
+  /* The smallest phones have ~120px for the phase: the dial goes, the words stay on one line. */
+  @media (max-width: 380px) {
+    .phase-dial {
+      display: none;
+    }
+  }
+
   /* Resources become one strip under the top row, scrolled sideways. */
-  .pouch {
+  .corner-right {
     top: calc(max(14px, env(safe-area-inset-top)) + 60px);
     left: max(12px, env(safe-area-inset-left));
     right: max(12px, env(safe-area-inset-right));
+  }
+  .pouch {
+    align-self: stretch;
     max-width: none;
     display: flex;
     overflow-x: auto;
@@ -2830,6 +2887,12 @@ kbd {
   .toasts {
     top: calc(max(14px, env(safe-area-inset-top)) + 214px);
   }
+  /* Centred, so an equal margin each side keeps them off the button column. */
+  .toast {
+    max-width: calc(100vw - 150px);
+    white-space: normal;
+    text-align: center;
+  }
 }
 
 /* A landscape phone has no room for the goal beside an open palette. */
@@ -2843,5 +2906,112 @@ kbd {
 @media (max-width: 640px) {
   #ui:has(#buildbar:not(.hidden)) .goal-hint {
     display: none;
+  }
+  /*
+   * With the hint gone the goal is shorter, so toasts move up under it and the
+   * palette stops short of them (two toasts tall) rather than running under them.
+   */
+  #ui:has(#buildbar:not(.hidden)) .toasts {
+    top: calc(max(14px, env(safe-area-inset-top)) + 160px);
+  }
+  .buildbar {
+    max-height: min(56vh, calc(100vh - 356px));
+  }
+}
+
+/*
+ * Phones held sideways: under 480 tall and under 900 wide there is no room for
+ * full vitals, a 320px phase panel and the pouch in one row, nor for five
+ * buttons beside the hotbar. The vitals shrink as they do on a portrait phone,
+ * the phase narrows to the gap the pouch leaves, and the buttons take two rows.
+ */
+@media (max-height: 480px) and (max-width: 900px) {
+  .vitals {
+    padding: 6px 10px 6px 6px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+  .level-ring {
+    width: 38px;
+    height: 38px;
+  }
+  .level {
+    width: 31px;
+    height: 31px;
+    font-size: 14px;
+  }
+  .bars {
+    width: 96px;
+    gap: 5px;
+  }
+  .bar-icon {
+    display: none;
+  }
+  .bar {
+    height: 12px;
+  }
+  .bar span {
+    font-size: 9px;
+    line-height: 12px;
+  }
+  .bar.xp {
+    height: 8px;
+  }
+  .bar.xp span {
+    display: none;
+  }
+
+  /* Centred, so it may only be as wide as the gap the wider side leaves twice. */
+  .topbar {
+    width: min(260px, calc(100vw - 452px));
+    padding: 6px 10px 8px 8px;
+    border-radius: 14px;
+  }
+  .phase-dial {
+    width: 26px;
+    height: 26px;
+    font-size: 15px;
+  }
+  .phase-text strong {
+    font-size: 13px;
+  }
+  .phase-time {
+    font-size: 12.5px;
+    padding: 2px 6px;
+  }
+  .phase-track {
+    margin-top: 6px;
+  }
+
+  #ui .goal {
+    top: calc(max(14px, env(safe-area-inset-top)) + 62px);
+    width: 180px;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    justify-content: end;
+  }
+
+  /* By id: progress.css loads after this file. A key hint means nothing on a phone. */
+  #ui .levelup-prompt {
+    font-size: 10px;
+  }
+  #ui .levelup-prompt kbd {
+    display: none;
+  }
+}
+
+/* On a short screen the palette fills the middle, so toasts wait above the buttons. */
+@media (max-height: 480px) {
+  #ui:has(#buildbar:not(.hidden)) .toasts {
+    top: auto;
+    left: auto;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 124px);
+    transform: none;
+    flex-direction: column-reverse;
+    align-items: flex-end;
   }
 }

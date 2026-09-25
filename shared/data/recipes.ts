@@ -104,6 +104,59 @@ export const RECIPES: Recipe[] = [
     outputs: [{ id: 'advancedCircuit', count: 1 }],
   },
   {
+    id: 'pipe',
+    name: 'Pipe',
+    machine: 'assembler',
+    time: 1,
+    inputs: [{ id: 'ironPlate', count: 1 }],
+    outputs: [{ id: 'pipe', count: 1 }],
+  },
+  {
+    id: 'engineUnit',
+    name: 'Engine Unit',
+    machine: 'assembler',
+    time: 10,
+    inputs: [
+      { id: 'steelPlate', count: 1 },
+      { id: 'pipe', count: 2 },
+    ],
+    outputs: [{ id: 'engineUnit', count: 1 }],
+  },
+  {
+    id: 'processor',
+    name: 'Processor',
+    machine: 'assembler',
+    time: 16,
+    inputs: [
+      { id: 'advancedCircuit', count: 2 },
+      { id: 'battery', count: 1 },
+    ],
+    outputs: [{ id: 'processor', count: 1 }],
+  },
+  {
+    id: 'frame',
+    name: 'Steel Frame',
+    machine: 'assembler',
+    time: 12,
+    inputs: [
+      { id: 'steelPlate', count: 4 },
+      { id: 'engineUnit', count: 1 },
+    ],
+    outputs: [{ id: 'frame', count: 1 }],
+  },
+  {
+    // Essence again: the beacon's light is the island's own, not a factory's.
+    id: 'lens',
+    name: 'Resonant Lens',
+    machine: 'assembler',
+    time: 10,
+    inputs: [
+      { id: 'essence', count: 1 },
+      { id: 'advancedCircuit', count: 1 },
+    ],
+    outputs: [{ id: 'lens', count: 1 }],
+  },
+  {
     id: 'researchPack',
     name: 'Research Pack',
     machine: 'assembler',
@@ -149,6 +202,17 @@ export const RECIPES: Recipe[] = [
       { id: 'essence', count: 1 },
     ],
     outputs: [{ id: 'resonancePack', count: 1 }],
+  },
+  {
+    id: 'engineeringPack',
+    name: 'Engineering Pack',
+    machine: 'assembler',
+    time: 14,
+    inputs: [
+      { id: 'engineUnit', count: 1 },
+      { id: 'circuit', count: 1 },
+    ],
+    outputs: [{ id: 'engineeringPack', count: 1 }],
   },
 ];
 

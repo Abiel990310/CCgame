@@ -3,6 +3,7 @@ import { MACHINES } from '../../data/machines';
 import { DASH, MAP_SIZE, PLAYER, TILE } from '../constants';
 import { clamp, damp, length, normalize } from '../math';
 import { tileKey } from '../grid';
+import { perk } from '../perks';
 import { isWalkable, terrainAtIndex } from '../terrain';
 import type { Player, PlayerInput, Vec2, World } from '../types';
 
@@ -109,10 +110,11 @@ export function stepPlayerMovement(
   } else {
     if (input.dash && player.dashCd <= 0) {
       player.dashTime = DASH.duration;
-      player.dashCd = DASH.cooldown;
+      player.dashCd = DASH.cooldown * Math.pow(0.85, perk(player, 'recovery'));
       player.invuln = Math.max(player.invuln, DASH.duration + 0.1);
     }
-    const speed = PLAYER.speed * player.stats.moveSpeed;
+    const daytime = world.phase === 'day' ? 1 + 0.12 * perk(player, 'pathfinder') : 1;
+    const speed = PLAYER.speed * player.stats.moveSpeed * daytime;
     const target = { x: dir.x * speed, y: dir.y * speed };
     player.vel.x = damp(player.vel.x, target.x, PLAYER.accel, dt);
     player.vel.y = damp(player.vel.y, target.y, PLAYER.accel, dt);

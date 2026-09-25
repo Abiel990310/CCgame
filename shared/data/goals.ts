@@ -1,3 +1,4 @@
+import { BEACON_LIT } from './beacon';
 import { MACHINES } from './machines';
 import type { ItemId, MachineFamily, Player, World } from '../sim/types';
 
@@ -180,6 +181,78 @@ export const GOALS: GoalDef[] = [
     have: (w) => w.machines.filter((m) => MACHINES[m.type].tier >= 2).length,
     need: 1,
     xp: 40,
+  },
+  {
+    id: 'steel',
+    title: 'Smelt steel',
+    hint: 'A furnace set to Steel Plate takes two iron plates and a coal for each one.',
+    have: (w, p) => itemsAnywhere(w, p, 'steelPlate'),
+    need: 10,
+    xp: 40,
+  },
+  {
+    id: 'logicPack',
+    title: 'Make logic packs',
+    hint: 'A circuit and a steel plate in an assembler. Most research past the first tier needs them.',
+    have: (w, p) => itemsAnywhere(w, p, 'logicPack'),
+    need: 5,
+    xp: 45,
+  },
+  {
+    id: 'electricity',
+    title: 'Research Electricity',
+    hint: 'Pick Electricity in the research list and feed your labs research and logic packs.',
+    have: (w) => w.research.levels.electricity ?? 0,
+    need: 1,
+    xp: 60,
+  },
+  {
+    id: 'engine',
+    title: 'Build a steam engine',
+    hint: 'Craft a Steam Engine at the workbench, set it on a shoreline and give it coal.',
+    have: (w) => machinesOf(w, 'generator'),
+    need: 1,
+    xp: 50,
+  },
+  {
+    id: 'powered',
+    title: 'Power an electric machine',
+    hint: 'A pole powers four tiles to each side. Wire poles from the engine to an electric furnace.',
+    have: (w) => w.machines.filter((m) => MACHINES[m.type].power && !m.unpowered && !m.stalled).length,
+    need: 1,
+    xp: 80,
+  },
+  {
+    id: 'engineeringPack',
+    title: 'Make engineering packs',
+    hint: 'Plates make pipes, pipes and steel make engine units, and a unit and a circuit make the pack.',
+    have: (w, p) => itemsAnywhere(w, p, 'engineeringPack'),
+    need: 5,
+    xp: 90,
+  },
+  {
+    id: 'processor',
+    title: 'Make processors',
+    hint: 'Two advanced circuits and a battery make a processor. The beacon will want a lot of them.',
+    have: (w, p) => itemsAnywhere(w, p, 'processor'),
+    need: 10,
+    xp: 110,
+  },
+  {
+    id: 'beacon',
+    title: 'Raise a Skyward Beacon',
+    hint: 'Research Skyward Beacon, craft one at the workbench and place it where the whole island can see.',
+    have: (w) => machinesOf(w, 'beacon'),
+    need: 1,
+    xp: 120,
+  },
+  {
+    id: 'beaconLit',
+    title: 'Light the beacon',
+    hint: 'Feed it every stage, from steel frames up to processors and essence. Click it to see what the stage needs.',
+    have: (w) => (w.machines.some((m) => m.recipe === BEACON_LIT) ? 1 : 0),
+    need: 1,
+    xp: 300,
   },
 ];
 

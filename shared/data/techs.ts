@@ -6,7 +6,21 @@ import type { ItemId, ItemStack, MachineId } from '../sim/types';
  * that already exists worth more per tile, which is what keeps a late-game
  * island rebuilding itself rather than running out of things to want.
  */
-export type TechEffectKind = 'mining' | 'crafting' | 'belt' | 'inserter' | 'lab' | 'xp';
+export type TechEffectKind =
+  | 'mining'
+  | 'crafting'
+  | 'belt'
+  | 'inserter'
+  | 'lab'
+  | 'xp'
+  /** Hand gathering, on top of tools and upgrades. */
+  | 'gather'
+  /** Every weapon's damage. */
+  | 'damage'
+  /** Work each item of fuel pays for, in burners and engines alike. */
+  | 'fuel'
+  /** Output of every generator. */
+  | 'power';
 
 export interface TechDef {
   id: string;
@@ -80,6 +94,57 @@ export const TECHS: TechDef[] = [
     xp: 8,
   },
   {
+    id: 'toolmaking',
+    name: 'Toolmaking',
+    description: 'Better grips and truer edges. You gather everything by hand a quarter faster.',
+    inputs: [{ id: 'researchPack', count: 1 }],
+    cycles: 25,
+    time: 4,
+    requires: ['automation'],
+    effect: { kind: 'gather', amount: 0.25 },
+    xp: 6,
+  },
+  {
+    id: 'fireboxDesign',
+    name: 'Firebox Design',
+    description: 'Tighter doors and a better draught. Every lump of coal does a quarter more work.',
+    inputs: [{ id: 'researchPack', count: 2 }],
+    cycles: 40,
+    time: 5,
+    requires: ['metallurgy'],
+    effect: { kind: 'fuel', amount: 0.25 },
+    xp: 8,
+  },
+  {
+    id: 'weaponsmithing',
+    name: 'Weaponsmithing',
+    description: 'Steel heads and balanced shafts. Every weapon you carry hits a fifth harder.',
+    inputs: [
+      { id: 'researchPack', count: 1 },
+      { id: 'logicPack', count: 1 },
+    ],
+    cycles: 40,
+    time: 6,
+    requires: ['metallurgy'],
+    effect: { kind: 'damage', amount: 0.2 },
+    xp: 12,
+  },
+  {
+    id: 'electricity',
+    name: 'Electricity',
+    description:
+      'Steam engines on the shore and poles to carry what they make. Every electric machine after this runs on power instead of coal.',
+    inputs: [
+      { id: 'researchPack', count: 1 },
+      { id: 'logicPack', count: 1 },
+    ],
+    cycles: 30,
+    time: 6,
+    requires: ['metallurgy'],
+    unlocks: ['generator', 'pole'],
+    xp: 12,
+  },
+  {
     id: 'roboticArms',
     name: 'Robotic Arms',
     description: 'Inserters swing half again as fast, so one arm keeps up with a full belt.',
@@ -146,7 +211,7 @@ export const TECHS: TechDef[] = [
     ],
     cycles: 40,
     time: 8,
-    requires: ['roboticArms', 'labAutomation', 'angling'],
+    requires: ['roboticArms', 'labAutomation', 'angling', 'electricity'],
     effect: { kind: 'crafting', amount: 0.1 },
     unlocks: ['minerMk3', 'furnaceMk3', 'assemblerMk3', 'stackInserter'],
     xp: 30,
@@ -181,6 +246,82 @@ export const TECHS: TechDef[] = [
     requires: ['fieldStudy', 'labAutomation'],
     effect: { kind: 'crafting', amount: 0.1 },
     xp: 25,
+    repeatable: true,
+  },
+  {
+    // The engineering pack is four assemblers deep (plate, pipe, engine
+    // unit, pack) beside a steel line, so these techs are where a base has
+    // to be redesigned rather than extended.
+    id: 'steamPressure',
+    name: 'High-Pressure Steam',
+    description: 'Every generator on the island puts out a quarter more power.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'engineeringPack', count: 1 },
+    ],
+    cycles: 50,
+    time: 8,
+    requires: ['electricity'],
+    effect: { kind: 'power', amount: 0.25 },
+    xp: 18,
+  },
+  {
+    id: 'solarPower',
+    name: 'Solar Power',
+    description: 'Panels that make power from daylight alone. Nothing to feed, and nothing at night.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'engineeringPack', count: 1 },
+    ],
+    cycles: 60,
+    time: 8,
+    requires: ['electricity'],
+    unlocks: ['solar'],
+    xp: 20,
+  },
+  {
+    id: 'skyward',
+    name: 'Skyward Beacon',
+    description: 'Plans for the island\'s last great build: a beacon raised in five stages from the whole factory\'s output.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+      { id: 'engineeringPack', count: 1 },
+    ],
+    cycles: 120,
+    time: 10,
+    requires: ['solarPower', 'steamPressure'],
+    unlocks: ['beacon'],
+    xp: 30,
+  },
+  {
+    id: 'ballistics',
+    name: 'Ballistics',
+    description: 'Never finishes. Each level makes every weapon hit harder again.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'engineeringPack', count: 1 },
+    ],
+    cycles: 40,
+    time: 8,
+    requires: ['weaponsmithing', 'electricity'],
+    effect: { kind: 'damage', amount: 0.1 },
+    xp: 20,
+    repeatable: true,
+  },
+  {
+    id: 'gridCapacity',
+    name: 'Grid Capacity',
+    description: 'Never finishes. Each level raises every generator\'s output again.',
+    inputs: [
+      { id: 'engineeringPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+    ],
+    cycles: 60,
+    time: 10,
+    requires: ['steamPressure'],
+    effect: { kind: 'power', amount: 0.1 },
+    xp: 28,
     repeatable: true,
   },
 ];

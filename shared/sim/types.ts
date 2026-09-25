@@ -2,7 +2,10 @@ export type Vec2 = { x: number; y: number };
 
 export type Terrain = 'deep' | 'water' | 'sand' | 'grass' | 'forest' | 'rock';
 
-export type ResourceKind = 'tree' | 'rock' | 'bush' | 'fish';
+export type ResourceKind = 'tree' | 'rock' | 'bush' | 'fish' | LandmarkKind;
+
+/** Places worth travelling to: searched once, never regrown. */
+export type LandmarkKind = 'cache' | 'ruin' | 'pod' | 'shrine';
 
 export type ItemId =
   // Hand-gathered
@@ -29,11 +32,17 @@ export type ItemId =
   | 'battery'
   | 'motor'
   | 'advancedCircuit'
+  | 'pipe'
+  | 'engineUnit'
+  | 'processor'
+  | 'frame'
+  | 'lens'
   // Consumed by labs
   | 'researchPack'
   | 'logicPack'
   | 'powerPack'
   | 'resonancePack'
+  | 'engineeringPack'
   // Crafted at the workbench
   | ToolItemId
   | CraftedMachineId;
@@ -65,7 +74,10 @@ export type CraftedMachineId =
   | 'fastInserter'
   | 'stackInserter'
   | 'lab'
-  | 'splitter';
+  | 'splitter'
+  | 'generator'
+  | 'solar'
+  | 'beacon';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -104,9 +116,21 @@ export interface Mob {
   /** Cosmetic wobble seed. */
   seed: number;
   hitFlash: number;
+  /** Seconds of frost left: it moves slower until they run out. */
+  chill?: number;
+  /** Seconds until a mob that spits can spit again. */
+  spitCd?: number;
 }
 
-export type MobTypeId = 'slime' | 'crawler' | 'brute' | 'wisp';
+export type MobTypeId =
+  | 'slime'
+  | 'crawler'
+  | 'brute'
+  | 'wisp'
+  | 'spitter'
+  | 'shellback'
+  | 'mother'
+  | 'warden';
 
 export interface Projectile {
   id: number;
@@ -115,9 +139,11 @@ export interface Projectile {
   damage: number;
   life: number;
   ownerId: number;
-  /** Weapon that fired it, so the renderer can style it. */
-  weapon: WeaponId;
+  /** Weapon that fired it, so the renderer can style it; 'spit' is a mob's. */
+  weapon: WeaponId | 'spit';
   pierce: number;
+  /** Mobs a piercing shot already went through, so it never hits one twice. */
+  struck?: number[];
   /**
    * Mob this was aimed at, until it hits anything. Lets later volleys see the
    * damage already on its way and pick someone else instead of overkilling.
@@ -125,7 +151,7 @@ export interface Projectile {
   targetId?: number;
 }
 
-export type WeaponId = 'sling' | 'bow' | 'spark' | 'thorn';
+export type WeaponId = 'sling' | 'bow' | 'spark' | 'thorn' | 'harpoon' | 'ember' | 'frost';
 
 /** How a weapon chooses among the mobs in range. */
 export type TargetRule = 'nearest' | 'toughest' | 'scatter' | 'line';
@@ -184,6 +210,8 @@ export interface Player {
   /** The stack held on the pointer while rearranging. Saved, so it is never lost. */
   cursor: Slot;
   weapons: WeaponState[];
+  /** Level-up perks taken, by id, and how many times. Absent on older islands. */
+  perks?: Record<string, number>;
   stats: PlayerStats;
   dashCd: number;
   dashTime: number;
@@ -235,7 +263,11 @@ export type MachineFamily =
   | 'inserter'
   | 'splitter'
   | 'lab'
-  | 'fishTrap';
+  | 'fishTrap'
+  | 'generator'
+  | 'solar'
+  | 'pole'
+  | 'beacon';
 
 export type MachineId =
   | MachineFamily
@@ -297,6 +329,12 @@ export interface Machine {
   filters?: (ItemId | null)[];
   /** Splitter only: which of the two sides the next item is offered to. */
   turn?: number;
+  /**
+   * Electric machines only: true when it stopped last tick for want of power
+   * rather than for want of work. It is what keeps a starved machine asking
+   * for power, so its network cannot mistake it for an idle one.
+   */
+  unpowered?: boolean;
   /** Burners only: the fuel grid, sized by the machine's `fuelSlots`. */
   fuel?: Slot[];
   /**
@@ -332,6 +370,8 @@ export interface World {
   tick: number;
   time: number;
   seed: number;
+  /** The generation of worldgen that grew this island, which also sets its size. */
+  worldgen: number;
   /** Row-major terrain grid, MAP_TILES * MAP_TILES entries. */
   terrain: Uint8Array;
   phase: Phase;
@@ -345,6 +385,8 @@ export interface World {
   nodes: ResourceNode[];
   buildings: Building[];
   camp: Vec2;
+  /** Row-major, 1 where a player has been close enough to see. Parallel to `terrain`. */
+  explored: Uint8Array;
   /** Row-major ore grid; 0 means no ore. Parallel to `terrain`. */
   ore: Uint8Array;
   /**
@@ -385,6 +427,11 @@ export type SimEvent =
   | { kind: 'placed'; pos: Vec2; what: MachineId | 'belt' }
   | { kind: 'removed'; pos: Vec2 }
   | { kind: 'mobDied'; pos: Vec2; type: MobTypeId }
+  | { kind: 'blast'; pos: Vec2; radius: number }
+  | { kind: 'spit'; pos: Vec2 }
+  | { kind: 'boss'; pos: Vec2; type: MobTypeId }
+  | { kind: 'beacon'; pos: Vec2; stage: number; lit: boolean }
+  | { kind: 'landmark'; pos: Vec2; landmark: ResourceKind; playerId: number }
   | { kind: 'levelUp'; playerId: number; level: number }
   | { kind: 'gathered'; pos: Vec2; item: ItemId }
   | { kind: 'phase'; phase: Phase; nightIndex: number }

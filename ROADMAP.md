@@ -84,6 +84,11 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Worldgen | Versioned as part of the save contract | Saves hold only differences from what the seed grows, so they mean nothing against a different generator. `WORLDGEN` is recorded in every save and guarded by a fingerprint test; an island from an older generation gets today's ground rather than deltas laid over land they do not describe. |
 | Tabs | Last to open an island owns it | Every tab holds the whole island and saves it wholesale, so two writers corrupt each other. An owner record beside the slot is the rule; a broadcast asks the old tab to save before the new one reads. |
 | Fuel | A separate fuel grid on burners, spent per recipe-second | Coal is also a steel and battery ingredient, so it could not share the recipe grid without starving one or the other; a burner keeps `FUEL_RESERVE` in hand before letting coal through to the recipe. Burning per unit of work rather than per second makes every craft cost the same coal in every tier. |
+| Island size | Per island, fixed by the generator that grew it | New islands are 256 tiles across; islands grown before keep 96 and their own generator, so nobody's factory lands in the sea. `createWorld` sets the live `MAP_*` bindings, which is safe because one process simulates one island. |
+| Exploration | A seen-tile mask in the save, as run lengths | A bigger island needs a reason to walk and a way to find your way back. The mask is sim state so co-op guests share it, and costs a few kilobytes. |
+| Far ore | Patches get up to 2.2× richer and wider towards the coast | Makes the far side of the island worth a long belt or a second base instead of only more of the same. |
+| Power | One network per set of wired poles, balanced every tick; tier 3 runs on it instead of coal | The fuel memo said power should replace tier 3's fuel rather than run beside it. Supply short of demand slows every machine by the same share rather than stopping some, so an overloaded base degrades visibly instead of flickering. The layout is derived from the machines and never saved; a starved machine's `unpowered` flag is, so a guest balances the same demand as the host. |
+| Tech added under a finished one | Granted on load | Electricity sits under Resonance; an island that finished Resonance first gets it free, so its electric machines stay buildable. Done generically for any prerequisite added later. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
@@ -110,7 +115,7 @@ always rebuilding something you built an hour ago.
 | 1 | Miner, belt, chest, inserter | Things move without you | ✅ |
 | 2 | Furnace, plates | Ratios: several miners feed one furnace | ✅ |
 | 3 | Assembler: gears, wire, circuits | Multi-input recipes, sub-factories | ✅ |
-| 4 | Power (coal → steam) | Everything stops when power dies | Next |
+| 4 | Power (coal → steam) | Everything slows when power runs short | ✅ |
 | 5 | Steel, resin, advanced circuits | Chains six or more steps deep | Recipes and machine tiers done; resin ahead |
 | 6 | Island logistics: drones, rail | Remote outposts on distant ore | Planned |
 | 7 | The Megaproject | An endgame sink with unbounded appetite | Planned |
@@ -144,8 +149,13 @@ Each lab cycle grants XP to every player on the island, which is what stops
 automating your island from slowing your character down, and gives a peaceful
 world a levelling curve at last.
 
-- Power as a network: generators, poles, consumption per machine. Machines stop
-  when supply runs short, which makes power a system rather than a cost.
+- [x] Power as a network. **Steam engines** stand on a shoreline and burn coal
+  only as fast as their load asks; **power poles** power machines within four
+  tiles and wire to poles within eight. Every tier 3 machine (electric miner,
+  electric furnace, industrial assembler, stack inserter) now draws power instead
+  of burning coal, and a network short of supply slows every machine on it by
+  the same share. The **Electricity** tech (research + logic packs, after
+  Metallurgy) unlocks it and sits under Resonance.
 - Steel and resin: recipes six or more steps from raw ore.
 - Belt tiers or not (see open questions).
 - Production statistics, so a player can find their own bottleneck. This is a
@@ -207,19 +217,40 @@ detail behind the factory entries is in
 
 ### Bugs
 
+- [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
+      again on the next tick, so it rarely reached a second target. Each shot
+      now remembers what it went through.
+
 - [x] The game gets very laggy near the campfire. Not the campfire: the
       island's centre is its thickest forest, and each tree was blitted at a
       fractional pixel, so the rasteriser filtered every one. Sprites now land
       on whole device pixels and night lights are gathered at quarter
       resolution. Headless, 2x screen: a fresh camp by day went from 37 to 98
       fps, a camp with 12 lamps at night from 20 to 47. Full notes under
-      Changes, "Move drawing to WebGL".
+      Changes, "Move drawing to PixiJS".
 - [x] Walking stuttered: scrolling the one big ground cache copied it onto
       itself and painted the incoming strip, 35 to 95 ms a few times a second
       on a 2x screen. The ground is now fixed 4-tile chunks (`groundcache.ts`)
       painted once and a couple ahead of the view each frame; walking went from
       about 15 frames over 33 ms per 12 s to none.
-- [ ] The overlapping HUD panels are still showing after the UI revamp. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [x] On a phone held sideways (iPhone 13 landscape, 750×342) the day panel
+      covers the right half of the health and XP bars. Sideways phones up to
+      900px wide now get compact vitals and a narrower phase panel. The five
+      action buttons take two rows there, where the Map button had pushed Build
+      under the hotbar. On a portrait tablet they climb the right edge, and the
+      palette stays clear of them. Surveyed clean at 16 sizes.
+- [x] On a portrait tablet (810px) the build palette squeezes six category
+      columns into the width, so names wrap and "Workbench" is clipped on the
+      Lab card. Groups now wrap onto a second row once a column would drop
+      under 124px, and the palette stops short of the goal tracker.
+- [x] On a portrait phone a toast can land on the top edge of an open build
+      palette. Toasts wrap instead of running into the buttons, and in build
+      mode they sit under the goal, clear of the palette.
+- [x] The overlapping HUD panels are still showing after the UI revamp. The
+      co-op code chip sat on the resource pouch at every screen size, and on
+      a 320px phone the phase panel wrapped into it. The top-right corner is
+      now one stack, the chip is compact on phones, and phone toasts stay
+      clear of the button column. Surveyed clean at 11 sizes from 320px to 1920px.
 - [x] Co-op: "Lost the matchmaking service" when the broker's socket dropped,
       which also threw a guest out of a game that no longer needed it. The
       broker now reconnects quietly, and guests let go of it once they are in.
@@ -277,11 +308,66 @@ detail behind the factory entries is in
 
 ### New features
 
-- [ ] A much bigger map, so the island feels like an open world rather than one
-      screen of forest. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+- [x] **Landmarks** on new mainlands: buried caches, old ruins, crashed supply
+      pods and essence shrines, placed so the rarer ones lie further from camp.
+      Hold E to search one; it spills a cache that grows with distance, and a
+      shrine also grants an upgrade. They show on the map once explored.
+      Islands grown before this (worldgen 2 and older) have none.
+- [ ] Guarded landmarks: a nest of creatures round the rarest finds, so a
+      shrine far out is a fight as well as a walk.
+- [ ] A count of landmarks found and left on the island map.
+- [x] A late-game megaproject: the **Skyward Beacon**. Research it (logic,
+      power and engineering packs, after Solar Power and High-Pressure
+      Steam), craft it, and raise it in five stages: foundation, spire,
+      wiring, lens and ignition. Each stage is fed by arm or by hand from
+      the whole tree, including three new tier-4 parts: **Processors**,
+      **Steel Frames** and **Resonant Lenses** (which take essence). The
+      spire grows a section per stage and throws a sweeping beam once lit.
+      Three goals follow the chain to it.
+- [ ] A lit beacon should light the night like the campfire does. Left for
+      after the engine thread's night-layer rework (PR #47), which owns
+      the lighting code.
+- [ ] What a lit beacon gives back beyond the XP: a reason to keep feeding
+      the island after it (an endless tier, a second island, a prestige).
+
+- [x] Around fifty level-up upgrades (49): 26 perks you can stack up to a
+      cap (range, crits, armour, thorns, lifesteal, pierce, knockback, a
+      finisher, night and camp damage, dash, revive, day speed, map sight,
+      double harvests, per-resource gathering, more essence, a fourth
+      choice) and a mastery for each weapon once it is at its last level.
+      Rarer perks turn up less often; a perk taken again shows its numeral.
+- [ ] A small list of the perks you hold, in the bag screen, so a build is
+      readable after thirty levels.
+
+- [x] More to fight: the **Spitter** (night 4) keeps its distance and spits,
+      the armoured **Shellback** (night 5) shrugs off weak hits, the **Mother
+      Slime** (night 6) bursts into four slimes, and every fifth night a
+      **Stone Warden** boss walks in and drops a heap of orbs and essence if
+      it falls before dawn. Three new weapons: the long-reach **Harpoon**,
+      the splash-damage **Ember Pot**, and the slowing **Frost Shard**. You
+      can carry five weapons instead of four.
+
+- [x] A longer tech tree: Toolmaking (hand gathering), Firebox Design (every
+      coal does more), Weaponsmithing and repeatable Ballistics (damage),
+      High-Pressure Steam and repeatable Grid Capacity (generator output),
+      and Solar Power. A new Engineering Pack (plate → pipe → engine unit +
+      circuit) drives the power-era techs. Solar panels make 60 kW by day with
+      no fuel. The goal chain runs on past tier 2 through steel, logic packs,
+      Electricity, a steam engine, a powered machine and engineering packs.
+
+- [x] A much bigger map, so the island feels like an open world rather than one
+      screen of forest. New islands are a 256-tile mainland (seven times the
+      area) with lakes, highlands and richer ore towards the coast; islands
+      from before keep their 96 tiles. Exploration fog and an island map (M,
+      or the Map button) show what you have seen.
+- [ ] Landmarks worth travelling to on the mainland: ruins with loot, a
+      crashed supply pod, a rich ore vein guarded by a nest.
+- [ ] Map pins: let the player mark a spot on the island map.
 - [ ] A big content pass across every system (recipes, machines, techs, goals,
       mobs, camp) aimed at tens to hundreds of hours of play over the next
-      weeks. *On hold until Abiel confirms multiplayer works (2026-09-24).*
+      weeks. *Hold lifted 2026-09-24; planned across the week to 2026-10-01:
+      power, a longer tech tree, more tiers, creatures and weapons, ~50
+      upgrades, a megaproject.*
 - [ ] Co-op: predict a guest's own movement locally. A guest sees their own
       steps one round trip late (under a tenth of a second on a good line).
 - [ ] Co-op: a TURN relay fallback, so friends on strict networks (some mobile
@@ -389,8 +475,9 @@ detail behind the factory entries is in
 - [x] Brutes are baked per stride phase (24 a cycle), facing and hit flash:
       forty on screen went from 27 to 133 fps headless. Crawlers (about
       0.3 ms each on a CPU canvas) and slimes are still traced live.
-- [ ] **Move drawing to WebGL** (decided 2026-09-24, Abiel asked for the game
-      to look and run like a Steam game). Profiled on the live build: the
+- [ ] **Move drawing to PixiJS** (Abiel, 2026-09-25: "just use the one
+      everyone use for web gaming so we can expand"). The first plan, below,
+      was hand-written WebGL (first decided 2026-09-24). Profiled on the live build: the
       simulation, HUD and lighting maths cost under 1 ms a frame; the rest is
       Canvas 2D rasterising sprites, gradients and full-screen composites, and
       everything past a fresh island (a factory, a night camp, a raid) still
@@ -403,12 +490,16 @@ detail behind the factory entries is in
       engine such as Godot or Unity (a rewrite of the sim and co-op in another
       language for no visual gain the art cannot already give).
       Since then (PR #47) the Canvas fixes above took every measured scene to
-      2 to 3 times its frame rate, so whether the full move still pays depends
-      on Abiel's own device; asked 2026-09-24.
+      2 to 3 times its frame rate. Pixi v8 adds about 145 KB gzipped (the game
+      is 85 KB); it draws the existing baked art as textures, behind a switch
+      until it matches the Canvas renderer.
 - [ ] Crawlers and slimes are still traced live (about 0.3 and 0.15 ms each on
       a CPU canvas). Baking them like the brute needs their heading quantised,
       and the sprite cache evicts by age rather than use, which a few hundred
       creature frames would churn.
+- [ ] HUD panels are still placed with hand-tuned `top` offsets per breakpoint
+      (goal, toasts, left column). Turning the left column into a stack like
+      the top-right one would stop the next new panel colliding.
 - [x] Loot popups ("+2 Wood") show for every player's pickups. Filter them by
       the event's `playerId` when multiplayer lands. Done with co-op.
 - [ ] Co-op: the menu behind a guest who left still shows the friend's island
@@ -573,6 +664,21 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Power: an accumulator that stores daytime solar surplus for the night.
+- [ ] Power: a production-stats panel per network (supply, demand, coal per
+      minute over time).
+- [ ] A fourth pack tier whose ingredients need three lines into one
+      Mk2 assembler, so the jump from Mk1 assemblers is forced by a recipe.
+- [ ] Research effects on the player: max health, move speed.
+- [ ] The test bench fills the bag nearly full, so a test that refunds items
+      can find no room; give the bench a bigger bag or fewer stacks.
+
+- [ ] A corner minimap on the HUD, drawn from the same image as the island map.
+- [ ] Index scenery nodes by tile bucket. The mainland has 6–9k nodes and
+      gathering, collision and mobs still scan the whole list.
+- [ ] The coal swatch on the island map is nearly invisible against the dark
+      fog; give coal a lighter outline on the map.
+
 - [ ] Co-op: let the host hand the island to a guest when leaving, so the others
       can keep playing (host migration).
 - [ ] Co-op: scale night raids with how many players are on the island.
@@ -699,6 +805,15 @@ detail behind the factory entries is in
 
 - [ ] Frame rate near the camp on Abiel's own machine. Every number so far is
       headless Chromium without a GPU, which rasterises canvas on the CPU.
+- [ ] Landmark cache sizes against the walk. A far shrine takes a few minutes
+      to reach on foot on day one; whether its essence and upgrade feel worth
+      it, and whether caches near camp break the early goal pace, is unplayed.
+- [ ] The hover card says "hold E" on phones too, where the prompt says Hold;
+      the tree and rock cards share the wording.
+- [ ] Stone Warden pacing: 520 health behind 3 armour in a one-minute night.
+      Whether a night-5 player can kill it with the weapons they have by then
+      is unplayed; a sling at level 3 barely scratches it.
+
 - [ ] Co-op across two real networks through the public PeerJS broker. It was
       driven with two browsers on one machine through a local copy of the same
       broker, because the test sandbox cannot reach `0.peerjs.com`.

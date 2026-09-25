@@ -2,7 +2,7 @@ import { WORLDGEN, createWorld } from '@shared/sim/world';
 import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { TECH_BY_ID } from '@shared/data/techs';
-import { newResearch } from '@shared/sim/research';
+import { backfillPrerequisites, newResearch } from '@shared/sim/research';
 import { catchUpGoals } from '@shared/sim/goals';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
@@ -21,7 +21,8 @@ import type {
   Slot,
   World,
 } from '@shared/sim/types';
-import { FACTORY_SUFFIX, ORE_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
+import { EXPLORED_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
+import { packExplored, reveal, unpackExplored } from '@shared/sim/explore';
 
 const VERSION = 7;
 
@@ -155,7 +156,7 @@ export function saveWorld(world: World, slot: string): boolean {
     version: VERSION,
     savedAt: Date.now(),
     seed: world.seed,
-    worldgen: WORLDGEN,
+    worldgen: world.worldgen,
     tick: world.tick,
     time: world.time,
     phase: world.phase,
@@ -174,6 +175,7 @@ export function saveWorld(world: World, slot: string): boolean {
   if (!writeSection(slot, SCENERY_SUFFIX, packScenery(world))) return false;
   if (!writeSection(slot, FACTORY_SUFFIX, packFactory(world))) return false;
   if (!writeSection(slot, ORE_SUFFIX, minedTiles(world))) return false;
+  if (!writeSection(slot, EXPLORED_SUFFIX, packExplored(world.explored))) return false;
   return writeSection(slot, '', file);
 }
 
@@ -205,16 +207,15 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
     if (!(file.version >= 1 && file.version <= VERSION)) return null;
     const generation = file.worldgen ?? 1;
     if (!(generation >= 1 && generation <= WORLDGEN)) return null;
-    // The scenery and ore sections are differences from what the seed grew
-    // under the island's own generator. Laid over a different generator's
-    // ground they would fell the wrong trees and hollow out the wrong tiles, so
-    // the island takes today's ground whole and keeps only what was built.
-    const sameGround = generation === WORLDGEN;
-    notes.regenerated = !sameGround;
+    // Every generation the game has shipped is still here, so an island is
+    // regrown by the generator that made it: same size, same ground, and its
+    // scenery and ore deltas land on the tiles they were written against.
+    const sameGround = true;
+    notes.regenerated = false;
 
     // Terrain, ore and scenery are all regenerated from the seed rather than
     // stored — they are large, and they are a pure function of the seed.
-    const world = createWorld(file.seed, file.peaceful ?? false);
+    const world = createWorld(file.seed, file.peaceful ?? false, generation);
     const pristine = world.nodes;
 
     world.tick = file.tick;
@@ -249,6 +250,17 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
     // hold a tree standing inside a belt. The grid has to exist to spot them.
     clearBuriedNodes(world);
     world.players = new Map(file.players.map((p) => [p.id, p]));
+
+    const explored = readSection<string>(slot, EXPLORED_SUFFIX);
+    if (typeof explored === 'string') world.explored = unpackExplored(explored, world.terrain.length);
+    else {
+      // An island from before the map was drawn: show what its owner built and
+      // where they stand, and leave the rest to be found.
+      for (const piece of [...world.belts, ...world.machines]) reveal(world, (piece.tx + 0.5) * 32, (piece.ty + 0.5) * 32, 6);
+      for (const building of world.buildings) reveal(world, building.pos.x, building.pos.y, 6);
+      for (const player of world.players.values()) reveal(world, player.pos.x, player.pos.y);
+    }
+
     for (const player of world.players.values()) {
       player.downed = 0;
       player.hp = Math.max(player.hp, player.maxHp * 0.5);
@@ -265,7 +277,7 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
 
     // The freshly generated nodes are what the next save diffs against, and we
     // have just built them, so hand them straight to the cache.
-    rememberPristine(file.seed, pristine);
+    rememberPristine(file.seed, generation, pristine);
     return world;
   } catch {
     return null;
@@ -299,6 +311,11 @@ function loadResearch(
   if (typeof raw.current === 'string' && TECH_BY_ID.has(raw.current)) {
     research.current = raw.current;
   }
+  backfillPrerequisites(research);
+  // Pointing the labs at a tech that has just been granted would waste them.
+  if (research.current && (research.levels[research.current] ?? 0) > 0 && !TECH_BY_ID.get(research.current)?.repeatable) {
+    research.current = null;
+  }
   return research;
 }
 
@@ -315,10 +332,12 @@ interface PristineNode {
 }
 
 let pristineSeed: number | null = null;
+let pristineGen = 0;
 let pristineNodes = new Map<number, PristineNode>();
 
-function rememberPristine(seed: number, nodes: ResourceNode[]): void {
+function rememberPristine(seed: number, worldgen: number, nodes: ResourceNode[]): void {
   pristineSeed = seed;
+  pristineGen = worldgen;
   pristineNodes = new Map(nodes.map((n) => [n.id, { charges: n.charges, regrow: n.regrow }]));
 }
 
@@ -328,13 +347,15 @@ function rememberPristine(seed: number, nodes: ResourceNode[]): void {
  * practice means once per island, and usually not even that, since a load has
  * already produced it.
  */
-function pristine(seed: number): Map<number, PristineNode> {
-  if (pristineSeed !== seed) rememberPristine(seed, createWorld(seed, true).nodes);
+function pristine(seed: number, worldgen: number): Map<number, PristineNode> {
+  if (pristineSeed !== seed || pristineGen !== worldgen) {
+    rememberPristine(seed, worldgen, createWorld(seed, true, worldgen).nodes);
+  }
   return pristineNodes;
 }
 
 function packScenery(world: World): ScenerySection {
-  const fresh = pristine(world.seed);
+  const fresh = pristine(world.seed, world.worldgen);
   const section: ScenerySection = {
     buildings: world.buildings,
     gone: [],

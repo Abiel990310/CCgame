@@ -114,15 +114,31 @@ const PLAN: PatchPlan[] = [
   { kind: 'coal', count: 6, radius: 2.8, minFromCamp: 10 },
 ];
 
-export function generateOre(terrain: Uint8Array, seed: number): OreField {
+/**
+ * The large island's patches. Distance is the reward for walking: a patch far
+ * from camp is wider and far richer, so the first base is built on thin ore
+ * close to home and the long game is an outpost on a deep seam at the edge.
+ */
+const MAINLAND_PLAN: PatchPlan[] = [
+  { kind: 'ironOre', count: 46, radius: 3.4, minFromCamp: 6 },
+  { kind: 'copperOre', count: 38, radius: 3.0, minFromCamp: 8 },
+  { kind: 'coal', count: 32, radius: 2.8, minFromCamp: 10 },
+];
+
+/** How much richer and wider the farthest patches are than those by the camp. */
+const FAR_RICHNESS = 2.2;
+const FAR_WIDTH = 0.7;
+
+export function generateOre(terrain: Uint8Array, seed: number, worldgen = 1): OreField {
   const field: OreField = {
     kind: new Uint8Array(MAP_TILES * MAP_TILES),
     left: new Uint16Array(MAP_TILES * MAP_TILES),
   };
   const rng = makeRng(seed ^ 0x2f8a19b3);
   const half = MAP_TILES / 2;
+  const mainland = worldgen >= 2;
 
-  for (const patch of PLAN) {
+  for (const patch of mainland ? MAINLAND_PLAN : PLAN) {
     const index = ORE_ORDER.indexOf(patch.kind);
     let placed = 0;
     let guard = 0;
@@ -137,7 +153,10 @@ export function generateOre(terrain: Uint8Array, seed: number): OreField {
       // Reject a patch that would sit mostly on water, so it stays minable.
       if (!patchFits(terrain, cx, cy, patch.radius)) continue;
 
-      stampPatch(field, terrain, cx, cy, patch.radius, index, rng, seed);
+      // Generation 1 patches are the same everywhere; later ones grow with
+      // the walk from camp.
+      const far = mainland ? Math.min(1, Math.max(0, (Math.hypot(cx - half, cy - half) - 16) / (half * 0.75))) : 0;
+      stampPatch(field, terrain, cx, cy, patch.radius * (1 + FAR_WIDTH * far), index, rng, seed, 1 + FAR_RICHNESS * far);
       placed++;
     }
   }
@@ -168,6 +187,7 @@ function stampPatch(
   index: number,
   rng: () => number,
   seed: number,
+  richness = 1,
 ): void {
   const r = Math.ceil(radius);
   for (let dy = -r; dy <= r; dy++) {
@@ -182,7 +202,7 @@ function stampPatch(
       if (!isWalkable(terrainAtIndex(terrain, tx, ty))) continue;
       const key = tileKey(tx, ty);
       field.kind[key] = index;
-      field.left[key] = tileAmount(dist / radius, tx, ty, seed);
+      field.left[key] = Math.round(tileAmount(dist / radius, tx, ty, seed) * richness);
     }
   }
 }

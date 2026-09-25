@@ -8,9 +8,21 @@ export const TICK_DT = 1 / TICK_RATE;
 
 /** World is a square grid of tiles; all positions are in world units. */
 export const TILE = 32;
-export const MAP_TILES = 96;
-export const MAP_SIZE = MAP_TILES * TILE;
-export const MAP_CENTER = MAP_SIZE / 2;
+/**
+ * The side of the island in tiles. It depends on the generation that grew the
+ * island — older islands keep the size they were built at — so it is set by
+ * `createWorld` and read everywhere through these live bindings. One process
+ * simulates one island at a time, which is also how a hosted world will run.
+ */
+export let MAP_TILES = 96;
+export let MAP_SIZE = MAP_TILES * TILE;
+export let MAP_CENTER = MAP_SIZE / 2;
+
+export function setMapTiles(tiles: number): void {
+  MAP_TILES = tiles;
+  MAP_SIZE = tiles * TILE;
+  MAP_CENTER = MAP_SIZE / 2;
+}
 
 export const PLAYER = {
   radius: 11,

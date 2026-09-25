@@ -48,6 +48,19 @@ export interface MachineDef {
    */
   fuelSlots: number;
   /**
+   * Power drawn while working, in kW; absent on anything that runs without
+   * it. An electric machine slows with its network's supply and stops without one.
+   */
+  power?: number;
+  /** Generators only: the most power it can put into its network, in kW. */
+  generates?: number;
+  /**
+   * Poles only: how far its wires reach to the next pole, and the half-width
+   * of the square around it whose machines it powers, both in tiles.
+   */
+  wire?: number;
+  supply?: number;
+  /**
    * True when players and mobs bump into it. A splitter is part of a belt
    * line, and belts are walkable so a factory never walls its owner in.
    */
@@ -68,6 +81,14 @@ export interface MachineDef {
 export const FUEL_VALUE: Partial<Record<ItemId, number>> = {
   coal: 8,
 };
+
+/**
+ * Seconds of full output one item of fuel keeps a generator going for, as a
+ * share of what the same item pays a burner. A steam engine at full load feeds
+ * five electric furnaces on a coal every 1.6 s, where burning it in them would
+ * take four times the coal: power is the fuel-efficient way to scale.
+ */
+export const GENERATOR_FUEL_SHARE = 0.2;
 
 export function isFuel(item: ItemId): boolean {
   return (FUEL_VALUE[item] ?? 0) > 0;
@@ -183,7 +204,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     family: 'miner',
     tier: 3,
     name: 'Electric Miner',
-    description: 'Four ore for every one the first drill pulled, and a patch that lasts a quarter as long.',
+    description: 'Four ore for every one the first drill pulled, and a patch that lasts a quarter as long. Runs on power.',
     cost: [
       { id: 'steelPlate', count: 20 },
       { id: 'motor', count: 6 },
@@ -200,6 +221,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 0,
+    power: 90,
     solid: true,
   },
   furnaceMk2: {
@@ -232,7 +254,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     family: 'furnace',
     tier: 3,
     name: 'Electric Furnace',
-    description: 'Four stone furnaces in one tile. Steel banks stop sprawling. Burns coal.',
+    description: 'Four stone furnaces in one tile, and not a lump of coal to feed it. Runs on power.',
     cost: [
       { id: 'steelPlate', count: 20 },
       { id: 'motor', count: 8 },
@@ -248,7 +270,8 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
-    fuelSlots: 1,
+    fuelSlots: 0,
+    power: 180,
     solid: true,
   },
   assemblerMk2: {
@@ -282,7 +305,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     family: 'assembler',
     tier: 3,
     name: 'Industrial Assembler',
-    description: 'The end of the ladder: four times the output of the first one. Burns coal.',
+    description: 'The end of the ladder: four times the output of the first one. Runs on power.',
     cost: [
       { id: 'steelPlate', count: 25 },
       { id: 'motor', count: 12 },
@@ -298,7 +321,8 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     choosesRecipe: true,
     reach: 0,
     storage: false,
-    fuelSlots: 1,
+    fuelSlots: 0,
+    power: 150,
     solid: true,
   },
   chest: {
@@ -446,6 +470,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     solid: true,
     storage: false,
     fuelSlots: 0,
+    power: 20,
   },
   lab: {
     id: 'lab',
@@ -526,6 +551,114 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     solid: true,
     fuelSlots: 0,
   },
+  generator: {
+    id: 'generator',
+    crafted: true,
+    family: 'generator',
+    tier: 1,
+    name: 'Steam Engine',
+    description:
+      'Set on a shoreline. Boils lake water over coal and powers every electric machine its poles reach. Burns coal only as fast as the load asks.',
+    cost: [
+      { id: 'steelPlate', count: 10 },
+      { id: 'gear', count: 10 },
+      { id: 'circuit', count: 5 },
+    ],
+    color: '#6a5446',
+    accent: '#ffb35c',
+    inputSlots: 0,
+    outputSlots: 0,
+    slotSize: 50,
+    speed: 1,
+    needsOre: false,
+    needsShore: true,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+    fuelSlots: 2,
+    generates: 900,
+    solid: true,
+  },
+  solar: {
+    id: 'solar',
+    crafted: true,
+    family: 'solar',
+    tier: 1,
+    name: 'Solar Panel',
+    description:
+      'Power without coal, but only while the sun is up. A field of them carries a base through the day and leaves the engines for the night.',
+    cost: [
+      { id: 'steelPlate', count: 5 },
+      { id: 'copperPlate', count: 10 },
+      { id: 'advancedCircuit', count: 2 },
+    ],
+    color: '#3d4a66',
+    accent: '#7fb8ff',
+    inputSlots: 0,
+    outputSlots: 0,
+    slotSize: 1,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+    fuelSlots: 0,
+    generates: 60,
+    solid: true,
+  },
+  beacon: {
+    id: 'beacon',
+    crafted: true,
+    family: 'beacon',
+    tier: 1,
+    name: 'Skyward Beacon',
+    description:
+      'The island\'s last and largest project. Raised in five stages, each fed like any machine, from steel up to processors and essence. Light it and the whole island sees.',
+    cost: [
+      { id: 'steelPlate', count: 40 },
+      { id: 'circuit', count: 20 },
+      { id: 'engineUnit', count: 5 },
+    ],
+    color: '#5a5f78',
+    accent: '#ffd46a',
+    // One slot per ingredient of the widest stage, each deep enough for a whole stage.
+    inputSlots: 4,
+    outputSlots: 0,
+    slotSize: 999,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+    fuelSlots: 0,
+    solid: true,
+  },
+  pole: {
+    id: 'pole',
+    family: 'pole',
+    tier: 1,
+    name: 'Power Pole',
+    description: 'Powers machines within four tiles, and strings wire to any pole within eight.',
+    cost: [
+      { id: 'wood', count: 2 },
+      { id: 'wire', count: 2 },
+    ],
+    color: '#7a5a3a',
+    accent: '#ffd66b',
+    inputSlots: 0,
+    outputSlots: 0,
+    slotSize: 1,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+    fuelSlots: 0,
+    wire: 8,
+    supply: 4,
+    // A pole is a post, not a wall: a line of them must never fence anyone in.
+    solid: false,
+  },
 };
 
 /** Palette order: each family in tier order, storage and logistics last. */
@@ -548,6 +681,10 @@ export const MACHINE_ORDER: MachineId[] = [
   'splitter',
   'lab',
   'fishTrap',
+  'generator',
+  'solar',
+  'pole',
+  'beacon',
 ];
 
 export const BELT_COST: ItemStack[] = [

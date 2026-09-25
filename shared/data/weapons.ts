@@ -16,6 +16,10 @@ export interface WeaponDef {
   /** Per-level multipliers, applied as (1 + (level-1) * step). */
   damageStep: number;
   rateStep: number;
+  /** Bursts on impact, hurting everything this close for half the damage. */
+  splash?: number;
+  /** Seconds of frost each hit leaves, slowing the mob. */
+  chill?: number;
 }
 
 export const WEAPONS: Record<WeaponId, WeaponDef> = {
@@ -74,6 +78,50 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     color: '#a9e3a0',
     damageStep: 0.35,
     rateStep: 0.08,
+  },
+  harpoon: {
+    id: 'harpoon',
+    name: 'Harpoon',
+    description: 'Slow, very long reach, and runs through five in a row. Made for big things.',
+    damage: 24,
+    rate: 0.45,
+    range: 420,
+    speed: 720,
+    pierce: 5,
+    targeting: 'toughest',
+    color: '#e6eef5',
+    damageStep: 0.34,
+    rateStep: 0.08,
+  },
+  ember: {
+    id: 'ember',
+    name: 'Ember Pot',
+    description: 'Lobs a pot of coals that bursts over a crowd.',
+    damage: 11,
+    rate: 0.7,
+    range: 260,
+    speed: 300,
+    pierce: 0,
+    targeting: 'line',
+    color: '#ff9a4a',
+    damageStep: 0.3,
+    rateStep: 0.1,
+    splash: 64,
+  },
+  frost: {
+    id: 'frost',
+    name: 'Frost Shard',
+    description: 'Cold splinters that slow whatever they hit to a crawl.',
+    damage: 5,
+    rate: 1.6,
+    range: 250,
+    speed: 480,
+    pierce: 1,
+    targeting: 'nearest',
+    color: '#a8e4ff',
+    damageStep: 0.28,
+    rateStep: 0.12,
+    chill: 1.6,
   },
 };
 

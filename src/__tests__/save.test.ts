@@ -42,8 +42,8 @@ beforeEach(() => {
   forgetSlot(SLOT);
 });
 
-function island(seed = 4242): World {
-  const world = createWorld(seed, true);
+function island(seed = 4242, worldgen = WORLDGEN): World {
+  const world = createWorld(seed, true, worldgen);
   const player = addPlayer(world, 'You');
   for (const item of ['wood', 'stone', 'ironPlate'] as ItemId[]) addItem(player, item, 900);
 
@@ -166,8 +166,9 @@ describe('saving an island', () => {
   it('rewrites only the sections that moved', () => {
     const world = island();
     saveWorld(world, SLOT);
-    // The header, the scenery, the factory and the ground the miners have taken.
-    expect(new Set(writes).size).toBe(4);
+    // The header, the scenery, the factory, the ground the miners have taken
+    // and what the player has seen.
+    expect(new Set(writes).size).toBe(5);
 
     writes.length = 0;
     world.tick += 240;
@@ -226,8 +227,9 @@ describe('older saves', () => {
     );
   }
 
+  // A save from before the split predates worldgen 2, so it grew the small island.
   it('loads an island written before the split', () => {
-    const world = island();
+    const world = island(4242, 1);
     const player = [...world.players.values()][0];
     placeMachine(world, player, 'chest', SITE.tx, SITE.ty, 1);
     placeBelt(world, player, SITE.tx + 1, SITE.ty, 1);
@@ -246,7 +248,7 @@ describe('older saves', () => {
   });
 
   it('turns an old island into the new format on its next save', () => {
-    const world = island();
+    const world = island(4242, 1);
     world.nodes[5].charges = 1;
     writeLegacy(world);
 
@@ -273,7 +275,8 @@ describe('research in a save', () => {
   it('comes back exactly as it went in', () => {
     const world = island();
     world.research.levels.automation = 1;
-    world.research.levels.deepDrilling = 3;
+    world.research.levels.metallurgy = 1;
+    world.research.levels.angling = 1;
     world.research.progress.beltLogistics = 7;
     setResearch(world, 'beltLogistics');
 
@@ -281,9 +284,28 @@ describe('research in a save', () => {
     expect(loadWorld(SLOT)?.research).toEqual({
       current: 'beltLogistics',
       progress: { beltLogistics: 7 },
-      levels: { automation: 1, deepDrilling: 3 },
+      levels: { automation: 1, metallurgy: 1, angling: 1 },
       unlockedAll: false,
     });
+  });
+
+  it('grants a tech added beneath one the island has already finished', () => {
+    // An island that finished Resonance before Electricity was one of its
+    // prerequisites must keep building the electric machines it has.
+    const world = island();
+    for (const id of ['automation', 'beltLogistics', 'metallurgy', 'roboticArms', 'labAutomation', 'angling', 'resonance']) {
+      world.research.levels[id] = 1;
+    }
+    world.research.levels.deepDrilling = 2;
+    world.research.progress.electricity = 4;
+    world.research.current = 'electricity';
+    saveWorld(world, SLOT);
+
+    const research = loadWorld(SLOT)!.research;
+    expect(research.levels.electricity).toBe(1);
+    expect(research.progress.electricity).toBeUndefined();
+    expect(research.current).toBe(null);
+    expect(research.levels.deepDrilling).toBe(2);
   });
 
   it('reads an island saved before research existed', () => {

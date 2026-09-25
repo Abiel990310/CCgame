@@ -37,6 +37,8 @@ const FONT = "ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, sans-serif";
 export class Effects {
   private particles: Particle[] = [];
   private texts: FloatingText[] = [];
+  /** Expanding shock rings, one per burst. */
+  private rings: Array<{ pos: Vec2; radius: number; life: number; maxLife: number; color: string }> = [];
   /** Screen-space shake, decayed every frame. */
   shake = 0;
 
@@ -54,6 +56,27 @@ export class Effects {
         case 'mobDied':
           this.burst(event.pos, 14, MOBS[event.type].color, 170);
           this.shake = Math.min(6, this.shake + 1.5);
+          break;
+        case 'blast':
+          this.rings.push({ pos: { ...event.pos }, radius: event.radius, life: 0.35, maxLife: 0.35, color: '#ffb35a' });
+          this.burst(event.pos, 16, '#ff9a4a', event.radius * 3.2);
+          this.shake = Math.min(7, this.shake + 1.2);
+          break;
+        case 'spit':
+          this.burst(event.pos, 4, '#c8e070', 60);
+          break;
+        case 'landmark':
+          this.rings.push({ pos: { ...event.pos }, radius: 90, life: 0.8, maxLife: 0.8, color: '#ffe0a0' });
+          this.burst(event.pos, 22, '#ffe7a0', 170);
+          break;
+        case 'beacon':
+          this.rings.push({ pos: { ...event.pos }, radius: event.lit ? 320 : 120, life: 1.1, maxLife: 1.1, color: '#ffd46a' });
+          this.burst(event.pos, event.lit ? 60 : 24, '#ffe7a0', event.lit ? 320 : 180);
+          this.shake = Math.min(10, this.shake + (event.lit ? 7 : 3));
+          break;
+        case 'boss':
+          this.rings.push({ pos: { ...event.pos }, radius: 140, life: 0.9, maxLife: 0.9, color: '#e0a040' });
+          this.shake = Math.min(12, this.shake + 8);
           break;
         case 'gathered':
           this.burst(event.pos, 6, '#f0e2c0', 110);
@@ -143,6 +166,11 @@ export class Effects {
       p.vel.y *= 1 - 3.5 * dt;
     }
 
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      this.rings[i].life -= dt;
+      if (this.rings[i].life <= 0) this.rings.splice(i, 1);
+    }
+
     for (let i = this.texts.length - 1; i >= 0; i--) {
       const t = this.texts[i];
       t.life -= dt;
@@ -157,6 +185,18 @@ export class Effects {
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
+    for (const r of this.rings) {
+      // Snaps out fast and thins as it goes, flattened to lie on the ground.
+      const f = 1 - r.life / r.maxLife;
+      const reach = r.radius * (0.35 + 0.65 * Math.sqrt(Math.max(0, f)));
+      ctx.globalAlpha = Math.max(0, 1 - f) * 0.8;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 2 + (1 - f) * 5;
+      ctx.beginPath();
+      ctx.ellipse(r.pos.x, r.pos.y, reach, reach * 0.62, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     for (const p of this.particles) {
       ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
       ctx.fillStyle = p.color;

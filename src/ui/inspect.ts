@@ -8,6 +8,10 @@ import { beltAt, machineAt } from '@shared/sim/factory';
 import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
+import { powerNetOf } from '@shared/sim/power';
+import { BEACON_STAGES } from '@shared/data/beacon';
+import { beaconStage } from '@shared/sim/beacon';
+import { countIn } from '@shared/sim/slots';
 import { nearWorkbench } from '@shared/sim/crafting';
 import { findNearestNode } from '@shared/sim/systems/gathering';
 import type { Machine, OreKind, Player, ToolKind, Vec2, World } from '@shared/sim/types';
@@ -118,7 +122,8 @@ export class Inspector {
     if (key !== this.promptKey) {
       this.promptKey = key;
       const cap = c.touch ? '<b class="cap tap">Hold</b>' : '<b class="cap">E</b>';
-      this.prompt.innerHTML = `${cap}<span>${VERB[def.tool]} ${def.name.toLowerCase()}</span>`;
+      const verb = def.landmark ? 'Search' : VERB[def.tool];
+      this.prompt.innerHTML = `${cap}<span>${verb} ${def.name.toLowerCase()}</span>`;
     }
     const at = c.camera.worldToScreen(node.pos.x, node.pos.y - PROMPT_LIFT[def.tool]);
     this.prompt.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px) translate(-50%, -100%)`;
@@ -184,6 +189,18 @@ export class Inspector {
       const up = node.kind === 'tree' ? 78 : def.radius * 1.6;
       const dx = Math.abs(node.pos.x - pos.x);
       if (dx < def.radius + 4 && pos.y < node.pos.y + def.radius * 0.7 && pos.y > node.pos.y - up) {
+        if (def.landmark) {
+          return {
+            title: def.name,
+            icon: itemIconVar(def.landmark.cache[0].item),
+            status: { text: 'Unsearched', tone: 'good' },
+            rows: [
+              ['Holds', def.landmark.cache.map((s) => ITEMS[s.item].name).join(', ')],
+              ...(def.landmark.boon === 'upgrade' ? [['Also', 'A free upgrade'] as [string, string]] : []),
+            ],
+            hint: 'Stand close and hold E to search',
+          };
+        }
         const drops = def.drops.map((d) => ITEMS[d.item].name).join(', ');
         return {
           title: def.name,
@@ -197,7 +214,7 @@ export class Inspector {
 
     const { tx, ty } = toTile(pos);
     const machine = machineAt(world, tx, ty);
-    if (machine) return describeMachine(machine);
+    if (machine) return describeMachine(world, machine);
 
     const belt = beltAt(world, tx, ty);
     if (belt) {
@@ -282,8 +299,10 @@ export class Inspector {
   }
 }
 
-function describeMachine(machine: Machine): Card {
+function describeMachine(world: World, machine: Machine): Card {
   const def = MACHINES[machine.type];
+  if (def.family === 'pole' || def.generates) return describePower(world, machine);
+  if (def.family === 'beacon') return describeBeacon(machine);
   const rows: Array<[string, string]> = [];
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   if (def.family === 'miner' && machine.ore) rows.push(['Mining', ITEMS[machine.ore].name]);
@@ -293,11 +312,17 @@ function describeMachine(machine: Machine): Card {
   let status: Card['status'];
   if (def.family !== 'chest' && def.family !== 'splitter') {
     if (outOfFuel(machine)) status = { text: 'Out of fuel', tone: 'bad' };
+    else if (machine.unpowered) status = { text: powerNetOf(world, machine) ? 'No power' : 'No pole in reach', tone: 'bad' };
     else if (def.choosesRecipe && !recipe) status = { text: 'Pick a recipe', tone: 'warn' };
     else if (machine.stalled && isBlocked(machine, def))
       status = { text: def.family === 'miner' ? 'No ore in reach' : 'Output full', tone: 'bad' };
     else if (machine.stalled) status = { text: 'Waiting for input', tone: 'warn' };
     else status = { text: 'Working', tone: 'good' };
+  }
+  const net = def.power ? powerNetOf(world, machine) : null;
+  if (def.power) {
+    const pace = net ? Math.round(net.satisfaction * 100) : 0;
+    rows.push(['Power', `${def.power} kW${net && pace < 100 ? `, ${pace}% speed` : ''}`]);
   }
   const held = [...machine.input, ...machine.output].reduce((n, s) => n + (s ? s.count : 0), 0);
   if (def.storage || held > 0) rows.push(['Holding', `${held} ${held === 1 ? 'item' : 'items'}`]);
@@ -308,6 +333,65 @@ function describeMachine(machine: Machine): Card {
     status,
     rows,
     hint: def.inputSlots + def.outputSlots > 0 ? 'Click to open' : undefined,
+  };
+}
+
+/** A beacon's card is its current stage and how far along each part of it is. */
+function describeBeacon(machine: Machine): Card {
+  const def = MACHINES[machine.type];
+  const current = beaconStage(machine);
+  const rows: Array<[string, string]> = current
+    ? [
+        ['Stage', `${current.index + 1} of ${BEACON_STAGES.length}: ${current.stage.name}`],
+        ...current.stage.needs.map((n): [string, string] => [
+          ITEMS[n.id].name,
+          `${Math.min(n.count, countIn(machine.input, n.id))} / ${n.count}`,
+        ]),
+      ]
+    : [];
+  return {
+    title: def.name,
+    icon: pieceIconVar(`machine:${machine.type}`),
+    status: current ? { text: 'Being built', tone: 'warn' } : { text: 'Lit', tone: 'good' },
+    rows,
+    hint: current ? 'Click to open' : undefined,
+  };
+}
+
+/**
+ * A pole or an engine is its network: what it can give, what is asked of it,
+ * and whether the one is enough for the other.
+ */
+function describePower(world: World, machine: Machine): Card {
+  const def = MACHINES[machine.type];
+  const net = powerNetOf(world, machine);
+  const rows: Array<[string, string]> = [];
+  let status: Card['status'];
+  let meter: Card['meter'];
+
+  if (!net) {
+    status = def.generates
+      ? { text: 'No pole in reach', tone: 'warn' }
+      : { text: 'No engine on this line', tone: 'warn' };
+  } else {
+    const used = Math.min(net.demand, net.supply);
+    rows.push(['Supply', `${Math.round(net.supply)} kW`], ['Demand', `${Math.round(net.demand)} kW`]);
+    if (def.generates && outOfFuel(machine)) status = { text: 'Out of fuel', tone: 'bad' };
+    else if (def.generates && def.fuelSlots === 0 && machine.stalled) status = { text: 'Dark until morning', tone: 'warn' };
+    else if (net.supply === 0) status = { text: 'No engine running', tone: 'bad' };
+    else if (net.satisfaction < 1) status = { text: `Overloaded: ${Math.round(net.satisfaction * 100)}% speed`, tone: 'bad' };
+    else if (net.demand === 0) status = { text: 'Idle', tone: 'warn' };
+    else status = { text: 'Powered', tone: 'good' };
+    if (net.supply > 0) meter = { value: used / net.supply, tone: net.satisfaction < 1 ? 'bad' : 'good' };
+    if (def.family === 'pole') rows.push(['Poles', String(net.poles.length)], ['Machines', String(net.consumers.length)]);
+  }
+  return {
+    title: def.name,
+    icon: pieceIconVar(`machine:${machine.type}`),
+    status,
+    rows,
+    meter,
+    hint: def.fuelSlots > 0 ? 'Click to add coal' : undefined,
   };
 }
 

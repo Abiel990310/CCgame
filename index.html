@@ -52,7 +52,9 @@
       </header>
 
       <!-- Top right: carried resources at a glance -->
-      <section class="pouch panel hidden" id="pouch"></section>
+      <div class="corner-right" id="corner-right">
+        <section class="pouch panel hidden" id="pouch"></section>
+      </div>
 
       <!-- Bottom right: controls -->
       <section class="actions">
@@ -61,6 +63,9 @@
         </button>
         <button class="action" id="btn-bag" title="Bag (Tab)">
           <i data-icon="bag"></i><small>Bag</small><kbd>Tab</kbd>
+        </button>
+        <button class="action" id="btn-map" title="Map (M)">
+          <i data-icon="map"></i><small>Map</small><kbd>M</kbd>
         </button>
         <button class="action dash" id="btn-dash" title="Dash (Space)">
           <i data-icon="dash"></i><small>Dash</small><kbd>Space</kbd>
@@ -269,7 +274,8 @@
             <span><kbd>1</kbd>&ndash;<kbd>8</kbd> quick slots</span>
             <span><kbd>R</kbd> rotate</span>
             <span><kbd>Tab</kbd> bag</span>
-            <span><kbd>M</kbd> mute</span>
+            <span><kbd>M</kbd> map</span>
+            <span><kbd>Shift</kbd>+<kbd>M</kbd> mute</span>
             <span><kbd>Esc</kbd> menu</span>
           </div>
         </details>

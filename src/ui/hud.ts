@@ -610,6 +610,8 @@ export class Hud {
         : 'Choose an upgrade';
 
     this.els.offers.innerHTML = '';
+    // Four choices sit two by two rather than three and a straggler.
+    this.els.offers.classList.toggle('pairs', player.offers.length === 4);
     for (const offer of player.offers) {
       const button = document.createElement('button');
       button.className = 'offer';

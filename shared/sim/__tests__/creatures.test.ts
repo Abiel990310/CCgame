@@ -1,0 +1,153 @@
+import { describe, expect, it } from 'vitest';
+import { MOBS, MOB_ORDER } from '../../data/mobs';
+import { CYCLE } from '../constants';
+import { stepCycle } from '../systems/cycle';
+import { damageMob, stepProjectiles, stepWeapons } from '../systems/combat';
+import { spawnMob, stepMobs } from '../systems/mobs';
+import type { MobTypeId, Player, WeaponId, World } from '../types';
+import { addPlayer, createWorld } from '../world';
+
+function arena(): { world: World; player: Player } {
+  const world = createWorld(19);
+  world.mobs.length = 0;
+  const player = addPlayer(world, 'test');
+  return { world, player };
+}
+
+function near(world: World, player: Player, type: MobTypeId, dx: number, dy = 0) {
+  return spawnMob(world, type, { x: player.pos.x + dx, y: player.pos.y + dy });
+}
+
+/** Steps mobs and projectiles, the parts of `step` these tests are about. */
+function run(world: World, seconds: number, dt = 1 / 30): void {
+  for (let t = 0; t < seconds; t += dt) {
+    world.events.length = 0;
+    stepMobs(world, dt);
+    stepProjectiles(world, dt);
+  }
+}
+
+function fire(world: World, player: Player, weapon: WeaponId): void {
+  player.weapons = [{ id: weapon, level: 1, cooldown: 0 }];
+  stepWeapons(world, player, 0);
+}
+
+describe('armour', () => {
+  it('takes a flat amount off every hit, but never all of it', () => {
+    const { world, player } = arena();
+    const shell = near(world, player, 'shellback', 60);
+    damageMob(world, shell, 10, player.id);
+    expect(shell.maxHp - shell.hp).toBe(10 - MOBS.shellback.armor!);
+    const before = shell.hp;
+    damageMob(world, shell, 1, player.id);
+    expect(before - shell.hp).toBe(1);
+  });
+});
+
+describe('the spitter', () => {
+  it('stops short of the player and hits them from range', () => {
+    const { world, player } = arena();
+    const spitter = near(world, player, 'spitter', 400);
+    player.hp = player.maxHp = 1000;
+    run(world, 8);
+    const gap = Math.hypot(spitter.pos.x - player.pos.x, spitter.pos.y - player.pos.y);
+    // It never closes to biting range: all the harm it did came through the air.
+    expect(gap).toBeGreaterThan(MOBS.spitter.spit!.range * 0.4);
+    expect(player.hp).toBeLessThan(1000);
+  });
+
+  it('spits nothing a mob can be hurt by', () => {
+    const { world, player } = arena();
+    near(world, player, 'spitter', 150);
+    const bystander = near(world, player, 'slime', 75, 0);
+    bystander.hp = bystander.maxHp = 1e6;
+    run(world, 4);
+    expect(bystander.hp).toBe(1e6);
+  });
+});
+
+describe('the mother slime', () => {
+  it('bursts into slimes when it dies', () => {
+    const { world, player } = arena();
+    const mother = near(world, player, 'mother', 100);
+    damageMob(world, mother, 1000, player.id);
+    const children = world.mobs.filter((m) => m.type === 'slime');
+    expect(children.length).toBe(MOBS.mother.splits!.count);
+  });
+});
+
+describe('the stone warden', () => {
+  it('is never bought from a night budget', () => {
+    expect(MOB_ORDER).not.toContain('warden');
+  });
+
+  it('walks in on every fifth night, and only then', () => {
+    const { world } = arena();
+    const bosses: number[] = [];
+    for (let night = 1; night <= 10; night++) {
+      world.phase = 'day';
+      world.phaseTime = 0;
+      world.mobs.length = 0;
+      stepCycle(world, 0);
+      if (world.mobs.some((m) => m.type === 'warden')) bosses.push(world.nightIndex);
+      expect(world.phaseTime).toBe(CYCLE.nightSeconds);
+    }
+    expect(bosses).toEqual([5, 10]);
+  });
+
+  it('stays away from a peaceful island', () => {
+    const world = createWorld(19, true);
+    world.nightIndex = 4;
+    world.phase = 'day';
+    world.phaseTime = 0;
+    stepCycle(world, 0);
+    expect(world.mobs.length).toBe(0);
+  });
+
+  it('drops a heap of orbs', () => {
+    const { world, player } = arena();
+    const boss = near(world, player, 'warden', 200);
+    damageMob(world, boss, 1e5, player.id);
+    expect(world.pickups.length).toBe(MOBS.warden.loot!.orbs);
+  });
+});
+
+describe('new weapons', () => {
+  it('Ember Pot bursts over everything around the one it hits', () => {
+    const { world, player } = arena();
+    const a = near(world, player, 'brute', 120);
+    const b = near(world, player, 'brute', 120, 30);
+    const c = near(world, player, 'brute', 120, -30);
+    const far = near(world, player, 'brute', 120, 200);
+    fire(world, player, 'ember');
+    run(world, 1);
+    const hurt = [a, b, c].filter((m) => m.hp < m.maxHp);
+    expect(hurt.length).toBe(3);
+    expect(far.hp).toBe(far.maxHp);
+  });
+
+  it('Frost Shard slows what it hits', () => {
+    const { world, player } = arena();
+    const plain = near(world, player, 'crawler', 150, 0);
+    // Out of the shard's reach, so only one of the two is chilled.
+    const free = near(world, player, 'crawler', 0, 300);
+    fire(world, player, 'frost');
+    for (let i = 0; i < 12; i++) stepProjectiles(world, 1 / 30);
+    expect(plain.chill).toBeGreaterThan(0);
+    expect(free.chill ?? 0).toBe(0);
+    const from = { plain: { ...plain.pos }, free: { ...free.pos } };
+    run(world, 0.5);
+    const moved = (m: typeof plain, p: { x: number; y: number }) => Math.hypot(m.pos.x - p.x, m.pos.y - p.y);
+    expect(moved(plain, from.plain)).toBeLessThan(moved(free, from.free) * 0.8);
+  });
+
+  it('Harpoon runs through a whole line', () => {
+    const { world, player } = arena();
+    const line = [60, 100, 140, 180, 220].map((dx) => near(world, player, 'slime', dx));
+    for (const m of line) m.hp = m.maxHp = 1000;
+    fire(world, player, 'harpoon');
+    // Only the shot moves, so the line stays a line.
+    for (let i = 0; i < 30; i++) stepProjectiles(world, 1 / 30);
+    expect(line.every((m) => m.hp < 1000)).toBe(true);
+  });
+});

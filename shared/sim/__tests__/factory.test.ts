@@ -58,12 +58,18 @@ function findOre(world: World, kind: 'ironOre' | 'copperOre' | 'coal'): { tx: nu
  * An empty, buildable tile. Cost is ignored deliberately: a tile is free or not
  * regardless of what the player happens to be carrying.
  */
-function findFree(world: World, player: Player): { tx: number; ty: number } {
+/** The first tile with `run` free tiles in a row to its right. */
+function findFree(world: World, player: Player, run = 1): { tx: number; ty: number } {
   const tiles = Math.sqrt(world.ore.length);
+  const free = (tx: number, ty: number): boolean => {
+    const error = factoryPlacementError(world, player, 'belt', tx, ty);
+    return error === null || error === 'cost';
+  };
   for (let ty = 0; ty < tiles; ty++) {
     for (let tx = 0; tx < tiles; tx++) {
-      const error = factoryPlacementError(world, player, 'belt', tx, ty);
-      if (error === null || error === 'cost') return { tx, ty };
+      let ok = true;
+      for (let i = 0; i < run && ok; i++) ok = free(tx + i, ty);
+      if (ok) return { tx, ty };
     }
   }
   throw new Error('no free tile');
@@ -178,7 +184,7 @@ describe('placement', () => {
 describe('belts', () => {
   /** Lay a straight run of belts heading right from a free tile. */
   function layBelts(world: World, player: Player, length: number, dir: Direction = 0) {
-    const start = findFree(world, player);
+    const start = findFree(world, player, length);
     const belts = [];
     for (let i = 0; i < length; i++) {
       const belt = placeBelt(world, player, start.tx + i, start.ty, dir);

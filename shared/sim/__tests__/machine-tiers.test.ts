@@ -71,7 +71,7 @@ describe('the tier table', () => {
 
 describe('building a later tier', () => {
   it('spends one crafted machine and none of its materials', () => {
-    const b = bench();
+    const b = bench(2026, true);
     const crafted = countIn(b.player.inventory, 'minerMk3');
     const circuits = countIn(b.player.inventory, 'advancedCircuit');
 
@@ -94,7 +94,7 @@ describe('building a later tier', () => {
   });
 
   it('opens with a recipe already chosen, and takes any of its family', () => {
-    const b = bench();
+    const b = bench(2026, true);
     const spot = at(4, 0);
     const machine = put(b, 'assemblerMk3', spot.tx, spot.ty, 0) as Machine;
 
@@ -106,7 +106,7 @@ describe('building a later tier', () => {
   });
 
   it('sizes its slot grids from its own definition', () => {
-    const b = bench();
+    const b = bench(2026, true);
     const spot = at(6, 0);
     const machine = put(b, 'furnaceMk3', spot.tx, spot.ty, 0) as Machine;
 
@@ -118,7 +118,7 @@ describe('building a later tier', () => {
 
 /** Plates a stocked furnace of this type turns out in `seconds`. */
 function smelted(type: MachineId, seconds: number): number {
-  const b = bench();
+  const b = bench(2026, true);
   const spot = at(0, 2);
   const machine = put(b, [type, 'ironPlate'], spot.tx, spot.ty, 0) as Machine;
   const def = MACHINES[type];
@@ -130,12 +130,12 @@ function smelted(type: MachineId, seconds: number): number {
 
 /** Ore a miner of this type pulls out of one patch in `seconds`. */
 function mined(type: MachineId, seconds: number): number {
-  const b = bench();
+  const b = bench(2026, true);
   const spot = at(0, 4);
   plantOre(b.world, 'ironOre', spot.tx, spot.ty);
-  put(b, type, spot.tx, spot.ty, 0);
+  const miner = put(b, type, spot.tx, spot.ty, 0) as Machine;
   advance(b.world, seconds);
-  return totalIn(b.world.machines[0].output);
+  return totalIn(miner.output);
 }
 
 describe('what a tier is worth', () => {
@@ -156,7 +156,7 @@ describe('what a tier is worth', () => {
   });
 
   it('assembles faster without changing what comes out', () => {
-    const b = bench();
+    const b = bench(2026, true);
     const spot = at(8, 0);
     const machine = put(b, ['assemblerMk2', 'gear'], spot.tx, spot.ty, 0) as Machine;
     fill(machine.input, 'ironPlate', 80, MACHINES.assemblerMk2.slotSize);
@@ -171,7 +171,7 @@ describe('what a tier is worth', () => {
 describe('a tiered line end to end', () => {
   it('delivers more to the chest than the same line one tier down', () => {
     const run = (miner: MachineId, furnace: MachineId): number => {
-      const b = bench();
+      const b = bench(2026, true);
       const start = at(0, 6);
       plantOre(b.world, 'ironOre', start.tx, start.ty);
       const parts = lay(b, start.tx, start.ty, 0, [
@@ -194,7 +194,7 @@ describe('a tiered line end to end', () => {
   });
 
   it('keeps both steel ingredients able to enter a wider furnace', () => {
-    const b = bench();
+    const b = bench(2026, true);
     const spot = at(10, 2);
     const machine = put(b, ['furnaceMk3', 'steelPlate'], spot.tx, spot.ty, 0) as Machine;
     stoke(machine);

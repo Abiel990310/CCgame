@@ -2,7 +2,9 @@ import { BUILDINGS } from '@shared/data/buildings';
 import { applyOrder, type Command } from '@shared/sim/commands';
 import { CRAFT_BY_ID } from '@shared/data/crafting';
 import { BELT_COST, MACHINES, placementCost } from '@shared/data/machines';
-import { ITEMS } from '@shared/data/items';
+import { ITEMS, RESOURCES } from '@shared/data/items';
+import { MOBS } from '@shared/data/mobs';
+import { BEACON_STAGES } from '@shared/data/beacon';
 import { CAMP, TICK_DT } from '@shared/sim/constants';
 import {
   buildingAt,
@@ -43,6 +45,7 @@ import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
 import { setResearch } from '@shared/sim/research';
 import { GOAL_BY_ID } from '@shared/data/goals';
 import { GoalTracker } from './ui/goals';
+import { WorldMap } from './ui/worldmap';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
 import { craftError, nearWorkbench } from '@shared/sim/crafting';
@@ -98,6 +101,7 @@ export class Game {
   private input: InputManager;
   private hud: Hud;
   private goals: GoalTracker;
+  private worldMap: WorldMap;
 
   private accumulator = 0;
   private readonly interpolator = new Interpolator();
@@ -162,6 +166,8 @@ export class Game {
     });
 
     this.goals = new GoalTracker(document.getElementById('ui')!);
+    this.worldMap = new WorldMap(document.getElementById('ui')!, () => this.worldMap.setOpen(false));
+    document.getElementById('btn-map')!.addEventListener('click', () => this.toggleMap());
     this.coop = new CoopPanel({
       onHost: () => this.startHosting(),
       onStopHosting: () => this.stopHosting('The host stopped inviting.'),
@@ -302,6 +308,18 @@ export class Game {
       y: this.showcaseFocus.y + Math.sin(t * 0.063) * 90,
     };
     this.renderer.render(this.world, this.selfId, t, null, null);
+  }
+
+  private toggleMap(): void {
+    const open = !this.worldMap.isOpen;
+    // The map is a look, not a mode: it takes the place of whatever screen was up.
+    if (open) {
+      this.closeCrafting();
+      this.closeInventory();
+      this.hud.setBuildMode(false);
+    }
+    this.worldMap.setOpen(open);
+    audio.play('click');
   }
 
   private toggleMute(): void {
@@ -574,7 +592,11 @@ export class Game {
     // Build keys must not reach the world through an open screen: pressing X
     // while sorting a chest should not also demolish whatever is behind it.
     const blocked =
-      this.hud.isInventoryOpen || this.hud.isPauseOpen || this.hud.isDraftOpen || this.workbench.isOpen;
+      this.hud.isInventoryOpen ||
+      this.hud.isPauseOpen ||
+      this.hud.isDraftOpen ||
+      this.workbench.isOpen ||
+      this.worldMap.isOpen;
 
     for (const action of this.input.drainActions()) {
       // A quick slot picks what to place, so it also turns build mode on; the
@@ -589,6 +611,7 @@ export class Game {
       }
 
       if (action === 'mute') this.toggleMute();
+      if (action === 'map' && !this.hud.isPauseOpen && !this.hud.isDraftOpen) this.toggleMap();
       if (action === 'build' && !blocked) this.toggleBuild();
       if (action === 'inventory') {
         this.closeCrafting();
@@ -602,7 +625,8 @@ export class Game {
       if (action === 'upgrade' && !blocked) this.hud.openDraft();
       if (action === 'cancel') {
         // Esc backs out of whatever is open, and opens the menu when nothing is.
-        if (this.hud.isDraftOpen) this.hud.closeDraft();
+        if (this.worldMap.isOpen) this.worldMap.setOpen(false);
+        else if (this.hud.isDraftOpen) this.hud.closeDraft();
         else if (this.hud.isPauseOpen) this.togglePause();
         else if (this.workbench.isOpen) this.closeCrafting();
         else if (this.hud.isBuildMode || this.hud.isInventoryOpen) {
@@ -869,6 +893,8 @@ export class Game {
 
   private inspectUnderCursor(): void {
     const machine = this.machineUnderCursor();
+    // A pole holds nothing; its hover card already says all there is to know.
+    if (machine && MACHINES[machine.type].family === 'pole') return;
     if (machine) {
       this.hud.openInventory(machine);
       return;
@@ -924,7 +950,7 @@ export class Game {
 
     const paused = this.hud.isDraftOpen || this.hud.isPauseOpen;
     // Inspecting a machine should not also swing the pickaxe at it.
-    if (this.hud.isInventoryOpen || this.workbench.isOpen) this.input.takeClick();
+    if (this.hud.isInventoryOpen || this.workbench.isOpen || this.worldMap.isOpen) this.input.takeClick();
     const ghost = this.ghost();
     // Hovering a machine with its next tier selected is an upgrade, not a
     // demolition, so the removal outline would be a false warning.
@@ -945,7 +971,7 @@ export class Game {
     // Building mode repurposes the click, so suppress gathering while placing.
     // An open inventory stops the player entirely: sorting a chest should not
     // also walk you off it. The world keeps ticking behind it either way.
-    const playerInput: PlayerInput = paused || this.hud.isInventoryOpen || this.workbench.isOpen
+    const playerInput: PlayerInput = paused || this.hud.isInventoryOpen || this.workbench.isOpen || this.worldMap.isOpen
       ? { move: { x: 0, y: 0 }, dash: false, interact: false }
       : this.hud.isBuildMode
         ? { ...raw, interact: false }
@@ -972,6 +998,7 @@ export class Game {
     audio.update(this.world, elapsed);
     this.hud.update(this.world, this.self);
     this.goals.update(this.world, this.self, elapsed, this.input.isTouch);
+    this.worldMap.update(this.world, this.selfId, elapsed);
     this.hud.updateStick(this.input.stickState);
     this.hud.foldPalette(this.hud.isBuildMode && this.input.hovering);
     // A raid can shove the player off the bench; the screen goes with them.
@@ -1096,6 +1123,32 @@ export class Game {
   /** Goals and level-ups are said once, and the tracker makes way for the next goal. */
   private announceGoals(): void {
     for (const event of this.world.events) {
+      if (event.kind === 'landmark' && event.playerId === this.selfId) {
+        const found = RESOURCES[event.landmark].name;
+        this.hud.toast(
+          RESOURCES[event.landmark].landmark?.boon === 'upgrade'
+            ? `${found} searched. It grants you an upgrade.`
+            : `${found} searched`,
+          'good',
+        );
+        continue;
+      }
+      if (event.kind === 'beacon') {
+        const stage = BEACON_STAGES[event.stage - 1];
+        const next = BEACON_STAGES[event.stage];
+        this.hud.toast(
+          event.lit
+            ? 'The Skyward Beacon is lit. The whole island can see it.'
+            : `Beacon: ${stage.name} raised. Next, the ${next.name.toLowerCase()}.`,
+          'good',
+        );
+        this.requestSave();
+        continue;
+      }
+      if (event.kind === 'boss') {
+        this.hud.toast(`${MOBS[event.type].name} is coming for the camp`, 'warn');
+        continue;
+      }
       // The first level-up in a queue says how to spend it; the ring's badge
       // counts any that follow, so a busy lab does not chatter.
       if (event.kind === 'levelUp' && event.playerId === this.selfId && this.self.pendingUpgrades === 1) {

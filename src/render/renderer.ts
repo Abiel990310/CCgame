@@ -35,6 +35,7 @@ import { setItemScale } from './items';
 import { setPaintScale } from './paint';
 import { polygon } from './shapes';
 import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFactoryScale } from './factory';
+import { drawPowerCoverage, drawPowerWires } from './power';
 import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
 
 /** How much coarser than the screen, in CSS pixels, the night's lights are gathered. */
@@ -197,6 +198,8 @@ export class Renderer {
     // Painter's algorithm on Y — the whole reason the scene reads as 3/4 view.
     layers.sort((a, b) => a.y - b.y);
     for (const layer of layers) layer.draw();
+    // Wires hang above everything standing on the ground, so they go last.
+    drawPowerWires(ctx, world, view);
 
     for (const belt of this.visibleBelts) drawBeltItems(ctx, belt);
 
@@ -418,6 +421,8 @@ export class Renderer {
       drawCampRing(ctx, world, CAMP.buildRadius);
       return;
     }
+
+    if (ghost.what !== 'belt') drawPowerCoverage(ctx, world, ghost.what, ghost);
 
     const { x, y } = tileCenter(ghost.tx, ghost.ty);
     ctx.beginPath();
