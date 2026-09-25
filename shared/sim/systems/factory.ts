@@ -1,4 +1,4 @@
-import { insertIntoBeacon, stepBeacon } from '../beacon';
+import { insertIntoBeacon, stepBeacon, withBeacon } from '../beacon';
 import type { MachineDef } from '../../data/machines';
 import {
   BELT_CAPACITY,
@@ -225,7 +225,7 @@ export function handLoadRoom(machine: Machine, item: ItemId): number {
 export function stepMachines(world: World, dt: number): void {
   // Research multiplies what every machine on the island is worth, so the
   // bonuses are read once per tick rather than per machine.
-  const bonus = researchBonuses(world);
+  const bonus = withBeacon(world, researchBonuses(world));
 
   for (const machine of world.machines) {
     // An electric machine works at its network's pace, and not at all off one.
@@ -278,7 +278,7 @@ export function stepMachines(world: World, dt: number): void {
         machine.stalled = false;
         break;
       case 'beacon':
-        stepBeacon(world, machine);
+        stepBeacon(world, machine, dt);
         break;
       default:
         stepCrafter(world, machine, mdt, bonus);

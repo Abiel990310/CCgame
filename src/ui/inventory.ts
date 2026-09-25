@@ -13,7 +13,7 @@ import {
   techLevel,
 } from '@shared/sim/research';
 import { countIn, totalIn } from '@shared/sim/slots';
-import { BEACON_STAGES } from '@shared/data/beacon';
+import { BEACON_BOOST, BEACON_STAGES } from '@shared/data/beacon';
 import { beaconStage } from '@shared/sim/beacon';
 import { audio } from '../audio';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
@@ -499,7 +499,10 @@ export class InventoryScreen {
           .map((n) => `${Math.min(n.count, countIn(machine.input, n.id))} / ${n.count} ${ITEMS[n.id].name}`)
           .join(', ') +
         '.'
-      : 'Lit. The whole island can see it.';
+      : machine.progress > 0
+        ? `Burning: every machine, miner and lab on the island works ${Math.round(BEACON_BOOST * 100)}% faster. ` +
+          `${countIn(machine.input, 'processor')} processors in reserve, ${Math.ceil(machine.progress)}s on the one alight.`
+        : `Lit, but banked. Feed it processors and it burns, one a minute, for ${Math.round(BEACON_BOOST * 100)}% faster machines, miners and labs across the island.`;
     if (this.els.blurb.textContent !== text) this.els.blurb.textContent = text;
   }
 

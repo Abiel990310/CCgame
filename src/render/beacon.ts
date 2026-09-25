@@ -85,6 +85,14 @@ export function drawBeacon(ctx: CanvasRenderingContext2D, machine: Machine, time
   const lampY = top - 6;
   ctx.fillStyle = shift(def.color, -40);
   ctx.fillRect(x - 6, top - 2, 12, 3);
+  // Banked: lit once, out of fuel. An ember in the lamp, no beam.
+  if (machine.progress <= 0) {
+    ctx.fillStyle = rgba(def.accent, 0.55 + Math.sin(time * 1.2) * 0.1);
+    ctx.beginPath();
+    ctx.arc(x, lampY, 3, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   const pulse = 0.85 + Math.sin(time * 2) * 0.15;

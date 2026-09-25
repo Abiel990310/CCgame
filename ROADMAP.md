@@ -381,9 +381,14 @@ detail behind the factory entries is in
 - [ ] A lit beacon should light the night like the campfire does. Left for
       after the engine thread's night-layer rework (PR #47), which owns
       the lighting code.
-- [ ] What a lit beacon gives back beyond the XP: a reason to keep feeding
-      the island after it (an endless tier, a second island, a prestige).
-
+- [x] What a lit beacon gives back beyond the XP: it burns processors, one a
+      minute, from a reserve of up to 20, and while it burns every machine,
+      miner and lab on the island works 30% faster. Out of fuel it banks to an
+      ember and the boost stops, so running it for good needs a processor line.
+- [ ] The beacon screen still labels its slots "Delivered" once lit, where
+      "Fuel" would say what they are for now.
+- [ ] A burning beacon could also calm the nights near it, or ward the camp,
+      so its light means something after dark as well as for the factory.
 - [x] Around fifty level-up upgrades (49): 26 perks you can stack up to a
       cap (range, crits, armour, thorns, lifesteal, pierce, knockback, a
       finisher, night and camp damage, dash, revive, day speed, map sight,

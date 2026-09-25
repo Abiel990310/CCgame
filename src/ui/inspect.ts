@@ -9,7 +9,7 @@ import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
 import { powerNetOf } from '@shared/sim/power';
-import { BEACON_STAGES } from '@shared/data/beacon';
+import { BEACON_BOOST, BEACON_FUEL_CAP, BEACON_STAGES } from '@shared/data/beacon';
 import { beaconStage } from '@shared/sim/beacon';
 import { countIn } from '@shared/sim/slots';
 import { nearWorkbench } from '@shared/sim/crafting';
@@ -348,13 +348,20 @@ function describeBeacon(machine: Machine): Card {
           `${Math.min(n.count, countIn(machine.input, n.id))} / ${n.count}`,
         ]),
       ]
-    : [];
+    : [
+        ['Island speed', machine.progress > 0 ? `+${Math.round(BEACON_BOOST * 100)}%` : 'none'],
+        ['Processors', `${countIn(machine.input, 'processor')} / ${BEACON_FUEL_CAP}`],
+      ];
   return {
     title: def.name,
     icon: pieceIconVar(`machine:${machine.type}`),
-    status: current ? { text: 'Being built', tone: 'warn' } : { text: 'Lit', tone: 'good' },
+    status: current
+      ? { text: 'Being built', tone: 'warn' }
+      : machine.progress > 0
+        ? { text: 'Burning', tone: 'good' }
+        : { text: 'Banked: needs processors', tone: 'warn' },
     rows,
-    hint: current ? 'Click to open' : undefined,
+    hint: 'Click to open',
   };
 }
 

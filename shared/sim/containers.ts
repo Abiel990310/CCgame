@@ -2,7 +2,8 @@ import { MACHINES, isFuel } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { isResearchPack } from '../data/techs';
 import { hasSlotFilters, isSplitter, setSideFilter, setSlotFilter, splitterAccepts } from './factory';
-import { beaconStage, beaconWants } from './beacon';
+import { BEACON_FUEL_CAP } from '../data/beacon';
+import { beaconLit, beaconStage, beaconWants } from './beacon';
 import { giveOrDrop } from './inventory';
 import { handLoadRoom } from './systems/factory';
 import { addToSlots, slotCap, slotTakes, sortSlots, takeFromSlots } from './slots';
@@ -53,6 +54,7 @@ function capIn(machine: Machine | null, area: SlotArea, id: ItemId): number {
   // A beacon slot holds a stage's worth and no more, so a stack handed in
   // whole leaves the rest in hand rather than clogging the next stage.
   if (area === 'input' && MACHINES[machine.type].family === 'beacon') {
+    if (beaconLit(machine)) return id === 'processor' ? BEACON_FUEL_CAP : 0;
     return beaconStage(machine)?.stage.needs.find((n) => n.id === id)?.count ?? 0;
   }
   return slotCap(id, MACHINES[machine.type].slotSize);
