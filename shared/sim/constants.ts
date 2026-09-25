@@ -84,6 +84,18 @@ export const WAVES = {
   baseBudget: 6,
   budgetPerNight: 4,
   budgetPerExtraPlayer: 5,
+  /**
+   * The quadratic part of the budget. A player's power compounds (levels,
+   * perks, weapon tiers), so a straight-line budget made night 9 easier than
+   * night 5 and night 20 a stroll.
+   */
+  budgetPerNightSq: 0.3,
+  /** Creatures toughen from this night on, so late nights are fewer, bigger fights rather than only more of them. */
+  hardenFrom: 6,
+  /** Extra health per night past `hardenFrom`, as a share of the creature's base. */
+  hardenPerNight: 0.08,
+  /** Extra health a boss carries each time it has come back before. */
+  bossReturnHp: 0.6,
   /** Seconds between spawn pulses during a night. */
   pulseInterval: 4,
 } as const;

@@ -218,6 +218,9 @@ detail behind the factory entries is in
 
 ### Bugs
 
+- [ ] Night 15 in headless Chromium with the GPU renderer showed no night
+      darkness: the island was lit like day while the HUD read Night.
+      Unconfirmed on a real GPU; the darkness is a DOM layer since PR #47.
 - [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
       again on the next tick, so it rarely reached a second target. Each shot
       now remembers what it went through.
@@ -463,6 +466,18 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [x] **Nights keep getting harder.** A scripted player showed nights 6 to 9
+      costing less health than night 5, and night 20 barely scratched: the
+      wave budget grew in a straight line while player power compounds. The
+      budget now has a quadratic term, creatures toughen by 8% a night from
+      night 7 (and pay out XP in proportion), and the Warden carries 60% more
+      health each time it returns. Measured with the same bot, health lost per
+      night now climbs steadily from about 10 at night 6 to about 170 at 25.
+- [ ] Bosses beyond the Warden: one returning boss every five nights is the
+      whole late-night story. A second boss from night 15 (a flier, or one
+      that calls adds) would give the curve a new shape rather than more hp.
+- [ ] Mob damage does not scale with nights, only health. If late nights
+      read as sponge fights, trade some of the health for bite.
 - [x] Belts, machine bodies and belt items are baked sprites copied to whole
       pixels (belts at 16 tread phases per facing). A dense factory, 300
       machines and 600 belts on a 2x screen, went from 17 to 29 fps headless.
@@ -833,9 +848,10 @@ detail behind the factory entries is in
       it, and whether caches near camp break the early goal pace, is unplayed.
 - [ ] The hover card says "hold E" on phones too, where the prompt says Hold;
       the tree and rock cards share the wording.
-- [ ] Stone Warden pacing: 520 health behind 3 armour in a one-minute night.
-      Whether a night-5 player can kill it with the weapons they have by then
-      is unplayed; a sling at level 3 barely scratches it.
+- [ ] Stone Warden pacing on a real run. A scripted player that kites and
+      picks upgrades at random killed the night-5 Warden on four islands out
+      of six; standing still, it was downed three or four times that night.
+      A player who picks weapons on purpose should do better; unplayed.
 
 - [ ] Co-op across two real networks through the public PeerJS broker. It was
       driven with two browsers on one machine through a local copy of the same
