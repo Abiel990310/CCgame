@@ -11,7 +11,8 @@ export class GpuStage {
 
   private constructor(private renderer: WebGLRenderer) {}
 
-  static async create(): Promise<GpuStage> {
+  /** With `hardwareOnly`, refuses a WebGL that the browser runs in software. */
+  static async create(hardwareOnly = false): Promise<GpuStage> {
     const renderer = new WebGLRenderer();
     await renderer.init({
       width: 1,
@@ -22,6 +23,10 @@ export class GpuStage {
       background: '#12232e',
       powerPreference: 'high-performance',
     });
+    if (hardwareOnly && softwareGl(renderer.gl)) {
+      renderer.destroy();
+      throw new Error('WebGL is running in software');
+    }
     return new GpuStage(renderer);
   }
 
@@ -44,4 +49,11 @@ export class GpuStage {
     this.renderer.destroy();
     this.ctx.destroy();
   }
+}
+
+/** Whether the browser is drawing WebGL on the CPU, where Canvas is the faster of the two. */
+function softwareGl(gl: WebGLRenderingContext | WebGL2RenderingContext): boolean {
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
+  const name = String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+  return /swiftshader|llvmpipe|softpipe|software|basic render/i.test(name);
 }

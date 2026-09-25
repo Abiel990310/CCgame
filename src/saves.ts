@@ -109,7 +109,7 @@ function adoptLegacySave(): SaveIndex {
   }
 
   const slot: SaveSlot = {
-    id: newId(),
+    id: newId([]),
     name: 'The Island',
     createdAt: Date.now(),
     updatedAt: legacySavedAt(legacy),
@@ -147,10 +147,18 @@ function legacyNumber(raw: string, field: string): number {
   }
 }
 
-function newId(): string {
-  return `${Date.now().toString(36)}${Math.floor(Math.random() * 1296)
-    .toString(36)
-    .padStart(2, '0')}`;
+/**
+ * A slot id not already taken. Two slots made in the same millisecond share
+ * the time part, and two random base-36 digits collided about once in 1300
+ * such pairs, which put two islands under one save key.
+ */
+function newId(taken: SaveSlot[]): string {
+  for (;;) {
+    const id = `${Date.now().toString(36)}${Math.floor(Math.random() * 36 ** 4)
+      .toString(36)
+      .padStart(4, '0')}`;
+    if (!taken.some((slot) => slot.id === id)) return id;
+  }
 }
 
 /** Newest first, which is the order the menu lists them in. */
@@ -193,7 +201,7 @@ export function suggestName(existing: SaveSlot[] = listSaves()): string {
 export function createSlot(name: string): SaveSlot {
   const index = readIndex();
   const slot: SaveSlot = {
-    id: newId(),
+    id: newId(index.slots),
     name: name.trim() || suggestName(index.slots),
     createdAt: Date.now(),
     updatedAt: Date.now(),

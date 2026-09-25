@@ -97,7 +97,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Rendering between ticks | Draw moving things blended between their last two tick positions, one tick behind the sim | The sim ticks at 30 Hz and screens refresh at 60 or more; drawing raw positions showed each one for two frames or more, so walking read as 10–15 fps. Lives in `src/render/interpolate.ts`, never in `shared/`. The same blend is what multiplayer needs for other players. |
 | Co-op netcode | The host's browser runs the island; guests replay its ticks | Guests send what they press and click; the host applies it between ticks and sends every guest that tick's orders and inputs, so each copy of the deterministic sim takes the same step. A tick costs about 150 bytes where state snapshots would cost tens of kilobytes, and a fingerprint every second replaces a copy that drifts. Every click that changes the island is a `Command` in `shared/sim/commands.ts`. |
 | Co-op transport | WebRTC data channels, signalled through the public PeerJS broker | No server to run or pay for, on static hosting. The page talks to the broker only when someone hosts or joins, and speaks its protocol directly so there is still no runtime dependency. Friends' characters are saved on the host's side, beside the island. |
-| Renderer | PixiJS (WebGL) behind a switch, drawing the same art through a Canvas-shaped adapter | Abiel chose it on 2026-09-25 as the engine web games use, so the game can grow on it. The first runtime dependency, loaded only when the GPU renderer is on. The art stays written once against the Canvas API, so the two renderers cannot drift apart while Pixi is proven. |
+| Renderer | PixiJS (WebGL) by default, Canvas as the fallback, both drawing the same art through a Canvas-shaped adapter | Abiel chose it on 2026-09-25 as the engine web games use, so the game can grow on it. The first runtime dependency, loaded only when the GPU renderer is on. The art stays written once against the Canvas API, so the two renderers cannot drift apart while Pixi is proven. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -478,9 +478,10 @@ detail behind the factory entries is in
       0.3 ms each on a CPU canvas) and slimes are still traced live.
 - [ ] **Move drawing to PixiJS** (Abiel, 2026-09-25: "just use the one
       everyone use for web gaming so we can expand"). First step done: a Pixi
-      renderer behind a switch (Pause → Graphics → Try GPU, or
-      `?renderer=pixi`), loaded as its own file so the Canvas build does not
-      download Pixi. `src/render/gpu/context.ts` takes the Canvas 2D calls the
+      renderer, the default since Abiel found it smoother on his PC
+      (2026-09-25) except where the browser runs WebGL in software; Pause →
+      Graphics switches back to Canvas, as does `?renderer=canvas`. Pixi is
+      loaded as its own file, so Canvas players never download it. `src/render/gpu/context.ts` takes the Canvas 2D calls the
       art already makes and turns them into Pixi sprites and graphics in the
       same order, so every painter is shared and the 3/4 depth sort is
       untouched; baked sprites and ground chunks become textures. It matches
@@ -491,8 +492,8 @@ detail behind the factory entries is in
       vertex buffers that rebuild every frame. Next: keep static Graphics
       (machine live parts that did not change) between frames, pack baked
       sprites into an atlas so they batch, then move night and lights into a
-      shader pass so the DOM layers go. Canvas stays the default until Pixi is
-      faster on a real GPU.
+      shader pass so the DOM layers go. Those are for weaker machines now that
+      Pixi is the default.
       Measured since: at a 300-machine factory the Pixi path uploads about
       860 KB of vertices a frame in 127 buffer writes, nearly all from the
       Graphics that machines' live parts, lamps and bars are rebuilt into
@@ -824,8 +825,9 @@ detail behind the factory entries is in
       screen, has no frame over 7 ms of drawing work (p99 4.5 ms, ground
       chunks at most 4 ms); the few 33 ms frames left come from rasterising,
       not from the game's code. Worth feeling on a real machine.
-- [ ] The GPU (PixiJS) renderer on a real machine: Pause → Graphics shows the
-      frame rate; compare Canvas and Try GPU at a busy factory and at night.
+- [x] The GPU (PixiJS) renderer on a real machine: Abiel found it smoother
+      than Canvas on his PC (2026-09-25), so it is now the default.
+- [ ] The GPU renderer on a phone and on a laptop with built-in graphics.
 - [ ] Landmark cache sizes against the walk. A far shrine takes a few minutes
       to reach on foot on day one; whether its essence and upgrade feel worth
       it, and whether caches near camp break the early goal pace, is unplayed.

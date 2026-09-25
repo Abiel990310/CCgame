@@ -7,8 +7,8 @@ export interface GraphicsSource {
 
 /**
  * The pause screen's graphics row: which renderer is drawing, how fast, and a
- * switch between them. The Pixi renderer is new, so it is offered as something
- * to try, with the frame rate beside it so the difference can be seen.
+ * switch between them. GPU is the default; Canvas stays for a machine where
+ * it runs better, with the frame rate beside it so the difference can be seen.
  */
 export class GraphicsPanel {
   private status: HTMLElement;
@@ -41,9 +41,9 @@ export class GraphicsPanel {
   refresh(): void {
     const pixi = this.source.backend === 'pixi';
     const fps = Math.round(this.source.fps);
-    const name = pixi ? 'GPU (PixiJS, testing)' : 'Canvas';
+    const name = pixi ? 'GPU (PixiJS)' : 'Canvas';
     this.status.textContent = fps > 0 ? `Drawing with ${name} · ${fps} fps` : `Drawing with ${name}`;
-    this.toggle.textContent = this.busy ? 'Switching…' : pixi ? 'Use Canvas' : 'Try GPU';
+    this.toggle.textContent = this.busy ? 'Switching…' : pixi ? 'Use Canvas' : 'Use GPU';
     this.toggle.disabled = this.busy;
   }
 
