@@ -99,7 +99,9 @@ export class MainMenu {
       audio.play('click');
       this.callbacks.onAccount?.();
     });
-    this.els.root.querySelector('.menu-head')?.prepend(button);
+    // In the screen's corner rather than beside the title, which it squeezed
+    // onto two lines.
+    this.els.root.prepend(button);
     this.accountButton = button;
 
     const box = document.createElement('section');

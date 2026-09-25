@@ -294,6 +294,10 @@ detail behind the factory entries is in
       Esc sometimes opened nothing. A mouse moving over an open screen never
       told the island where it went, so the click aimed at the old spot. A
       press now updates the cursor itself, which also fixes shift-click paste.
+- [x] The main menu's Sign in button sat beside the title and pushed "The
+      Island" onto two lines on every screen. It now sits in the screen's
+      top-right corner. A sideways phone also cut the top of the menu off with
+      no way to scroll to it; the menu now centres only while it fits.
 - [ ] Hover cards after closing a screen still describe the old spot until
       the mouse moves; a pointerenter on the canvas would refresh them.
 - [x] On a phone the build palette covers the column of action buttons, so
@@ -601,8 +605,9 @@ detail behind the factory entries is in
       mouths, lab domes, and inserter bases, arms (24 swing steps) and filter
       chips. A frozen 1,000-machine factory on Pixi, pixels taken out, went
       from 99 to 14 ms a frame (10 to 45 fps headless); screenshots against
-      main match in both renderers. Still live: progress bars, furnace smoke,
-      lab bubbles, the assembler's working arm, belt items.
+      main match in both renderers. Progress bars (48 fill steps) and the
+      assembler's working arm (8 reach steps each way) followed. Still live:
+      furnace smoke and lab bubbles. Belt items are already sprites.
       History: the first plan was hand-written WebGL (2026-09-24), rejecting
       PixiJS as a dependency for a few hundred lines; the Canvas fixes in PR
       #47 then took every measured scene to 2 to 3 times its frame rate.
