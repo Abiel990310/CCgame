@@ -258,9 +258,12 @@ detail behind the factory entries is in
 - [ ] Co-op: when the host's tab goes to the background, browsers throttle its
       timers and the island slows or stutters for everyone on it.
 
-- [ ] The first click on a machine after closing another machine's screen with
-      Esc sometimes opens nothing; the second click works. Seen once while
-      driving copy and paste in a browser, not yet isolated.
+- [x] The first click on a machine after closing another machine's screen with
+      Esc sometimes opened nothing. A mouse moving over an open screen never
+      told the island where it went, so the click aimed at the old spot. A
+      press now updates the cursor itself, which also fixes shift-click paste.
+- [ ] Hover cards after closing a screen still describe the old spot until
+      the mouse moves; a pointerenter on the canvas would refresh them.
 - [x] On a phone the build palette covers the column of action buttons, so
       Build and Bag cannot be pressed while it is open. The palette is now
       narrower than the screen and the buttons stay beside it.
