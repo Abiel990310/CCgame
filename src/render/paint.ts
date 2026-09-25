@@ -22,7 +22,11 @@ export function paintScale(): number {
   return deviceScale;
 }
 
-const sprites = new Map<string, HTMLCanvasElement>();
+const sprites = new Map<string, { canvas: HTMLCanvasElement; used: number }>();
+/** Counts blits, so each sprite knows how recently it was drawn. */
+let blits = 0;
+/** Sprites kept at most; past it the least recently drawn tenth goes. */
+const SPRITE_CAP = 900;
 
 /** A square box of `r` about the anchor, for small baked parts. */
 export function around(r: number): { left: number; right: number; top: number; bottom: number } {
@@ -55,18 +59,17 @@ export function blitCached(
   const plain = m.b === 0 && m.c === 0 && m.a === m.d && m.a > 0;
   const k = plain ? Math.round(m.a * 64) / 64 : Math.max(0.5, Math.ceil(deviceScale * 4) / 4);
   const id = `${key}@${k}`;
-  let sprite = sprites.get(id);
-  if (sprite) {
-    // Kept in order of last use, so the cap below drops what has not been
-    // drawn lately rather than what was baked first: creature frames come and
-    // go by the hundred, and must not push the forest out.
-    sprites.delete(id);
-    sprites.set(id, sprite);
+  let entry = sprites.get(id);
+  if (entry) {
+    // Stamped rather than moved to the back of the map: reordering a map on
+    // every blit cost more than the blit on a CPU canvas, and belts are blitted
+    // by the hundred.
+    entry.used = ++blits;
   } else {
-    sprite = document.createElement('canvas');
-    sprite.width = Math.max(1, Math.ceil(w * k));
-    sprite.height = Math.max(1, Math.ceil(h * k));
-    const bake = sprite.getContext('2d');
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.ceil(w * k));
+    canvas.height = Math.max(1, Math.ceil(h * k));
+    const bake = canvas.getContext('2d');
     if (!bake) {
       ctx.save();
       ctx.translate(x, y);
@@ -76,13 +79,15 @@ export function blitCached(
     }
     bake.setTransform(k, 0, 0, k, box.left * k, box.top * k);
     draw(bake);
-    sprites.set(id, sprite);
+    entry = { canvas, used: ++blits };
+    sprites.set(id, entry);
     // Zooming through many scales would otherwise keep every one of them.
-    if (sprites.size > 900) {
-      const oldest = sprites.keys().next().value;
-      if (oldest !== undefined) sprites.delete(oldest);
-    }
+    // What goes is what has not been drawn lately, not what was baked first:
+    // creature frames come and go by the hundred, and must not push the
+    // forest out.
+    if (sprites.size > SPRITE_CAP) dropStale();
   }
+  const sprite = entry.canvas;
   if (!plain) {
     ctx.drawImage(sprite, x - box.left, y - box.top, w, h);
     return;
@@ -90,6 +95,12 @@ export function blitCached(
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(sprite, Math.round(m.a * (x - box.left) + m.e), Math.round(m.d * (y - box.top) + m.f));
   ctx.setTransform(m);
+}
+
+function dropStale(): void {
+  const stamps = [...sprites.values()].map((e) => e.used).sort((a, b) => a - b);
+  const cutoff = stamps[Math.floor(SPRITE_CAP / 10)];
+  for (const [id, e] of sprites) if (e.used <= cutoff) sprites.delete(id);
 }
 
 let shadowSprite: HTMLCanvasElement | null = null;
