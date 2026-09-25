@@ -1,5 +1,5 @@
 import { applyOrder, isHostOnly, type Order } from '@shared/sim/commands';
-import { INVENTORY_SLOTS } from '@shared/sim/inventory';
+import { bagSlots } from '@shared/sim/inventory';
 import { normalizeSlots } from '@shared/sim/slots';
 import { checksum, decode, encode, takeSnapshot } from '@shared/sim/snapshot';
 import type { Player, PlayerInput, World } from '@shared/sim/types';
@@ -290,7 +290,7 @@ export class CoopHost {
     // Fields added since they last played take their defaults, and a bag from
     // before a size change is fitted to today's grid.
     const player: Player = { ...fresh, ...kept, name: guest.name, pos: fresh.pos, vel: { x: 0, y: 0 } };
-    player.inventory = normalizeSlots(kept.inventory, INVENTORY_SLOTS);
+    player.inventory = normalizeSlots(kept.inventory, bagSlots(player));
     player.gatherNodeId = null;
     player.gatherProgress = 0;
     return player;

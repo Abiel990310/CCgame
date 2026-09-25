@@ -536,9 +536,16 @@ detail behind the factory entries is in
       of the island rather than inside it.
 - [ ] **A sound for a finished research cycle**, and a different one for a
       finished tech. A lab is the one machine whose output is invisible.
-- [ ] **Bag upgrades** — `INVENTORY_SLOTS` is a fixed 24 with no way to grow it.
-      A crafted satchel is an obvious early sink and a reason to build a
-      workbench.
+- [x] **Bag upgrades** — three bags at the workbench, sewn on in order, each a
+      row of 8 more slots: a Woven Satchel (fibre and wood, 32), an Iron-Frame
+      Pack (iron plate, 40) and a Steel Rucksack (steel and gears, 48). Sewn on
+      rather than carried, so a bag can never be put in a chest out from under
+      what it holds. Saved per player; older islands load at 24.
+- [ ] On a phone the bag grid is 6 wide, so 32 and 40 slots leave a short last
+      row. Either the bag rows go to 6 on a narrow screen or the grid picks
+      its width from the slot count.
+- [ ] A goal for the first satchel, so the first-hour chain points at it
+      once the bag starts to fill.
 - [x] A frame-time overlay behind a debug flag, so performance regressions show
       up while playing rather than only under a profiler. F3 (or `?perf=1`,
       which sticks) shows fps, the 95th-percentile and worst frame over two

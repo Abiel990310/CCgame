@@ -3,6 +3,14 @@ import type { ItemId, ItemStack, Player, Slot, World } from './types';
 
 export const INVENTORY_SLOTS = 24;
 
+/** Slots a sewn-on bag adds: one row of the grid. */
+export const BAG_ROW = 8;
+
+/** How big this player's bag is, with every bag they have sewn on. */
+export function bagSlots(player: Pick<Player, 'bag'>): number {
+  return INVENTORY_SLOTS + BAG_ROW * (player.bag ?? 0);
+}
+
 export function newInventory(): Slot[] {
   return makeSlots(INVENTORY_SLOTS);
 }
