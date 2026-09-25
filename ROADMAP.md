@@ -120,7 +120,7 @@ always rebuilding something you built an hour ago.
 | 4 | Power (coal → steam) | Everything slows when power runs short | ✅ |
 | 5 | Steel, resin, advanced circuits | Chains six or more steps deep | Recipes and machine tiers done; resin ahead |
 | 6 | Island logistics: drones, rail | Remote outposts on distant ore | Planned |
-| 7 | The Megaproject | An endgame sink with unbounded appetite | Planned |
+| 7 | The Megaproject | An endgame sink with unbounded appetite | ✅ Skyward Beacon |
 
 **Tier 7 is the answer to late game.** A tech tree ends; a structure that always
 wants more throughput does not. Factorio has the rocket, Satisfactory has the
@@ -133,8 +133,8 @@ a steel plate, and the assembler makes batteries from copper and coal, motors
 from steel and gears, and advanced circuits from circuits and batteries. Those
 now have somewhere to go: every miner, furnace and assembler has a Mk2 bought
 with steel and gears and a Mk3 bought with motors and advanced circuits, at
-double and quadruple speed. That is the recipe half of this phase; power itself
-is still ahead.
+double and quadruple speed. That is the recipe half of this phase; power is in
+too (below).
 
 Research is in too. A **Lab** eats research packs off a belt, and `TECHS` in
 `shared/data/techs.ts` is the tree it works through: three packs
@@ -274,8 +274,12 @@ detail behind the factory entries is in
       mode now turns it a quarter, as belts already did, and the build bar has
       a turn button for the piece about to go down. Checked at 320, 390 and
       810px wide.
-- [ ] On a 320px phone the build bar's second card in each row is cut off by
-      the palette edge; it scrolls sideways, but nothing says so.
+- [x] On a 320px phone the build bar's second card in each row is cut off by
+      the palette edge; it scrolls sideways, but nothing says so. A row with
+      more cards now fades at its edge and shows an arrow that steps one card
+      along, and swipes snap to a card. Checked at 320, 390 and 800x360.
+- [ ] The Lab's "Workbench" note in the desktop build palette runs 5px past
+      its card's right edge at 1280px.
 - [x] The overlapping HUD panels are still showing after the UI revamp. The
       co-op code chip sat on the resource pouch at every screen size, and on
       a 320px phone the phase panel wrapped into it. The top-right corner is
@@ -327,8 +331,6 @@ detail behind the factory entries is in
       a machine. A tap now places in build mode and opens a machine outside it.
 - [x] Touch had no rotate. A belt line faces the way it is dragged, and tapping
       a placed belt turns it a quarter.
-- [ ] Machines still cannot be turned on a touchscreen: they face the last belt
-      direction. Dragging from a machine could turn it, the way a belt turns.
 - [x] On desktop at 1280x800 the build palette stays open over most of the
       screen while placing, so there is little ground left to click on. It now
       folds to its tabs and the selected piece while the mouse is out over the
@@ -438,8 +440,7 @@ detail behind the factory entries is in
       area) with lakes, highlands and richer ore towards the coast; islands
       from before keep their 96 tiles. Exploration fog and an island map (M,
       or the Map button) show what you have seen.
-- [ ] Landmarks worth travelling to on the mainland: ruins with loot, a
-      crashed supply pod, a rich ore vein guarded by a nest.
+- [ ] A rich ore vein guarded by a nest, as a landmark kind of its own.
 - [ ] Map pins: let the player mark a spot on the island map.
 - [ ] A big content pass across every system (recipes, machines, techs, goals,
       mobs, camp) aimed at tens to hundreds of hours of play over the next
@@ -491,8 +492,6 @@ detail behind the factory entries is in
       interest of a layout. Tier 3 burns coal too until power exists; one coal
       pays for 8 recipe-seconds in every tier, so four plates. `fuelSlots` and
       `FUEL_VALUE` in `machines.ts` are the whole knob.
-- [ ] **Generator and power radius** — tier-3 machines draw power instead of
-      fuel; a brown-out slows machines proportionally rather than stopping them.
 - [x] **Storage and logistics tiers** — a steel chest with more slots and a fast
       inserter. Miners, furnaces and assemblers have three tiers each now;
       `MachineDef.speed` already multiplies an inserter's swing, so both are a
@@ -505,7 +504,6 @@ detail behind the factory entries is in
       is refunded as removing it would be, and the ghost takes the old facing.
 - [ ] **Modules** — a slotted item for +speed, +output or −power in a tier-3
       machine. A sink that never saturates.
-- [ ] **Steel and 8–10 new recipes** — gives research something worth gating.
 - [ ] **Belt tiers Mk2 and Mk3** (3.2 and 6.4 tiles/s), pending the open
       question on whether belts get tiers at all.
 - [x] **Underground belts** — a placed pair passing items beneath up to 6
@@ -524,9 +522,6 @@ detail behind the factory entries is in
 - [x] **Dry-miner warning** — a miner that pulls up the last ore in reach
       raises a toast once, and shows as a red ring on the map until moved; the
       Production tab counts them and links to the map.
-- [ ] **The Beacon megaproject** — five stages at camp, each a sustained
-      delivery rate, the tower visibly growing. A progress bar standing in the
-      world.
 - [ ] **Second island via a bridge** — a new generated region with its own ore
       tier and tech branch. Multiplies content instead of ending it.
 - [x] **Mob voices** — each of the nine creatures dies to its own sound: a
@@ -735,10 +730,6 @@ detail behind the factory entries is in
 - [ ] The factory hum counts machines within earshot every 0.3s by scanning
       every machine and belt on the island. Fine at hundreds; if a base ever
       reaches thousands it wants the same spatial index the renderer will need.
-- [ ] Grow `UPGRADES` from 9 stat entries and 4 weapons to 40–60 entries with
-      rarity tiers. Once labs feed XP continuously a player sees hundreds of
-      level-ups, and three cards drawn from the same nine is thin within an
-      hour.
 - [ ] Measure late-game goals as a rate held over time, never a total
       delivered. A total is farmed by leaving the game open; a rate can only be
       met by a factory that is genuinely good.
@@ -790,9 +781,6 @@ detail behind the factory entries is in
       speed — about 1.7 items a second, against an electric furnace that eats
       two ore a second (more with Metallurgy). Fixed by the fast inserter; the
       first arm still starves an electric furnace, on purpose.
-- [ ] The factory palette is eighteen entries and wraps to six rows. Gating
-      greys most of them out on a new island rather than hiding them, so it
-      still wants grouping before belts get tiers too.
 - [ ] A machine row added without naming it in some tech's `unlocks` is on the
       palette from minute one. The safe default, but a new tier should be
       given a tech on purpose; the unlock tests fail if a tier-2 or tier-3
@@ -850,7 +838,6 @@ detail behind the factory entries is in
 
 - [ ] Co-op: let the host hand the island to a guest when leaving, so the others
       can keep playing (host migration).
-- [ ] Co-op: scale night raids with how many players are on the island.
 
 - [ ] The player swings the same plain axe and pick whatever tier is in the
       bag. Tint the head by the best tool carried, so an upgrade shows.
@@ -865,9 +852,7 @@ detail behind the factory entries is in
       to compare two lines.
 - [ ] A dry miner looks the same in the world as a blocked one (a red light).
       A distinct mark on the machine itself would save opening the map.
-- [ ] Carry the goal chain past the first Mk2 machine: steel, the logic pack,
-      resonance and, once it exists, the megaproject, so there is always a
-      named next step in the late game. Rows in `shared/data/goals.ts`.
+- [ ] A goal for the resonance pack, the one late step the goal chain skips.
 - [ ] Goals could pay in items as well as XP, such as a stack of belts for
       the belt goal, which would also speed up a first factory.
 - [ ] A goal log in the pause menu listing goals done, so a returning player
@@ -875,9 +860,6 @@ detail behind the factory entries is in
 
 - [ ] Fish trap tiers, or a trap that catches more essence at night, so the
       essence line scales like the ore lines do instead of by sheer count.
-- [ ] Nothing but research yet needs essence in bulk. A late camp piece or the
-      megaproject could ask for it too, so fishing stays worth automating
-      after resonance is done.
 - [ ] Wood as a weak fuel (a row in `FUEL_VALUE`), so a steel furnace can be
       lit before the first coal miner is down.
 - [ ] Inserters that feed a burner's fuel from a neighbouring burner, the way
@@ -913,9 +895,6 @@ detail behind the factory entries is in
 - [ ] A splitter that prefers the emptier side over strict alternation. Turn
       by turn is right while both sides flow; when one backs up the rotation
       still offers it first every other item and only then falls through.
-- [ ] A miner that runs its ground out goes quiet with nothing to say about it.
-      A toast, or a mark on the map, would stop a base dying while its owner is
-      at the other end of the island.
 - [ ] Deep mining as a late unlock: spend to keep working an exhausted patch at
       a worse rate. An answer to an island that has been emptied, and a sink
       that never stops asking.
@@ -945,8 +924,6 @@ detail behind the factory entries is in
       tedium teaches. Timing is the whole question.
 - [ ] Quick slots that can hold an item as well as a build piece, once there is
       something worth using from the bag.
-- [ ] Sorting discards the arrangement a player chose. A pinned or filtered slot
-      would let a chest keep its shape while still tidying around it.
 - [ ] **Measure the render path by frame rate, never by timing draw calls.**
       Canvas 2D records draw calls and rasterises them later, so
       `performance.now()` around drawing measures recording only. On a full
