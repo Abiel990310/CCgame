@@ -247,6 +247,16 @@ detail behind the factory entries is in
 - [x] On a portrait phone a toast can land on the top edge of an open build
       palette. Toasts wrap instead of running into the buttons, and in build
       mode they sit under the goal, clear of the palette.
+- [x] Toasts still landed on an open palette on a portrait phone once two or
+      three stacked up, since each wraps to three lines there. With the palette
+      open a phone shows only the newest toast.
+- [x] Machines could not be turned on a touchscreen: there is no R key, and
+      tapping a placed machine did nothing. A tap on any placed piece in build
+      mode now turns it a quarter, as belts already did, and the build bar has
+      a turn button for the piece about to go down. Checked at 320, 390 and
+      810px wide.
+- [ ] On a 320px phone the build bar's second card in each row is cut off by
+      the palette edge; it scrolls sideways, but nothing says so.
 - [x] The overlapping HUD panels are still showing after the UI revamp. The
       co-op code chip sat on the resource pouch at every screen size, and on
       a 320px phone the phase panel wrapped into it. The top-right corner is
@@ -300,11 +310,11 @@ detail behind the factory entries is in
 - [x] The phase bar and the vitals panel overlap on a phone. At 390px wide the
       vitals card covers the Day/Night readout entirely. No longer overlapping
       at 390px as of 2026-09-24 (measured in Chromium at iPhone 13 size).
-- [ ] Shift-clicking a large stack into a two-slot machine fills **both** input
+- [x] Shift-clicking a large stack into a two-slot machine fills **both** input
       slots with one ingredient, so the second ingredient can never get in and
-      the machine deadlocks until you take some back out by hand. Belts are
-      guarded against exactly this (one slot reserved per ingredient); hand
-      loading is not. Found driving a research line in a browser.
+      the machine deadlocks until you take some back out by hand. Shift-click
+      now keeps to the same per-ingredient share a belt does (labs too); the
+      rest stays in the bag. Placing a stack on a chosen slot is still free.
 
 
 ### New features

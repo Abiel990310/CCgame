@@ -175,21 +175,51 @@ function ingredientFits(
   ingredients: number,
   item: ItemId,
 ): boolean {
+  return ingredientRoom(input, def, ingredients, item) > 0;
+}
+
+/**
+ * How many more of one ingredient the input grid can take while every other
+ * ingredient keeps its share: room in the stacks it already holds, plus the
+ * new slots its share still allows.
+ */
+function ingredientRoom(
+  input: Slot[],
+  def: MachineDef,
+  ingredients: number,
+  item: ItemId,
+): number {
   const cap = slotCap(item, def.slotSize);
   let owned = 0;
   let free = 0;
+  let room = 0;
 
   for (const slot of input) {
     if (slot === null) free++;
     else if (slot.id === item) {
-      // Room in a stack this ingredient already owns costs no new slot.
-      if (slot.count < cap) return true;
       owned++;
+      room += Math.max(0, cap - slot.count);
     }
   }
 
-  if (free === 0) return false;
-  return owned < Math.max(1, Math.floor(def.inputSlots / ingredients));
+  const share = Math.max(1, Math.floor(def.inputSlots / ingredients));
+  return room + Math.min(free, Math.max(0, share - owned)) * cap;
+}
+
+/**
+ * How many of an item a hand may load into a machine's input grid at once. A
+ * shift-click is held to the same per-ingredient share a belt is, or one big
+ * stack fills every slot and the recipe's other ingredient never gets in. A
+ * single click on a chosen slot stays free: that player is arranging the grid
+ * on purpose and can take it back out.
+ */
+export function handLoadRoom(machine: Machine, item: ItemId): number {
+  const def = MACHINES[machine.type];
+  if (def.family === 'lab') return ingredientRoom(machine.input, def, RESEARCH_PACKS.length, item);
+  if (!def.choosesRecipe) return Infinity;
+  const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
+  if (!recipe) return Infinity;
+  return ingredientRoom(machine.input, def, recipe.inputs.length, item);
 }
 
 export function stepMachines(world: World, dt: number): void {

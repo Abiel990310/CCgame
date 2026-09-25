@@ -174,6 +174,38 @@ describe('splitting and swapping', () => {
 });
 
 describe('what a machine will accept by hand', () => {
+  it('keeps a slot free for the second ingredient when a big stack is shift-clicked in', () => {
+    const b = bench();
+    const { tx, ty } = at(4, 5);
+    const assembler = put(b, ['assembler', 'circuit'], tx, ty, 0) as Machine;
+    b.player.inventory.fill(null);
+    addItem(b.player, 'gear', 100);
+    addItem(b.player, 'wire', 60);
+
+    const gears = b.player.inventory.findIndex((s) => s?.id === 'gear');
+    expect(quickMove(b.world, b.player, assembler.id, { area: 'bag', index: gears })).toBe(true);
+    // One slot's worth goes in; the rest stays in the bag rather than taking wire's slot.
+    expect(assembler.input.filter((s) => s?.id === 'gear')).toHaveLength(1);
+    expect(countIn(assembler.input, 'gear') + countItem(b.player, 'gear')).toBe(100);
+
+    const wire = b.player.inventory.findIndex((s) => s?.id === 'wire');
+    expect(quickMove(b.world, b.player, assembler.id, { area: 'bag', index: wire })).toBe(true);
+    expect(countIn(assembler.input, 'wire')).toBeGreaterThan(0);
+
+    advance(b.world, 10);
+    expect(countIn(assembler.output, 'circuit')).toBeGreaterThan(0);
+  });
+
+  it('still lets a single click put a stack in any slot the player chooses', () => {
+    const b = bench();
+    const { tx, ty } = at(4, 5);
+    const assembler = put(b, ['assembler', 'circuit'], tx, ty, 0) as Machine;
+    b.player.cursor = { id: 'gear', count: 10 };
+    expect(clickSlot(b.world, b.player, assembler.id, { area: 'input', index: 0 })).toBe(true);
+    b.player.cursor = { id: 'gear', count: 10 };
+    expect(clickSlot(b.world, b.player, assembler.id, { area: 'input', index: 1 })).toBe(true);
+  });
+
   it('lets the player feed a furnace the ore its recipe uses', () => {
     const b = bench();
     const { tx, ty } = at(4, 5);
