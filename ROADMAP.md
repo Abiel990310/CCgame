@@ -636,9 +636,10 @@ detail behind the factory entries is in
       the coast, ore as speckles, trees and rocks, a faint grid, and a soft
       edge to the fog. Painted once per island; only the fog is redone, and
       only when more ground is known.
-- [ ] The island map shows the whole island at one size, so the first hour is
-      a small lit disc in a dark square. Zoom and pan (wheel, pinch, drag)
-      centred on the player would make it useful from the start.
+- [x] The island map showed the whole island at one size, so the first hour
+      was a small lit disc in a dark square. It now zooms (wheel, pinch, or
+      + and - buttons) and pans by dragging, opens fitted to what you have
+      explored and centred on you, and has a button to find yourself again.
 - [ ] Number keys could pick a level-up card on desktop (1 to 4), with the key
       shown on each card.
 - [ ] HUD panels are still placed with hand-tuned `top` offsets per breakpoint

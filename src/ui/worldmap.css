@@ -50,11 +50,54 @@
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
-.worldmap-frame canvas {
+.worldmap-frame {
+  touch-action: none;
+  cursor: grab;
+}
+
+.worldmap-frame.dragging {
+  cursor: grabbing;
+}
+
+.worldmap-frame canvas,
+.worldmap-pan {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.worldmap-pan {
+  transform-origin: 0 0;
+}
+
+/* Close up, the tiles read as crisp cells rather than a blur. */
+.worldmap-frame.zoomed .worldmap-land {
+  image-rendering: pixelated;
+}
+
+.worldmap-zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.worldmap-zoom .icon-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: rgba(16, 20, 28, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.worldmap-zoom .ico {
+  width: 18px;
+  height: 18px;
 }
 
 /* Painted finer than a tile a pixel, so it is scaled smoothly. */

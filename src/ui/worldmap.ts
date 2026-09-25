@@ -4,6 +4,7 @@ import { exploredShare } from '@shared/sim/explore';
 import { minerOreLeft } from '@shared/sim/ore';
 import type { Machine, ResourceKind, World } from '@shared/sim/types';
 import type { Ledger } from '../ledger';
+import { icon } from './icons';
 import { LedgerView } from './ledger';
 import './worldmap.css';
 
@@ -34,6 +35,9 @@ const LANDMARK_MARK: Partial<Record<ResourceKind, string>> = {
 const FOG_SHOW = 0.16;
 /** Roughly how many pixels across the painted map is, whatever the island's size. */
 const MAP_PIXELS = 768;
+/** How far the map zooms in, and how far it zooms itself to fit what has been explored. */
+const MAX_ZOOM = 8;
+const FIT_ZOOM = 4;
 /** Terrain water indices in `TERRAIN_ORDER`. */
 const DEEP = 0;
 const WATER = 1;
@@ -104,6 +108,17 @@ export class WorldMap {
   private tabs: HTMLElement[];
   private dryCount = 0;
   private dryTimer = 0;
+  private frame: HTMLElement;
+  private pan: HTMLElement;
+  /** How far in the map is zoomed, and the point of the island (0 to 1 across) at the frame's centre. */
+  private zoom = 1;
+  private cx = 0.5;
+  private cy = 0.5;
+  private panStyle = '';
+  /** The island the view was last fitted to; a new one is fitted to what has been explored of it. */
+  private fittedKey = '';
+  private recentre = false;
+  private pointers = new Map<number, { x: number; y: number }>();
   /** The island fully known and as a ghost, painted once per island; see `paintBases`. */
   private seenBase: HTMLCanvasElement | null = null;
   private fogBase: HTMLCanvasElement | null = null;
@@ -132,10 +147,17 @@ export class WorldMap {
           <button class="icon-btn worldmap-close" title="Close (M)" data-role="close">&times;</button>
         </header>
         <div class="worldmap-view" data-role="view">
-        <div class="worldmap-frame">
-          <canvas class="worldmap-land" data-role="fog"></canvas>
-          <canvas class="worldmap-land" data-role="land"></canvas>
+        <div class="worldmap-frame" data-role="frame">
+          <div class="worldmap-pan" data-role="pan">
+            <canvas class="worldmap-land" data-role="fog"></canvas>
+            <canvas class="worldmap-land" data-role="land"></canvas>
+          </div>
           <canvas class="worldmap-marks" data-role="marks"></canvas>
+          <div class="worldmap-zoom">
+            <button class="icon-btn" data-zoom="in" title="Zoom in (scroll or pinch)">${icon('plus')}</button>
+            <button class="icon-btn" data-zoom="out" title="Zoom out">${icon('minus')}</button>
+            <button class="icon-btn" data-zoom="me" title="Centre on you">${icon('locate')}</button>
+          </div>
         </div>
         <footer class="worldmap-key">
           <span><i style="background:rgb(120,150,190)"></i>Iron</span>
@@ -155,6 +177,9 @@ export class WorldMap {
     this.overlay = role<HTMLCanvasElement>('marks');
     this.share = role('share');
     this.view = role('view');
+    this.frame = role('frame');
+    this.pan = role('pan');
+    this.bindZoom();
     this.ledgerView = new LedgerView(this.root.querySelector('.worldmap-inner')!, () => this.showTab('map'));
     this.tabs = [...this.root.querySelectorAll<HTMLElement>('[data-tab]')];
     for (const tab of this.tabs) tab.addEventListener('click', () => this.showTab(tab.dataset.tab as MapTab));
@@ -180,6 +205,8 @@ export class WorldMap {
     this.paintedKey = '';
     this.detailFresh = false;
     this.knownCount = -1;
+    this.recentre = open;
+    this.pointers.clear();
     this.showTab(tab);
   }
 
@@ -208,6 +235,13 @@ export class WorldMap {
     // rather than hashing it every frame.
     this.refresh -= dt;
     const key = `${world.seed}|${world.worldgen}|${MAP_TILES}`;
+    if (key !== this.fittedKey) {
+      this.fitView(world, selfId);
+      this.fittedKey = key;
+    } else if (this.recentre) {
+      this.centreOn(world, selfId);
+    }
+    this.recentre = false;
     if (key !== this.paintedKey || this.refresh <= 0) {
       this.paintLand(world);
       this.paintedKey = key;
@@ -425,9 +459,16 @@ export class WorldMap {
     }
     const ctx = this.overlay.getContext('2d');
     if (!ctx) return;
-    const scale = size / (MAP_TILES * TILE);
     const dpr = window.devicePixelRatio || 1;
+    this.applyView();
+    // Markers follow the zoomed island but keep their own size, so they
+    // stay readable at any zoom.
+    const scale = (size / (MAP_TILES * TILE)) * this.zoom;
+    const ox = (0.5 - this.cx * this.zoom) * size;
+    const oy = (0.5 - this.cy * this.zoom) * size;
     ctx.clearRect(0, 0, size, size);
+    ctx.save();
+    ctx.translate(ox, oy);
 
     // The factory, one small square per piece, so a base reads as a shape.
     const cell = Math.max(2 * dpr, TILE * scale);
@@ -510,6 +551,130 @@ export class WorldMap {
       ctx.strokeStyle = '#10141c';
       ctx.stroke();
       ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  /** Scroll, pinch, drag and the corner buttons all move the one view. */
+  private bindZoom(): void {
+    const frame = this.frame;
+    frame.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
+      },
+      { passive: false },
+    );
+    frame.addEventListener('pointerdown', (e) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+      try {
+        frame.setPointerCapture(e.pointerId);
+      } catch {
+        // A pointer the browser no longer tracks; the drag still works while it stays on the map.
+      }
+      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      frame.classList.add('dragging');
+    });
+    frame.addEventListener('pointermove', (e) => {
+      const was = this.pointers.get(e.pointerId);
+      if (!was) return;
+      const others = [...this.pointers.entries()].filter(([id]) => id !== e.pointerId).map(([, p]) => p);
+      const width = frame.clientWidth * this.zoom;
+      if (others.length === 0) {
+        this.cx -= (e.clientX - was.x) / width;
+        this.cy -= (e.clientY - was.y) / width;
+      } else {
+        // Two fingers: the gap between them sets the zoom, about their midpoint.
+        const o = others[0];
+        const before = Math.hypot(was.x - o.x, was.y - o.y);
+        const after = Math.hypot(e.clientX - o.x, e.clientY - o.y);
+        if (before > 4) this.zoomAt((e.clientX + o.x) / 2, (e.clientY + o.y) / 2, after / before);
+      }
+      was.x = e.clientX;
+      was.y = e.clientY;
+      this.applyView();
+    });
+    const release = (e: PointerEvent): void => {
+      this.pointers.delete(e.pointerId);
+      if (this.pointers.size === 0) frame.classList.remove('dragging');
+    };
+    frame.addEventListener('pointerup', release);
+    frame.addEventListener('pointercancel', release);
+    for (const button of frame.querySelectorAll<HTMLElement>('[data-zoom]')) {
+      button.addEventListener('click', () => {
+        const kind = button.dataset.zoom;
+        if (kind === 'me') {
+          this.recentre = true;
+          this.zoom = Math.max(this.zoom, 3);
+          return;
+        }
+        const rect = frame.getBoundingClientRect();
+        this.zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, kind === 'in' ? 1.6 : 1 / 1.6);
+      });
+    }
+  }
+
+  /** Zoom by `factor`, keeping the point of the island under (x, y) where it is. */
+  private zoomAt(x: number, y: number, factor: number): void {
+    const rect = this.frame.getBoundingClientRect();
+    const w = rect.width;
+    if (w <= 0) return;
+    const fx = (x - rect.left) / w;
+    const fy = (y - rect.top) / w;
+    // The island's own coordinates under the pointer, before and after.
+    const mx = this.cx + (fx - 0.5) / this.zoom;
+    const my = this.cy + (fy - 0.5) / this.zoom;
+    this.zoom = Math.min(MAX_ZOOM, Math.max(1, this.zoom * factor));
+    this.cx = mx - (fx - 0.5) / this.zoom;
+    this.cy = my - (fy - 0.5) / this.zoom;
+    this.applyView();
+  }
+
+  /** Close enough to see what has been explored so far, centred on you. */
+  private fitView(world: World, selfId: number): void {
+    const n = MAP_TILES;
+    let x0 = n;
+    let y0 = n;
+    let x1 = -1;
+    let y1 = -1;
+    for (let ty = 0; ty < n; ty++) {
+      for (let tx = 0; tx < n; tx++) {
+        if (world.explored[ty * n + tx] !== 1) continue;
+        if (tx < x0) x0 = tx;
+        if (tx > x1) x1 = tx;
+        if (ty < y0) y0 = ty;
+        if (ty > y1) y1 = ty;
+      }
+    }
+    const span = x1 < 0 ? n : Math.max(x1 - x0, y1 - y0) + 1;
+    this.zoom = Math.min(FIT_ZOOM, Math.max(1, n / (span + 24)));
+    this.centreOn(world, selfId);
+  }
+
+  private centreOn(world: World, selfId: number): void {
+    const self = world.players.get(selfId);
+    if (!self) return;
+    const size = MAP_TILES * TILE;
+    this.cx = self.pos.x / size;
+    this.cy = self.pos.y / size;
+    this.applyView();
+  }
+
+  /** Keep the island filling the frame, then move the painted layers to match. */
+  private applyView(): void {
+    const half = 0.5 / this.zoom;
+    this.cx = Math.min(1 - half, Math.max(half, this.cx));
+    this.cy = Math.min(1 - half, Math.max(half, this.cy));
+    const w = this.frame.clientWidth;
+    const ox = (0.5 - this.cx * this.zoom) * w;
+    const oy = (0.5 - this.cy * this.zoom) * w;
+    const style = `translate(${ox.toFixed(1)}px, ${oy.toFixed(1)}px) scale(${this.zoom.toFixed(4)})`;
+    if (style !== this.panStyle) {
+      this.pan.style.transform = style;
+      this.panStyle = style;
+      this.frame.classList.toggle('zoomed', this.zoom >= 2);
     }
   }
 }
