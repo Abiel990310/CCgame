@@ -259,3 +259,115 @@ export function drawBrood(ctx: CanvasRenderingContext2D, mob: Mob, time: number)
   }
   ctx.globalAlpha = 1;
 }
+
+/**
+ * The Swarm Queen: a great hovering wasp-mother, her banded abdomen swollen
+ * with brood. She floats a body's height off the ground, so her shadow sits
+ * apart from her, and the abdomen throbs as the next call comes due.
+ */
+export function drawQueen(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
+  const def = MOBS.queen;
+  const r = def.radius;
+  const { x, y } = mob.pos;
+  const face = heading(mob);
+  const hover = r * 1.1 + Math.sin(time * 2.4 + mob.seed) * 3;
+  const interval = def.summons!.interval;
+  const swell = 1 - Math.min(1, (mob.summonCd ?? interval) / interval);
+  const body = def.color;
+  const gold = def.accent;
+
+  softShadow(ctx, x, y + r * 0.35, r * 1.2, 0.34);
+  ctx.translate(x, y + r * 0.35 - hover);
+  if (face.x < 0) ctx.scale(-1, 1);
+
+  // Wings: two pairs, a blur of beats.
+  const beat = Math.sin(time * 40 + mob.seed) * 0.18;
+  for (const [ang, len, alpha] of [
+    [-2.2 + beat, 1.7, 0.4],
+    [-1.6 - beat, 1.45, 0.32],
+  ] as const) {
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.rotate(side < 0 ? ang : -Math.PI - ang);
+      ctx.beginPath();
+      ctx.ellipse(r * len * 0.5, 0, r * len * 0.5, r * 0.34, 0, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(214, 226, 255, ${alpha})`;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(40, 36, 60, 0.35)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // Abdomen trailing behind and below, banded, swelling before she calls.
+  const ax = -r * 0.85;
+  const ay = r * 0.25;
+  const aw = r * (0.78 + swell * 0.1);
+  const ah = r * (0.52 + swell * 0.08);
+  ctx.save();
+  ctx.translate(ax, ay);
+  ctx.rotate(0.45);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, aw, ah, 0, 0, Math.PI * 2);
+  fillInk(ctx, litFill(ctx, body, -aw, -ah, aw, ah, 0.25, -0.4), 1.4);
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = tint(gold);
+  for (let i = 0; i < 3; i++) ctx.fillRect(-aw * 0.55 + i * aw * 0.45, -ah, aw * 0.16, ah * 2);
+  ctx.restore();
+  ctx.beginPath();
+  ctx.ellipse(0, 0, aw, ah, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  // Stinger.
+  ctx.beginPath();
+  ctx.moveTo(-aw * 0.95, -ah * 0.12);
+  ctx.lineTo(-aw * 1.35, 0);
+  ctx.lineTo(-aw * 0.95, ah * 0.12);
+  fillInk(ctx, tint(tone(body, -0.5)), 1);
+  ctx.restore();
+
+  // Legs dangling from the thorax.
+  for (let i = 0; i < 3; i++) {
+    const lx = -r * 0.2 + i * r * 0.22;
+    const sway = Math.sin(time * 3 + i + mob.seed) * r * 0.06;
+    capsule(ctx, lx, r * 0.2, lx - r * 0.12 + sway, r * 0.72, 2.2, tint(tone(body, -0.45)));
+  }
+
+  // Thorax.
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.5, r * 0.42, 0, 0, Math.PI * 2);
+  fillInk(ctx, litFill(ctx, tone(body, 0.08), -r * 0.5, -r * 0.4, r * 0.5, r * 0.4), 1.4);
+  ctx.fillStyle = tint(tone(gold, -0.1));
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.05, -r * 0.18, r * 0.22, r * 0.09, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head, forward, with a crown of antennae and gold compound eyes.
+  const hx = r * 0.62;
+  const hy = -r * 0.12;
+  for (const side of [-1, 1]) {
+    ctx.strokeStyle = tint(tone(body, -0.5));
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(hx + r * 0.1, hy - r * 0.22);
+    ctx.quadraticCurveTo(hx + r * 0.35 + side * r * 0.1, hy - r * 0.75, hx + r * 0.6 + side * r * 0.12, hy - r * 0.7);
+    ctx.stroke();
+    ctx.fillStyle = tint(gold);
+    ctx.beginPath();
+    ctx.arc(hx + r * 0.6 + side * r * 0.12, hy - r * 0.7, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.ellipse(hx, hy, r * 0.34, r * 0.3, 0, 0, Math.PI * 2);
+  fillInk(ctx, litFill(ctx, tone(body, 0.12), hx - r * 0.3, hy - r * 0.3, hx + r * 0.3, hy + r * 0.3), 1.3);
+  ctx.beginPath();
+  ctx.ellipse(hx + r * 0.14, hy - r * 0.04, r * 0.14, r * 0.17, 0.2, 0, Math.PI * 2);
+  fillInk(ctx, tint(gold), 1);
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.beginPath();
+  ctx.arc(hx + r * 0.1, hy - r * 0.1, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+}

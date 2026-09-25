@@ -218,9 +218,13 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] Night 15 in headless Chromium with the GPU renderer showed no night
-      darkness: the island was lit like day while the HUD read Night.
-      Unconfirmed on a real GPU; the darkness is a DOM layer since PR #47.
+- [ ] Night 15 in headless Chromium with the GPU renderer forced on (WebGL in
+      SwiftShader) showed no night darkness: the island was lit like day while
+      the HUD read Night. The Canvas renderer in the same browser darkens as
+      it should. Unconfirmed on a real GPU.
+- [ ] Spitters and the Swarm Queen face away from the player while they back
+      off, because a creature faces the way it moves. Something that keeps its
+      distance should face what it is shooting at.
 - [x] A piercing shot (bow, thornburst) spent its pierce hitting the same mob
       again on the next tick, so it rarely reached a second target. Each shot
       now remembers what it went through.
@@ -486,9 +490,13 @@ detail behind the factory entries is in
       night 7 (and pay out XP in proportion), and the Warden carries 60% more
       health each time it returns. Measured with the same bot, health lost per
       night now climbs steadily from about 10 at night 6 to about 170 at 25.
-- [ ] Bosses beyond the Warden: one returning boss every five nights is the
-      whole late-night story. A second boss from night 15 (a flier, or one
-      that calls adds) would give the curve a new shape rather than more hp.
+- [x] A second boss, the **Swarm Queen**, on nights 13, 18, 23 and on, off
+      the Warden's nights. She hovers at range, spits, and calls in three
+      crawlers every nine seconds; the crawlers she calls are worth no XP or
+      orbs, so leaving her alive is not a farm. The scripted player loses
+      about 120 to 150 health on her nights, the hardest of each stretch.
+- [ ] A third boss for the thirties, with a shape of its own: one that
+      burrows and surfaces under the player, or one that shields others.
 - [ ] Mob damage does not scale with nights, only health. If late nights
       read as sponge fights, trade some of the health for bite.
 - [x] Belts, machine bodies and belt items are baked sprites copied to whole
