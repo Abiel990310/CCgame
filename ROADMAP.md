@@ -268,8 +268,11 @@ detail behind the factory entries is in
 - [x] Co-op: "Lost the matchmaking service" when the broker's socket dropped,
       which also threw a guest out of a game that no longer needed it. The
       broker now reconnects quietly, and guests let go of it once they are in.
-- [ ] Co-op: when the host's tab goes to the background, browsers throttle its
-      timers and the island slows or stutters for everyone on it.
+- [x] Co-op: when the host's tab goes to the background, browsers throttle its
+      timers and the island slows or stutters for everyone on it. A covered
+      host tab got one frame a second, so friends got 7.5 ticks a second in
+      one lump each second. A worker now keeps the host's beat whenever frames
+      stall: friends get 30 even ticks a second, hidden or not.
 
 - [x] The first click on a machine after closing another machine's screen with
       Esc sometimes opened nothing. A mouse moving over an open screen never
@@ -863,6 +866,10 @@ detail behind the factory entries is in
 - [x] The GPU (PixiJS) renderer on a real machine: Abiel found it smoother
       than Canvas on his PC (2026-09-25), so it is now the default.
 - [ ] The GPU renderer on a phone and on a laptop with built-in graphics.
+- [ ] Co-op with the host's tab in the background for over five minutes, and
+      in Firefox and Safari. Tested in Chromium for 30 s; Chrome rations a
+      page's own timers harder after five minutes, which the worker should
+      dodge, and a phone may suspend a background tab outright.
 - [ ] Landmark cache sizes against the walk. A far shrine takes a few minutes
       to reach on foot on day one; whether its essence and upgrade feel worth
       it, and whether caches near camp break the early goal pace, is unplayed.
