@@ -113,12 +113,27 @@ export class MainMenu {
   }
 
   setCloud(cloud: MenuCloud): void {
-    const who = this.cloud?.userId;
     this.cloud = cloud;
-    // The local cards only depend on who is signed in, and redrawing them would
-    // throw away a rename being typed, so a list refresh leaves them be.
-    if (who !== cloud.userId) this.render();
+    // The local cards only depend on who is signed in and which islands are
+    // linked, and redrawing them would throw away a rename being typed, so a
+    // list refresh that changed neither leaves them be.
+    const key = this.localKey();
+    if (key !== this.drawnKey) this.render();
     else this.renderCloudOnly();
+  }
+
+  /** What the local cards were last drawn from; see `setCloud`. */
+  private drawnKey = '';
+
+  private localKey(): string {
+    return `${this.cloud?.userId ?? ''}|${listSaves()
+      .map((s) => `${s.id}:${s.cloud?.id ?? ''}`)
+      .join(',')}`;
+  }
+
+  /** Replace the line under the buttons, for progress the player is waiting on. */
+  say(text: string): void {
+    this.els.note.textContent = text;
   }
 
   get isOpen(): boolean {
@@ -169,6 +184,7 @@ export class MainMenu {
 
     this.els.list.innerHTML = '';
     for (const slot of saves) this.els.list.appendChild(this.card(slot));
+    this.drawnKey = this.localKey();
     this.renderCloudOnly();
   }
 

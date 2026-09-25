@@ -10,6 +10,7 @@ import { Link } from './link';
 import {
   BUILD,
   CHECK_EVERY,
+  olderBuild,
   MAX_GUESTS,
   makeCode,
   peerId,
@@ -23,6 +24,8 @@ export interface HostEvents {
   onRoster: (names: string[], news: string) => void;
   /** The broker went away. Friends already connected stay connected. */
   onTrouble: (reason: string) => void;
+  /** Something the host should do, such as reload for a friend on a newer version. */
+  onNotice?: (text: string) => void;
 }
 
 interface Guest {
@@ -107,7 +110,10 @@ export class CoopHost {
 
   private relay(type: string, src: string, payload: unknown): void {
     let guest = this.guests.get(src);
-    if (!guest && type === 'OFFER') {
+    // A guest arrives with an offer, or, when it goes straight to the relay,
+    // with the request to use it.
+    const starts = type === 'OFFER' || (typeof payload === 'object' && payload !== null && (payload as { relay?: string }).relay === 'start');
+    if (!guest && starts) {
       guest = this.greet(src);
     }
     guest?.link.signal(type, payload);
@@ -143,7 +149,17 @@ export class CoopHost {
       case 'hello': {
         if (guest.token) return;
         if (message.build !== BUILD) {
-          this.refuse(guest, 'You and the host are on different versions of the game. Both of you reload the page, then try again.');
+          const guestNewer = olderBuild(BUILD, String(message.build));
+          // A guest on the older build reloads itself and comes straight back;
+          // a host on the older one has to reload, which only they can do.
+          this.refuse(
+            guest,
+            guestNewer
+              ? "Your friend's game is an older version. Ask them to reload their page (their island saves first), then join again."
+              : 'Updating to the same version as your friend…',
+            BUILD,
+          );
+          if (guestNewer) this.events.onNotice?.(`${tidyName(message.name)} is on a newer version. Save, quit and reload the page to let them in.`);
           return;
         }
         const token = String(message.token).slice(0, 64);
@@ -180,8 +196,8 @@ export class CoopHost {
     }
   }
 
-  private refuse(guest: Guest, reason: string): void {
-    this.send(guest, { t: 'reject', reason });
+  private refuse(guest: Guest, reason: string, build?: string): void {
+    this.send(guest, build ? { t: 'reject', reason, build } : { t: 'reject', reason });
     // Give the refusal a moment to arrive before the channel goes.
     window.setTimeout(() => guest.link.close(), 500);
   }

@@ -39,7 +39,9 @@ game.showcase();
 
 // Co-op's front door sits beside the island buttons: joining is another way in.
 const join = new JoinScreen(async (code, name) => {
-  await game.joinGame(code, name);
+  // Signed in, a friend's character follows the account rather than this browser.
+  const token = account?.userId ? `u:${account.userId}` : undefined;
+  await game.joinGame(code, name, token);
   menu.close();
 });
 const joinButton = document.createElement('button');
@@ -48,4 +50,5 @@ joinButton.innerHTML = `${icon('users')}Join a friend`;
 joinButton.addEventListener('click', () => join.open());
 document.querySelector('.menu-actions')?.appendChild(joinButton);
 const invited = cleanCode(new URLSearchParams(location.search).get('join') ?? '');
-if (invited) join.open(invited);
+// Back from reloading onto the host's version: go straight in, as they meant to.
+if (invited) join.open(invited, new URLSearchParams(location.search).has('fresh'));

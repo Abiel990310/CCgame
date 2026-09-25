@@ -10,6 +10,16 @@ import type { PlayerInput } from '@shared/sim/types';
 declare const __BUILD__: string;
 export const BUILD: string = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';
 
+/**
+ * Whether build `a` is older than `b`. Builds are the bundle time in base 36,
+ * which keeps the same number of digits for decades, so a longer one is newer
+ * and equal lengths compare as text.
+ */
+export function olderBuild(a: string, b: string): boolean {
+  if (a === 'dev' || b === 'dev') return false;
+  return a.length !== b.length ? a.length < b.length : a < b;
+}
+
 /** A host plus this many friends. */
 export const MAX_GUESTS = 3;
 
@@ -58,7 +68,8 @@ export interface TickMessage {
 }
 
 export type HostMessage =
-  | { t: 'reject'; reason: string }
+  /** `build` is the host's, when the refusal is over versions. */
+  | { t: 'reject'; reason: string; build?: string }
   | { t: 'snapshot'; snap: Snapshot }
   | { t: 'welcome'; id: number }
   | { t: 'bye'; reason: string }

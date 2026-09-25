@@ -2,9 +2,10 @@ import type { Broker } from './broker';
 
 /**
  * STUN lets two browsers behind home routers find the addresses to reach each
- * other by. There is no TURN relay: a pair of networks that will not let
- * traffic through directly (some mobile carriers, strict offices) cannot
- * connect, and says so rather than hanging.
+ * other by. Some pairs of networks never let traffic through directly (many
+ * mobile carriers, strict offices and school networks, some routers), and
+ * there is no TURN server to fall back on, so a link that has not opened
+ * directly in time carries on through the broker instead; see `relay`.
  */
 const ICE: RTCConfiguration = {
   iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }],
@@ -15,7 +16,38 @@ const ICE: RTCConfiguration = {
  * island snapshot can be bigger than that, so long messages go in pieces.
  */
 const CHUNK = 60_000;
-const CONNECT_TIMEOUT_MS = 15_000;
+/** Give up entirely if neither a direct channel nor the relay is up by then. */
+const CONNECT_TIMEOUT_MS = 20_000;
+/** How long the direct channel gets before the caller switches to the relay. */
+export const DIRECT_WAIT_MS = 6_000;
+/**
+ * Through the relay nothing tells us the other end has gone, so silence does:
+ * a host sends ticks 30 times a second and a guest its input four times.
+ */
+const RELAY_SILENCE_MS = 12_000;
+
+/**
+ * Tests and diagnosis: `?relay=1` skips the direct channel, so the relay path
+ * can be driven on one machine where a direct channel would always open.
+ */
+function forceRelay(): boolean {
+  try {
+    return new URLSearchParams(location.search).get('relay') === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** A relayed game message rides a candidate, the one type the broker forwards freely. */
+interface RelayPayload {
+  /** `start` asks the other end to switch to the relay; `m` is a framed message. */
+  relay: 'start' | 'm';
+  data?: string;
+}
+
+function isRelay(payload: unknown): payload is RelayPayload {
+  return typeof payload === 'object' && payload !== null && 'relay' in payload;
+}
 
 export interface LinkEvents {
   onOpen: () => void;
@@ -23,13 +55,24 @@ export interface LinkEvents {
   onClose: () => void;
 }
 
-/** One reliable, ordered channel to one other browser. */
+/**
+ * One reliable, ordered channel to one other browser: a WebRTC data channel
+ * when the two networks allow one, otherwise the broker relaying each message.
+ * The relay is slower and leans on a public service, but a game that plays a
+ * little laggy beats one that cannot start.
+ */
 export class Link {
-  private pc = new RTCPeerConnection(ICE);
+  private pc: RTCPeerConnection | null = null;
   private channel: RTCDataChannel | null = null;
   private partial = '';
   private closed = false;
   private timer = 0;
+  private fallbackTimer = 0;
+  /** True once messages go through the broker rather than a data channel. */
+  relayed = false;
+  private relayOpen = false;
+  private lastHeard = 0;
+  private watchdog = 0;
 
   constructor(
     private broker: Broker,
@@ -37,25 +80,75 @@ export class Link {
     readonly remote: string,
     private events: LinkEvents,
   ) {
-    this.pc.onicecandidate = (event) => {
-      if (event.candidate) this.broker.relay('CANDIDATE', remote, { candidate: event.candidate.toJSON() });
-    };
-    this.pc.onconnectionstatechange = () => {
-      const state = this.pc.connectionState;
-      if (state === 'failed' || state === 'closed') this.close();
-    };
-    this.pc.ondatachannel = (event) => this.attach(event.channel);
+    try {
+      const pc = new RTCPeerConnection(ICE);
+      pc.onicecandidate = (event) => {
+        if (event.candidate) this.broker.relay('CANDIDATE', remote, { candidate: event.candidate.toJSON() });
+      };
+      pc.onconnectionstatechange = () => {
+        const state = pc.connectionState;
+        // A direct attempt that fails is not the end: the relay may still carry us.
+        if (state === 'failed' && !this.relayed && this.caller) this.startRelay();
+        else if ((state === 'failed' || state === 'closed') && !this.relayed) this.close();
+      };
+      pc.ondatachannel = (event) => this.attach(event.channel);
+      this.pc = pc;
+    } catch {
+      // No WebRTC here at all (disabled, or a locked-down browser): relay only.
+      this.pc = null;
+    }
     this.timer = window.setTimeout(() => {
-      if (this.channel?.readyState !== 'open') this.close();
+      if (!this.open) this.close();
     }, CONNECT_TIMEOUT_MS);
   }
 
+  /** Set on the joining side, which is the one that decides to fall back. */
+  private caller = false;
+
   /** The joining side opens the channel and makes the offer. */
   async call(): Promise<void> {
-    this.attach(this.pc.createDataChannel('ccgame', { ordered: true }));
-    const offer = await this.pc.createOffer();
-    await this.pc.setLocalDescription(offer);
-    this.broker.relay('OFFER', this.remote, { sdp: this.pc.localDescription?.toJSON() });
+    this.caller = true;
+    const pc = this.pc;
+    if (!pc || forceRelay()) {
+      this.startRelay();
+      return;
+    }
+    this.fallbackTimer = window.setTimeout(() => {
+      if (!this.open) this.startRelay();
+    }, DIRECT_WAIT_MS);
+    this.attach(pc.createDataChannel('ccgame', { ordered: true }));
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    this.broker.relay('OFFER', this.remote, { sdp: pc.localDescription?.toJSON() });
+  }
+
+  /**
+   * Give up on the direct channel and carry everything through the broker.
+   * Only the caller starts this; the other end follows when the request lands.
+   */
+  private startRelay(): void {
+    if (this.relayed || this.closed) return;
+    this.relayed = true;
+    window.clearTimeout(this.fallbackTimer);
+    this.broker.relay('CANDIDATE', this.remote, { relay: 'start' } satisfies RelayPayload);
+    this.becomeRelayed();
+  }
+
+  private becomeRelayed(): void {
+    this.relayed = true;
+    // Whatever direct attempt is still going would only race the relay.
+    this.channel?.close();
+    this.channel = null;
+    this.pc?.close();
+    this.pc = null;
+    if (this.relayOpen) return;
+    this.relayOpen = true;
+    this.lastHeard = performance.now();
+    this.watchdog = window.setInterval(() => {
+      if (performance.now() - this.lastHeard > RELAY_SILENCE_MS) this.close();
+    }, 1000);
+    window.clearTimeout(this.timer);
+    this.events.onOpen();
   }
 
   /**
@@ -64,25 +157,45 @@ export class Link {
    * rejected, and would be lost.
    */
   signal(type: string, payload: unknown): void {
+    if (isRelay(payload)) {
+      // Relayed messages must not wait behind a slow description being applied.
+      this.receiveRelayed(payload);
+      return;
+    }
     this.signals = this.signals.then(() => this.handle(type, payload));
+  }
+
+  private receiveRelayed(payload: RelayPayload): void {
+    if (this.closed) return;
+    if (payload.relay === 'start') {
+      this.becomeRelayed();
+      return;
+    }
+    if (!this.relayed) this.becomeRelayed();
+    this.lastHeard = performance.now();
+    if (typeof payload.data === 'string') this.deliver(payload.data);
   }
 
   private signals: Promise<void> = Promise.resolve();
 
   private async handle(type: string, payload: unknown): Promise<void> {
     const data = payload as { sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit };
+    if (type === 'LEAVE') {
+      this.close();
+      return;
+    }
+    const pc = this.pc;
+    if (!pc || this.relayed) return;
     try {
       if (type === 'OFFER' && data.sdp) {
-        await this.pc.setRemoteDescription(data.sdp);
-        const answer = await this.pc.createAnswer();
-        await this.pc.setLocalDescription(answer);
-        this.broker.relay('ANSWER', this.remote, { sdp: this.pc.localDescription?.toJSON() });
+        await pc.setRemoteDescription(data.sdp);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        this.broker.relay('ANSWER', this.remote, { sdp: pc.localDescription?.toJSON() });
       } else if (type === 'ANSWER' && data.sdp) {
-        await this.pc.setRemoteDescription(data.sdp);
+        await pc.setRemoteDescription(data.sdp);
       } else if (type === 'CANDIDATE' && data.candidate) {
-        await this.pc.addIceCandidate(data.candidate);
-      } else if (type === 'LEAVE') {
-        this.close();
+        await pc.addIceCandidate(data.candidate);
       }
     } catch {
       // A candidate that arrives for a connection already given up on is noise.
@@ -92,39 +205,52 @@ export class Link {
   private attach(channel: RTCDataChannel): void {
     this.channel = channel;
     channel.onopen = () => {
+      // The relay won the race; a late direct channel is not wanted.
+      if (this.relayed) {
+        channel.close();
+        return;
+      }
       window.clearTimeout(this.timer);
+      window.clearTimeout(this.fallbackTimer);
       this.events.onOpen();
     };
-    channel.onclose = () => this.close();
-    channel.onmessage = (event) => {
-      const text = String(event.data);
-      // One character of framing: whole, a piece to come, or the last piece.
-      const tag = text[0];
-      const body = text.slice(1);
-      if (tag === 'W') this.events.onMessage(body);
-      else if (tag === 'P') this.partial += body;
-      else if (tag === 'E') {
-        const whole = this.partial + body;
-        this.partial = '';
-        this.events.onMessage(whole);
-      }
+    channel.onclose = () => {
+      if (!this.relayed) this.close();
     };
+    channel.onmessage = (event) => this.deliver(String(event.data));
+  }
+
+  /** One character of framing: whole, a piece to come, or the last piece. */
+  private deliver(text: string): void {
+    const tag = text[0];
+    const body = text.slice(1);
+    if (tag === 'W') this.events.onMessage(body);
+    else if (tag === 'P') this.partial += body;
+    else if (tag === 'E') {
+      const whole = this.partial + body;
+      this.partial = '';
+      this.events.onMessage(whole);
+    }
   }
 
   get open(): boolean {
-    return this.channel?.readyState === 'open';
+    if (this.closed) return false;
+    return this.relayed ? this.relayOpen : this.channel?.readyState === 'open';
   }
 
   send(text: string): void {
-    const channel = this.channel;
-    if (!channel || channel.readyState !== 'open') return;
+    if (!this.open) return;
+    const put = (framed: string): void => {
+      if (this.relayed) this.broker.relay('CANDIDATE', this.remote, { relay: 'm', data: framed } satisfies RelayPayload);
+      else this.channel?.send(framed);
+    };
     if (text.length <= CHUNK) {
-      channel.send(`W${text}`);
+      put(`W${text}`);
       return;
     }
     for (let i = 0; i < text.length; i += CHUNK) {
       const last = i + CHUNK >= text.length;
-      channel.send(`${last ? 'E' : 'P'}${text.slice(i, i + CHUNK)}`);
+      put(`${last ? 'E' : 'P'}${text.slice(i, i + CHUNK)}`);
     }
   }
 
@@ -132,8 +258,12 @@ export class Link {
     if (this.closed) return;
     this.closed = true;
     window.clearTimeout(this.timer);
+    window.clearTimeout(this.fallbackTimer);
+    window.clearInterval(this.watchdog);
+    // Tell a relayed partner at once rather than leaving it to notice the silence.
+    if (this.relayed) this.broker.relay('LEAVE', this.remote, {});
     this.channel?.close();
-    this.pc.close();
+    this.pc?.close();
     this.events.onClose();
   }
 }

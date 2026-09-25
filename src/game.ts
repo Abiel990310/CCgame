@@ -408,6 +408,7 @@ export class Game {
         this.coop.setRoster(names);
       },
       onTrouble: (reason) => this.hud.toast(`${reason}. Friends already here keep playing.`, 'warn'),
+      onNotice: (text) => this.hud.toast(text, 'warn'),
     });
     // The island may have been closed while the room was opening.
     if (this.slot !== slot || !this.running) {
@@ -495,8 +496,13 @@ export class Game {
   }
 
   /** The co-op code friends may see, which is none unless the island is open to them. */
+  /**
+   * The co-op code to publish with the heartbeat. Friends only ever see an
+   * island open to them, so publishing it for a private one only lets its
+   * owner join from another device.
+   */
   cloudRoom(): string | null {
-    return this.cloud?.access === 'friends' && this.host ? this.host.code : null;
+    return this.cloud && this.host ? this.host.code : null;
   }
 
   /** Another device took this island; carry on there, not here. */
