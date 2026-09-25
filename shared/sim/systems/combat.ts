@@ -270,7 +270,7 @@ export function damageMob(world: World, mob: Mob, amount: number, sourceId: numb
 
   world.events.push({ kind: 'mobDied', pos: { ...mob.pos }, type: mob.type });
 
-  if (killer) {
+  if (killer && !mob.brood) {
     // A toughened creature is worth what it took to kill.
     grantXp(world, killer, Math.round((def.xp * mob.maxHp) / def.hp));
     const heal = perk(killer, 'vampiric');
@@ -289,7 +289,7 @@ export function damageMob(world: World, mob: Mob, amount: number, sourceId: numb
   }
 
   // Orbs the killer still has to walk over — movement stays the main verb.
-  const orbs = def.loot?.orbs ?? 1 + Math.floor(nextFloat(world) * 2);
+  const orbs = mob.brood ? 0 : (def.loot?.orbs ?? 1 + Math.floor(nextFloat(world) * 2));
   const essence = (def.loot?.essence ?? 0.25) * (1 + 0.3 * (killer ? perk(killer, 'essenceSense') : 0));
   const scatter = def.loot ? 320 : 140;
   for (let i = 0; i < orbs; i++) {

@@ -48,6 +48,7 @@ export function stepMobs(world: World, dt: number): void {
     }
     let pace = 1;
     if (def.spit && target.player) pace = spit(world, mob, target.pos, dt);
+    if (def.summons) summon(world, mob, dt);
 
     mob.vel.x = damp(mob.vel.x, dir.x * speed * pace, 8, dt);
     mob.vel.y = damp(mob.vel.y, dir.y * speed * pace, 8, dt);
@@ -88,6 +89,28 @@ function spit(world: World, mob: Mob, at: Vec2, dt: number): number {
   if (d > shot.range * 0.85) return 1;
   if (d < shot.range * 0.55) return -0.6;
   return 0;
+}
+
+/** Most a caller can have on the field at once, so an unkilled queen cannot flood a night. */
+const SUMMON_CAP = 60;
+
+function summon(world: World, mob: Mob, dt: number): void {
+  const call = MOBS[mob.type].summons!;
+  mob.summonCd = Math.max(0, (mob.summonCd ?? call.interval * 0.5) - dt);
+  if (mob.summonCd > 0) return;
+  mob.summonCd = call.interval;
+  if (world.mobs.length >= SUMMON_CAP) return;
+  const radius = MOBS[mob.type].radius;
+  for (let i = 0; i < call.count; i++) {
+    const angle = (i / call.count) * Math.PI * 2 + nextFloat(world);
+    const child = spawnMob(world, call.into, {
+      x: mob.pos.x + Math.cos(angle) * radius,
+      y: mob.pos.y + Math.sin(angle) * radius,
+    });
+    child.vel = { x: Math.cos(angle) * 140, y: Math.sin(angle) * 140 };
+    child.brood = true;
+  }
+  world.events.push({ kind: 'summon', pos: { ...mob.pos } });
 }
 
 function stepMobPosition(world: World, mob: Mob, radius: number, dt: number): void {
@@ -203,7 +226,8 @@ export function spawnMob(world: World, type: MobTypeId, pos: Vec2): Mob {
 export function spawnBosses(world: World): void {
   for (const id of Object.keys(MOBS) as MobTypeId[]) {
     const def = MOBS[id];
-    if (!def.bossEvery || world.nightIndex < def.minNight || world.nightIndex % def.bossEvery !== 0) continue;
+    if (!def.bossEvery || world.nightIndex < def.minNight) continue;
+    if ((world.nightIndex - (def.bossPhase ?? 0)) % def.bossEvery !== 0) continue;
     const mob = spawnMob(world, id, edgeSpawn(world));
     world.events.push({ kind: 'boss', pos: { ...mob.pos }, type: id });
   }
@@ -250,7 +274,8 @@ export function nightBudget(world: World): number {
 export function toughness(world: World, type: MobTypeId): number {
   const def = MOBS[type];
   if (def.bossEvery) {
-    const visits = Math.floor(world.nightIndex / def.bossEvery) - Math.floor(def.minNight / def.bossEvery);
+    const phase = def.bossPhase ?? 0;
+    const visits = Math.floor((world.nightIndex - phase) / def.bossEvery) - Math.floor((def.minNight - phase) / def.bossEvery);
     return 1 + WAVES.bossReturnHp * Math.max(0, visits);
   }
   return 1 + WAVES.hardenPerNight * Math.max(0, world.nightIndex - WAVES.hardenFrom);

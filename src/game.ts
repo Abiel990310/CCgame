@@ -46,7 +46,8 @@ import { setResearch } from '@shared/sim/research';
 import { GOAL_BY_ID } from '@shared/data/goals';
 import { GraphicsPanel } from './ui/graphics';
 import { GoalTracker } from './ui/goals';
-import { WorldMap } from './ui/worldmap';
+import { WorldMap, type MapTab } from './ui/worldmap';
+import { Ledger, loadLedger, saveLedger } from './ledger';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
 import { craftError, nearWorkbench } from '@shared/sim/crafting';
@@ -112,6 +113,8 @@ export class Game {
   private graphics: GraphicsPanel | null = null;
   private goals: GoalTracker;
   private worldMap: WorldMap;
+  /** What the factory makes a minute; the island's own, or a blank one off a guest. */
+  private ledger = new Ledger();
 
   private accumulator = 0;
   private backgroundTicker: Ticker;
@@ -265,6 +268,7 @@ export class Game {
     forgetSlot(slot.id);
     const notes: LoadNotes = {};
     const loaded = loadWorld(slot.id, notes);
+    this.ledger = loadLedger(slot.id);
 
     if (loaded) {
       this.world = loaded;
@@ -338,15 +342,16 @@ export class Game {
     this.renderer.render(this.world, this.selfId, t, null, null);
   }
 
-  private toggleMap(): void {
-    const open = !this.worldMap.isOpen;
+  private toggleMap(tab: MapTab = 'map'): void {
+    // The other tab's key switches over rather than closing the sheet.
+    const open = !this.worldMap.isOpen || this.worldMap.currentTab !== tab;
     // The map is a look, not a mode: it takes the place of whatever screen was up.
     if (open) {
       this.closeCrafting();
       this.closeInventory();
       this.hud.setBuildMode(false);
     }
-    this.worldMap.setOpen(open);
+    this.worldMap.setOpen(open, tab);
     audio.play('click');
   }
 
@@ -442,6 +447,7 @@ export class Game {
     this.slot = null;
     this.world = guest.world!;
     this.selfId = guest.selfId!;
+    this.ledger = new Ledger();
     this.accumulator = 0;
     this.interpolator.capture(this.world);
     this.hud.toast('Joined your friend\'s island', 'good');
@@ -694,6 +700,7 @@ export class Game {
       : this.world;
     host?.keep(this.world);
     if (!saveWorld(own, this.slot.id)) return;
+    saveLedger(this.slot.id, this.ledger);
     touchSlot(this.slot.id, {
       night: this.world.nightIndex,
       level: this.self.level,
@@ -725,6 +732,7 @@ export class Game {
 
       if (action === 'mute') this.toggleMute();
       if (action === 'map' && !this.hud.isPauseOpen && !this.hud.isDraftOpen) this.toggleMap();
+      if (action === 'ledger' && !this.hud.isPauseOpen && !this.hud.isDraftOpen) this.toggleMap('ledger');
       if (action === 'build' && !blocked) this.toggleBuild();
       if (action === 'inventory') {
         this.closeCrafting();
@@ -1121,7 +1129,8 @@ export class Game {
     audio.update(this.world, elapsed);
     this.hud.update(this.world, this.self);
     this.goals.update(this.world, this.self, elapsed, this.input.isTouch);
-    this.worldMap.update(this.world, this.selfId, elapsed);
+    this.ledger.advance(this.world.time);
+    this.worldMap.update(this.world, this.selfId, elapsed, this.ledger);
     this.hud.updateStick(this.input.stickState);
     this.hud.foldPalette(this.hud.isBuildMode && this.input.hovering);
     // A raid can shove the player off the bench; the screen goes with them.
@@ -1164,6 +1173,7 @@ export class Game {
       // Before the flush: the cosmetic layers empty the buffer.
       this.announceResearch();
       this.announceGoals();
+      this.announceDryMiners();
       this.flush();
       this.announcePhase();
       host?.afterStep(this.world, inputs);
@@ -1200,6 +1210,7 @@ export class Game {
       guest.advance(() => {
         this.announceResearch();
         this.announceGoals();
+        this.announceDryMiners();
         this.flush();
       });
       this.announcePhase();
@@ -1241,6 +1252,24 @@ export class Game {
       }
       this.requestSave();
     }
+  }
+
+  /**
+   * A miner that has emptied its reach is otherwise indistinguishable from
+   * one whose belt backed up. Several going at once, as a patch's miners
+   * tend to, make one toast rather than a column of them.
+   */
+  private announceDryMiners(): void {
+    const dry = this.world.events.filter((e) => e.kind === 'minerDry');
+    if (dry.length === 0) return;
+    const ore = dry[0].kind === 'minerDry' ? ITEMS[dry[0].ore].name.toLowerCase() : 'ore';
+    const how = this.input.isTouch ? 'Open the map' : 'Press M';
+    this.hud.toast(
+      dry.length === 1
+        ? `A miner ran out of ${ore}. ${how} to find it.`
+        : `${dry.length} miners ran their patches dry. ${how} to find them.`,
+      'warn',
+    );
   }
 
   /** Goals and level-ups are said once, and the tracker makes way for the next goal. */
@@ -1294,6 +1323,7 @@ export class Game {
     // A friend's pickups are theirs to hear about; seeing "+2 Wood" float over
     // someone else reads as your own bag filling up.
     const events = this.world.events.filter((e) => e.kind !== 'collected' || e.playerId === this.selfId);
+    this.ledger.record(this.world.events, this.world.time);
     this.renderer.effects.consume(events);
     this.renderer.noteEvents(this.world.events);
     audio.consume(events);

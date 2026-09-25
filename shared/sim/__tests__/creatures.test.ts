@@ -112,6 +112,61 @@ describe('the stone warden', () => {
   });
 });
 
+describe('the swarm queen', () => {
+  it('comes on her own nights from the thirteenth, never on a Warden night', () => {
+    const { world } = arena();
+    const queens: number[] = [];
+    const wardens: number[] = [];
+    for (let night = 1; night <= 25; night++) {
+      world.phase = 'day';
+      world.phaseTime = 0;
+      world.mobs.length = 0;
+      stepCycle(world, 0);
+      if (world.mobs.some((m) => m.type === 'queen')) queens.push(world.nightIndex);
+      if (world.mobs.some((m) => m.type === 'warden')) wardens.push(world.nightIndex);
+    }
+    expect(queens).toEqual([13, 18, 23]);
+    expect(wardens).toEqual([5, 10, 15, 20, 25]);
+  });
+
+  it('is as tuned on her first visit and tougher after', () => {
+    const { world } = arena();
+    world.nightIndex = 13;
+    expect(near(world, world.players.values().next().value!, 'queen', 300).maxHp).toBe(MOBS.queen.hp);
+    world.nightIndex = 18;
+    expect(near(world, world.players.values().next().value!, 'queen', 300).maxHp).toBeGreaterThan(MOBS.queen.hp);
+  });
+
+  it('calls in crawlers while she lives', () => {
+    const { world, player } = arena();
+    player.hp = player.maxHp = 1e6;
+    near(world, player, 'queen', 260);
+    run(world, 20);
+    const crawlers = world.mobs.filter((m) => m.type === 'crawler').length;
+    expect(crawlers).toBeGreaterThanOrEqual(MOBS.queen.summons!.count * 2);
+    expect(world.mobs.length).toBeLessThanOrEqual(60);
+  });
+
+  it('keeps her distance and spits', () => {
+    const { world, player } = arena();
+    player.hp = player.maxHp = 1e6;
+    const queen = near(world, player, 'queen', 400);
+    run(world, 12);
+    expect(Math.hypot(queen.pos.x - player.pos.x, queen.pos.y - player.pos.y)).toBeGreaterThan(100);
+    expect(player.hp).toBeLessThan(player.maxHp);
+  });
+
+  it('stops calling once the field is full', () => {
+    const { world, player } = arena();
+    player.hp = player.maxHp = 1e6;
+    for (let i = 0; i < 60; i++) near(world, player, 'slime', 2000 + i * 4, 2000).hp = 1e6;
+    const queen = near(world, player, 'queen', 260);
+    queen.summonCd = 0.01;
+    run(world, 0.1);
+    expect(world.mobs.filter((m) => m.type === 'crawler').length).toBe(0);
+  });
+});
+
 describe('new weapons', () => {
   it('Ember Pot bursts over everything around the one it hits', () => {
     const { world, player } = arena();

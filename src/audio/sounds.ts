@@ -108,6 +108,17 @@ export const SOUNDS = {
     throttle: 0.08,
     layers: [NOISE(900, 2200, 0.5, 0.004, 0.1, 2), TONE('sine', 360, 520, 0.25, 0.004, 0.08)],
   },
+  // A rising buzz: the queen's brood hatching around her.
+  summon: {
+    gain: 0.2,
+    vary: 0.08,
+    throttle: 0.5,
+    layers: [
+      TONE('sawtooth', 120, 240, 0.35, 0.05, 0.5, 0, 18),
+      TONE('square', 180, 330, 0.2, 0.06, 0.45, 0.04, 9),
+      NOISE(1400, 2600, 0.3, 0.05, 0.4, 3),
+    ],
+  },
   boss: {
     gain: 0.4,
     vary: 0,

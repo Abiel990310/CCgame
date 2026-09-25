@@ -57,8 +57,18 @@ export const ORE_SUFFIX = '.o';
 export const EXPLORED_SUFFIX = '.x';
 /** Friends who have played this island in co-op; see `net/guests.ts`. */
 export const GUESTS_SUFFIX = '.g';
+/** The production ledger's graph and bests; see `ledger.ts`. */
+export const LEDGER_SUFFIX = '.l';
 /** Every entry one slot occupies, the header's own key first. */
-export const SLOT_SUFFIXES = ['', SCENERY_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX, EXPLORED_SUFFIX, GUESTS_SUFFIX] as const;
+export const SLOT_SUFFIXES = [
+  '',
+  SCENERY_SUFFIX,
+  FACTORY_SUFFIX,
+  ORE_SUFFIX,
+  EXPLORED_SUFFIX,
+  GUESTS_SUFFIX,
+  LEDGER_SUFFIX,
+] as const;
 
 /** Which tab currently owns the slot; see `tablock.ts`. Not island data. */
 export const LOCK_SUFFIX = '.lock';
