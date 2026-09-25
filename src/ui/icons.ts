@@ -36,6 +36,9 @@ const PATHS = {
     '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0111 0"/><path d="M15.5 5.6a3.2 3.2 0 010 5.8M17.5 14.2a5.5 5.5 0 013 5.3"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   arrow: '<path d="M5 12h13M13 6.5l5.5 5.5-5.5 5.5"/>',
+  shield: '<path d="M12 3l7.5 3v5.5c0 4.7-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.8-7.5-9.5V6z"/>',
+  compass: '<circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>',
+  sprout: '<path d="M12 20v-8"/><path d="M12 12c0-4 2.5-6.5 7-6.5 0 4.5-2.5 6.5-7 6.5z"/><path d="M12 14.5c0-3-2-5-5.5-5 0 3.4 2 5 5.5 5z"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;

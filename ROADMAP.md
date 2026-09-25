@@ -452,6 +452,11 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [x] Level-up choices were plain text boxes. Each card now carries its kind
+      (weapon, mastery, attack, survival, explore, growth) as a colour and an
+      icon, pips for how far a stacking perk has gone, and a New or Rare flag.
+- [ ] Number keys could pick a level-up card on desktop (1 to 4), with the key
+      shown on each card.
 - [ ] HUD panels are still placed with hand-tuned `top` offsets per breakpoint
       (goal, toasts, left column). Turning the left column into a stack like
       the top-right one would stop the next new panel colliding.
