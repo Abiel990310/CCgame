@@ -52,6 +52,7 @@ import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
 import { craftError, nearWorkbench } from '@shared/sim/crafting';
 import type {
+  Belt,
   Direction,
   MachineFamily,
   ItemStack,
@@ -149,6 +150,7 @@ export class Game {
     this.hud = new Hud({
       onChooseUpgrade: (id) => this.chooseUpgrade(id),
       onToggleBuild: () => this.toggleBuild(),
+      onTurn: () => (this.buildDir = rotate(this.buildDir)),
       onSelect: () => this.hud.setBuildMode(true),
       onSetRecipe: (machineId, recipeId) => {
         if (this.act({ k: 'recipe', machine: machineId, recipe: recipeId })) this.requestSave();
@@ -817,8 +819,13 @@ export class Game {
     }
 
     // Placing a belt on a belt turns it: to the chosen direction with a mouse,
-    // a quarter turn per tap with a finger, which has no R key.
-    const existing = what === 'belt' && error === 'occupied' ? beltAt(this.world, tx, ty) : null;
+    // a quarter turn per tap with a finger, which has no R key. A finger turns
+    // machines the same way, since it has no other way to reach one already down.
+    let existing: Belt | Machine | null = null;
+    if (error === 'occupied') {
+      if (this.input.isTouch) existing = entityAt(this.world, tx, ty);
+      else if (what === 'belt') existing = beltAt(this.world, tx, ty);
+    }
     if (existing) {
       const dir = this.input.isTouch ? rotate(existing.dir) : this.buildDir;
       // A finger that stays down removes the belt anyway, so the hold is

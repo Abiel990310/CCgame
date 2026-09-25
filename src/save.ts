@@ -113,7 +113,7 @@ type PackedMachine = [
    * before chests had filters, and on a chest with none set.
    */
   ((ItemId | null)[])?,
-  /** Whose turn it is on a splitter; nothing else has one. */
+  /** Whose turn it is on a splitter or a merger; nothing else has one. */
   number?,
   /**
    * A burner's fuel grid and the heat left in it. Only a burner has them, and
@@ -450,6 +450,8 @@ function packMachine(machine: Machine): PackedMachine {
     packed[11] = machine.filters ?? [null, null];
     packed[12] = machine.turn ?? 0;
   }
+  // A merger has no sides to filter, so its turn sits after an empty gap.
+  if (MACHINES[machine.type].family === 'merger') packed[12] = machine.turn ?? 0;
   // A chest nobody has filtered writes nothing extra, which is most chests.
   if (MACHINES[machine.type].family === 'chest' && machine.filters?.some((f) => f !== null)) {
     packed[11] = machine.filters;
@@ -484,6 +486,7 @@ function unpackMachine(packed: PackedMachine): Machine {
     machine.filters = packed[11] ?? [null, null];
     machine.turn = packed[12] ?? 0;
   }
+  if (MACHINES[machine.type]?.family === 'merger') machine.turn = packed[12] ?? 0;
   if (MACHINES[machine.type]?.family === 'chest' && packed[11]) machine.filters = packed[11];
   if (packed[13]) {
     machine.fuel = unpackSlots(packed[13]);
@@ -531,6 +534,10 @@ function loadMachine(machine: Machine): Machine {
       return item && item in ITEMS ? item : null;
     });
     loaded.turn = machine.turn === 1 ? 1 : 0;
+  }
+  if (def.family === 'merger') {
+    const turn = machine.turn ?? 0;
+    loaded.turn = turn === 1 || turn === 2 ? turn : 0;
   }
   // A chest has one filter per slot, whatever its grid was when it was saved.
   if (def.family === 'chest') {

@@ -75,6 +75,7 @@ export type CraftedMachineId =
   | 'stackInserter'
   | 'lab'
   | 'splitter'
+  | 'merger'
   | 'generator'
   | 'solar'
   | 'beacon';
@@ -262,6 +263,7 @@ export type MachineFamily =
   | 'chest'
   | 'inserter'
   | 'splitter'
+  | 'merger'
   | 'lab'
   | 'fishTrap'
   | 'generator'
@@ -327,7 +329,10 @@ export interface Machine {
    * machine, so saves stay small.
    */
   filters?: (ItemId | null)[];
-  /** Splitter only: which of the two sides the next item is offered to. */
+  /**
+   * Splitter: which of the two sides the next item is offered to. Merger:
+   * which of the three belts feeding it is taken from next.
+   */
   turn?: number;
   /**
    * Electric machines only: true when it stopped last tick for want of power
