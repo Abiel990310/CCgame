@@ -8,8 +8,6 @@ import type { Machine } from '../types';
 import { advance, at, bench, fill, put, type Bench } from './bench';
 
 function beacon(b: Bench): Machine {
-  // The bench's bag is full; the beacon takes the place of the last stack.
-  b.player.inventory[b.player.inventory.length - 1] = { id: 'beacon', count: 1 };
   const spot = at(4, 3);
   return put(b, 'beacon', spot.tx, spot.ty, 0) as Machine;
 }

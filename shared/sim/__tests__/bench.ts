@@ -3,8 +3,8 @@ import { TICK_DT, TILE } from '../constants';
 import { placeBelt, placeMachine, setRecipe } from '../factory';
 import { tileKey } from '../grid';
 import { CRAFTED_MACHINES } from '../../data/machines';
-import { addItem } from '../inventory';
-import { addToSlots, countIn, stacksIn, totalIn } from '../slots';
+import { INVENTORY_SLOTS, addItem } from '../inventory';
+import { addToSlots, countIn, makeSlots, stacksIn, totalIn } from '../slots';
 import { ORE_ORDER } from '../ore';
 import { ORE } from '../constants';
 import { EMPTY_INPUT, step } from '../step';
@@ -46,6 +46,10 @@ export function bench(seed = 2026, powered = false): Bench {
   // them; the gate has its own tests.
   world.research.unlockedAll = true;
 
+  // A test player carries a crate of every crafted machine, and a new machine
+  // should not push some other stack out of a bag sized for a real player.
+  player.inventory = makeSlots(INVENTORY_SLOTS + 16);
+
   // Enough of everything the machines cost, so placement never fails for want
   // of materials.
   const stock: ItemId[] = [
@@ -62,8 +66,7 @@ export function bench(seed = 2026, powered = false): Bench {
   for (const item of stock) addItem(player, item, 900);
   // Later tiers are made at a workbench before they can be placed; the bench
   // skips that trip, which has tests of its own.
-  // The beacon is left out: the bag is full, and only its own tests place one.
-  for (const id of CRAFTED_MACHINES) if (id !== 'beacon') addItem(player, id, 20);
+  for (const id of CRAFTED_MACHINES) addItem(player, id, 20);
 
   const grass = TERRAIN_ORDER.indexOf('grass');
   for (let ty = BENCH.ty; ty < BENCH.ty + BENCH.height; ty++) {

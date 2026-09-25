@@ -78,7 +78,7 @@ export const TECHS: TechDef[] = [
     time: 4,
     requires: ['automation'],
     effect: { kind: 'belt', amount: 0.25 },
-    unlocks: ['splitter', 'longInserter'],
+    unlocks: ['splitter', 'merger', 'longInserter'],
     xp: 6,
   },
   {
