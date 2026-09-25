@@ -106,3 +106,220 @@
   border-radius: 0;
   box-shadow: none;
 }
+
+.worldmap-key .dot-dry {
+  background: transparent;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px #ef6171, 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+.worldmap-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--well);
+}
+
+.worldmap-tabs button {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.worldmap-tabs button.on {
+  background: var(--gold-soft);
+  color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold-line);
+}
+
+.worldmap-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* The production ledger shares the map's sheet, and its height, so switching tabs does not jump. */
+.ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* The map below it is a square plus its key, so a square is near enough. */
+  aspect-ratio: 1;
+  overflow-y: auto;
+}
+
+.ledger-dry {
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  background: rgba(239, 97, 113, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(239, 97, 113, 0.5);
+  color: #ffb3bc;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ledger-empty {
+  margin: 24px 0;
+  color: var(--ink-dim);
+  text-align: center;
+}
+
+.ledger-focus {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--well);
+}
+
+.ledger-focus-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ledger-focus-head span {
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+
+.ledger-focus-head b {
+  color: var(--ink);
+}
+
+.ledger-chart {
+  width: 100%;
+  height: clamp(140px, 30vh, 280px);
+}
+
+.ledger-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.ledger-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ledger-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) minmax(40px, 120px) 52px 52px;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 8px;
+  padding: 5px 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ledger-row:hover,
+.ledger-row.on {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ledger-row.on {
+  box-shadow: inset 0 0 0 1px var(--gold-line);
+}
+
+.ledger-cols {
+  cursor: default;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ledger-cols:hover {
+  background: transparent;
+}
+
+.ledger-icon {
+  width: 24px;
+  height: 24px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.ledger-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-spark {
+  width: 100%;
+  height: 20px;
+}
+
+.ledger-spark polyline {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.ledger-rate,
+.ledger-best,
+.ledger-cols span:nth-child(4),
+.ledger-cols span:nth-child(5) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-rate {
+  font-weight: 800;
+}
+
+.ledger-rate.good {
+  color: var(--good);
+}
+
+.ledger-rate.low {
+  color: #ffb3bc;
+}
+
+.ledger-best {
+  color: var(--ink-dim);
+}
+
+.ledger-hint {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  /* A phone's square is too short for a chart and a list; take the height instead. */
+  .ledger {
+    aspect-ratio: auto;
+    max-height: calc(100dvh - 200px);
+  }
+
+  .ledger-row {
+    grid-template-columns: 24px minmax(0, 1fr) 56px 44px 44px;
+    gap: 6px;
+  }
+}

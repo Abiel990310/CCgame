@@ -161,7 +161,8 @@ world a levelling curve at last.
 - Steel and resin: recipes six or more steps from raw ore.
 - Belt tiers or not (see open questions).
 - Production statistics, so a player can find their own bottleneck. This is a
-  core factory-game affordance, not a nicety.
+  core factory-game affordance, not a nicety. **Done 2026-09-25:** the
+  Production tab beside the map (L).
 
 ## Phase 5 — multiplayer
 
@@ -226,10 +227,13 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] Night 15 in headless Chromium with the GPU renderer forced on (WebGL in
-      SwiftShader) showed no night darkness: the island was lit like day while
-      the HUD read Night. The Canvas renderer in the same browser darkens as
-      it should. Unconfirmed on a real GPU.
+- [x] Night 15 in headless Chromium with the GPU renderer showed no night
+      darkness: the island was lit like day while the HUD read Night. The
+      darkness curve ran each twilight twice, on both sides of the change of
+      phase, so every dusk darkened to 68%, snapped back to 5% as night began
+      and darkened again; dawn did the reverse. Both renderers. Twilight now
+      straddles the change, half each side. (Headless also only paints when
+      something asks for a frame, so a screenshot is needed to see a change.)
 - [ ] Spitters and the Swarm Queen face away from the player while they back
       off, because a creature faces the way it moves. Something that keeps its
       distance should face what it is shooting at.
@@ -484,9 +488,13 @@ detail behind the factory entries is in
 - [ ] **Belt-fed turrets** — ammo becomes a production line and the factory
       starts defending itself. The cleanest way to make the two halves of the
       game touch.
-- [ ] **Production ledger** — items per minute per item, with a graph and a
-      personal best. Already listed as a Phase 4 need; this is the concrete
-      shape of it.
+- [x] **Production ledger** — items per minute per item, with a graph and a
+      personal best. A Production tab beside the island map (L on desktop):
+      ten minutes of island time per item, the busiest first, and the best
+      whole minute each has reached, kept per island beside the save.
+- [x] **Dry-miner warning** — a miner that pulls up the last ore in reach
+      raises a toast once, and shows as a red ring on the map until moved; the
+      Production tab counts them and links to the map.
 - [ ] **The Beacon megaproject** — five stages at camp, each a sustained
       delivery rate, the tower visibly growing. A progress bar standing in the
       world.
@@ -564,6 +572,13 @@ detail behind the factory entries is in
       Graphics that machines' live parts, lamps and bars are rebuilt into
       every frame. Fine for a real GPU; if Abiel's numbers disappoint, keep
       those Graphics between frames or bake the live parts per phase.
+- [x] Machine live parts are baked per phase: status lamps, fuel and power
+      signs, gears (12 steps a tooth), miner drills (16 a blade), furnace
+      mouths, lab domes, and inserter bases, arms (24 swing steps) and filter
+      chips. A frozen 1,000-machine factory on Pixi, pixels taken out, went
+      from 99 to 14 ms a frame (10 to 45 fps headless); screenshots against
+      main match in both renderers. Still live: progress bars, furnace smoke,
+      lab bubbles, the assembler's working arm, belt items.
       History: the first plan was hand-written WebGL (2026-09-24), rejecting
       PixiJS as a dependency for a few hundred lines; the Canvas fixes in PR
       #47 then took every measured scene to 2 to 3 times its frame rate.
@@ -774,8 +789,13 @@ detail behind the factory entries is in
       make a big order of machines feel like work being done.
 - [ ] Tools never wear out. Durability would make tools a steady sink for
       iron and steel instead of a one-off purchase.
-- [ ] Hover cards could show a machine's rate (items a minute) once the
+- [ ] Hover cards could show a machine's rate (items a minute) now that the
       production ledger exists.
+- [ ] The ledger counts what is made, not what is used. A consumed column
+      beside it would name a shortfall outright instead of leaving the player
+      to compare two lines.
+- [ ] A dry miner looks the same in the world as a blocked one (a red light).
+      A distinct mark on the machine itself would save opening the map.
 - [ ] Carry the goal chain past the first Mk2 machine: steel, the logic pack,
       resonance and, once it exists, the megaproject, so there is always a
       named next step in the late game. Rows in `shared/data/goals.ts`.
@@ -942,6 +962,8 @@ detail behind the factory entries is in
 - [ ] Old islands load with every machine unlocked, verified in the browser on
       a rewritten version 6 save. Not yet tried against a real island saved on
       the live site before this change.
+- [ ] Dry-miner toasts on a big patch: its miners empty at different moments,
+      so each says so on its own. Fine for a handful; unknown for forty.
 - [ ] Coal cost of burners. One coal per four plates means a Mk2 furnace bank
       eats a quarter as much coal as it makes plates; nobody has played a coal
       patch dry against it yet.

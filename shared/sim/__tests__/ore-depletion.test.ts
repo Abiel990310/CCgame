@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ORE } from '../constants';
+import { ORE, TICK_DT } from '../constants';
 import { factoryPlacementError, placeMachine, removeAt } from '../factory';
 import { tileKey } from '../grid';
 import { minerOreLeft, oreAt, oreBand, oreLeftAt, generateOre } from '../ore';
 import { countIn } from '../slots';
-import type { Machine } from '../types';
+import { EMPTY_INPUT, step } from '../step';
+import type { Machine, SimEvent } from '../types';
 import { createWorld } from '../world';
 import { advance, at, bench, plantOre, put } from './bench';
 
@@ -57,6 +58,30 @@ describe('ore patches run out', () => {
     // A stalled miner keeps producing nothing rather than producing for free.
     advance(b.world, 20);
     expect(countIn(miner.output, 'ironOre')).toBe(4);
+  });
+
+  it('says so once, on the ore that empties its reach', () => {
+    const b = bench();
+    const { tx, ty } = at(12, 3);
+    plantOre(b.world, 'copperOre', tx, ty, 2);
+    plantOre(b.world, 'copperOre', tx, ty + 1, 1);
+
+    const miner = put(b, 'miner', tx, ty, 0) as Machine;
+    const dry: SimEvent[] = [];
+    let producedWhenDry = -1;
+    const inputs = new Map([...b.world.players.keys()].map((id) => [id, EMPTY_INPUT]));
+    for (let t = 0; t < minutesFor(3) + 20; t += TICK_DT) {
+      step(b.world, inputs);
+      for (const e of b.world.events) {
+        if (e.kind !== 'minerDry') continue;
+        dry.push(e);
+        producedWhenDry = countIn(miner.output, 'copperOre');
+      }
+    }
+
+    expect(dry).toHaveLength(1);
+    expect(dry[0]).toMatchObject({ machine: 'miner', ore: 'copperOre' });
+    expect(producedWhenDry).toBe(3);
   });
 
   it('never reaches past its own ring, or into a different ore', () => {
