@@ -12,7 +12,7 @@ import { OUTLINE, PixelGrid, blitPixels, ramp, type Ramp, type Rgb } from './pix
  * the world-unit numbers of the drawn figure it replaces.
  */
 
-export type PixelTool = 'axe' | 'pick' | 'hand' | 'rod' | null;
+export type PixelTool = 'axe' | 'pick' | 'hand' | 'rod' | 'blade' | null;
 export type PixelView = 'side' | 'down' | 'up';
 
 export interface PixelPose {
@@ -234,13 +234,21 @@ function sideArm(g: Rig, sx: number, sy: number, angle: number, cloth: Ramp, too
 }
 
 function drawTool(g: Rig, hx: number, hy: number, dx: number, dy: number, tool: PixelTool): void {
+  // Across the handle, pointing the way the blow travels.
+  const px = dy;
+  const py = -dx;
+  if (tool === 'blade') {
+    // A short hunting blade: grip, a crossguard, then a bright edge.
+    g.bone(hx - dx * 2, hy - dy * 2, hx + dx, hy + dy, 2, LEATHER);
+    g.seam(hx + dx * 1.5 - px * 2, hy + dy * 1.5 - py * 2, hx + dx * 1.5 + px * 2, hy + dy * 1.5 + py * 2, BRASS[1]);
+    g.bone(hx + dx * 2.5, hy + dy * 2.5, hx + dx * 12, hy + dy * 12, 2.2, STEEL);
+    g.seam(hx + dx * 3, hy + dy * 3, hx + dx * 11, hy + dy * 11, STEEL[0]);
+    return;
+  }
   const len = tool === 'rod' ? 16 : 10;
   const ex = hx + dx * len;
   const ey = hy + dy * len;
   g.bone(hx - dx * 2, hy - dy * 2, ex, ey, 2, HANDLE);
-  // Across the handle, pointing the way the blow travels.
-  const px = dy;
-  const py = -dx;
   if (tool === 'axe') {
     for (let b = -2.5; b <= 2.5; b += 0.5) {
       const reach = 4.5 - Math.abs(b) * 0.6;

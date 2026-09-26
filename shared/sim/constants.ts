@@ -65,6 +65,30 @@ export const GATHER = {
   regrowSeconds: 45,
 } as const;
 
+/**
+ * The player's own swing, on top of the weapons that fire themselves: three
+ * hits that chain if pressed in rhythm, the last one heavier and throwing
+ * creatures back.
+ */
+export const MELEE = {
+  /** Reach from the player's centre to the edge of what it hits. */
+  range: 40,
+  /** Width of the swing in radians. */
+  arc: 2.1,
+  /** Damage of each hit of the combo, before stats and research. */
+  damage: [9, 9, 20],
+  /** How hard each hit shoves what it catches. */
+  knock: [220, 220, 520],
+  /** How long each swing shows, in seconds. */
+  duration: 0.24,
+  /** Seconds between swings, per hit of the combo; the finisher recovers longer. */
+  cooldown: [0.3, 0.3, 0.55],
+  /** Seconds after a swing in which the next press continues the combo. */
+  window: 0.5,
+  /** A creature this much further out still turns the player toward it. */
+  assist: 30,
+} as const;
+
 export const COMBAT = {
   /** Seconds a projectile lives before expiring. */
   projectileLife: 1.4,

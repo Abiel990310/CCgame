@@ -14,6 +14,7 @@ import {
   tint,
   tone,
 } from './paint';
+import { MELEE } from '@shared/sim/constants';
 import { SWING_FRAMES, WALK_FRAMES, drawPixelPlayer } from './pixelplayer';
 import { drawBrood, drawBulwark, drawQueen, drawShellback, drawShield, drawSpitter, drawWarden } from './creatures';
 
@@ -89,10 +90,16 @@ export function drawPlayer(
   if (player.invuln > 0 && !dashing && Math.floor(time * 14) % 2 === 0) ctx.globalAlpha *= 0.55;
 
   if (pixelSprites()) {
-    // A tool is swung side-on whichever way the player faces, so it reads.
+    // A tool or blade is swung side-on whichever way the player faces, so it reads.
+    const striking = (player.strike ?? 0) > 0;
     const facing = viewOf(player.facing.x, player.facing.y);
-    const view = working ? 'side' : facing.view;
-    const flip = working ? player.facing.x < 0 : facing.flip < 0;
+    const sideOn = working || striking;
+    const view = sideOn ? 'side' : facing.view;
+    const flip = sideOn ? player.facing.x < 0 : facing.flip < 0;
+    // The blade enters at the top of the chop and follows through; the second
+    // hit of the combo runs the other way, an upswing.
+    const through = 1 - (player.strike ?? 0) / MELEE.duration;
+    const cut = player.combo === 1 ? 0.95 - through * 0.35 : 0.6 + through * 0.38;
     const turn = ((phase / (Math.PI * 2)) % 1 + 1) % 1;
     drawPixelPlayer(
       ctx,
@@ -104,8 +111,12 @@ export function drawPlayer(
         flip,
         walk: moving || dashing ? Math.floor(turn * WALK_FRAMES) : -1,
         idle: Math.floor(time * 1.6 + player.id * 0.3) % 2,
-        swing: working ? Math.floor(swingPhase(player, time) * SWING_FRAMES) : -1,
-        tool: working ? tool : null,
+        swing: striking
+          ? Math.min(SWING_FRAMES - 1, Math.floor(cut * SWING_FRAMES))
+          : working
+            ? Math.floor(swingPhase(player, time) * SWING_FRAMES)
+            : -1,
+        tool: striking ? 'blade' : working ? tool : null,
         dash: dashing,
         flash: player.hitFlash > 0,
       },
