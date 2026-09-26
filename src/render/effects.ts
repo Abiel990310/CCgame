@@ -164,6 +164,10 @@ export class Effects {
         case 'crafted':
           this.burst(event.pos, 12, '#f0b94a', 120);
           break;
+        case 'ate':
+          this.pillars.push({ pos: { ...event.pos }, life: 0.5, maxLife: 0.5, color: '142, 240, 168' });
+          this.text(event.pos, `+${Math.round(event.healed)}`, '#8ef0a8', 14);
+          break;
         default:
           break;
       }

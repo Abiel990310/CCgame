@@ -1,4 +1,4 @@
-import type { CraftedMachineId, ItemId, ItemStack, MachineFamily, MachineId } from '../sim/types';
+import type { CraftedMachineId, ItemId, ItemStack, MachineFamily, MachineId, TurretAmmo } from '../sim/types';
 
 export interface MachineDef {
   id: MachineId;
@@ -733,7 +733,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     tier: 1,
     name: 'Gun Turret',
     description:
-      'Fires Iron Rounds at any creature that comes in range, day or night. Feed it by belt or inserter and the factory starts guarding itself.',
+      'Fires Iron or Steel Rounds at any creature that comes in range, day or night. Feed it by belt or inserter and the factory starts guarding itself.',
     cost: [
       { id: 'ironPlate', count: 20 },
       { id: 'gear', count: 10 },
@@ -741,7 +741,8 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     ],
     color: '#5c6470',
     accent: '#d8b070',
-    inputSlots: 1,
+    // One slot per kind of round, so a belt of one never crowds out the other.
+    inputSlots: 2,
     outputSlots: 0,
     slotSize: 100,
     speed: 1,
@@ -827,11 +828,24 @@ export const TRAP_TIME = 6;
  * rather than a one-off build.
  */
 export const TURRET = {
-  damage: 9,
   rate: 2,
   range: 260,
   speed: 560,
 } as const;
+
+/**
+ * What each round does. Steel costs a steel plate where iron costs an iron
+ * one, so it is the late-game upgrade to a turret line that needs no new
+ * turret: swap what the belt carries and every gun hits twice as hard and
+ * punches through the first creature into the one behind it.
+ */
+export const TURRET_AMMO: Record<TurretAmmo, { damage: number; pierce: number }> = {
+  rounds: { damage: 9, pierce: 0 },
+  steelRounds: { damage: 20, pierce: 1 },
+};
+
+/** Ammo in the order a turret reaches for it: the best it holds first. */
+export const TURRET_AMMO_ORDER: TurretAmmo[] = ['steelRounds', 'rounds'];
 
 /** Tiles per second an item travels along a belt. */
 export const BELT_SPEED = 1.6;

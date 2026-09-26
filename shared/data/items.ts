@@ -56,6 +56,8 @@ export interface ItemDef {
    * thrown to the far bank pulls its owner over.
    */
   leap?: number;
+  /** Food: health one of it gives back when eaten (H, or the Eat button). */
+  food?: number;
 }
 
 /** Every crafted machine is also an item, drawn as a crate in the machine's colour. */
@@ -70,8 +72,8 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   wood: { id: 'wood', name: 'Wood', color: '#a4713d', stack: 999, shape: 'log' },
   stone: { id: 'stone', name: 'Stone', color: '#8f9aa6', stack: 999, shape: 'chunk' },
   fiber: { id: 'fiber', name: 'Fiber', color: '#8fbf6a', stack: 999, shape: 'strand' },
-  berry: { id: 'berry', name: 'Berries', color: '#d8556b', stack: 999, shape: 'orb' },
-  fish: { id: 'fish', name: 'Fish', color: '#5fb8d8', stack: 999, shape: 'fish' },
+  berry: { id: 'berry', name: 'Berries', color: '#d8556b', stack: 999, shape: 'orb', food: 5 },
+  fish: { id: 'fish', name: 'Fish', color: '#5fb8d8', stack: 999, shape: 'fish', food: 12 },
   iron: { id: 'iron', name: 'Iron', color: '#c3ccd6', stack: 999, shape: 'nugget' },
   gold: { id: 'gold', name: 'Gold', color: '#e8b64c', stack: 999, shape: 'nugget' },
   essence: { id: 'essence', name: 'Essence', color: '#b58cf0', stack: 999, shape: 'orb' },
@@ -89,6 +91,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     shape: 'plate',
   },
   steelPlate: { id: 'steelPlate', name: 'Steel Plate', color: '#7e8ea6', stack: 999, shape: 'ingot' },
+  grilledFish: { id: 'grilledFish', name: 'Grilled Fish', color: '#c98a4a', stack: 999, shape: 'fish', food: 35 },
 
   gear: { id: 'gear', name: 'Gear', color: '#9aa4ae', stack: 999, shape: 'gear' },
   wire: { id: 'wire', name: 'Wire', color: '#e8a860', stack: 999, shape: 'coil' },
@@ -108,6 +111,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   frame: { id: 'frame', name: 'Steel Frame', color: '#6c7a92', stack: 999, shape: 'ingot' },
   lens: { id: 'lens', name: 'Resonant Lens', color: '#bfe8ff', stack: 999, shape: 'orb' },
   rounds: { id: 'rounds', name: 'Iron Rounds', color: '#d8b070', stack: 999, shape: 'nugget' },
+  steelRounds: { id: 'steelRounds', name: 'Steel Rounds', color: '#8fb4d8', stack: 999, shape: 'nugget' },
 
   researchPack: {
     id: 'researchPack',

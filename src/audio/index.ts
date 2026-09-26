@@ -231,6 +231,9 @@ export class GameAudio {
         case 'shot':
           this.play(SHOT_SOUND[event.weapon], { pos: event.pos });
           break;
+        case 'turretShot':
+          this.play(event.ammo === 'steelRounds' ? 'turretSteel' : 'turretShot', { pos: event.pos });
+          break;
         case 'hit':
           this.play('hit', { pos: event.pos });
           break;
@@ -292,6 +295,9 @@ export class GameAudio {
           break;
         case 'crafted':
           this.play('crafted');
+          break;
+        case 'ate':
+          this.play('eat', { pos: event.pos });
           break;
         case 'removed':
           this.play('removed', { pos: event.pos });

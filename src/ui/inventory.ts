@@ -891,7 +891,8 @@ function paintSlot(cell: HTMLElement, slot: Slot, filter: ItemId | null = null):
 
   const def = ITEMS[slot.id];
   cell.classList.add('filled');
-  cell.title = `${def.name} — ${slot.count}.${kept}`;
+  const eats = def.food ? ` Eat with H for +${def.food} health.` : '';
+  cell.title = `${def.name} — ${slot.count}.${eats}${kept}`;
   cell.innerHTML =
     `<i class="item" style="background-image:${itemIconVar(slot.id)}"></i>` +
     `<b>${slot.count}</b>`;

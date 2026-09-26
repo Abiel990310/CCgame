@@ -534,11 +534,19 @@ detail behind the factory entries is in
       nearest creature within 8 tiles, twice a second, led like a thrown
       weapon and boosted by weapon research. It takes rounds from belts,
       arms or by hand, shows a rounds bar, and its barrel tracks its target.*
-- [ ] Turrets want a sound of their own; they borrow the sling's shot now.
+- [x] Turrets want a sound of their own; they borrow the sling's shot now.
+      *A dry crack over a low thump, and a heavier one for steel.*
 - [ ] Creatures should go for turrets and machines near camp, so a turret
       line needs walls and repairs rather than only ammo.
-- [ ] Turret tiers: a steel turret, and Steel Rounds that pierce, as rows.
-- [ ] A goal in the chain for the first turret fed by a belt.
+- [x] Turret tiers: a steel turret, and Steel Rounds that pierce, as rows.
+      *Steel Rounds (a steel and a copper plate make four) hit for 20 against
+      iron's 9 and pass through the first creature. A turret keeps a slot for
+      each and fires steel first; no second turret was needed.*
+- [ ] A goal in the chain for the first turret fed by a belt. Blocked on the
+      next item: goals are saved as an index, so a row inserted mid-chain
+      would re-pay everyone past it for a goal they already met.
+- [ ] Save a player's goal as the id of the next goal rather than its index,
+      so the chain can grow in the middle without shifting old islands.
 - [x] **Production ledger** — items per minute per item, with a graph and a
       personal best. A Production tab beside the island map (L on desktop):
       ten minutes of island time per item, the busiest first, and the best
@@ -577,6 +585,10 @@ detail behind the factory entries is in
       which sticks) shows fps, the 95th-percentile and worst frame over two
       seconds, sim and draw time, and what is on the island; on GPU also how
       many sprites and shapes were drawn.
+
+- [x] Eating: H or the Eat button (shown only with food in the bag) eats the
+      food that best fits the wound. Berries +5, fish +12, Grilled Fish +35
+      (a furnace recipe, fish in), so fish finally has a use (2026-09-26).
 
 ### Changes
 
@@ -1008,6 +1020,10 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Cook at the campfire by hand, so grilled fish does not wait for a
+      furnace, and more meals (berry pie, stew) that heal over time or buff.
+- [ ] Eating is instant; a short eat time or cooldown would stop a stack of
+      grilled fish trivialising a boss fight if it turns out to.
 - [ ] Underground belts carry items across instantly; a transit delay equal to
       the belt time over the gap would feel truer on long lines.
 - [ ] A way to place an underground exit on purpose (a key to flip in/out),
@@ -1209,6 +1225,8 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Food balance: whether +12 fish and +35 grilled fish, eaten instantly,
+      make night raids and the Stone Warden too easy with a fish trap running.
 - [ ] Underground belts by touch: the pairing preview was driven with a mouse
       only, and a finger has no hover to show the exit's dashed link first.
 

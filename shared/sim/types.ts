@@ -25,6 +25,7 @@ export type ItemId =
   | 'ironPlate'
   | 'copperPlate'
   | 'steelPlate'
+  | 'grilledFish'
   // Assembled
   | 'gear'
   | 'wire'
@@ -38,6 +39,7 @@ export type ItemId =
   | 'frame'
   | 'lens'
   | 'rounds'
+  | 'steelRounds'
   // Consumed by labs
   | 'researchPack'
   | 'logicPack'
@@ -86,6 +88,9 @@ export type CraftedMachineId =
   | 'solar'
   | 'beacon'
   | 'turret';
+
+/** What a gun turret fires, best last. */
+export type TurretAmmo = 'rounds' | 'steelRounds';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -497,6 +502,7 @@ export interface World {
 export type SimEvent =
   | { kind: 'hit'; pos: Vec2; amount: number }
   | { kind: 'shot'; pos: Vec2; weapon: WeaponId }
+  | { kind: 'turretShot'; pos: Vec2; ammo: TurretAmmo }
   | { kind: 'collected'; pos: Vec2; item: ItemId | null; count: number; playerId: number }
   | { kind: 'produced'; pos: Vec2; machine: MachineId; item: ItemId; count: number }
   | { kind: 'placed'; pos: Vec2; what: MachineId | 'belt' }
@@ -530,6 +536,7 @@ export type SimEvent =
   | { kind: 'downed'; playerId: number }
   | { kind: 'built'; pos: Vec2; type: BuildingId }
   | { kind: 'crafted'; pos: Vec2; item: ItemId }
+  | { kind: 'ate'; playerId: number; pos: Vec2; item: ItemId; healed: number }
   | { kind: 'research'; tech: string; level: number; next: string | null }
   | { kind: 'goal'; playerId: number; goal: string; next: string | null }
   | { kind: 'oreChanged'; tx: number; ty: number }

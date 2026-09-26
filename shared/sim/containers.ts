@@ -4,7 +4,7 @@ import { isResearchPack } from '../data/techs';
 import { hasSlotFilters, isSplitter, setSideFilter, setSlotFilter, splitterAccepts } from './factory';
 import { BEACON_FUEL_CAP } from '../data/beacon';
 import { beaconLit, beaconStage, beaconWants } from './beacon';
-import { TURRET_AMMO } from './systems/turret';
+import { isTurretAmmo } from './systems/turret';
 import { giveOrDrop } from './inventory';
 import { handLoadRoom } from './systems/factory';
 import { addToSlots, slotCap, slotTakes, sortSlots, takeFromSlots } from './slots';
@@ -91,7 +91,7 @@ export function accepts(
   if (def.family === 'lab') return isResearchPack(id);
   if (def.family === 'beacon') return beaconWants(machine, id) > 0;
   // A turret is loaded with the rounds it fires, and nothing else.
-  if (def.family === 'turret') return id === TURRET_AMMO;
+  if (def.family === 'turret') return isTurretAmmo(id);
   // Handing a splitter something neither side would route only jams it.
   if (def.family === 'splitter') return splitterAccepts(machine, id);
   // A chest takes anything; a crafter only takes what its recipe actually uses.

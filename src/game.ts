@@ -52,6 +52,7 @@ import { Ledger, loadLedger, saveLedger } from './ledger';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
 import { addItem } from '@shared/sim/inventory';
 import { craftError, nearWorkbench } from '@shared/sim/crafting';
+import { pickFood } from '@shared/sim/food';
 import type {
   Belt,
   Direction,
@@ -222,6 +223,7 @@ export class Game {
       onCast: () => this.input.triggerCast(),
       onAttack: (down) => this.input.holdAttack(down),
       onSwapSpell: () => this.swapSpell(),
+      onEat: () => this.eat(),
       onTogglePause: () => this.togglePause(),
       onQuitToMenu: () => this.quitToMenu(),
       onSlotAction: (ref, button, quick) => this.moveItems(ref, button, quick),
@@ -674,6 +676,23 @@ export class Game {
     this.workbench.hide();
   }
 
+  private eat(): void {
+    const player = this.self;
+    if (player.downed > 0) return;
+    const food = pickFood(player);
+    if (!food) {
+      audio.play('denied');
+      this.hud.toast('Nothing to eat. Fish at a shore or pick berries', 'warn');
+      return;
+    }
+    if (player.hp >= player.maxHp) {
+      audio.play('denied');
+      this.hud.toast('Already at full health', 'warn');
+      return;
+    }
+    if (this.act({ k: 'eat' })) this.requestSave();
+  }
+
   private craftItem(id: string): void {
     const error = craftError(this.world, this.self, id);
     const recipe = CRAFT_BY_ID.get(id);
@@ -828,6 +847,7 @@ export class Game {
       if (action === 'paste' && !blocked) this.pasteOnto(this.machineUnderCursor());
       if (action === 'upgrade' && !blocked) this.hud.openDraft();
       if (action === 'swapSpell') this.swapSpell();
+      if (action === 'eat' && !this.hud.isPauseOpen) this.eat();
       if (action === 'cancel' && this.intro) {
         this.endIntro();
         continue;
