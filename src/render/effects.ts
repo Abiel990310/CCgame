@@ -43,6 +43,8 @@ export class Effects {
   private texts: FloatingText[] = [];
   /** Expanding shock rings, one per burst. */
   private rings: Array<{ pos: Vec2; radius: number; life: number; maxLife: number; color: string }> = [];
+  /** Melee swings: a bright crescent that sweeps across the arc and fades. */
+  private slashes: Array<{ pos: Vec2; angle: number; life: number; maxLife: number; heavy: boolean; flip: boolean }> = [];
   /** Screen-space shake, decayed every frame. */
   shake = 0;
 
@@ -96,6 +98,14 @@ export class Effects {
         case 'playerHit':
           this.shake = Math.min(10, this.shake + 4);
           break;
+        case 'strike': {
+          const heavy = event.combo === 2;
+          const life = heavy ? 0.26 : 0.2;
+          // Alternate hits sweep opposite ways, like a forehand and a backhand.
+          this.slashes.push({ pos: { ...event.pos }, angle: Math.atan2(event.dir.y, event.dir.x), life, maxLife: life, heavy, flip: event.combo === 1 });
+          if (event.hits > 0) this.shake = Math.min(8, this.shake + (heavy ? 3 : 1.2));
+          break;
+        }
         case 'levelUp':
           // Placed by the game, which knows where that player is standing.
           break;
@@ -261,6 +271,11 @@ export class Effects {
       if (p.grow) p.size += p.grow * dt;
     }
 
+    for (let i = this.slashes.length - 1; i >= 0; i--) {
+      this.slashes[i].life -= dt;
+      if (this.slashes[i].life <= 0) this.slashes.splice(i, 1);
+    }
+
     for (let i = this.rings.length - 1; i >= 0; i--) {
       this.rings[i].life -= dt;
       if (this.rings[i].life <= 0) this.rings.splice(i, 1);
@@ -279,6 +294,45 @@ export class Effects {
     }
   }
 
+  /**
+   * The swing's crescent: its leading edge races across the arc in the first
+   * third of its life, the tail following, so it reads as a blade's path
+   * rather than a shape that appears. Squashed to lie on the 3/4 ground.
+   */
+  private drawSlash(
+    ctx: CanvasRenderingContext2D,
+    s: { pos: Vec2; angle: number; life: number; maxLife: number; heavy: boolean; flip: boolean },
+  ): void {
+    const f = 1 - s.life / s.maxLife;
+    const half = 1.15;
+    const head = Math.min(1, f * 3);
+    const tail = Math.max(0, (f - 0.25) / 0.75);
+    if (head <= tail) return;
+    const dir = s.flip ? -1 : 1;
+    const a0 = s.angle - half * dir + 2 * half * dir * tail;
+    const a1 = s.angle - half * dir + 2 * half * dir * head;
+    const reach = s.heavy ? 46 : 40;
+    const width = s.heavy ? 12 : 8;
+    ctx.save();
+    ctx.translate(s.pos.x, s.pos.y - 10);
+    ctx.scale(1, 0.72);
+    ctx.globalAlpha = Math.min(1, (1 - f) * 1.6);
+    ctx.fillStyle = s.heavy ? '#ffc85a' : '#fff1d0';
+    ctx.beginPath();
+    ctx.arc(0, 0, reach, a0, a1, s.flip);
+    ctx.arc(0, 0, reach - width, a1, a0, !s.flip);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, 0, reach - 1, a0 + (a1 - a0) * 0.45, a1, s.flip);
+    ctx.arc(0, 0, reach - width * 0.45, a1, a0 + (a1 - a0) * 0.45, !s.flip);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
   draw(ctx: CanvasRenderingContext2D): void {
     for (const r of this.rings) {
       // Snaps out fast and thins as it goes, flattened to lie on the ground.
@@ -291,6 +345,8 @@ export class Effects {
       ctx.ellipse(r.pos.x, r.pos.y, reach, reach * 0.62, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
+
+    for (const s of this.slashes) this.drawSlash(ctx, s);
 
     for (const p of this.particles) {
       ctx.globalAlpha = Math.max(0, p.life / p.maxLife);

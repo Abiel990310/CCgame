@@ -2,7 +2,7 @@ import { TICK_DT } from './constants';
 import type { PlayerInput, World } from './types';
 import { stepCycle, stepPlayerUpkeep } from './systems/cycle';
 import { stepGathering, stepNodeRegrowth } from './systems/gathering';
-import { stepProjectiles, stepWeapons } from './systems/combat';
+import { stepProjectiles, stepStrike, stepWeapons } from './systems/combat';
 import { stepLandmarkGuards, stepMobs, stepWaves } from './systems/mobs';
 import { stepPlayerMovement } from './systems/movement';
 import { stepPickups } from './systems/pickups';
@@ -34,6 +34,7 @@ export function step(world: World, inputs: Map<number, PlayerInput>, dt = TICK_D
     if (player.downed > 0) continue;
     stepPlayerMovement(world, player, input, dt);
     stepGathering(world, player, input, dt);
+    stepStrike(world, player, input, dt);
     stepWeapons(world, player, dt);
   }
 

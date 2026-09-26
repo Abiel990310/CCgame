@@ -232,7 +232,12 @@ export class CoopHost {
       case 'input': {
         const input = message.input;
         if (!isInput(input)) return;
-        guest.input = { move: { x: clampUnit(input.move.x), y: clampUnit(input.move.y) }, dash: input.dash, interact: input.interact };
+        guest.input = {
+          move: { x: clampUnit(input.move.x), y: clampUnit(input.move.y) },
+          dash: input.dash,
+          interact: input.interact,
+          attack: input.attack === true,
+        };
         if (input.dash) guest.dash = true;
         break;
       }

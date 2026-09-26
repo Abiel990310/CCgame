@@ -29,6 +29,7 @@ function wander(rng: () => number): PlayerInput {
     move: { x: Math.cos(angle), y: Math.sin(angle) },
     dash: rng() < 0.02,
     interact: rng() < 0.5,
+    attack: rng() < 0.2,
   };
 }
 

@@ -48,8 +48,10 @@ collection ladder).
 
 ### Night — ~1 minute
 - Easy mobs path toward the camp from the map edges.
-- **Weapons auto-fire** at anything in range. You control movement only...
-- ...plus **one manual ability** (dash, on a key) for agency and escapes.
+- **Weapons auto-fire** at anything in range, so a fight never needs aiming...
+- ...plus a **pressed melee combo** (F, or click near a creature) and a
+  **dash** for agency and escapes. Both are optional: standing still and
+  letting the weapons work is always enough on the easy nights.
 - Survive to dawn. Mobs drop XP and materials.
 
 ### Between
@@ -119,7 +121,9 @@ game) or with **night raids**. The choice is made once, when the world is
 created, and is saved with it.
 
 - Weapons auto-target and auto-fire on their own cooldowns.
-- One manual ability (dash) with its own cooldown.
+- A three-hit melee combo the player presses, the last hit heavier and
+  throwing creatures back (2026-09-26, from the Cinderhollow comparison).
+- One movement ability (dash) with its own cooldown.
 - Mobs are *easy* by default. Difficulty scales with player count and camp tier,
   never to the point of stress.
 

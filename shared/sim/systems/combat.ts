@@ -1,11 +1,11 @@
 import { MOBS } from '../../data/mobs';
 import { WEAPONS, weaponDamage, weaponRate, type WeaponDef } from '../../data/weapons';
-import { CAMP, COMBAT, PLAYER } from '../constants';
+import { CAMP, COMBAT, MELEE, PLAYER } from '../constants';
 import { masteryId, perk } from '../perks';
 import { distance, distanceSq, normalize } from '../math';
 import { grantXp, nextFloat } from '../progression';
 import { researchBonuses } from '../research';
-import type { Mob, Player, Projectile, Vec2, World } from '../types';
+import type { Mob, Player, PlayerInput, Projectile, Vec2, World } from '../types';
 import { spawnMob } from './mobs';
 
 /** Radians between multishot projectiles that have no target of their own. */
@@ -184,6 +184,58 @@ export function stepWeapons(world: World, player: Player, dt: number): void {
       });
     }
   }
+}
+
+/**
+ * The player's own swing. Weapons still fire themselves; this is the part of a
+ * fight that is pressed rather than stood through. Holding the gather button
+ * with nothing to gather and something close swings too, so a click fights
+ * without anyone having to learn a second key.
+ */
+export function stepStrike(world: World, player: Player, input: PlayerInput, dt: number): void {
+  player.strike = Math.max(0, (player.strike ?? 0) - dt);
+  player.strikeCd = Math.max(0, (player.strikeCd ?? 0) - dt);
+  player.comboLeft = Math.max(0, (player.comboLeft ?? 0) - dt);
+  if (player.downed > 0 || player.dashTime > 0 || player.strikeCd > 0) return;
+
+  const near = nearestMob(world, player, MELEE.range + MELEE.assist + 20);
+  const wants = input.attack === true || (input.interact && player.gatherNodeId === null && near !== null);
+  if (!wants) return;
+
+  // Turn toward the nearest creature when there is one to hit: aiming a
+  // swing precisely is fiddly with a stick, and missing by a few degrees
+  // reads as the game ignoring the press.
+  const dir = near ? normalize({ x: near.pos.x - player.pos.x, y: near.pos.y - player.pos.y }) : normalize(player.facing);
+  if (dir.x === 0 && dir.y === 0) dir.y = 1;
+  player.facing = { ...dir };
+
+  const combo = player.comboLeft > 0 ? ((player.combo ?? 0) + 1) % MELEE.damage.length : 0;
+  player.combo = combo;
+  player.strike = MELEE.duration;
+  player.strikeCd = MELEE.cooldown[combo];
+  player.comboLeft = MELEE.cooldown[combo] + MELEE.window;
+
+  const damage = MELEE.damage[combo] * player.stats.damage * researchBonuses(world).damage * situational(world, player);
+  const halfArc = MELEE.arc / 2;
+  let hits = 0;
+  // Copied, since a creature that splits as it dies adds to the list.
+  for (const mob of [...world.mobs]) {
+    if (mob.hp <= 0) continue;
+    const def = MOBS[mob.type];
+    const dx = mob.pos.x - player.pos.x;
+    const dy = mob.pos.y - player.pos.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > MELEE.range + def.radius) continue;
+    // Something overlapping the player is hit whichever way the swing goes.
+    if (dist > def.radius && Math.acos(Math.max(-1, Math.min(1, (dx * dir.x + dy * dir.y) / dist))) > halfArc) continue;
+    if (!def.bossEvery) {
+      mob.vel.x += dir.x * MELEE.knock[combo];
+      mob.vel.y += dir.y * MELEE.knock[combo];
+    }
+    damageMob(world, mob, damage, player.id);
+    hits++;
+  }
+  world.events.push({ kind: 'strike', playerId: player.id, pos: { ...player.pos }, dir, combo, hits });
 }
 
 /** The longest a shot is led, in seconds: past this a creature will have turned anyway. */

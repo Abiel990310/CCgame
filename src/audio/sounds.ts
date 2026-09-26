@@ -328,6 +328,24 @@ export const SOUNDS = {
     throttle: 0.05,
     layers: [NOISE(2600, 1200, 0.7, 0.01, 0.14, 0.8)],
   },
+  swing: {
+    gain: 0.2,
+    vary: 0.12,
+    throttle: 0.06,
+    layers: [NOISE(900, 3200, 0.8, 0.005, 0.12, 1.2)],
+  },
+  swingHeavy: {
+    gain: 0.26,
+    vary: 0.08,
+    throttle: 0.06,
+    layers: [NOISE(500, 2200, 0.8, 0.01, 0.2, 1), TONE('sine', 140, 60, 0.5, 0.005, 0.18, 0.05)],
+  },
+  thwack: {
+    gain: 0.28,
+    vary: 0.12,
+    throttle: 0.04,
+    layers: [TONE('triangle', 190, 70, 0.8, 0.001, 0.1), NOISE(1800, 500, 0.6, 0.001, 0.07, 1.4)],
+  },
   dash: {
     gain: 0.16,
     vary: 0.08,

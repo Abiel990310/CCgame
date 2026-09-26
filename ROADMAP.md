@@ -874,6 +874,17 @@ detail behind the factory entries is in
       a run cycle with more frames, and a death pose are still to do.*
 - [ ] 2. **The player does not fight.** His combat is pressed buttons (light,
       heavy, roll, parry, spells); ours auto-fires. "Action" is mostly this.
+      *2026-09-26: a pressed three-hit melee combo with knockback, slash
+      arcs, swing sounds and hit-stop (`stepStrike` in combat.ts). Still
+      missing: a heavy or charged attack, parry, and enemies with attacks
+      you read and dodge.*
+- [ ] Melee in the level-up upgrades: reach, combo speed, a finisher that
+      stuns, lifesteal on the blade.
+- [ ] A touch Attack button beside Dash (touch players now attack by holding
+      the right side near a creature, which also gathers).
+- [ ] Creatures telegraph their attacks (a wind-up flash) so the dash and
+      the combo become reading a fight, not trading hits.
+- [ ] The drawn (`?sprites=vector`) player does not show the blade swing.
 - [x] 3. **One art style end to end.** Fixed low resolution, 1px outlines, one
       palette; ours mixes smooth vector art, web UI and pixel-free icons.
       *2026-09-26: the scene is drawn on one pixel grid (the pixel look). The
