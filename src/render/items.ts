@@ -2,6 +2,8 @@ import { ITEMS, type ItemShape } from '@shared/data/items';
 import type { ItemId } from '@shared/sim/types';
 import { rgba, shift } from './palette';
 import { pieceIconVar } from './pieces';
+import { drawPixelItem, pixelItemUrl } from './pixelitems';
+import { pixelSprites } from './pixelmobs';
 
 /**
  * One drawing of an item, used everywhere an item is shown: riding a belt, in
@@ -685,6 +687,13 @@ export function drawItemSprite(
   size: number,
   item: ItemId,
 ): void {
+  // Pixel sprites are one size, one pixel per world unit; the few marks drawn
+  // smaller than that (a filter on an inserter, the coal on a fuel sign) keep
+  // the smooth drawing rather than a sprite too big for them.
+  if (size >= 4.5 && pixelSprites()) {
+    drawPixelItem(ctx, x, y, item);
+    return;
+  }
   const box = (size * 2) / FIT;
   // As with scenery in `blitCached`: under a plain scale, bake at exactly the
   // size it lands on screen and copy it to a whole pixel, which skips the
@@ -742,12 +751,16 @@ export function installItemIcons(): void {
   if (!ctx) return;
 
   const lines: string[] = [];
+  // The pixel look swaps every slot to the pixel sprite by overriding the
+  // same property under its body class, so slot markup stays one `var()`.
+  const pixel: string[] = [];
   for (const id of Object.keys(ITEMS) as ItemId[]) {
     // A packed machine shows the machine in the bag, not a generic crate.
     if (ITEMS[id].shape === 'crate') {
       lines.push(`--icon-${id}: ${pieceIconVar(`machine:${id}`)};`);
       continue;
     }
+    pixel.push(`--icon-${id}: url(${pixelItemUrl(id)});`);
     ctx.clearRect(0, 0, ICON_PX, ICON_PX);
     // A margin keeps the widest shapes and their outlines off the edge.
     drawItem(ctx, ICON_PX / 2, ICON_PX / 2, ICON_PX * 0.44, id);
@@ -755,6 +768,6 @@ export function installItemIcons(): void {
   }
 
   const style = document.createElement('style');
-  style.textContent = `:root {\n${lines.join('\n')}\n}`;
+  style.textContent = `:root {\n${lines.join('\n')}\n}\n.pixel-ui {\n${pixel.join('\n')}\n}`;
   document.head.appendChild(style);
 }
