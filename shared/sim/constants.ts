@@ -103,6 +103,11 @@ export const MELEE = {
   daze: 1.6,
   parryKnock: 420,
   parryDamage: 12,
+  /**
+   * Seconds after dodging a blow in which the next swing is a counter: it
+   * lands as hard as the third hit of the combo, whatever hit it is.
+   */
+  riposte: 0.9,
 } as const;
 
 /**

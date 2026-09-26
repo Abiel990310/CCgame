@@ -264,6 +264,8 @@ export interface Player {
   strikeQueued?: boolean;
   /** Seconds attack has been held past a swing, winding up the heavy slam. */
   charge?: number;
+  /** Seconds left in which the next swing lands as a counter, earned by dodging a blow. */
+  riposte?: number;
 }
 
 export interface PlayerStats {
@@ -497,6 +499,8 @@ export type SimEvent =
   | { kind: 'slam'; playerId: number; pos: Vec2; radius: number; hits: number }
   /** A blow turned aside by a swing timed to meet it. */
   | { kind: 'parry'; playerId: number; pos: Vec2 }
+  /** A blow passed through a player mid-dash; their next swing is a counter. */
+  | { kind: 'dodge'; playerId: number; pos: Vec2 }
   | { kind: 'downed'; playerId: number }
   | { kind: 'built'; pos: Vec2; type: BuildingId }
   | { kind: 'crafted'; pos: Vec2; item: ItemId }

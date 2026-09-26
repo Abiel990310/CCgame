@@ -54,4 +54,34 @@ describe('a creature winds up before it bites', () => {
     expect(player.hp).toBe(player.maxHp);
     expect(warden.attackCd).toBeGreaterThan(MELEE.daze - 0.2);
   });
+
+  it('passes through a player mid-dash, and the next swing is a counter', () => {
+    const { world, player } = arena();
+    const brute = spawnMob(world, 'brute', { x: player.pos.x + 10, y: player.pos.y });
+    brute.hp = brute.maxHp = 1e6;
+    for (let i = 0; i < 40 && !(brute.windup && brute.windup <= 1 / 30 + 1e-9); i++) run(world, 1 / 30);
+    // Mid-roll as the bite lands.
+    player.dashTime = 0.1;
+    world.events.length = 0;
+    run(world, 2 / 30);
+    expect(world.events.some((e) => e.kind === 'dodge')).toBe(true);
+    expect(player.hp).toBe(player.maxHp);
+    expect(player.riposte).toBeGreaterThan(0);
+
+    player.dashTime = 0;
+    const before = brute.hp;
+    stepStrike(world, player, { ...EMPTY_INPUT, attack: true }, 0);
+    expect(player.combo).toBe(MELEE.damage.length - 1);
+    expect(before - brute.hp).toBeGreaterThanOrEqual(MELEE.damage[MELEE.damage.length - 1] * 0.99);
+    expect(player.riposte).toBe(0);
+  });
+
+  it('does not count a bite taken standing still as a dodge', () => {
+    const { world, player } = arena();
+    spawnMob(world, 'brute', { x: player.pos.x + 10, y: player.pos.y });
+    world.events.length = 0;
+    run(world, BITE.windup + 3 / 30);
+    expect(world.events.some((e) => e.kind === 'dodge')).toBe(false);
+    expect(player.riposte ?? 0).toBe(0);
+  });
 });

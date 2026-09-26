@@ -887,7 +887,8 @@ detail behind the factory entries is in
       arcs, swing sounds and hit-stop (`stepStrike` in combat.ts). Hold F
       for a slam, and a swing timed to a bite or spit parries it
       (`tryParry`). Creatures now rear back before a bite, so it can be
-      read and dodged. Still missing: a roll with i-frames, and spells.*
+      read and dodged. The dash is a roll now, and a blow dodged mid-roll
+      earns a counter (`tryDodge`). Still missing: spells.*
 - [ ] Co-op: a guest's quick F tap between two host ticks can be lost; latch
       presses on the host the way dash is.
 - [ ] Parry is hard to land on small creatures because the swing's own
@@ -895,6 +896,8 @@ detail behind the factory entries is in
       spit tool until creatures telegraph.
 - [ ] Melee in the level-up upgrades: reach, combo speed, a finisher that
       stuns, lifesteal on the blade.
+- [ ] A dodge counter could have its own heavier slash and sound, rather
+      than reusing the third combo hit's.
 - [ ] A touch Attack button beside Dash (touch players now attack by holding
       the right side near a creature, which also gathers).
 - [x] Creatures telegraph their attacks (2026-09-26): they rear back for
