@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { UPGRADES, WEAPON_MAX_LEVEL } from '../../data/upgrades';
-import { BITE, PLAYER } from '../constants';
+import { MOBS } from '../../data/mobs';
+import { BITE, MELEE, PLAYER } from '../constants';
 import { addPerk, masteryId, perk } from '../perks';
 import { chooseUpgrade, rollOffers } from '../progression';
-import { damageMob, damagePlayer, stepProjectiles, stepWeapons } from '../systems/combat';
+import { damageMob, damagePlayer, stepProjectiles, stepStrike, stepWeapons } from '../systems/combat';
+import { EMPTY_INPUT } from '../step';
 import { spawnMob, stepMobs } from '../systems/mobs';
 import type { Player, World } from '../types';
 import { addPlayer, createWorld } from '../world';
@@ -187,4 +189,39 @@ describe('perks in play', () => {
     expect(crits).toBeGreaterThan(5);
     expect(crits).toBeLessThan(45);
   });
+
+  it('Long Blade reaches a creature the plain swing misses', () => {
+    const { world, player } = arena();
+    player.facing = { x: 1, y: 0 };
+    const brute = spawnMob(world, 'brute', { x: player.pos.x + MELEE.range + MOBS.brute.radius + 3, y: player.pos.y });
+    brute.hp = brute.maxHp = 1000;
+    stepStrike(world, player, { ...EMPTY_INPUT, attack: true }, 0);
+    expect(brute.hp).toBe(1000);
+    stepStrike(world, player, EMPTY_INPUT, 1);
+    addPerk(player, 'longBlade');
+    stepStrike(world, player, { ...EMPTY_INPUT, attack: true }, 0);
+    expect(brute.hp).toBeLessThan(1000);
+  });
+
+  it('Quick Blade shortens the recovery after a swing', () => {
+    const { world, player } = arena();
+    addPerk(player, 'quickBlade');
+    stepStrike(world, player, { ...EMPTY_INPUT, attack: true }, 0);
+    expect(player.strikeCd).toBeCloseTo(MELEE.cooldown[0] * 0.88, 6);
+  });
+
+  it('Staggering Blows stops a finished creature biting, and Thirsting Blade heals per hit', () => {
+    const { world, player } = arena();
+    addPerk(player, 'stagger');
+    addPerk(player, 'thirst');
+    player.hp = 50;
+    player.facing = { x: 1, y: 0 };
+    const brute = spawnMob(world, 'brute', { x: player.pos.x + 20, y: player.pos.y });
+    brute.hp = brute.maxHp = 1e5;
+    player.riposte = 1;
+    stepStrike(world, player, { ...EMPTY_INPUT, attack: true }, 0);
+    expect(brute.attackCd).toBeGreaterThanOrEqual(MELEE.stagger);
+    expect(player.hp).toBe(51);
+  });
 });
+

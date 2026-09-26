@@ -223,7 +223,8 @@ export function stepStrike(world: World, player: Player, input: PlayerInput, dt:
   if (pressed && player.strikeCd > 0) player.strikeQueued = true;
   if (player.dashTime > 0 || player.strikeCd > 0) return;
 
-  const near = nearestMob(world, player, MELEE.range + MELEE.assist + 20);
+  const reach = MELEE.range * bladeReach(player);
+  const near = nearestMob(world, player, reach + MELEE.assist + 20);
   // Holding attack does not repeat the swing, it charges; holding the gather
   // button near a creature does keep swinging, so a held click fights.
   const wants = pressed || player.strikeQueued === true || (input.interact && player.gatherNodeId === null && near !== null);
@@ -243,8 +244,11 @@ export function stepStrike(world: World, player: Player, input: PlayerInput, dt:
   const combo = counter ? MELEE.damage.length - 1 : player.comboLeft > 0 ? ((player.combo ?? 0) + 1) % MELEE.damage.length : 0;
   player.combo = combo;
   player.strike = MELEE.duration;
-  player.strikeCd = MELEE.cooldown[combo];
-  player.comboLeft = MELEE.cooldown[combo] + MELEE.window;
+  const recover = MELEE.cooldown[combo] * (1 - 0.12 * perk(player, 'quickBlade'));
+  player.strikeCd = recover;
+  player.comboLeft = recover + MELEE.window;
+  const finisher = combo === MELEE.damage.length - 1;
+  const staggers = finisher && perk(player, 'stagger') > 0;
 
   const damage = MELEE.damage[combo] * player.stats.damage * researchBonuses(world).damage * situational(world, player);
   const halfArc = MELEE.arc / 2;
@@ -256,17 +260,33 @@ export function stepStrike(world: World, player: Player, input: PlayerInput, dt:
     const dx = mob.pos.x - player.pos.x;
     const dy = mob.pos.y - player.pos.y;
     const dist = Math.hypot(dx, dy);
-    if (dist > MELEE.range + def.radius) continue;
+    if (dist > reach + def.radius) continue;
     // Something overlapping the player is hit whichever way the swing goes.
     if (dist > def.radius && Math.acos(Math.max(-1, Math.min(1, (dx * dir.x + dy * dir.y) / dist))) > halfArc) continue;
     if (!def.bossEvery) {
       mob.vel.x += dir.x * MELEE.knock[combo];
       mob.vel.y += dir.y * MELEE.knock[combo];
     }
+    if (staggers) {
+      mob.attackCd = Math.max(mob.attackCd, MELEE.stagger);
+      mob.windup = 0;
+    }
     damageMob(world, mob, damage, player.id);
     hits++;
   }
+  bladeDrink(player, hits);
   world.events.push({ kind: 'strike', playerId: player.id, pos: { ...player.pos }, dir, combo, hits, counter: counter || undefined });
+}
+
+/** How much further the blade reaches than its base, from Long Blade. */
+function bladeReach(player: Player): number {
+  return 1 + 0.15 * perk(player, 'longBlade');
+}
+
+/** Thirsting Blade: health back for every creature a swing lands on. */
+function bladeDrink(player: Player, hits: number): void {
+  const per = perk(player, 'thirst');
+  if (per > 0 && hits > 0 && player.downed === 0) player.hp = Math.min(player.maxHp, player.hp + per * hits);
 }
 
 function slam(world: World, player: Player): void {
@@ -282,7 +302,7 @@ function slam(world: World, player: Player): void {
     const dx = mob.pos.x - player.pos.x;
     const dy = mob.pos.y - player.pos.y;
     const dist = Math.hypot(dx, dy);
-    if (dist > MELEE.slamRadius + def.radius) continue;
+    if (dist > MELEE.slamRadius * bladeReach(player) + def.radius) continue;
     if (!def.bossEvery && dist > 0) {
       mob.vel.x += (dx / dist) * MELEE.slamKnock;
       mob.vel.y += (dy / dist) * MELEE.slamKnock;
@@ -290,7 +310,8 @@ function slam(world: World, player: Player): void {
     damageMob(world, mob, damage, player.id);
     hits++;
   }
-  world.events.push({ kind: 'slam', playerId: player.id, pos: { ...player.pos }, radius: MELEE.slamRadius, hits });
+  bladeDrink(player, hits);
+  world.events.push({ kind: 'slam', playerId: player.id, pos: { ...player.pos }, radius: MELEE.slamRadius * bladeReach(player), hits });
 }
 
 /**
