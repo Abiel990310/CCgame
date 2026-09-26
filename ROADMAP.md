@@ -846,8 +846,13 @@ detail behind the factory entries is in
 - [ ] `resize()` caps `devicePixelRatio` at 2, so a retina display rasterises
       four times the pixels every frame. Worth revisiting if lag is reported on
       one.
-- [ ] The render loop allocates an object and a closure per visible entity each
-      frame to feed the depth sort. Pooling them would cut the GC churn.
+- [x] The render loop allocated an object and a closure per visible entity each
+      frame to feed the depth sort. It now fills parallel arrays kept across
+      frames and sorts indices; garbage per frame on a fresh island at
+      1280×800 fell from 190 to 81 KB, with the same draw order.
+- [ ] Find the other ~80 KB of garbage the renderer makes each frame (a
+      heap sampling profile over a few hundred frames would name it); fewer
+      collections means fewer small stutters.
 
 - [x] **Mood through the day.** A colour grade: gold after dawn, amber to rose
       at dusk, cold blue at night, a vignette always. Nights are darker (0.84
