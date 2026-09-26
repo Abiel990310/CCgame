@@ -170,3 +170,40 @@
   border-color: var(--gold-line);
   background: var(--gold-soft);
 }
+
+.netlog {
+  position: fixed;
+  z-index: 80;
+}
+
+.netlog .modal-inner {
+  max-width: min(760px, calc(100vw - 32px));
+}
+
+.netlog-text {
+  max-height: 50vh;
+  overflow: auto;
+  margin: 12px 0 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  font: 11px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.netlog-link {
+  display: inline-block;
+  margin: 6px auto 0;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  opacity: 0.85;
+  cursor: pointer;
+}

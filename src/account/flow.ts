@@ -251,6 +251,7 @@ export class AccountFlow {
       this.menu.close();
     } catch (error) {
       this.menu.open(error instanceof Error ? error.message : `Could not join ${what}`);
+      this.menu.offerNetLog();
       void this.refresh();
     }
   }

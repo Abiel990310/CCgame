@@ -1,4 +1,5 @@
 import './style.css';
+import { hasNetlog } from './net/netlog';
 import { Game } from './game';
 import { MainMenu } from './ui/menu';
 import { icon, mountIcons } from './ui/icons';
@@ -27,6 +28,8 @@ const menu: MainMenu = new MainMenu({
 const game: Game = new Game(canvas, {
   onQuit: (notice) => {
     menu.open(notice);
+    // A co-op game that ended on its own is worth being able to look into.
+    if (notice && hasNetlog()) menu.offerNetLog();
     game.showcase();
     void flow?.refresh();
   },

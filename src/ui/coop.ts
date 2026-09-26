@@ -3,6 +3,8 @@ import { cleanCode, CODE_LENGTH, MAX_GUESTS } from '../net/protocol';
 import { icon } from './icons';
 import type { WorldAccess } from '../account/cloud';
 import './coop.css';
+import { hasNetlog } from '../net/netlog';
+import { netLogButton } from './netlog';
 
 const NAME_KEY = 'ccgame.coop.name';
 
@@ -158,6 +160,7 @@ export class CoopPanel {
       row.append(name, invite);
       s.appendChild(row);
       if (this.error) s.appendChild(el('p', 'coop-error')).textContent = this.error;
+      if (this.error && hasNetlog()) s.appendChild(netLogButton());
       return;
     }
 
@@ -187,6 +190,7 @@ export class CoopPanel {
       });
       row.append(copy, stop);
       s.appendChild(row);
+      s.appendChild(netLogButton());
     } else {
       s.appendChild(el('p', 'coop-blurb', 'The host keeps the save. What you gather and build stays on their island for next time.'));
     }
@@ -350,6 +354,8 @@ export class JoinScreen {
       this.close();
     } catch (error) {
       this.say(error instanceof Error ? error.message : 'Could not join.', true);
+      this.status.appendChild(document.createElement('br'));
+      this.status.appendChild(netLogButton());
       audio.play('denied');
     } finally {
       this.busy = false;

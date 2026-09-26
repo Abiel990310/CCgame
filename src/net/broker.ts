@@ -12,11 +12,14 @@
  * nothing is fetched at all until someone hosts or joins.
  */
 
+import { netlog } from './netlog';
+
 const DEFAULT_BROKER = 'wss://0.peerjs.com:443/peerjs?key=peerjs';
 const HEARTBEAT_MS = 5000;
 
 /** The relay types the PeerJS server forwards to `dst`. Anything else it drops. */
 export type RelayType = 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'LEAVE';
+
 
 /** Anything that can carry signalling messages to another peer by id. */
 export interface Signaller {
@@ -89,6 +92,7 @@ export class Broker implements Signaller {
     }
     this.socket = socket;
     let opened = false;
+    netlog(`public relay: connecting to ${hostOf(url)}`);
 
     socket.onmessage = (event) => {
       let message: { type?: string; src?: string; payload?: unknown };
@@ -99,6 +103,7 @@ export class Broker implements Signaller {
       }
       switch (message.type) {
         case 'OPEN':
+          netlog('public relay: connected');
           opened = true;
           this.retries = 0;
           window.clearInterval(this.heartbeat);
@@ -106,15 +111,18 @@ export class Broker implements Signaller {
           resolve?.();
           break;
         case 'ID-TAKEN':
+          netlog('public relay: code already in use');
           if (first) {
             reject?.(new Error('That room code is already in use'));
             this.close();
           }
           break;
         case 'ERROR':
+          netlog(`public relay: error ${JSON.stringify(message.payload ?? '').slice(0, 160)}`);
           if (first && !opened) reject?.(new Error('The matchmaking service refused the connection'));
           break;
         case 'EXPIRE':
+          netlog('public relay: nobody holds that code');
           // Sent back when a message's `dst` never showed up to collect it.
           this.events.onExpire?.();
           break;
@@ -128,7 +136,8 @@ export class Broker implements Signaller {
           break;
       }
     };
-    socket.onclose = () => {
+    socket.onclose = (event) => {
+      if (!this.closed) netlog(`public relay: socket closed (code ${event.code})`);
       window.clearInterval(this.heartbeat);
       if (this.closed || this.socket !== socket) return;
       this.socket = null;
@@ -159,5 +168,13 @@ export class Broker implements Signaller {
     window.clearTimeout(this.retryTimer);
     this.socket?.close();
     this.socket = null;
+  }
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return 'the broker';
   }
 }

@@ -1,4 +1,5 @@
 import type { Signaller } from './broker';
+import { netlog } from './netlog';
 
 /**
  * STUN lets two browsers behind home routers find the addresses to reach each
@@ -80,6 +81,7 @@ export class Link {
   private lastHeard = 0;
   private watchdog = 0;
   private outbox: string[] = [];
+  private heardRelay = false;
   private flushTimer = 0;
 
   constructor(
@@ -91,10 +93,13 @@ export class Link {
     try {
       const pc = new RTCPeerConnection(ICE);
       pc.onicecandidate = (event) => {
+        if (event.candidate) this.candidates.add(event.candidate.type ?? 'unknown');
+        else netlog(`direct: found ${[...this.candidates].join(', ') || 'no'} address types`);
         if (event.candidate) this.broker.relay('CANDIDATE', remote, { candidate: event.candidate.toJSON() });
       };
       pc.onconnectionstatechange = () => {
         const state = pc.connectionState;
+        netlog(`direct: ${state}`);
         // A direct attempt that fails is not the end: the relay may still carry us.
         if (state === 'failed' && !this.relayed && this.caller) this.startRelay();
         else if ((state === 'failed' || state === 'closed') && !this.relayed) this.close();
@@ -103,12 +108,17 @@ export class Link {
       this.pc = pc;
     } catch {
       // No WebRTC here at all (disabled, or a locked-down browser): relay only.
+      netlog('direct: this browser has no WebRTC');
       this.pc = null;
     }
     this.timer = window.setTimeout(() => {
-      if (!this.open) this.close();
+      if (this.open) return;
+      netlog(`gave up: nothing connected in ${CONNECT_TIMEOUT_MS / 1000}s`);
+      this.close();
     }, CONNECT_TIMEOUT_MS);
   }
+
+  private candidates = new Set<string>();
 
   /** Set on the joining side, which is the one that decides to fall back. */
   private caller = false;
@@ -122,7 +132,9 @@ export class Link {
       return;
     }
     this.fallbackTimer = window.setTimeout(() => {
-      if (!this.open) this.startRelay();
+      if (this.open) return;
+      netlog(`direct: not open after ${DIRECT_WAIT_MS / 1000}s, switching to the relay`);
+      this.startRelay();
     }, DIRECT_WAIT_MS);
     this.attach(pc.createDataChannel('ccgame', { ordered: true }));
     const offer = await pc.createOffer();
@@ -143,6 +155,7 @@ export class Link {
   }
 
   private becomeRelayed(): void {
+    if (!this.relayOpen) netlog('relay: game messages now go through the signalling service');
     this.relayed = true;
     // Whatever direct attempt is still going would only race the relay.
     this.channel?.close();
@@ -153,7 +166,9 @@ export class Link {
     this.relayOpen = true;
     this.lastHeard = performance.now();
     this.watchdog = window.setInterval(() => {
-      if (performance.now() - this.lastHeard > RELAY_SILENCE_MS) this.close();
+      if (performance.now() - this.lastHeard <= RELAY_SILENCE_MS) return;
+      netlog(`relay: nothing heard for ${RELAY_SILENCE_MS / 1000}s, closing`);
+      this.close();
     }, 1000);
     window.clearTimeout(this.timer);
     this.events.onOpen();
@@ -180,6 +195,8 @@ export class Link {
       return;
     }
     if (!this.relayed) this.becomeRelayed();
+    if (!this.heardRelay) netlog('relay: first message from the other side');
+    this.heardRelay = true;
     this.lastHeard = performance.now();
     if (typeof payload.data === 'string') this.deliver(payload.data);
     else if (Array.isArray(payload.data)) {
@@ -192,6 +209,7 @@ export class Link {
   private async handle(type: string, payload: unknown): Promise<void> {
     const data = payload as { sdp?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit };
     if (type === 'LEAVE') {
+      netlog('the other side left');
       this.close();
       return;
     }
@@ -221,6 +239,7 @@ export class Link {
         channel.close();
         return;
       }
+      netlog('direct: data channel open');
       window.clearTimeout(this.timer);
       window.clearTimeout(this.fallbackTimer);
       this.events.onOpen();
