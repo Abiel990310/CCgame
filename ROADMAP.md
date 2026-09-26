@@ -1089,8 +1089,16 @@ detail behind the factory entries is in
       means deciding whether art stays procedural or ships baked PNG sheets.
 - [ ] Hitstop: freeze a few frames on a melee hit and longer on a kill or a
       boss stagger, so hits land instead of passing through.
-- [ ] A painted title screen with a logo lockup, in place of the menu that
-      reads like a web form.
+- [x] A painted title screen with a logo lockup, in place of the menu that
+      reads like a web form. *2026-09-26: a 32-pixel emblem (the island at
+      dusk in a gold ring, `src/ui/emblem.ts`), a gold book-face wordmark with
+      a hard outline, a tagline between rules, and the menu in a framed banner
+      over the island with motes of light drifting up (`src/ui/title.css`).*
+- [ ] The title banner's options (peaceful, sound, controls) are still form
+      controls; a Settings page behind one button would leave the banner to
+      Continue, New island and the islands list.
+- [ ] Keyboard and gamepad focus on the title: arrow keys between the
+      banner's buttons, Enter to pick.
 - [x] Two or three illustrated story cards before a new island's first day,
       saying why you are here. *Three animated pixel scenes (the pod coming
       down, ruins and a shrine with eyes in the trees, the Skyward Beacon
