@@ -107,9 +107,12 @@ export function blitCached(
     ctx.drawImage(sprite, x - box.left, y - box.top, w, h);
     return;
   }
+  // Six numbers rather than the matrix object: passing a DOMMatrix back to a
+  // CPU canvas goes through a dictionary conversion that cost more than the
+  // blit itself, and a factory is blitted by the thousand.
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(sprite, Math.round(m.a * (x - box.left) + m.e), Math.round(m.d * (y - box.top) + m.f));
-  ctx.setTransform(m);
+  ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
 }
 
 function dropStale(): void {
