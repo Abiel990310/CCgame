@@ -114,10 +114,10 @@ export interface GameCallbacks {
 
 /** How long the camera takes to settle onto the player on a new island. */
 const ARRIVAL_MS = 2600;
-/** How long the camera looks off toward a boss walking in, there and back. */
-const GLANCE_MS = 2400;
-/** Furthest the camera leans toward a boss: toward where it is, not all the way to the coast. */
-const GLANCE_REACH = 420;
+/** A boss's entrance: pan out, hold on it, pan back, in milliseconds. */
+const INTRO_OUT = 700;
+const INTRO_HOLD = 1900;
+const INTRO_BACK = 700;
 
 export class Game {
   private world: World;
@@ -166,7 +166,8 @@ export class Game {
    */
   private arrival: { from: { x: number; y: number }; start: number } | null = null;
   /** A boss walking in: the camera leans that way for a beat, then comes home. */
-  private glance: { offset: { x: number; y: number }; start: number } | null = null;
+  /** A boss's entrance: the camera goes to it, holds, and comes back. */
+  private intro: { mobId: number; type: MobTypeId; at: { x: number; y: number }; start: number; roared: boolean } | null = null;
   /** The night a boss was announced on, so the plain night card does not talk over it. */
   private bossNight = -1;
   /** Facing applied to the next belt or machine placed. */
@@ -827,6 +828,10 @@ export class Game {
       if (action === 'paste' && !blocked) this.pasteOnto(this.machineUnderCursor());
       if (action === 'upgrade' && !blocked) this.hud.openDraft();
       if (action === 'swapSpell') this.swapSpell();
+      if (action === 'cancel' && this.intro) {
+        this.endIntro();
+        continue;
+      }
       if (action === 'cancel') {
         // Esc backs out of whatever is open, and opens the menu when nothing is.
         if (this.worldMap.isOpen) this.worldMap.setOpen(false);
@@ -1190,7 +1195,9 @@ export class Game {
       : this.hud.isBuildMode
         ? { ...raw, interact: false }
         : raw;
-    const held = this.hitstop > 0 && !this.host && !this.guest;
+    // A boss's entrance stops the clock too, alone: nobody should be bitten
+    // while the camera is looking the other way.
+    const held = (this.hitstop > 0 || this.intro !== null) && !this.host && !this.guest;
     this.hitstop = Math.max(0, this.hitstop - elapsed);
     const stepped = held ? 0 : elapsed;
     const simStart = performance.now();
@@ -1502,9 +1509,10 @@ export class Game {
 
   private followCamera(elapsed: number): void {
     const camera = this.renderer.camera;
+    if (this.intro && this.followIntro()) return;
     const arrival = this.arrival;
     if (!arrival) {
-      camera.follow(this.glanceTarget(), elapsed);
+      camera.follow(this.self.pos, elapsed);
       return;
     }
     const t = (performance.now() - arrival.start) / ARRIVAL_MS;
@@ -1529,28 +1537,51 @@ export class Game {
   private announceBoss(type: MobTypeId, pos: { x: number; y: number }): void {
     const def = MOBS[type];
     this.bossNight = this.world.nightIndex;
-    this.hud.banner(def.name, `${def.epithet ?? 'Night ' + this.world.nightIndex}.`, 'boss');
-    const dx = pos.x - this.self.pos.x;
-    const dy = pos.y - this.self.pos.y;
-    const d = Math.hypot(dx, dy);
-    if (d < 1 || this.arrival) return;
-    const reach = Math.min(d, GLANCE_REACH);
-    this.glance = { offset: { x: (dx / d) * reach, y: (dy / d) * reach }, start: performance.now() };
+    if (this.arrival || this.self.downed > 0) {
+      this.hud.banner(def.name, `${def.epithet ?? 'Night ' + this.world.nightIndex}.`, 'boss');
+      return;
+    }
+    const boss = this.world.mobs.find((m) => m.type === type && Math.hypot(m.pos.x - pos.x, m.pos.y - pos.y) < 1);
+    this.intro = { mobId: boss?.id ?? -1, type, at: { ...pos }, start: performance.now(), roared: false };
+    this.hud.setCinematic(true);
   }
 
-  /** Where the camera should sit: on the player, or leaning toward a boss. */
-  private glanceTarget(): { x: number; y: number } {
-    const glance = this.glance;
-    const at = this.self.pos;
-    if (!glance) return at;
-    const t = (performance.now() - glance.start) / GLANCE_MS;
-    if (t >= 1 || this.self.downed > 0) {
-      this.glance = null;
-      return at;
+  /**
+   * The camera's part in a boss's entrance: out to it, a hold while its name
+   * comes up and it roars, and back. Returns false once it is over.
+   */
+  private followIntro(): boolean {
+    const intro = this.intro!;
+    const camera = this.renderer.camera;
+    const t = performance.now() - intro.start;
+    const boss = this.world.mobs.find((m) => m.id === intro.mobId);
+    if (boss) intro.at = { ...boss.pos };
+    const home = this.self.pos;
+    const ease = (k: number): number => k * k * (3 - 2 * k);
+    let k: number;
+    if (t < INTRO_OUT) k = ease(t / INTRO_OUT);
+    else if (t < INTRO_OUT + INTRO_HOLD) {
+      k = 1;
+      if (!intro.roared) {
+        intro.roared = true;
+        const def = MOBS[intro.type];
+        this.hud.banner(def.name, `${def.epithet ?? 'Night ' + this.world.nightIndex}.`, 'boss');
+        audio.play('bossRage');
+        this.renderer.effects.shake = Math.min(14, this.renderer.effects.shake + 9);
+      }
+    } else if (t < INTRO_OUT + INTRO_HOLD + INTRO_BACK) k = 1 - ease((t - INTRO_OUT - INTRO_HOLD) / INTRO_BACK);
+    else {
+      this.endIntro();
+      return false;
     }
-    // Out quickly, hold, and back: the follow's own easing smooths the corners.
-    const lean = t < 0.3 ? t / 0.3 : t < 0.65 ? 1 : 1 - (t - 0.65) / 0.35;
-    return { x: at.x + glance.offset.x * lean, y: at.y + glance.offset.y * lean };
+    camera.pos = { x: home.x + (intro.at.x - home.x) * k, y: home.y + (intro.at.y - home.y) * k };
+    camera.follow(camera.pos, 0);
+    return true;
+  }
+
+  private endIntro(): void {
+    this.intro = null;
+    this.hud.setCinematic(false);
   }
 
   private announcePhase(): void {

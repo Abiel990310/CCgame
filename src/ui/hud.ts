@@ -114,6 +114,7 @@ export class Hud {
     spellName: $('spell-name'),
     spellCd: $('spell-cd'),
     bossBar: $('boss-bar'),
+    letterbox: $('letterbox'),
     bossName: $('boss-name'),
     bossFill: $('boss-fill'),
     bossTrail: $('boss-trail'),
@@ -703,6 +704,12 @@ export class Hud {
       e.preventDefault();
       this.callbacks.onSwapSpell();
     });
+  }
+
+  /** Bars in and the HUD out, for a boss's entrance; the title card stays. */
+  setCinematic(on: boolean): void {
+    this.els.letterbox.classList.toggle('on', on);
+    document.getElementById('ui')?.classList.toggle('cinematic', on);
   }
 
   private boss: { id: number; trail: number; enraged: boolean } | null = null;

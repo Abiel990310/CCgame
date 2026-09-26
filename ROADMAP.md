@@ -976,7 +976,7 @@ detail behind the factory entries is in
       health bar with its name (a pale trail shows each chunk taken), and
       at half health it turns: a roar with shock rings and a frame hold,
       then it burns red and moves and attacks half again as fast
-      (`BOSS_RAGE`). Still missing: a proper intro cutscene.*
+      (`BOSS_RAGE`). Done 2026-09-26: a boss now arrives with an entrance, letterbox bars, the camera panning out to it, its title card and a roar, then back (Esc skips).*
 - [ ] A boss's second phase could add a move, not only speed: the warden
       slamming the ground, the queen calling twice as many.
 - [ ] The Stone Warden reads pale and washed out below a third of its
