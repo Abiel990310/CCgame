@@ -147,6 +147,12 @@ on purpose and should stay true as tiers are added.
   `shared/sim/__tests__/worldgen.test.ts` fails when that happens; raise
   `WORLDGEN` in `shared/sim/world.ts` on purpose, then update the fingerprints.
 
+## Skills
+
+`.claude/skills/` holds PixiJS, game-design and frontend skills copied from
+public repos (sources in its README). Use them for technique; where one
+disagrees with this file, this file wins.
+
 ## Verifying changes
 
 Tests are necessary but not sufficient. **Anything visual or interactive must be
