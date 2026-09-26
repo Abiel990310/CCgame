@@ -858,6 +858,27 @@ detail behind the factory entries is in
 - [x] **Zoom.** Scroll or +/− steps the camera through five fixed zooms,
       remembered; the default stands about 12% closer than before.
 
+#### Gap list against Cinderhollow (2026-09-26), most visible first
+
+- [ ] 1. **Character and creature art.** His player is a pixel-art sprite
+      sheet with 549 hand-timed frames over 30+ moves; ours is a procedural
+      figure with a few poses. Seen every second of play.
+- [ ] 2. **The player does not fight.** His combat is pressed buttons (light,
+      heavy, roll, parry, spells); ours auto-fires. "Action" is mostly this.
+- [ ] 3. **One art style end to end.** Fixed low resolution, 1px outlines, one
+      palette; ours mixes smooth vector art, web UI and pixel-free icons.
+- [ ] 4. **Menus look like a game.** Framed pixel panels, a serif face,
+      tabbed Status / Equipment / Inventory / Charms / Map; ours are web
+      cards in a system font.
+- [ ] 5. **Character screen and gear.** Weapons, charms and spells to equip
+      and swap; our bag holds materials and the build is a row of chips.
+- [ ] 6. **Bosses as events.** Intro cutscene, name card, phase change; our
+      Stone Warden walks in with a toast.
+- [ ] 7. **Movement verbs.** Jump, roll, wall-jump, hook, air dash; ours is
+      walk and one dash.
+- [ ] 8. **Story framing.** Illustrated story cards and portraits; ours has
+      none.
+
 ### Ideas
 
 - [ ] Underground belts carry items across instantly; a transit delay equal to
