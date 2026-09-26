@@ -122,6 +122,7 @@
             </div>
             <button class="icon-btn" id="inv-close" title="Close (Tab / Esc)"><i data-icon="close"></i></button>
           </header>
+          <nav class="sheet-tabs hidden" id="inv-tabs"></nav>
           <p class="blurb hidden" id="inv-blurb"></p>
           <div class="inv-settings hidden" id="inv-settings">
             <button class="mini-btn" id="inv-copy" title="Or shift-right-click the machine in the world">Copy settings</button>
@@ -166,7 +167,7 @@
 
           <div class="offers recipes" id="inv-recipes"></div>
 
-          <section class="inv-panel">
+          <section class="inv-panel" id="inv-bag">
             <div class="inv-block">
               <div class="inv-head">
                 <b>Your bag</b>
@@ -179,12 +180,9 @@
             </div>
           </section>
 
-          <section class="inv-panel inv-build hidden" id="inv-build">
-            <div class="inv-head"><b>Your build</b><span id="inv-build-note"></span></div>
-            <div id="inv-build-list"></div>
-          </section>
+          <div class="sheet-page hidden" id="inv-page"></div>
 
-          <p class="inv-hint">
+          <p class="inv-hint" id="inv-hint">
             Drag a stack to move it &middot; <kbd>right-click</kbd> splits &middot;
             <kbd>shift</kbd>-click sends it across &middot; <kbd>double-click</kbd> gathers
             every loose stack of it

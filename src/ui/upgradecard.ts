@@ -1,6 +1,5 @@
-import { UPGRADES, WEAPON_MAX_LEVEL, type UpgradeKind } from '@shared/data/upgrades';
+import { UPGRADES, type UpgradeKind } from '@shared/data/upgrades';
 import { WEAPONS } from '@shared/data/weapons';
-import { PLAYER } from '@shared/sim/constants';
 import { perk } from '@shared/sim/perks';
 import type { Player, UpgradeOffer, WeaponId } from '@shared/sim/types';
 import { icon, type IconName } from './icons';
@@ -62,91 +61,4 @@ export function upgradeCard(offer: UpgradeOffer, player: Player, index: number):
     `<b>${offer.title}</b><span class="up-desc">${description}</span>${foot}` +
     `<kbd class="up-key">${index + 1}</kbd>`;
   return button;
-}
-
-/** The order a build reads in: what you fight with, then how, then the rest. */
-const KIND_ORDER: UpgradeKind[] = ['mastery', 'attack', 'survival', 'gathering', 'growth'];
-
-/** A plain boost is folded into `stats` rather than counted, so it is shown as the total it adds up to. */
-const STATS: { label: string; show: (p: Player) => string | null }[] = [
-  { label: 'Damage', show: (p) => percent(p.stats.damage) },
-  { label: 'Fire rate', show: (p) => percent(p.stats.fireRate) },
-  { label: 'Move', show: (p) => percent(p.stats.moveSpeed) },
-  { label: 'Gathering', show: (p) => percent(p.stats.gatherSpeed) },
-  { label: 'Pickup range', show: (p) => percent(p.stats.pickupRadius) },
-  { label: 'Experience', show: (p) => percent(p.stats.xpGain) },
-  { label: 'Max health', show: (p) => (p.maxHp !== PLAYER.maxHp ? signed(p.maxHp - PLAYER.maxHp) : null) },
-  { label: 'Regen', show: (p) => (p.stats.regen > 0 ? `+${p.stats.regen.toFixed(1)}/s` : null) },
-  { label: 'Projectiles', show: (p) => (p.stats.multishot > 0 ? signed(p.stats.multishot) : null) },
-];
-
-function percent(multiplier: number): string | null {
-  const change = Math.round((multiplier - 1) * 100);
-  return change === 0 ? null : `${signed(change)}%`;
-}
-
-function signed(n: number): string {
-  return n > 0 ? `+${n}` : `${n}`;
-}
-
-function pips(have: number, max: number): string {
-  return Array.from({ length: max }, (_, i) => (i < have ? '<i class="got"></i>' : '<i></i>')).join('');
-}
-
-function chip(kind: UpgradeKind, title: string, tip: string, tail: string): string {
-  return (
-    `<span class="build-chip k-${kind}" title="${tip}">` +
-    `<span class="bc-icon">${icon(KIND[kind].icon)}</span>` +
-    `<span class="bc-name">${title}</span>${tail}</span>`
-  );
-}
-
-/**
- * Everything a player's level-ups have added up to: their weapons, the perks
- * they hold, and the net effect of the plain boosts. After thirty levels the
- * cards are long gone, and this is the only place the build can be read.
- */
-export function buildSummary(player: Player): string {
-  const weapons = player.weapons
-    .map((w) =>
-      chip('weapon', WEAPONS[w.id].name, WEAPONS[w.id].description,
-        `<span class="up-pips" title="Level ${w.level} of ${WEAPON_MAX_LEVEL}">${pips(w.level, WEAPON_MAX_LEVEL)}</span>`),
-    )
-    .join('');
-
-  const held = Object.entries(player.perks ?? {})
-    .map(([id, count]) => ({ def: BY_ID.get(id), count }))
-    .filter((p): p is { def: NonNullable<typeof p.def>; count: number } => !!p.def && p.count > 0)
-    .sort((a, b) => KIND_ORDER.indexOf(a.def.kind) - KIND_ORDER.indexOf(b.def.kind));
-  const perks = held
-    .map(({ def, count }) => {
-      const max = def.max ?? 0;
-      const tail = max > 1
-        ? `<span class="up-pips" title="${count} of ${max}">${pips(count, max)}</span>`
-        : max === 0 && count > 1 ? `<span class="bc-count">&times;${count}</span>` : '';
-      return chip(def.kind, def.title, def.description, tail);
-    })
-    .join('');
-
-  const stats = STATS.map((s) => ({ label: s.label, value: s.show(player) }))
-    .filter((s) => s.value !== null)
-    .map((s) => `<span class="build-stat"><b>${s.value}</b>${s.label}</span>`)
-    .join('');
-
-  return (
-    `<div class="build-row">${weapons}</div>` +
-    (perks ? `<div class="build-row">${perks}</div>` : '') +
-    (stats ? `<div class="build-stats">${stats}</div>` : '')
-  );
-}
-
-/** Changes whenever the summary would, so the DOM is only rebuilt then. */
-export function buildKey(player: Player): string {
-  const s = player.stats;
-  return [
-    player.weapons.map((w) => w.id + w.level).join(','),
-    JSON.stringify(player.perks ?? {}),
-    s.damage, s.fireRate, s.moveSpeed, s.gatherSpeed, s.pickupRadius, s.xpGain, s.regen, s.multishot,
-    player.maxHp,
-  ].join('|');
 }
