@@ -28,6 +28,10 @@ export interface PixelPose {
   /** A dash leans the body forward. */
   dash: boolean;
   flash: boolean;
+  /** Just hit: thrown back a little after the white flash. */
+  recoil?: boolean;
+  /** Eyes shut for a frame now and then, so standing still is alive. */
+  blink?: boolean;
 }
 
 export interface PixelOutfit {
@@ -135,7 +139,7 @@ export function drawPixelPlayer(
   pose: PixelPose,
   swingAngle: (t: number) => number,
 ): void {
-  const key = `pp|${outfit.jacket}${outfit.scarf}|${pose.view}|${pose.flip ? 1 : 0}|${pose.walk}|${pose.idle}|${pose.swing}|${pose.tool ?? '-'}|${pose.dash ? 1 : 0}|${pose.flash ? 1 : 0}`;
+  const key = `pp|${outfit.jacket}${outfit.scarf}|${pose.view}|${pose.flip ? 1 : 0}|${pose.walk}|${pose.idle}|${pose.swing}|${pose.tool ?? '-'}|${pose.dash ? 1 : 0}|${pose.flash ? 1 : 0}|${pose.recoil ? 1 : 0}|${pose.blink ? 1 : 0}`;
   blitPixels(ctx, key, x, feet, AX, AY, 1, () => {
     const g = new Rig();
     const pal = paletteOf(outfit);
@@ -145,6 +149,29 @@ export function drawPixelPlayer(
     g.outline();
     return pose.flip ? g.mirrored() : g;
   });
+}
+
+/**
+ * Knocked down: the standing frame laid on its side, dimmed, head toward the
+ * left, with a slow breath so a friend can tell they are only down.
+ */
+export function drawPixelDowned(ctx: CanvasRenderingContext2D, x: number, feet: number, outfit: PixelOutfit, breath: number): void {
+  const dim: PixelOutfit = { jacket: darken(outfit.jacket), scarf: darken(outfit.scarf), cap: darken(outfit.cap) };
+  const pose: PixelPose = { view: 'side', flip: false, walk: -1, idle: breath, swing: -1, tool: null, dash: false, flash: false };
+  // The body runs from the crown (12 rows below the top) to the feet; laid
+  // down, its middle sits on the player's position.
+  blitPixels(ctx, `ppd|${outfit.jacket}${outfit.scarf}|${breath}`, x, feet, 29, 27, 1, () => {
+    const g = new Rig();
+    drawSide(g, paletteOf(dim), pose, () => 0);
+    g.outline();
+    return g.rotated();
+  });
+}
+
+function darken(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (v: number): string => Math.round(v * 0.72).toString(16).padStart(2, '0');
+  return `#${ch((n >> 16) & 255)}${ch((n >> 8) & 255)}${ch(n & 255)}`;
 }
 
 /** Down on the contact frames, up as the legs pass: the walk's bounce. */
@@ -201,12 +228,13 @@ function drawSide(g: Rig, pal: Palette, pose: PixelPose, swingAngle: (t: number)
   // Raised over the shoulder the arm passes behind the head, not across the face.
   const raised = near > 2.3;
   if (raised) arm();
-  g.part((p) => sideHead(p, pal, bob));
+  g.part((p) => sideHead(p, pal, bob, pose.blink === true));
   if (!raised) arm();
 
   g.part((p) => sideLeg(p, 1, hip, stride, false));
 
-  if (pose.dash) g.lean(hip, 0.28);
+  if (pose.recoil) g.lean(hip, -0.16);
+  else if (pose.dash) g.lean(hip, 0.28);
   else if (moving) g.lean(hip, 0.06);
 }
 
@@ -270,15 +298,18 @@ function drawTool(g: Rig, hx: number, hy: number, dx: number, dy: number, tool: 
   }
 }
 
-function sideHead(g: Rig, pal: Palette, bob: number): void {
+function sideHead(g: Rig, pal: Palette, bob: number, blink: boolean): void {
   const cy = -28 + bob;
   g.ball(-2, cy + 1, 3.2, 3.8, HAIR);
   g.ball(1, cy, 5, 5.2, SKIN);
   g.p(6, cy + 1, SKIN[1]);
   g.p(-1, cy + 1, SKIN[2]);
   g.p(-1, cy + 2, SKIN[2]);
-  g.p(3, cy - 1, EYE);
-  g.p(3, cy, EYE);
+  if (blink) g.p(3, cy, SKIN[2]);
+  else {
+    g.p(3, cy - 1, EYE);
+    g.p(3, cy, EYE);
+  }
   g.p(4, cy + 2, BLUSH);
   // Cap over the crown, its brim out over the eyes.
   g.box(-4, cy - 6, 4, cy - 2, pal.cap, true);
@@ -347,10 +378,15 @@ function drawFrontBack(g: Rig, pal: Palette, pose: PixelPose, back: boolean): vo
       p.p(5, cy + 1, SKIN[2]);
     } else {
       p.ball(0, cy, 5.2, 5.2, SKIN);
-      p.p(-2, cy - 1, EYE);
-      p.p(-2, cy, EYE);
-      p.p(2, cy - 1, EYE);
-      p.p(2, cy, EYE);
+      if (pose.blink) {
+        p.p(-2, cy, SKIN[2]);
+        p.p(2, cy, SKIN[2]);
+      } else {
+        p.p(-2, cy - 1, EYE);
+        p.p(-2, cy, EYE);
+        p.p(2, cy - 1, EYE);
+        p.p(2, cy, EYE);
+      }
       p.p(-3, cy + 2, BLUSH);
       p.p(3, cy + 2, BLUSH);
       p.p(0, cy + 3, SKIN[2]);
