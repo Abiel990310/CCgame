@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MELEE } from '../constants';
-import { stepStrike } from '../systems/combat';
+import { damagePlayer, stepStrike, tryParry } from '../systems/combat';
 import { EMPTY_INPUT } from '../step';
 import type { Mob, Player, PlayerInput, World } from '../types';
 import { addPlayer, createWorld } from '../world';
@@ -103,5 +103,63 @@ describe('melee swing', () => {
     stepStrike(world, player, ATTACK, 0);
     stepStrike(world, player, ATTACK, 0.05);
     expect(world.events.filter((e) => e.kind === 'strike')).toHaveLength(1);
+  });
+
+  it('winds up a slam while held and throws everything round it back on release', () => {
+    const { world, player } = setup();
+    const front = mobAt(world, player, 30, 0);
+    const behind = mobAt(world, player, -30, 0);
+    stepStrike(world, player, ATTACK, 0);
+    const afterSwing = behind.hp;
+    for (let t = 0; t < MELEE.chargeTime + 0.1; t += 0.05) stepStrike(world, player, ATTACK, 0.05);
+    world.events.length = 0;
+    stepStrike(world, player, EMPTY_INPUT, 0.01);
+    expect(world.events.some((e) => e.kind === 'slam' && e.hits === 2)).toBe(true);
+    expect(behind.hp).toBeLessThan(afterSwing);
+    expect(behind.vel.x).toBeLessThan(0);
+    expect(front.vel.x).toBeGreaterThan(0);
+  });
+
+  it('does not slam on a short tap', () => {
+    const { world, player } = setup();
+    stepStrike(world, player, ATTACK, 0);
+    stepStrike(world, player, ATTACK, 0.1);
+    stepStrike(world, player, EMPTY_INPUT, 0.01);
+    expect(world.events.some((e) => e.kind === 'slam')).toBe(false);
+  });
+
+  it('keeps a press made during the cooldown and swings when it ends', () => {
+    const { world, player } = setup();
+    mobAt(world, player, 30, 0);
+    stepStrike(world, player, ATTACK, 0);
+    stepStrike(world, player, EMPTY_INPUT, 0.05);
+    stepStrike(world, player, ATTACK, 0.05);
+    stepStrike(world, player, EMPTY_INPUT, 0.05);
+    expect(world.events.filter((e) => e.kind === 'strike')).toHaveLength(1);
+    stepStrike(world, player, EMPTY_INPUT, MELEE.cooldown[0]);
+    expect(world.events.filter((e) => e.kind === 'strike')).toHaveLength(2);
+  });
+
+  it('parries a blow that lands just after a swing starts, and dazes the attacker', () => {
+    const { world, player } = setup();
+    const mob = mobAt(world, player, 20, 0);
+    stepStrike(world, player, ATTACK, 0);
+    const hp = player.hp;
+    expect(tryParry(world, player, mob.pos, mob)).toBe(true);
+    expect(player.hp).toBe(hp);
+    expect(mob.attackCd).toBeGreaterThanOrEqual(MELEE.daze);
+    expect(mob.vel.x).toBeGreaterThan(0);
+  });
+
+  it('does not parry a late swing or a blow from behind', () => {
+    const { world, player } = setup();
+    const front = mobAt(world, player, 20, 0);
+    const behind = mobAt(world, player, -20, 0);
+    stepStrike(world, player, ATTACK, 0);
+    expect(tryParry(world, player, behind.pos, behind)).toBe(false);
+    stepStrike(world, player, EMPTY_INPUT, MELEE.parry + 0.02);
+    expect(tryParry(world, player, front.pos, front)).toBe(false);
+    damagePlayer(world, player, 10);
+    expect(player.hp).toBeLessThan(player.maxHp);
   });
 });

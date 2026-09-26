@@ -9,7 +9,7 @@ import { nextFloat } from '../progression';
 import { isWalkable, terrainAtIndex } from '../terrain';
 import type { Mob, MobTypeId, Vec2, World } from '../types';
 import { perk } from '../perks';
-import { damageMob, damagePlayer } from './combat';
+import { damageMob, damagePlayer, tryParry } from './combat';
 import { resolveMachines } from './movement';
 
 /** Mobs head for the nearest standing player, or the camp when nobody is up. */
@@ -218,6 +218,7 @@ function attackNearby(world: World, mob: Mob, radius: number, damage: number): v
   for (const player of world.players.values()) {
     if (player.downed > 0) continue;
     if (distance(player.pos, mob.pos) > radius + PLAYER.radius) continue;
+    if (tryParry(world, player, mob.pos, mob)) return;
     damagePlayer(world, player, damage);
     mob.attackCd = 1;
     const thorns = perk(player, 'bramble');

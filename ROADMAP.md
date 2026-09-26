@@ -875,9 +875,14 @@ detail behind the factory entries is in
 - [ ] 2. **The player does not fight.** His combat is pressed buttons (light,
       heavy, roll, parry, spells); ours auto-fires. "Action" is mostly this.
       *2026-09-26: a pressed three-hit melee combo with knockback, slash
-      arcs, swing sounds and hit-stop (`stepStrike` in combat.ts). Still
-      missing: a heavy or charged attack, parry, and enemies with attacks
-      you read and dodge.*
+      arcs, swing sounds and hit-stop (`stepStrike` in combat.ts). Hold F
+      for a slam, and a swing timed to a bite or spit parries it
+      (`tryParry`). Still missing: enemies with attacks you read and dodge.*
+- [ ] Co-op: a guest's quick F tap between two host ticks can be lost; latch
+      presses on the host the way dash is.
+- [ ] Parry is hard to land on small creatures because the swing's own
+      knockback throws them out of reach first; it is mostly a boss and
+      spit tool until creatures telegraph.
 - [ ] Melee in the level-up upgrades: reach, combo speed, a finisher that
       stuns, lifesteal on the blade.
 - [ ] A touch Attack button beside Dash (touch players now attack by holding
