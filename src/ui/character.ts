@@ -30,12 +30,13 @@ const BY_ID = new Map(UPGRADES.map((u) => [u.id, u]));
 const KIND: Record<UpgradeKind, { label: string; icon: IconName }> = {
   weapon: { label: 'Weapons', icon: 'sword' },
   mastery: { label: 'Mastery', icon: 'star' },
+  spell: { label: 'Spells', icon: 'spell' },
   attack: { label: 'Attack', icon: 'bolt' },
   survival: { label: 'Survival', icon: 'shield' },
   gathering: { label: 'Explore', icon: 'compass' },
   growth: { label: 'Growth', icon: 'sprout' },
 };
-const KIND_ORDER: UpgradeKind[] = ['mastery', 'attack', 'survival', 'gathering', 'growth'];
+const KIND_ORDER: UpgradeKind[] = ['mastery', 'spell', 'attack', 'survival', 'gathering', 'growth'];
 
 const AIM: Record<TargetRule, string> = {
   nearest: 'Nearest',

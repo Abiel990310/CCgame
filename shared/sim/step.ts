@@ -5,6 +5,7 @@ import { stepGathering, stepNodeRegrowth } from './systems/gathering';
 import { stepProjectiles, stepStrike, stepWeapons } from './systems/combat';
 import { stepLandmarkGuards, stepMobs, stepWaves } from './systems/mobs';
 import { stepPlayerMovement } from './systems/movement';
+import { stepSpells } from './systems/spells';
 import { stepPickups } from './systems/pickups';
 import { stepBelts, stepMachines } from './systems/factory';
 import { stepGoals } from './goals';
@@ -35,6 +36,7 @@ export function step(world: World, inputs: Map<number, PlayerInput>, dt = TICK_D
     stepPlayerMovement(world, player, input, dt);
     stepGathering(world, player, input, dt);
     stepStrike(world, player, input, dt);
+    stepSpells(world, player, input, dt);
     stepWeapons(world, player, dt);
   }
 

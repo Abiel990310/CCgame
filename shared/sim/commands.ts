@@ -3,6 +3,7 @@ import { CRAFT_BY_ID } from '../data/crafting';
 import { ITEMS } from '../data/items';
 import { MACHINES } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
+import { SPELLS } from '../data/spells';
 import { TECH_BY_ID } from '../data/techs';
 import { placeBuilding, removeBuildingAt } from './building';
 import {
@@ -31,7 +32,8 @@ import {
 import { chooseUpgrade } from './progression';
 import { isQueueOp, orderResearch, setResearch, type QueueOp } from './research';
 import { decode, encode } from './snapshot';
-import type { BuildingId, Direction, ItemId, MachineId, Player, World } from './types';
+import { readySpell } from './systems/spells';
+import type { BuildingId, Direction, ItemId, MachineId, Player, SpellId, World } from './types';
 
 /**
  * Everything a player can do to the island outside of moving, as data.
@@ -63,6 +65,8 @@ export type Command =
   | { k: 'stow' }
   | { k: 'upgrade'; id: string }
   | { k: 'craft'; id: string }
+  /** Readies a learned spell for Q. */
+  | { k: 'spell'; id: SpellId }
   /** Host only: a player arrives, whole, carrying whatever they had last time. */
   | { k: 'join'; player: Player }
   /** Host only: a player leaves; their character is lifted off the island. */
@@ -154,6 +158,8 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
       return typeof c.id === 'string' && chooseUpgrade(world, player, c.id);
     case 'craft':
       return typeof c.id === 'string' && CRAFT_BY_ID.has(c.id) && craft(world, player, c.id);
+    case 'spell':
+      return typeof c.id === 'string' && c.id in SPELLS && readySpell(player, c.id);
     default:
       return false;
   }

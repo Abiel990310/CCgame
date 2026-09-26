@@ -166,8 +166,8 @@ export interface Projectile {
   damage: number;
   life: number;
   ownerId: number;
-  /** Weapon that fired it, so the renderer can style it; 'spit' is a mob's. */
-  weapon: WeaponId | 'spit';
+  /** Weapon that fired it, so the renderer can style it; 'spit' is a mob's, 'fireball' a spell's. */
+  weapon: WeaponId | 'spit' | 'fireball';
   pierce: number;
   /** Mobs a piercing shot already went through, so it never hits one twice. */
   struck?: number[];
@@ -177,6 +177,8 @@ export interface Projectile {
    */
   targetId?: number;
 }
+
+export type SpellId = 'fireball' | 'frostNova' | 'mend';
 
 export type WeaponId = 'sling' | 'bow' | 'spark' | 'thorn' | 'harpoon' | 'ember' | 'frost';
 
@@ -266,6 +268,14 @@ export interface Player {
   charge?: number;
   /** Seconds left in which the next swing lands as a counter, earned by dodging a blow. */
   riposte?: number;
+  /** The spell Q casts. Spells themselves are learned as perks, `spell:<id>`. */
+  spell?: SpellId;
+  /** Seconds until each spell can be cast again, by id. */
+  spellCd?: Partial<Record<SpellId, number>>;
+  /** Whether cast was held last tick, so a press is told from a hold. */
+  castHeld?: boolean;
+  /** Seconds left of the casting pose; absent or 0 when not casting. */
+  casting?: number;
 }
 
 export interface PlayerStats {
@@ -290,6 +300,8 @@ export interface PlayerInput {
   interact: boolean;
   /** Held to swing at whatever is in front. Absent from older clients, which never attack. */
   attack?: boolean;
+  /** Held to cast the readied spell; only the press casts. */
+  cast?: boolean;
 }
 
 /** Grid-aligned facing. Belts flow this way; machines output this way. */
@@ -495,6 +507,8 @@ export type SimEvent =
   | { kind: 'playerHit'; playerId: number; amount: number }
   /** A melee swing starting, toward `dir`; `hits` is how many creatures it caught. */
   | { kind: 'strike'; playerId: number; pos: Vec2; dir: Vec2; combo: number; hits: number }
+  /** A spell went off; `radius` is how far a burst reaches, 0 for a bolt. */
+  | { kind: 'cast'; playerId: number; spell: SpellId; pos: Vec2; dir: Vec2; radius: number; hits: number }
   /** A charged slam all around the player. */
   | { kind: 'slam'; playerId: number; pos: Vec2; radius: number; hits: number }
   /** A blow turned aside by a swing timed to meet it. */

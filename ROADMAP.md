@@ -888,9 +888,17 @@ detail behind the factory entries is in
       for a slam, and a swing timed to a bite or spit parries it
       (`tryParry`). Creatures now rear back before a bite, so it can be
       read and dodged. The dash is a roll now, and a blow dodged mid-roll
-      earns a counter (`tryDodge`). Still missing: spells.*
+      earns a counter (`tryDodge`). Spells too: Fireball, Frost Nova and
+      Mend, learned at level-ups and cast with Q (Shift+Q swaps), rows in
+      `shared/data/spells.ts`.*
 - [ ] Co-op: a guest's quick F tap between two host ticks can be lost; latch
       presses on the host the way dash is.
+- [ ] More spells as rows: a chain of lightning, a gale that pushes a line,
+      a thorn wall. Each is a `shape` the cast already knows or one more.
+- [ ] Spells on the character screen: pick which one Q readies there, and
+      show each one's cooldown and power at its level.
+- [ ] Chilled creatures now show frost; the Frost weapon and Frostbite never
+      had a look of their own before, check they read in a big fight.
 - [ ] Parry is hard to land on small creatures because the swing's own
       knockback throws them out of reach first; it is mostly a boss and
       spit tool until creatures telegraph.

@@ -34,6 +34,7 @@ export type ActionKey =
   | 'ledger'
   | 'zoomIn'
   | 'zoomOut'
+  | 'swapSpell'
   | `hotbar${HotbarKey}`
   | `bind${HotbarKey}`;
 
@@ -57,6 +58,11 @@ export class InputManager {
     id: -1,
   };
   private touchDash = false;
+  /**
+   * Samples left in which the spell button counts as held. A frame can pass
+   * without a tick, so a tap has to last a few for the sim to see the press.
+   */
+  private touchCast = 0;
   private touchInteract = false;
   /** Edge-triggered actions, drained once per frame. */
   private pending: ActionKey[] = [];
@@ -89,7 +95,7 @@ export class InputManager {
       // Typing a save name is not a move order.
       if (e.target instanceof HTMLInputElement) return;
       // Let the browser keep its own shortcuts; only claim game keys.
-      const claimed = ['Space', 'KeyE', 'KeyF', 'KeyB', 'KeyR', 'KeyX', 'KeyM', 'KeyL', 'KeyU', 'Tab', 'Escape'];
+      const claimed = ['Space', 'KeyE', 'KeyF', 'KeyQ', 'KeyB', 'KeyR', 'KeyX', 'KeyM', 'KeyL', 'KeyU', 'Tab', 'Escape'];
       if (e.code in MOVE_KEYS || claimed.includes(e.code)) e.preventDefault();
 
       // A number picks a quick slot; with shift it binds the selected piece to
@@ -101,6 +107,12 @@ export class InputManager {
         this.pending.push(
           (e.shiftKey ? `bind${digit}` : `hotbar${digit}`) as ActionKey,
         );
+        return;
+      }
+
+      // Shift+Q readies the next spell rather than casting the current one.
+      if (e.code === 'KeyQ' && e.shiftKey) {
+        this.pending.push('swapSpell');
         return;
       }
 
@@ -283,6 +295,10 @@ export class InputManager {
     this.touchDash = true;
   }
 
+  triggerCast(): void {
+    this.touchCast = 4;
+  }
+
   drainActions(): ActionKey[] {
     const actions = this.pending;
     this.pending = [];
@@ -319,12 +335,15 @@ export class InputManager {
 
     const dash = this.keys.has('Space') || this.touchDash;
     this.touchDash = false;
+    const casting = this.touchCast > 0;
+    if (casting) this.touchCast--;
 
     return {
       move: { x, y },
       dash,
       interact: this.keys.has('KeyE') || this.pointerDown || this.touchInteract,
       attack: this.keys.has('KeyF'),
+      cast: this.keys.has('KeyQ') || casting,
     };
   }
 }

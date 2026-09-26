@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { CRAFT_BY_ID } from '../../data/crafting';
 import { applyOrder, type Order } from '../commands';
+import { spellPerk } from '../../data/spells';
 import { addItem } from '../inventory';
+import { addPerk } from '../perks';
 import { makeRng } from '../rng';
 import { checksum, decode, encode, restoreSnapshot, takeSnapshot, type Snapshot } from '../snapshot';
 import { step } from '../step';
@@ -73,6 +75,10 @@ describe('co-op replay', () => {
     // covers a bag being sewn on as well.
     host.buildings.push({ id: host.nextId++, type: 'workbench', pos: { ...player.pos }, level: 1 });
     for (const c of CRAFT_BY_ID.get('satchel')!.cost) addItem(player, c.id, c.count);
+    // Two spells, cast every so often and swapped once, so casting is covered too.
+    addPerk(player, spellPerk('fireball'));
+    addPerk(player, spellPerk('frostNova'));
+    player.spell = 'fireball';
     const snap = decode<Snapshot>(encode(takeSnapshot(host)));
     const guest = restoreSnapshot(snap);
     expect(checksum(guest)).toBe(checksum(host));
@@ -82,9 +88,10 @@ describe('co-op replay', () => {
 
     for (let t = 60; t < 60 + 30 * 90; t++) {
       const inputs = new Map([
-        [player.id, wander(rng)],
+        [player.id, { ...wander(rng), cast: t % 40 < 2 }],
         [friend.id, wander(rng)],
       ]);
+      if (t === 300) pending.push({ p: player.id, c: { k: 'spell', id: 'frostNova' } });
       if (t === 61) pending.push({ p: player.id, c: { k: 'craft', id: 'satchel' } });
       if (t === 120) {
         pending.push({ p: friend.id, c: { k: 'queue', tech: 'roboticArms', op: 'add' } });
@@ -111,6 +118,7 @@ describe('co-op replay', () => {
     expect(host.nightIndex).toBeGreaterThan(0);
     expect(host.players.size).toBe(2);
     expect(player.bag).toBe(1);
+    expect(player.spell).toBe('frostNova');
     expect(guest.research.queue).toEqual(['beltLogistics', 'angling', 'roboticArms']);
     expect(guest.players.get(player.id)!.inventory).toHaveLength(player.inventory.length);
     expect(encode(takeSnapshot(guest))).toBe(encode(takeSnapshot(host)));
@@ -133,6 +141,8 @@ describe('co-op replay', () => {
       { k: 'click', machine: null, ref: { area: 'bag', index: 999 }, button: 'left' },
       { k: 'click', machine: 12345, ref: { area: 'input', index: 0 }, button: 'left' },
       { k: 'building', type: 'castle', x: 0, y: 0 },
+      { k: 'spell', id: 'meteor' },
+      { k: 'spell', id: 'mend' },
       { k: 'nonsense' },
     ] as unknown as Order['c'][];
     const bag = player.inventory.length;

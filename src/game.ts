@@ -61,10 +61,13 @@ import type {
   Player,
   PlayerInput,
   SimEvent,
+  SpellId,
   World,
 } from '@shared/sim/types';
 import { addPlayer, createWorld } from '@shared/sim/world';
+import { knownSpells } from '@shared/sim/systems/spells';
 import { audio } from './audio';
+import type { SoundId } from './audio/sounds';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview, type RemovalPreview } from './render/renderer';
 import { Interpolator } from './render/interpolate';
@@ -85,6 +88,8 @@ import { WorkbenchScreen } from './ui/workbench';
 import { StoryCards } from './ui/story';
 
 /** A finger has no hover and no E key, so its prompts say so. */
+const CAST_SOUND: Record<SpellId, SoundId> = { fireball: 'castFireball', frostNova: 'castFrostNova', mend: 'castMend' };
+
 const COARSE = matchMedia('(pointer: coarse)');
 
 const SAVE_INTERVAL = 8;
@@ -212,6 +217,8 @@ export class Game {
       },
       onToggleBag: () => this.toggleBag(),
       onDash: () => this.input.triggerDash(),
+      onCast: () => this.input.triggerCast(),
+      onSwapSpell: () => this.swapSpell(),
       onTogglePause: () => this.togglePause(),
       onQuitToMenu: () => this.quitToMenu(),
       onSlotAction: (ref, button, quick) => this.moveItems(ref, button, quick),
@@ -816,6 +823,7 @@ export class Game {
       if (action === 'copy' && !blocked) this.copyFrom(this.machineUnderCursor());
       if (action === 'paste' && !blocked) this.pasteOnto(this.machineUnderCursor());
       if (action === 'upgrade' && !blocked) this.hud.openDraft();
+      if (action === 'swapSpell') this.swapSpell();
       if (action === 'cancel') {
         // Esc backs out of whatever is open, and opens the menu when nothing is.
         if (this.worldMap.isOpen) this.worldMap.setOpen(false);
@@ -1309,6 +1317,15 @@ export class Game {
    * owes it to every guest; a guest asks the host, and sees it happen when the
    * host's next tick comes back. The result is only meaningful off a guest.
    */
+  /** Readies the next learned spell for Q, round the list. */
+  private swapSpell(): void {
+    const known = knownSpells(this.self);
+    if (known.length < 2) return;
+    const at = this.self.spell ? known.indexOf(this.self.spell) : -1;
+    const next = known[(at + 1) % known.length];
+    if (this.act({ k: 'spell', id: next })) audio.play('click');
+  }
+
   private act(command: Command): boolean {
     const order = { p: this.selfId, c: command };
     if (this.guest) {
@@ -1454,6 +1471,10 @@ export class Game {
         const self = event.playerId === this.selfId;
         audio.play('dodge', self ? {} : { pos: event.pos });
         if (self) this.hitstop = Math.max(this.hitstop, 0.07);
+      } else if (event.kind === 'cast') {
+        const self = event.playerId === this.selfId;
+        audio.play(CAST_SOUND[event.spell], self ? {} : { pos: event.pos });
+        if (self && event.hits > 0) this.hitstop = Math.max(this.hitstop, 0.06);
       } else if (event.kind === 'strike') {
         const self = event.playerId === this.selfId;
         const at = self ? {} : { pos: event.pos };

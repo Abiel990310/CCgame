@@ -128,6 +128,9 @@ created, and is saved with it.
 - One movement ability (dash) with its own cooldown. It is a forward roll:
   a bite or glob that lands mid-roll passes through, and the next swing
   within a second is a counter, hitting as hard as the combo's finisher.
+- Spells, learned in the level-up draft and pressed with Q: a fireball that
+  bursts, a frost nova that throws creatures back and slows them, and a
+  mend. One is readied at a time; each has its own cooldown.
 - Mobs are *easy* by default. Difficulty scales with player count and camp tier,
   never to the point of stress.
 

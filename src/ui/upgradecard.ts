@@ -1,7 +1,7 @@
 import { UPGRADES, type UpgradeKind } from '@shared/data/upgrades';
 import { WEAPONS } from '@shared/data/weapons';
 import { perk } from '@shared/sim/perks';
-import type { Player, UpgradeOffer, WeaponId } from '@shared/sim/types';
+import type { Player, SpellId, UpgradeOffer, WeaponId } from '@shared/sim/types';
 import { icon, type IconName } from './icons';
 import './upgrades.css';
 
@@ -10,11 +10,15 @@ const BY_ID = new Map(UPGRADES.map((u) => [u.id, u]));
 const KIND: Record<UpgradeKind, { label: string; icon: IconName }> = {
   weapon: { label: 'Weapon', icon: 'sword' },
   mastery: { label: 'Mastery', icon: 'star' },
+  spell: { label: 'Spell', icon: 'spell' },
   attack: { label: 'Attack', icon: 'bolt' },
   survival: { label: 'Survival', icon: 'shield' },
   gathering: { label: 'Explore', icon: 'compass' },
   growth: { label: 'Growth', icon: 'sprout' },
 };
+
+/** Each spell's own mark, on its card and on the button that casts it. */
+export const SPELL_ICON: Record<SpellId, IconName> = { fireball: 'flame', frostNova: 'snow', mend: 'cross' };
 
 /** Offered less than half as often as most, so worth flagging when it turns up. */
 const RARE_WEIGHT = 0.5;
@@ -57,7 +61,7 @@ export function upgradeCard(offer: UpgradeOffer, player: Player, index: number):
     `<span class="up-head"><span class="up-kind">${look.label}</span>` +
     (isNew ? '<span class="up-flag">New</span>' : rare ? '<span class="up-flag">Rare</span>' : '') +
     `</span>` +
-    `<span class="up-icon">${icon(look.icon)}</span>` +
+    `<span class="up-icon">${icon(offer.id.startsWith('spell:') ? SPELL_ICON[offer.id.slice(6) as SpellId] : look.icon)}</span>` +
     `<b>${offer.title}</b><span class="up-desc">${description}</span>${foot}` +
     `<kbd class="up-key">${index + 1}</kbd>`;
   return button;

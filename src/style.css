@@ -631,6 +631,34 @@ kbd {
   pointer-events: none;
 }
 
+/* The spell button takes the readied spell's colour, and glows while it is ready. */
+.action.spell {
+  --spell: #9fe3ff;
+}
+
+.action.spell .spell-glyph {
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  color: var(--spell);
+  filter: drop-shadow(0 0 4px var(--spell));
+}
+
+.action.spell.ready {
+  border-color: color-mix(in srgb, var(--spell) 55%, transparent);
+  box-shadow: var(--shadow), var(--rim), 0 0 14px -2px color-mix(in srgb, var(--spell) 60%, transparent);
+}
+
+.action.spell.swapped {
+  animation: spell-pop 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+@keyframes spell-pop {
+  from {
+    transform: scale(0.8);
+  }
+}
+
 /* ---------- Hotbar ---------- */
 
 /*
