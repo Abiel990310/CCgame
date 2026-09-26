@@ -386,7 +386,12 @@ detail behind the factory entries is in
       further than about ten tiles from it, and are not cleared at dawn.
       Peaceful islands have none. A reload puts them back, since mobs are not
       saved.
-- [ ] A count of landmarks found and left on the island map.
+- [x] A count of landmarks found and left on the island map: beside the
+      explored share it reads "3 to search · 30 undiscovered", and on a phone
+      it takes its own line under the tabs.
+- [ ] Searched landmarks leave the island, so the map cannot say how many
+      you have searched. A count kept on the world (or per player) would let
+      it read "5 of 34 searched" and could feed an exploration goal.
 - [x] A late-game megaproject: the **Skyward Beacon**. Research it (logic,
       power and engineering packs, after Solar Power and High-Pressure
       Steam), craft it, and raise it in five stages: foundation, spire,

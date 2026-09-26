@@ -246,7 +246,7 @@ export class WorldMap {
       this.paintLand(world);
       this.paintedKey = key;
       this.refresh = 0.5;
-      this.share.textContent = `${Math.round(exploredShare(world) * 100)}% explored`;
+      this.share.innerHTML = `${Math.round(exploredShare(world) * 100)}% explored${landmarkTally(world)}`;
     }
     this.paintMarks(world, selfId);
   }
@@ -718,4 +718,27 @@ function mapSprites(r: number): { size: number; trees: HTMLCanvasElement[]; rock
   });
   spriteCache = { r, size, trees: [tree('#356b3e'), tree('#3f7a4a')], rock };
   return spriteCache;
+}
+
+/**
+ * Landmarks left to search, split by whether the map has shown them yet. A
+ * searched one is gone from the island, so what remains is what is still
+ * worth the walk. Islands grown before landmarks have none, and say nothing.
+ */
+function landmarkTally(world: World): string {
+  let spotted = 0;
+  let hidden = 0;
+  for (const node of world.nodes) {
+    if (!LANDMARK_MARK[node.kind] || node.charges <= 0) continue;
+    const tx = Math.floor(node.pos.x / TILE);
+    const ty = Math.floor(node.pos.y / TILE);
+    if (world.explored[ty * MAP_TILES + tx] === 1) spotted++;
+    else hidden++;
+  }
+  if (spotted + hidden === 0) return '';
+  const parts = [
+    spotted > 0 ? `${spotted} to search` : '',
+    hidden > 0 ? `${hidden} undiscovered` : '',
+  ].filter(Boolean);
+  return `<span class="worldmap-finds" title="Landmarks on the island not yet searched"><i></i>${parts.join(' · ')}</span>`;
 }
