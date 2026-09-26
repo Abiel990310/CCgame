@@ -100,6 +100,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Accounts | Supabase (Auth plus Postgres), called with plain `fetch`; every call is a function in `docs/cloud/schema.sql`, and the tables grant the browser nothing | The site is static, so accounts need a hosted backend; Supabase's free plan covers sign-in and a database with no server to run. Hand-writing the dozen calls keeps the page free of a second runtime dependency, and putting every rule in SQL functions keeps the security in one file. A cloud island is the local slot bundled as-is, so the save format needs no second migration path, and a per-world lease keeps two devices from overwriting each other. |
 | Renderer | PixiJS (WebGL) by default, Canvas as the fallback, both drawing the same art through a Canvas-shaped adapter | Abiel chose it on 2026-09-25 as the engine web games use, so the game can grow on it. The first runtime dependency, loaded only when the GPU renderer is on. The art stays written once against the Canvas API, so the two renderers cannot drift apart while Pixi is proven. |
 | Co-op signalling | The game's own Supabase project (Realtime Broadcast) first, the public PeerJS broker second; either can also relay the game when no direct channel opens | 2026-09-26: joins failed on Abiel's Mac with the host never answering through the public broker, which nobody here can fix or see into. The host now listens on both, and a guest tries its own project first. |
+| Pixel look | The scene is drawn at one canvas pixel per world unit and the browser scales it up by a whole number of device pixels (`image-rendering: pixelated`); zoom steps are those whole numbers. `?look=smooth` or Esc > Graphics gives the old full-resolution look | 2026-09-26, the "one art style" gap against Cinderhollow: the player sprite, the vector trees and the belts now share one pixel grid, so the whole scene reads as pixel art, and there are far fewer pixels to fill. |
 | Colour grade | Three DOM layers the compositor blends over the stage (grey at `saturation`, a tint at `soft-light`, a vignette), in `src/render/grade.ts`; only the vignette without a graphics card | 2026-09-26, from comparing with Cinderhollow: every screen shared one flat palette, so noon, dusk and a raid looked alike. Grading the frame gives the day a mood without repainting any art, and costs the same under Canvas and Pixi. In software each blended layer cost about 10 fps at night, so a browser drawing WebGL on the CPU gets the vignette alone; `?grade=full` or `?grade=lite` overrides the guess. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
@@ -857,6 +858,39 @@ detail behind the factory entries is in
       onto the player over 2.6 s.
 - [x] **Zoom.** Scroll or +/− steps the camera through five fixed zooms,
       remembered; the default stands about 12% closer than before.
+
+#### Gap list against Cinderhollow (2026-09-26), most visible first
+
+- [ ] 1. **Character and creature art.** His player is a pixel-art sprite
+      sheet with 549 hand-timed frames over 30+ moves; ours is a procedural
+      figure with a few poses. Seen every second of play. *2026-09-26: the
+      player is now a pixel sprite (8-step walk in 3 views, 16-step chop,
+      dash, hit flash) generated in `src/render/pixelplayer.ts`. Creatures,
+      a run cycle with more frames, and a death pose are still to do.*
+- [ ] 2. **The player does not fight.** His combat is pressed buttons (light,
+      heavy, roll, parry, spells); ours auto-fires. "Action" is mostly this.
+- [x] 3. **One art style end to end.** Fixed low resolution, 1px outlines, one
+      palette; ours mixes smooth vector art, web UI and pixel-free icons.
+      *2026-09-26: the scene is drawn on one pixel grid (the pixel look). The
+      web UI and icons are still smooth; that is gap 4.*
+- [ ] Pixel creatures: slimes, crawlers, brutes and bosses as generated
+      sprites like the player, so they step between poses too.
+- [ ] Downed player pose as a pixel frame (it still uses the drawn figure).
+- [ ] Floating damage numbers and name tags are drawn at the pixel grid and
+      look soft; a small bitmap digit font would keep them crisp.
+- [ ] Needs testing: the pixel look on a real phone and a 4K screen, and
+      whether the default pixel scale shows enough of the factory.
+- [ ] 4. **Menus look like a game.** Framed pixel panels, a serif face,
+      tabbed Status / Equipment / Inventory / Charms / Map; ours are web
+      cards in a system font.
+- [ ] 5. **Character screen and gear.** Weapons, charms and spells to equip
+      and swap; our bag holds materials and the build is a row of chips.
+- [ ] 6. **Bosses as events.** Intro cutscene, name card, phase change; our
+      Stone Warden walks in with a toast.
+- [ ] 7. **Movement verbs.** Jump, roll, wall-jump, hook, air dash; ours is
+      walk and one dash.
+- [ ] 8. **Story framing.** Illustrated story cards and portraits; ours has
+      none.
 
 ### Ideas
 
