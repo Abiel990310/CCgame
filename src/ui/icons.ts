@@ -1,3 +1,5 @@
+import { pixelIcon } from './pixelicons';
+
 /**
  * The interface's icon set, drawn inline as SVG. Emoji were the icons before
  * this, and they render as a different picture on every platform — a hammer
@@ -51,12 +53,17 @@ export type IconName = keyof typeof PATHS;
 /** Fill-drawn icons; everything else is a 2px round-capped stroke. */
 const FILLED = new Set<IconName>(['heart', 'star', 'play', 'bolt']);
 
+/**
+ * Both drawings of the icon in one SVG: the line icon for the smooth look and
+ * the pixel sprite for the pixel look. The CSS shows one by the body's look,
+ * so switching looks needs no re-render of every button that carries one.
+ */
 export function icon(name: IconName): string {
   const filled = FILLED.has(name);
   const paint = filled
     ? 'fill="currentColor" stroke="none"'
     : 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
-  return `<svg class="ico ico-${name}" viewBox="0 0 24 24" ${paint} aria-hidden="true">${PATHS[name]}</svg>`;
+  return `<svg class="ico ico-${name}" viewBox="0 0 24 24" aria-hidden="true"><g class="ln" ${paint}>${PATHS[name]}</g>${pixelIcon(name)}</svg>`;
 }
 
 /** Fill every `<i data-icon="…">` placeholder in the static markup. */
