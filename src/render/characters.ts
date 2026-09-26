@@ -14,7 +14,7 @@ import {
   tint,
   tone,
 } from './paint';
-import { MELEE } from '@shared/sim/constants';
+import { BITE, MELEE } from '@shared/sim/constants';
 import { SWING_FRAMES, WALK_FRAMES, drawPixelDowned, drawPixelPlayer } from './pixelplayer';
 import { drawBrood, drawBulwark, drawQueen, drawShellback, drawShield, drawSpitter, drawWarden } from './creatures';
 
@@ -655,8 +655,29 @@ function heading(mob: Mob): { x: number; y: number } {
 
 export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
   const def = MOBS[mob.type];
+  // Rearing back to bite: a red mark on the ground grows under it and the
+  // body blanches and draws up, so the bite is seen coming.
+  const windup = mob.windup ?? 0;
+  const rear = windup > 0 ? 1 - windup / BITE.windup : 0;
+  if (windup > 0) {
+    const feet = mob.pos.y + def.radius * 0.6;
+    ctx.save();
+    ctx.globalAlpha = 0.35 + 0.5 * rear;
+    ctx.strokeStyle = '#ff5a4a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(mob.pos.x, feet, def.radius * (0.9 + 0.5 * rear), def.radius * (0.9 + 0.5 * rear) * 0.55, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   setFlash(mob.hitFlash > 0 ? 1 : 0);
   ctx.save();
+  if (windup > 0) {
+    const feet = mob.pos.y + def.radius * 0.6;
+    ctx.translate(mob.pos.x, feet);
+    ctx.scale(1 - 0.08 * rear, 1 + 0.12 * rear);
+    ctx.translate(-mob.pos.x, -feet);
+  }
   // A hit squashes the body flat about its feet and lets it spring back, so a
   // shot is seen to land even in a crowd where the flash is lost.
   if (mob.hitFlash > 0) {
@@ -700,9 +721,18 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   setFlash(0);
   if (mob.shield !== undefined) drawShield(ctx, mob, time);
 
-  if (mob.hp < mob.maxHp) {
-    const tall = mob.type === 'brute' ? 2.9 : mob.type === 'wisp' ? 3 : mob.type === 'warden' ? 3.2 : mob.type === 'queen' ? 3.4 : mob.type === 'bulwark' ? 3.3 : 2.1;
-    healthBar(ctx, mob.pos.x, mob.pos.y - def.radius * tall, def.radius * 2.2, mob.hp / mob.maxHp);
+  const tall = mob.type === 'brute' ? 2.9 : mob.type === 'wisp' ? 3 : mob.type === 'warden' ? 3.2 : mob.type === 'queen' ? 3.4 : mob.type === 'bulwark' ? 3.3 : 2.1;
+  if (mob.hp < mob.maxHp) healthBar(ctx, mob.pos.x, mob.pos.y - def.radius * tall, def.radius * 2.2, mob.hp / mob.maxHp);
+
+  // A mark over its head as well, since a crowd hides the ground; white in
+  // the last half, when it is about to land.
+  if (windup > 0) {
+    const top = mob.pos.y - def.radius * tall - 16;
+    ctx.fillStyle = '#1a0d10';
+    ctx.fillRect(mob.pos.x - 2.5, top - 1, 5, 12);
+    ctx.fillStyle = rear > 0.5 ? '#ffffff' : '#ff5a4a';
+    ctx.fillRect(mob.pos.x - 1.5, top, 3, 6);
+    ctx.fillRect(mob.pos.x - 1.5, top + 7.5, 3, 2.5);
   }
 }
 

@@ -105,6 +105,21 @@ export const MELEE = {
   parryDamage: 12,
 } as const;
 
+/**
+ * A creature rears back before it bites, so a bite can be seen coming and
+ * stepped out of, dashed through or parried, rather than simply happening.
+ */
+export const BITE = {
+  /** Seconds between rearing back and the bite landing. */
+  windup: 0.32,
+  /** How much further than touching the bite still reaches when it lands. */
+  reach: 8,
+  /** How long a creature that bit at nothing takes to try again. */
+  whiff: 0.6,
+  /** How fast it keeps moving while it rears back. */
+  pace: 0.2,
+} as const;
+
 export const COMBAT = {
   /** Seconds a projectile lives before expiring. */
   projectileLife: 1.4,

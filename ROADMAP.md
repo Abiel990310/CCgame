@@ -887,8 +887,9 @@ detail behind the factory entries is in
       stuns, lifesteal on the blade.
 - [ ] A touch Attack button beside Dash (touch players now attack by holding
       the right side near a creature, which also gathers).
-- [ ] Creatures telegraph their attacks (a wind-up flash) so the dash and
-      the combo become reading a fight, not trading hits.
+- [x] Creatures telegraph their attacks (2026-09-26): they rear back for
+      a third of a second with a red ring and a mark overhead, and the bite
+      misses if you step out, dash away or parry it (`BITE` in constants).
 - [ ] The drawn (`?sprites=vector`) player does not show the blade swing.
 - [x] 3. **One art style end to end.** Fixed low resolution, 1px outlines, one
       palette; ours mixes smooth vector art, web UI and pixel-free icons.

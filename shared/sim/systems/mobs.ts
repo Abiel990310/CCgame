@@ -2,12 +2,12 @@ import { BEACON_WARD_PACE } from '../../data/beacon';
 import { BUILDINGS } from '../../data/buildings';
 import { RESOURCES } from '../../data/items';
 import { MOBS, MOB_ORDER } from '../../data/mobs';
-import { CAMP, MAP_SIZE, PLAYER, TILE, WAVES } from '../constants';
+import { BITE, CAMP, MAP_SIZE, PLAYER, TILE, WAVES } from '../constants';
 import { beaconWards } from '../beacon';
 import { damp, distance, normalize } from '../math';
 import { nextFloat } from '../progression';
 import { isWalkable, terrainAtIndex } from '../terrain';
-import type { Mob, MobTypeId, Vec2, World } from '../types';
+import type { Mob, MobTypeId, Player, Vec2, World } from '../types';
 import { perk } from '../perks';
 import { damageMob, damagePlayer, tryParry } from './combat';
 import { resolveMachines } from './movement';
@@ -112,6 +112,7 @@ export function stepMobs(world: World, dt: number): void {
       mob.look = Math.atan2(target.pos.y - mob.pos.y, target.pos.x - mob.pos.x);
     } else mob.look = undefined;
     if (def.summons) summon(world, mob, dt);
+    if (mob.windup) pace *= BITE.pace;
 
     mob.vel.x = damp(mob.vel.x, dir.x * speed * pace, 8, dt);
     mob.vel.y = damp(mob.vel.y, dir.y * speed * pace, 8, dt);
@@ -121,7 +122,7 @@ export function stepMobs(world: World, dt: number): void {
     // After separation, so a crowd pressing on a furnace cannot shove one of
     // its own members through it.
     resolveMachines(world, mob.pos, def.radius);
-    attackNearby(world, mob, def.radius, def.damage);
+    attackNearby(world, mob, def.radius, def.damage, dt);
   }
 }
 
@@ -212,17 +213,40 @@ function separate(world: World, mob: Mob, radius: number): void {
   }
 }
 
-function attackNearby(world: World, mob: Mob, radius: number, damage: number): void {
-  if (mob.attackCd > 0) return;
-
+function playerWithin(world: World, mob: Mob, reach: number): Player | null {
   for (const player of world.players.values()) {
     if (player.downed > 0) continue;
-    if (distance(player.pos, mob.pos) > radius + PLAYER.radius) continue;
+    if (distance(player.pos, mob.pos) <= reach + PLAYER.radius) return player;
+  }
+  return null;
+}
+
+function attackNearby(world: World, mob: Mob, radius: number, damage: number, dt: number): void {
+  if (mob.attackCd > 0) {
+    mob.windup = 0;
+    return;
+  }
+
+  // Rearing back: the bite lands when the wind-up runs out, on whoever is
+  // still close enough, and on nobody if they stepped away in time.
+  if (mob.windup && mob.windup > 0) {
+    mob.windup = Math.max(0, mob.windup - dt);
+    if (mob.windup > 0) return;
+    const player = playerWithin(world, mob, radius + BITE.reach);
+    if (!player) {
+      mob.attackCd = BITE.whiff;
+      return;
+    }
+    mob.attackCd = 1;
     if (tryParry(world, player, mob.pos, mob)) return;
     damagePlayer(world, player, damage);
-    mob.attackCd = 1;
     const thorns = perk(player, 'bramble');
     if (thorns > 0) damageMob(world, mob, 8 * thorns, player.id);
+    return;
+  }
+
+  if (playerWithin(world, mob, radius)) {
+    mob.windup = BITE.windup;
     return;
   }
 
