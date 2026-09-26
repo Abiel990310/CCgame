@@ -870,9 +870,9 @@ detail behind the factory entries is in
       sheet with 549 hand-timed frames over 30+ moves; ours is a procedural
       figure with a few poses. Seen every second of play. *2026-09-26: the
       player is now a pixel sprite (8-step walk in 3 views, 16-step chop,
-      dash, hit flash) generated in `src/render/pixelplayer.ts`. Slimes,
-      crawlers and brutes followed (`src/render/pixelmobs.ts`), each with a
-      rear-back and a bite frame. The other creatures, a run cycle with more
+      dash, hit flash) generated in `src/render/pixelplayer.ts`. Every
+      raider followed (`src/render/pixelmobs.ts`), each with a rear-back and
+      a bite frame. The mother and the bosses, a run cycle with more
       frames, and creature death frames are still to do.*
 - [ ] 2. **The player does not fight.** His combat is pressed buttons (light,
       heavy, roll, parry, spells); ours auto-fires. "Action" is mostly this.
@@ -900,8 +900,10 @@ detail behind the factory entries is in
       web UI and icons are still smooth; that is gap 4.*
 - [x] Pixel creatures (2026-09-26): slimes, crawlers and brutes are generated
       sprites like the player, with a wind-up and a bite frame each.
-- [ ] Pixel spitters, wisps, shellbacks, the mother and the three bosses;
-      they are still drawn, and read softer beside the pixel raiders.
+- [x] Pixel spitters, wisps and shellbacks (2026-09-26); a wisp's glow and
+      tail stay soft, since they are light.
+- [ ] Pixel mother and the three bosses (warden, queen, bulwark); they are
+      still drawn, and read softer beside the pixel raiders.
 - [ ] Creature death frames: a slime that bursts, a crawler on its back,
       a brute that topples, instead of the shared puff.
 - [x] Downed player pose as a pixel frame (2026-09-26), plus a hit recoil and an idle blink.
