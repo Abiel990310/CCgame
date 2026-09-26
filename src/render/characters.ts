@@ -89,11 +89,27 @@ export function drawPlayer(
   ctx.save();
   if (player.invuln > 0 && !dashing && Math.floor(time * 14) % 2 === 0) ctx.globalAlpha *= 0.55;
 
+  // Winding up the slam: a ring gathers at the feet, and flashes once it is ready.
+  const charge = player.charge ?? 0;
+  if (charge > 0.12 && player.downed <= 0) {
+    const ready = charge >= MELEE.chargeTime;
+    const k = Math.min(1, charge / MELEE.chargeTime);
+    ctx.save();
+    ctx.globalAlpha = ready ? 0.55 + 0.45 * Math.abs(Math.sin(time * 18)) : 0.25 + 0.4 * k;
+    ctx.strokeStyle = ready ? '#ffd46a' : '#fff1d0';
+    ctx.lineWidth = ready ? 3 : 2;
+    ctx.beginPath();
+    ctx.ellipse(x, feet, 8 + (MELEE.slamRadius - 8) * k, (8 + (MELEE.slamRadius - 8) * k) * 0.6, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   if (pixelSprites()) {
     // A tool or blade is swung side-on whichever way the player faces, so it reads.
     const striking = (player.strike ?? 0) > 0;
+    const winding = charge > 0.12 && !striking;
     const facing = viewOf(player.facing.x, player.facing.y);
-    const sideOn = working || striking;
+    const sideOn = working || striking || winding;
     const view = sideOn ? 'side' : facing.view;
     const flip = sideOn ? player.facing.x < 0 : facing.flip < 0;
     // The blade enters at the top of the chop and follows through; the second
@@ -113,10 +129,12 @@ export function drawPlayer(
         idle: Math.floor(time * 1.6 + player.id * 0.3) % 2,
         swing: striking
           ? Math.min(SWING_FRAMES - 1, Math.floor(cut * SWING_FRAMES))
-          : working
-            ? Math.floor(swingPhase(player, time) * SWING_FRAMES)
-            : -1,
-        tool: striking ? 'blade' : working ? tool : null,
+          : winding
+            ? 8 + (Math.floor(time * 12) % 2)
+            : working
+              ? Math.floor(swingPhase(player, time) * SWING_FRAMES)
+              : -1,
+        tool: striking || winding ? 'blade' : working ? tool : null,
         dash: dashing,
         flash: player.hitFlash > 0,
       },

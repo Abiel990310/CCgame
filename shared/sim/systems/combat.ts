@@ -196,10 +196,36 @@ export function stepStrike(world: World, player: Player, input: PlayerInput, dt:
   player.strike = Math.max(0, (player.strike ?? 0) - dt);
   player.strikeCd = Math.max(0, (player.strikeCd ?? 0) - dt);
   player.comboLeft = Math.max(0, (player.comboLeft ?? 0) - dt);
-  if (player.downed > 0 || player.dashTime > 0 || player.strikeCd > 0) return;
+
+  const holding = input.attack === true;
+  const pressed = holding && !player.attackHeld;
+  const released = !holding && player.attackHeld === true;
+  player.attackHeld = holding;
+
+  if (player.downed > 0) {
+    player.charge = 0;
+    return;
+  }
+
+  // Holding on past a swing winds up the slam; letting go unleashes it.
+  if (holding && !pressed) player.charge = (player.charge ?? 0) + dt;
+  if (released) {
+    const wound = (player.charge ?? 0) >= MELEE.chargeTime;
+    player.charge = 0;
+    if (wound && player.dashTime <= 0) {
+      slam(world, player);
+      return;
+    }
+  }
+
+  if (pressed && player.strikeCd > 0) player.strikeQueued = true;
+  if (player.dashTime > 0 || player.strikeCd > 0) return;
 
   const near = nearestMob(world, player, MELEE.range + MELEE.assist + 20);
-  const wants = input.attack === true || (input.interact && player.gatherNodeId === null && near !== null);
+  // Holding attack does not repeat the swing, it charges; holding the gather
+  // button near a creature does keep swinging, so a held click fights.
+  const wants = pressed || player.strikeQueued === true || (input.interact && player.gatherNodeId === null && near !== null);
+  player.strikeQueued = false;
   if (!wants) return;
 
   // Turn toward the nearest creature when there is one to hit: aiming a
@@ -236,6 +262,53 @@ export function stepStrike(world: World, player: Player, input: PlayerInput, dt:
     hits++;
   }
   world.events.push({ kind: 'strike', playerId: player.id, pos: { ...player.pos }, dir, combo, hits });
+}
+
+function slam(world: World, player: Player): void {
+  player.combo = 0;
+  player.comboLeft = 0;
+  player.strike = MELEE.duration;
+  player.strikeCd = MELEE.slamCooldown;
+  const damage = MELEE.slamDamage * player.stats.damage * researchBonuses(world).damage * situational(world, player);
+  let hits = 0;
+  for (const mob of [...world.mobs]) {
+    if (mob.hp <= 0) continue;
+    const def = MOBS[mob.type];
+    const dx = mob.pos.x - player.pos.x;
+    const dy = mob.pos.y - player.pos.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > MELEE.slamRadius + def.radius) continue;
+    if (!def.bossEvery && dist > 0) {
+      mob.vel.x += (dx / dist) * MELEE.slamKnock;
+      mob.vel.y += (dy / dist) * MELEE.slamKnock;
+    }
+    damageMob(world, mob, damage, player.id);
+    hits++;
+  }
+  world.events.push({ kind: 'slam', playerId: player.id, pos: { ...player.pos }, radius: MELEE.slamRadius, hits });
+}
+
+/**
+ * Whether a blow from `from` is turned aside: the player started a swing
+ * moments ago and it faces the blow. Turning one costs the attacker: it is
+ * thrown back, hurt a little, and dazed so it cannot bite again for a while.
+ */
+export function tryParry(world: World, player: Player, from: Vec2, mob?: Mob): boolean {
+  if ((player.strike ?? 0) <= MELEE.duration - MELEE.parry) return false;
+  const dx = from.x - player.pos.x;
+  const dy = from.y - player.pos.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist > 0 && (dx * player.facing.x + dy * player.facing.y) / dist < Math.cos(MELEE.arc / 2)) return false;
+  if (mob) {
+    mob.attackCd = Math.max(mob.attackCd, MELEE.daze);
+    if (!MOBS[mob.type].bossEvery && dist > 0) {
+      mob.vel.x += (dx / dist) * MELEE.parryKnock;
+      mob.vel.y += (dy / dist) * MELEE.parryKnock;
+    }
+    damageMob(world, mob, MELEE.parryDamage * player.stats.damage, player.id);
+  }
+  world.events.push({ kind: 'parry', playerId: player.id, pos: { x: (player.pos.x + from.x) / 2, y: (player.pos.y + from.y) / 2 } });
+  return true;
 }
 
 /** The longest a shot is led, in seconds: past this a creature will have turned anyway. */
@@ -323,7 +396,8 @@ function spitHits(world: World, p: Projectile): boolean {
   for (const player of world.players.values()) {
     if (player.downed > 0) continue;
     if (distance(player.pos, p.pos) > PLAYER.radius + 5) continue;
-    damagePlayer(world, player, p.damage);
+    // A parried glob is knocked out of the air.
+    if (!tryParry(world, player, { x: p.pos.x - p.vel.x * 0.05, y: p.pos.y - p.vel.y * 0.05 })) damagePlayer(world, player, p.damage);
     return true;
   }
   return false;

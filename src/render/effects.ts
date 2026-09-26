@@ -98,6 +98,17 @@ export class Effects {
         case 'playerHit':
           this.shake = Math.min(10, this.shake + 4);
           break;
+        case 'slam':
+          this.rings.push({ pos: { ...event.pos }, radius: event.radius + 14, life: 0.4, maxLife: 0.4, color: '#ffc85a' });
+          this.rings.push({ pos: { ...event.pos }, radius: event.radius * 0.6, life: 0.28, maxLife: 0.28, color: '#fff1d0' });
+          this.dust(event.pos, 14, 2.4);
+          this.shake = Math.min(12, this.shake + (event.hits > 0 ? 6 : 3));
+          break;
+        case 'parry':
+          this.rings.push({ pos: { ...event.pos }, radius: 26, life: 0.22, maxLife: 0.22, color: '#ffffff' });
+          this.burst(event.pos, 12, '#fff4c8', 260);
+          this.shake = Math.min(10, this.shake + 4);
+          break;
         case 'strike': {
           const heavy = event.combo === 2;
           const life = heavy ? 0.26 : 0.2;

@@ -256,6 +256,12 @@ export interface Player {
   combo?: number;
   /** Seconds left to chain the next hit of the combo. */
   comboLeft?: number;
+  /** Whether attack was held last tick, so a press is told from a hold. */
+  attackHeld?: boolean;
+  /** A press that came during the cooldown, swung as soon as it ends. */
+  strikeQueued?: boolean;
+  /** Seconds attack has been held past a swing, winding up the heavy slam. */
+  charge?: number;
 }
 
 export interface PlayerStats {
@@ -485,6 +491,10 @@ export type SimEvent =
   | { kind: 'playerHit'; playerId: number; amount: number }
   /** A melee swing starting, toward `dir`; `hits` is how many creatures it caught. */
   | { kind: 'strike'; playerId: number; pos: Vec2; dir: Vec2; combo: number; hits: number }
+  /** A charged slam all around the player. */
+  | { kind: 'slam'; playerId: number; pos: Vec2; radius: number; hits: number }
+  /** A blow turned aside by a swing timed to meet it. */
+  | { kind: 'parry'; playerId: number; pos: Vec2 }
   | { kind: 'downed'; playerId: number }
   | { kind: 'built'; pos: Vec2; type: BuildingId }
   | { kind: 'crafted'; pos: Vec2; item: ItemId }

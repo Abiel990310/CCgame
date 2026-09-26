@@ -340,6 +340,22 @@ export const SOUNDS = {
     throttle: 0.06,
     layers: [NOISE(500, 2200, 0.8, 0.01, 0.2, 1), TONE('sine', 140, 60, 0.5, 0.005, 0.18, 0.05)],
   },
+  slam: {
+    gain: 0.34,
+    vary: 0.06,
+    throttle: 0.1,
+    layers: [TONE('sine', 110, 38, 0.9, 0.004, 0.42), NOISE(700, 180, 0.7, 0.004, 0.3, 0.8)],
+  },
+  parry: {
+    gain: 0.3,
+    vary: 0.05,
+    throttle: 0.05,
+    layers: [
+      TONE('triangle', 1320, 1240, 0.6, 0.001, 0.35),
+      TONE('triangle', 1980, 1900, 0.35, 0.001, 0.25, 0, 7),
+      NOISE(4200, 2600, 0.5, 0.001, 0.05, 2),
+    ],
+  },
   thwack: {
     gain: 0.28,
     vary: 0.12,

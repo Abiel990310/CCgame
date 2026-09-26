@@ -87,6 +87,22 @@ export const MELEE = {
   window: 0.5,
   /** A creature this much further out still turns the player toward it. */
   assist: 30,
+  /** Seconds of holding attack after a swing that wind up the heavy slam. */
+  chargeTime: 0.55,
+  /** The slam: all the way round, hard, and throws everything back. */
+  slamRadius: 62,
+  slamDamage: 30,
+  slamKnock: 620,
+  slamCooldown: 0.7,
+  /**
+   * Seconds after a swing starts in which a blow that lands is parried: no
+   * damage, and the attacker is thrown back and left dazed.
+   */
+  parry: 0.18,
+  /** How long a parried creature cannot bite again. */
+  daze: 1.6,
+  parryKnock: 420,
+  parryDamage: 12,
 } as const;
 
 export const COMBAT = {
