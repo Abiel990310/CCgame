@@ -13,6 +13,23 @@ import type { Belt, Direction, Machine, MachineId, Mob } from '@shared/sim/types
 import { drawItemSprite } from './items';
 import { around, blitCached } from './paint';
 import { UI, rgba, shift } from './palette';
+import {
+  drawPixelArm,
+  drawPixelBarrel,
+  drawPixelBody,
+  drawPixelBolt,
+  drawPixelDome,
+  drawPixelDrill,
+  drawPixelFire,
+  drawPixelGear,
+  drawPixelInserterArm,
+  drawPixelInserterBase,
+  drawPixelJunction,
+  drawPixelLamp,
+  drawPixelSignRing,
+  drawPixelTurretBase,
+} from './pixelmachines';
+import { pixelSprites } from './pixelmobs';
 import { meter, shadow } from './shapes';
 
 /**
@@ -298,7 +315,8 @@ function drawPowerSign(ctx: CanvasRenderingContext2D, time: number, x: number, y
   const sx = x - TILE * 0.28;
   const sy = y - TILE * 0.36;
   ctx.globalAlpha = 0.7 + Math.sin(time * 5) * 0.3;
-  blitCached(ctx, 'sign:power', sx, sy, around(7.5), (c) => {
+  if (pixelSprites()) drawPixelSignRing(ctx, sx, sy, UI.danger, true);
+  else blitCached(ctx, 'sign:power', sx, sy, around(7.5), (c) => {
     c.fillStyle = 'rgba(12, 16, 22, 0.75)';
     c.beginPath();
     c.arc(0, 0, 5.5, 0, Math.PI * 2);
@@ -308,6 +326,10 @@ function drawPowerSign(ctx: CanvasRenderingContext2D, time: number, x: number, y
     c.stroke();
   });
   ctx.globalAlpha = 1;
+  if (pixelSprites()) {
+    drawPixelBolt(ctx, sx, sy, UI.gold);
+    return;
+  }
   blitCached(ctx, 'sign:bolt', sx, sy, around(5.5), (c) => {
     c.fillStyle = UI.gold;
     c.beginPath();
@@ -377,7 +399,8 @@ function drawFuelSign(ctx: CanvasRenderingContext2D, time: number, x: number, y:
   const sx = x - TILE * 0.28;
   const sy = y - TILE * 0.36;
   ctx.globalAlpha = 0.7 + Math.sin(time * 5) * 0.3;
-  blitCached(ctx, 'sign:fuel', sx, sy, around(7.5), (c) => {
+  if (pixelSprites()) drawPixelSignRing(ctx, sx, sy, UI.danger, false);
+  else blitCached(ctx, 'sign:fuel', sx, sy, around(7.5), (c) => {
     c.strokeStyle = UI.danger;
     c.lineWidth = 1.5;
     c.beginPath();
@@ -397,6 +420,10 @@ function drawFuelSign(ctx: CanvasRenderingContext2D, time: number, x: number, y:
  */
 function drawBody(ctx: CanvasRenderingContext2D, def: MachineDef, dir: Direction, x: number, y: number): void {
   shadow(ctx, x + 2, y + TILE * 0.4, TILE * 0.5, 0.26);
+  if (pixelSprites()) {
+    drawPixelBody(ctx, def, dir, x, y);
+    return;
+  }
   drawBlock(ctx, def, x, y);
   drawMachineDeck(ctx, def, x, y);
   drawOutputNub(ctx, def, dir, x, y);
@@ -429,6 +456,18 @@ function drawTurretHead(ctx: CanvasRenderingContext2D, machine: Machine, time: n
     }
   }
 
+  const length = TILE * 0.44;
+  if (pixelSprites()) {
+    drawPixelTurretBase(ctx, hx, hy);
+    drawPixelBarrel(ctx, hx, hy - 1, angle);
+    if (machine.progress > 1 / TURRET.rate - 0.07) {
+      ctx.fillStyle = 'rgba(255, 220, 140, 0.9)';
+      ctx.beginPath();
+      ctx.arc(hx + Math.cos(angle) * (length + 3), hy - 1 + Math.sin(angle) * (length + 3), 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
   blitCached(ctx, 'turret:base', hx, hy, around(TILE * 0.3), (c) => {
     c.fillStyle = '#2a3038';
     c.beginPath();
@@ -440,7 +479,6 @@ function drawTurretHead(ctx: CanvasRenderingContext2D, machine: Machine, time: n
     c.fill();
   });
 
-  const length = TILE * 0.44;
   ctx.save();
   ctx.translate(hx, hy - 1);
   ctx.rotate(angle);
@@ -483,6 +521,11 @@ export function setFactoryScale(scale: number): void {
 }
 
 function blitBody(ctx: CanvasRenderingContext2D, def: MachineDef, dir: Direction, x: number, y: number): void {
+  // Pixel bodies keep their own frames, so the smooth body's bake is not needed.
+  if (pixelSprites()) {
+    drawBody(ctx, def, dir, x, y);
+    return;
+  }
   const r = BODY_REACH;
   blitCached(ctx, `body:${def.id}:${dir}`, x, y, { left: r, right: r, top: r, bottom: r }, (c) =>
     drawBody(c, def, dir, 0, 0),
@@ -685,6 +728,10 @@ function drawMachineLive(
       // Three blades look the same a third of a turn on.
       const third = (Math.PI * 2) / 3;
       const step = Math.round((((spin % third) + third) % third / third) * DRILL_STEPS) % DRILL_STEPS;
+      if (pixelSprites()) {
+        drawPixelDrill(ctx, x, cy, step, DRILL_STEPS, accent);
+        break;
+      }
       blitCached(ctx, `drill:${accent}:${step}`, x, cy, around(TILE * 0.2 + 1), (c) => {
         const turn = (step / DRILL_STEPS) * third;
         c.fillStyle = accent;
@@ -709,7 +756,8 @@ function drawMachineLive(
       // The mouth is baked once and faded, rather than filled at a new alpha
       // every frame.
       ctx.globalAlpha = glow;
-      blitCached(ctx, `mouth:${accent}`, x, cy, { left: TILE * 0.2 + 1, right: TILE * 0.12 + 1, top: TILE * 0.08 + 1, bottom: TILE * 0.14 + 1 }, (c) => {
+      if (pixelSprites()) drawPixelFire(ctx, x, cy, accent);
+      else blitCached(ctx, `mouth:${accent}`, x, cy, { left: TILE * 0.2 + 1, right: TILE * 0.12 + 1, top: TILE * 0.08 + 1, bottom: TILE * 0.14 + 1 }, (c) => {
         c.fillStyle = accent;
         c.beginPath();
         c.roundRect(-TILE * 0.2, -TILE * 0.08, TILE * 0.32, TILE * 0.22, [TILE * 0.12, TILE * 0.12, 2, 2]);
@@ -717,8 +765,10 @@ function drawMachineLive(
       });
       ctx.globalAlpha = 1;
       if (!running) break;
-      ctx.fillStyle = rgba('#fff2c4', glow * 0.8);
-      ctx.fillRect(x - TILE * 0.14, cy + TILE * 0.06, TILE * 0.2, TILE * 0.05);
+      if (!pixelSprites()) {
+        ctx.fillStyle = rgba('#fff2c4', glow * 0.8);
+        ctx.fillRect(x - TILE * 0.14, cy + TILE * 0.06, TILE * 0.2, TILE * 0.05);
+      }
       const chx = x + TILE * 0.27;
       const chy = y - TILE * 0.36;
       for (let i = 0; i < 3; i++) {
@@ -737,6 +787,10 @@ function drawMachineLive(
       gear(ctx, x + TILE * 0.14, cy + TILE * 0.07, TILE * 0.09, -spin * 1.6, accent);
 
       const reach = running ? Math.round(Math.sin(rate * 4) * REACH_STEPS) : 0;
+      if (pixelSprites()) {
+        drawPixelArm(ctx, x, cy, reach, REACH_STEPS, accent);
+        break;
+      }
       const box = { left: TILE * 0.3 + 2, right: TILE * 0.1 + 4, top: TILE * 0.2 + 2, bottom: 4 };
       blitCached(ctx, `reach:${accent}:${reach}`, x, cy, box, (c) => {
         const arm = (reach / REACH_STEPS) * TILE * 0.1;
@@ -756,6 +810,14 @@ function drawMachineLive(
     }
     case 'splitter': {
       // The T is the whole explanation of the piece: one way in, two arms out.
+      if (pixelSprites()) {
+        const side = (n: 0 | 1): string => {
+          const filter = filterOf(machine, n);
+          return filter ? ITEMS[filter].color : accent;
+        };
+        drawPixelJunction(ctx, x, cy, def, machine.dir, [side(0), side(1)]);
+        break;
+      }
       ctx.save();
       ctx.translate(x, cy);
       ctx.rotate(dirAngle(machine.dir));
@@ -796,6 +858,10 @@ function drawMachineLive(
     }
     case 'merger': {
       // The splitter's T turned round: two arms pointing in, one stem out the front.
+      if (pixelSprites()) {
+        drawPixelJunction(ctx, x, cy, def, machine.dir, [accent, accent]);
+        break;
+      }
       ctx.save();
       ctx.translate(x, cy);
       ctx.rotate(dirAngle(machine.dir));
@@ -880,7 +946,8 @@ function drawMachineLive(
     case 'lab': {
       // A glass dome with something rising through it. A lab has no output
       // side and no moving arm, so the bubbles are the only sign it is working.
-      blitCached(ctx, `dome:${def.id}:${running ? 1 : 0}`, x, cy, { left: TILE * 0.3, right: TILE * 0.3, top: TILE * 0.2, bottom: TILE * 0.2 }, (c) => {
+      if (pixelSprites()) drawPixelDome(ctx, x, cy, def, running);
+      else blitCached(ctx, `dome:${def.id}:${running ? 1 : 0}`, x, cy, { left: TILE * 0.3, right: TILE * 0.3, top: TILE * 0.2, bottom: TILE * 0.2 }, (c) => {
         c.fillStyle = shift(def.color, -46);
         c.beginPath();
         c.ellipse(0, TILE * 0.08, TILE * 0.28, TILE * 0.1, 0, 0, Math.PI * 2);
@@ -937,6 +1004,10 @@ function gear(
   // frame it can show.
   const tooth = (Math.PI * 2) / teeth;
   const step = Math.round((((angle % tooth) + tooth) % tooth / tooth) * GEAR_STEPS) % GEAR_STEPS;
+  if (pixelSprites()) {
+    drawPixelGear(ctx, x, y, r, step, GEAR_STEPS, color);
+    return;
+  }
   blitCached(ctx, `gear:${r}:${color}:${step}`, x, y, around(r + 1), (c) => {
     const turn = (step / GEAR_STEPS) * tooth;
     c.fillStyle = color;
@@ -982,6 +1053,12 @@ function drawStatusLight(
   // Baked, like the machine bodies: a factory shows one lamp per machine, and
   // on the GPU renderer every path drawn live is rebuilt into geometry each
   // frame while a baked lamp is one quad.
+  if (pixelSprites()) {
+    ctx.globalAlpha = pulse;
+    drawPixelLamp(ctx, lx, ly, color);
+    ctx.globalAlpha = 1;
+    return;
+  }
   blitCached(ctx, 'lamp:base', lx, ly, around(4.2), (c) => {
     c.fillStyle = 'rgba(10, 14, 20, 0.6)';
     c.beginPath();
@@ -1042,12 +1119,20 @@ function drawInserter(
 
   // Base and arm are baked: a bank of arms is the densest live drawing a
   // factory has, and each one was a dozen paths a frame.
-  blitCached(ctx, `arm-base:${def.id}`, x, y, { left: TILE * 0.3, right: TILE * 0.3, top: TILE * 0.3, bottom: TILE * 0.4 }, (c) =>
-    drawInserterBase(c, def),
-  );
-  blitCached(ctx, `arm:${def.id}:${machine.dir}:${swing}:${tint}`, x, pivotY, around(span + 6), (c) =>
-    drawInserterArm(c, Math.cos(angle) * along, Math.sin(angle) * along, tint),
-  );
+  if (pixelSprites()) {
+    shadow(ctx, x + 1, y + TILE * 0.24, TILE * 0.26, 0.26);
+    drawPixelInserterBase(ctx, x, y, def);
+    const hx = Math.round(Math.cos(angle) * along);
+    const hy = Math.round(Math.sin(angle) * along);
+    drawPixelInserterArm(ctx, `${def.id}:${machine.dir}:${swing}:${tint}`, x, pivotY, hx, hy, span, tint);
+  } else {
+    blitCached(ctx, `arm-base:${def.id}`, x, y, { left: TILE * 0.3, right: TILE * 0.3, top: TILE * 0.3, bottom: TILE * 0.4 }, (c) =>
+      drawInserterBase(c, def),
+    );
+    blitCached(ctx, `arm:${def.id}:${machine.dir}:${swing}:${tint}`, x, pivotY, around(span + 6), (c) =>
+      drawInserterArm(c, Math.cos(angle) * along, Math.sin(angle) * along, tint),
+    );
+  }
 
   // A filtered arm carries a chip of what it is set to, so a bank of arms
   // taking different items out of one chest can be told apart without

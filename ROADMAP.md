@@ -968,6 +968,13 @@ detail behind the factory entries is in
       and shellbacks flip onto their backs and kick, and everything that
       stands topples over backward, then fades (`drawPixelDeath`).
 - [x] Downed player pose as a pixel frame (2026-09-26), plus a hit recoil and an idle blink.
+- [x] Machines as pixel sprites (2026-09-26): every body, deck, port and
+      tier mark, and the moving parts (drill, gears, arm, fire, lamp, lab
+      dome, turret head, inserter arms, splitter and merger arrows), on whole
+      pixels with the creatures' outline and light (`src/render/pixelmachines.ts`).
+- [ ] Belts, power poles, the steam engine's steam and the beacon are still
+      drawn smooth; the steam engine and fish trap have pixel bodies but were
+      not checked on a real shore.
 - [x] Floating damage numbers and name tags are drawn at the pixel grid and
       look soft; a small bitmap digit font would keep them crisp.
       *(2026-09-26: damage, loot and combat words use a 5×5 outlined pixel
