@@ -125,6 +125,19 @@ export const BITE = {
   pace: 0.2,
 } as const;
 
+/**
+ * A boss's second phase: below half its health it is enraged, faster on its
+ * feet and quicker with everything it does, so a boss fight has a turn in it
+ * rather than being one long bar to whittle down.
+ */
+export const BOSS_RAGE = {
+  /** Share of its health at which it turns. */
+  at: 0.5,
+  speed: 1.35,
+  /** How much faster its bite, spit and calls come round. */
+  tempo: 1.5,
+} as const;
+
 export const COMBAT = {
   /** Seconds a projectile lives before expiring. */
   projectileLife: 1.4,

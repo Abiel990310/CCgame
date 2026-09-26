@@ -495,6 +495,120 @@ kbd {
   background: linear-gradient(90deg, #aab7ff, #6d7fe0);
 }
 
+/* ---------- Boss bar ---------- */
+
+/*
+ * Under the day panel; on a narrow screen that corner is full, so it sits
+ * over the hotbar instead. The pale trail lags the red
+ * fill, so a big hit is seen as a chunk taken rather than a bar that jumps;
+ * the notch marks where the boss turns.
+ */
+.boss-bar {
+  position: absolute;
+  top: calc(max(14px, env(safe-area-inset-top)) + 82px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(460px, calc(100vw - 28px));
+  padding: 7px 12px 10px;
+  text-align: center;
+}
+
+.boss-name {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f3dfc0;
+  margin-bottom: 5px;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.boss-track {
+  position: relative;
+  height: 10px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.boss-fill,
+.boss-trail {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+}
+
+.boss-trail {
+  background: #f6e2c4;
+}
+
+.boss-fill {
+  background: linear-gradient(180deg, #e8604a, #a8281e);
+}
+
+.boss-turn {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.boss-bar.enraged .boss-fill {
+  background: linear-gradient(180deg, #ff8a3a, #c0301a);
+  animation: boss-throb 0.9s ease-in-out infinite;
+}
+
+.boss-bar.enraged .boss-name {
+  color: #ffb08a;
+}
+
+.boss-bar.turned {
+  animation: boss-shake 0.45s ease-out;
+}
+
+@media (max-width: 1120px) {
+  .boss-bar {
+    top: auto;
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 84px);
+  }
+}
+
+@media (max-width: 640px) {
+  .boss-bar {
+    left: 14px;
+    transform: none;
+    width: calc(100vw - 100px);
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 66px);
+  }
+  .boss-bar.turned {
+    animation: none;
+  }
+}
+
+@keyframes boss-throb {
+  50% {
+    filter: brightness(1.35);
+  }
+}
+
+@keyframes boss-shake {
+  20% {
+    transform: translateX(calc(-50% - 6px));
+  }
+  40% {
+    transform: translateX(calc(-50% + 5px));
+  }
+  60% {
+    transform: translateX(calc(-50% - 3px));
+  }
+  80% {
+    transform: translateX(calc(-50% + 2px));
+  }
+}
+
 /* ---------- Pouch ---------- */
 
 /*

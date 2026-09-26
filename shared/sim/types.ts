@@ -137,6 +137,8 @@ export interface Mob {
    * set each tick by the mobs step. Absent when nothing covers it.
    */
   shield?: number;
+  /** A boss past its turn: see `BOSS_RAGE`. */
+  enraged?: boolean;
   /** Called in by another mob: worth no XP or orbs, so a boss left alive is not a farm. */
   brood?: boolean;
   /** The post a landmark's keeper holds: it leaves it only for a player close by, and dawn does not clear it. */
@@ -499,6 +501,8 @@ export type SimEvent =
   | { kind: 'summon'; pos: Vec2 }
   | { kind: 'guardsWoke'; pos: Vec2; landmark: ResourceKind }
   | { kind: 'boss'; pos: Vec2; type: MobTypeId }
+  /** A boss turned: below `BOSS_RAGE.at` of its health it is enraged. */
+  | { kind: 'bossRage'; pos: Vec2; type: MobTypeId }
   | { kind: 'beacon'; pos: Vec2; stage: number; lit: boolean }
   | { kind: 'landmark'; pos: Vec2; landmark: ResourceKind; playerId: number }
   | { kind: 'levelUp'; playerId: number; level: number }

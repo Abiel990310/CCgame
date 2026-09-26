@@ -105,6 +105,14 @@ export class Effects {
           this.rings.push({ pos: { ...event.pos }, radius: 140, life: 0.9, maxLife: 0.9, color: '#e0a040' });
           this.shake = Math.min(12, this.shake + 8);
           break;
+        case 'bossRage':
+          // A roar: two red shock rings, embers thrown off, and the word over it.
+          this.rings.push({ pos: { ...event.pos }, radius: 170, life: 0.7, maxLife: 0.7, color: '#ff5a3a' });
+          this.rings.push({ pos: { ...event.pos }, radius: 90, life: 0.45, maxLife: 0.45, color: '#ffd0a0' });
+          this.burst(event.pos, 30, '#ff7a3a', 260);
+          this.text({ x: event.pos.x, y: event.pos.y - MOBS[event.type].radius * 2.4 }, 'Enraged!', '#ff8a5a', 18);
+          this.shake = Math.min(14, this.shake + 10);
+          break;
         case 'gathered':
           this.burst(event.pos, 6, '#f0e2c0', 110);
           break;

@@ -1471,6 +1471,9 @@ export class Game {
         const self = event.playerId === this.selfId;
         audio.play('dodge', self ? {} : { pos: event.pos });
         if (self) this.hitstop = Math.max(this.hitstop, 0.07);
+      } else if (event.kind === 'bossRage') {
+        // The longest hold there is: the fight has turned.
+        this.hitstop = Math.max(this.hitstop, 0.22);
       } else if (event.kind === 'cast') {
         const self = event.playerId === this.selfId;
         audio.play(CAST_SOUND[event.spell], self ? {} : { pos: event.pos });

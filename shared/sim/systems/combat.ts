@@ -1,7 +1,7 @@
 import { MOBS } from '../../data/mobs';
 import { SPELLS } from '../../data/spells';
 import { WEAPONS, weaponDamage, weaponRate, type WeaponDef } from '../../data/weapons';
-import { CAMP, COMBAT, MELEE, PLAYER } from '../constants';
+import { BOSS_RAGE, CAMP, COMBAT, MELEE, PLAYER } from '../constants';
 import { masteryId, perk } from '../perks';
 import { distance, distanceSq, normalize } from '../math';
 import { grantXp, nextFloat } from '../progression';
@@ -443,6 +443,10 @@ export function damageMob(world: World, mob: Mob, amount: number, sourceId: numb
 
   const killer = world.players.get(sourceId);
   if (mob.hp > 0 && killer && !def.bossEvery && perk(killer, 'executioner') && mob.hp < mob.maxHp * 0.08) mob.hp = 0;
+  if (mob.hp > 0 && def.bossEvery && !mob.enraged && mob.hp <= mob.maxHp * BOSS_RAGE.at) {
+    mob.enraged = true;
+    world.events.push({ kind: 'bossRage', pos: { ...mob.pos }, type: mob.type });
+  }
   if (mob.hp > 0) return;
 
   world.events.push({ kind: 'mobDied', pos: { ...mob.pos }, type: mob.type });
