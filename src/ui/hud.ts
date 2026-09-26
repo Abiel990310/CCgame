@@ -1,11 +1,12 @@
 import { ITEMS } from '@shared/data/items';
+import { MOBS } from '@shared/data/mobs';
 import { SPELLS, spellCooldown, spellPerk } from '@shared/data/spells';
 import { perk } from '@shared/sim/perks';
 import { CYCLE } from '@shared/sim/constants';
 import { activeTech, cyclesDone, cyclesNeeded, type QueueOp } from '@shared/sim/research';
 import { countItem, hasAll } from '@shared/sim/inventory';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { ItemId, ItemStack, Machine, MachineFamily, Player, SpellId, World } from '@shared/sim/types';
+import type { ItemId, ItemStack, Machine, MachineFamily, Mob, Player, SpellId, World } from '@shared/sim/types';
 import { audio } from '../audio';
 import { itemIconVar } from '../render/items';
 import { pieceIconVar } from '../render/pieces';
@@ -33,6 +34,9 @@ import {
   type HotbarBinding,
 } from './hotbar';
 
+
+/** How near a boss has to be for its bar to show. */
+const BOSS_SIGHT = 900;
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing UI element #${id}`);
@@ -107,6 +111,10 @@ export class Hud {
     spellGlyph: $('spell-glyph'),
     spellName: $('spell-name'),
     spellCd: $('spell-cd'),
+    bossBar: $('boss-bar'),
+    bossName: $('boss-name'),
+    bossFill: $('boss-fill'),
+    bossTrail: $('boss-trail'),
     btnMenu: $<HTMLButtonElement>('btn-menu'),
     dashCd: $('dash-cd'),
     levelup: $('levelup'),
@@ -549,6 +557,7 @@ export class Hud {
     this.updatePouch(player);
     this.updateDash(player);
     this.updateSpell(player);
+    this.updateBoss(world, player);
     this.updateOffers(player);
     this.updateHotbar(player);
     this.updateResearch(world);
@@ -684,6 +693,45 @@ export class Hud {
       e.preventDefault();
       this.callbacks.onSwapSpell();
     });
+  }
+
+  private boss: { id: number; trail: number; enraged: boolean } | null = null;
+
+  /** The nearest boss within sight gets the bar; it goes when that boss does. */
+  private updateBoss(world: World, player: Player): void {
+    let best: Mob | null = null;
+    let bestDist = BOSS_SIGHT * BOSS_SIGHT;
+    for (const mob of world.mobs) {
+      if (mob.hp <= 0 || !MOBS[mob.type].bossEvery) continue;
+      const d = (mob.pos.x - player.pos.x) ** 2 + (mob.pos.y - player.pos.y) ** 2;
+      if (d < bestDist) {
+        best = mob;
+        bestDist = d;
+      }
+    }
+    this.els.bossBar.classList.toggle('hidden', best === null);
+    if (!best) {
+      this.boss = null;
+      return;
+    }
+    const share = Math.max(0, best.hp / best.maxHp);
+    if (this.boss?.id !== best.id) {
+      this.boss = { id: best.id, trail: share, enraged: best.enraged === true };
+      this.els.bossName.textContent = MOBS[best.type].name;
+    }
+    const boss = this.boss;
+    // The trail holds, then drains toward the health it has lost.
+    boss.trail = Math.max(share, boss.trail - 0.006);
+    const enraged = best.enraged === true;
+    if (enraged && !boss.enraged) {
+      this.els.bossBar.classList.remove('turned');
+      void this.els.bossBar.offsetWidth;
+      this.els.bossBar.classList.add('turned');
+    }
+    boss.enraged = enraged;
+    this.els.bossBar.classList.toggle('enraged', enraged);
+    this.els.bossFill.style.width = `${share * 100}%`;
+    this.els.bossTrail.style.width = `${boss.trail * 100}%`;
   }
 
   private shownSpell: SpellId | null = null;

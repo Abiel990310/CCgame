@@ -960,6 +960,16 @@ detail behind the factory entries is in
       and swap; our bag holds materials and the build is a row of chips.
 - [ ] 6. **Bosses as events.** Intro cutscene, name card, phase change; our
       Stone Warden walks in with a toast.
+      *2026-09-26: a boss already arrived with its name as a title card and
+      the camera leaning toward it (PR #102). Now a boss nearby has a
+      health bar with its name (a pale trail shows each chunk taken), and
+      at half health it turns: a roar with shock rings and a frame hold,
+      then it burns red and moves and attacks half again as fast
+      (`BOSS_RAGE`). Still missing: a proper intro cutscene.*
+- [ ] A boss's second phase could add a move, not only speed: the warden
+      slamming the ground, the queen calling twice as many.
+- [ ] The Stone Warden reads pale and washed out below a third of its
+      health, where its cracks and core glow are brightest.
 - [ ] 7. **Movement verbs.** Jump, roll, wall-jump, hook, air dash; ours is
       walk and one dash.
 - [ ] 8. **Story framing.** Illustrated story cards and portraits; ours has

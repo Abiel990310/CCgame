@@ -692,6 +692,7 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
     ctx.restore();
   }
   if ((mob.chill ?? 0) > 0) drawFrost(ctx, mob, time, true);
+  if (mob.enraged) drawRage(ctx, mob, time);
   setFlash(mob.hitFlash > 0 ? 1 : 0);
   ctx.save();
   // Pixel creatures have their own rearing and flash frames; stretching a
@@ -805,6 +806,36 @@ function glints(ctx: CanvasRenderingContext2D, mob: Mob, r: number, fade: number
     ctx.closePath();
     ctx.fill();
   }
+}
+
+/**
+ * An enraged boss burns: a red heat pulsing on the ground under it and
+ * embers rising off it, so its turn is seen for the rest of the fight.
+ */
+function drawRage(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
+  const r = MOBS[mob.type].radius;
+  const feet = mob.pos.y + r * 0.6;
+  const pulse = 0.5 + 0.5 * Math.sin(time * 6 + mob.seed);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const reach = r * (1.7 + 0.25 * pulse);
+  const g = ctx.createRadialGradient(mob.pos.x, feet, 0, mob.pos.x, feet, reach);
+  g.addColorStop(0, `rgba(255, 50, 25, ${0.55 + 0.25 * pulse})`);
+  g.addColorStop(0.6, `rgba(220, 30, 20, ${0.25 + 0.15 * pulse})`);
+  g.addColorStop(1, 'rgba(200, 20, 10, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(mob.pos.x, feet, reach, reach * 0.55, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Embers on a loop of their own, each rising and fading.
+  for (let i = 0; i < 10; i++) {
+    const t = (time * 0.7 + i / 10 + mob.seed * 0.01) % 1;
+    const x = mob.pos.x + Math.sin(i * 2.4 + mob.seed) * r * 1.1;
+    const y = feet - t * r * 2.6;
+    ctx.fillStyle = `rgba(255, ${110 + i * 12}, 50, ${0.9 * (1 - t)})`;
+    ctx.fillRect(Math.round(x), Math.round(y), 3, 3);
+  }
+  ctx.restore();
 }
 
 /** The swing frame whose arm reaches forward and a little up: the hand a spell leaves from. */

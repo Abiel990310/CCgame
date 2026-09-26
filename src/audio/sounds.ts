@@ -119,6 +119,17 @@ export const SOUNDS = {
       NOISE(1400, 2600, 0.3, 0.05, 0.4, 3),
     ],
   },
+  // A boss turning: the entrance's growl, pitched up and torn with noise.
+  bossRage: {
+    gain: 0.42,
+    vary: 0.03,
+    throttle: 0.5,
+    layers: [
+      TONE('sawtooth', 70, 150, 0.45, 0.04, 0.9, 0, 9),
+      TONE('square', 110, 60, 0.2, 0.02, 0.7, 0.05),
+      NOISE(900, 200, 0.6, 0.02, 0.8, 0.7, 0, 'lowpass'),
+    ],
+  },
   boss: {
     gain: 0.4,
     vary: 0,
