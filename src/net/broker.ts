@@ -18,6 +18,15 @@ const HEARTBEAT_MS = 5000;
 /** The relay types the PeerJS server forwards to `dst`. Anything else it drops. */
 export type RelayType = 'OFFER' | 'ANSWER' | 'CANDIDATE' | 'LEAVE';
 
+/** Anything that can carry signalling messages to another peer by id. */
+export interface Signaller {
+  readonly id: string;
+  relay(type: RelayType, dst: string, payload: unknown): void;
+  /** Done talking to one peer; a route that joined something for it lets it go. */
+  forget?(peer: string): void;
+  close(): void;
+}
+
 export interface BrokerEvents {
   onRelay: (type: RelayType, src: string, payload: unknown) => void;
   /** The broker has been unreachable for a while; it keeps trying. */
@@ -40,7 +49,7 @@ const RETRY_MS = [1000, 2000, 4000, 8000, 15000];
 /** Attempts that may fail quietly before anyone is told. */
 const QUIET_RETRIES = 3;
 
-export class Broker {
+export class Broker implements Signaller {
   private socket: WebSocket | null = null;
   private heartbeat = 0;
   private retryTimer = 0;

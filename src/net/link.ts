@@ -1,4 +1,4 @@
-import type { Broker } from './broker';
+import type { Signaller } from './broker';
 
 /**
  * STUN lets two browsers behind home routers find the addresses to reach each
@@ -25,6 +25,12 @@ export const DIRECT_WAIT_MS = 6_000;
  * a host sends ticks 30 times a second and a guest its input four times.
  */
 const RELAY_SILENCE_MS = 12_000;
+/**
+ * Relayed messages wait this long and go out together. Thirty ticks a second
+ * as thirty separate messages is what gets a client throttled by a shared
+ * service; ten bundles a second costs a little latency and stays well inside it.
+ */
+const RELAY_BATCH_MS = 100;
 
 /**
  * Tests and diagnosis: `?relay=1` skips the direct channel, so the relay path
@@ -40,9 +46,9 @@ function forceRelay(): boolean {
 
 /** A relayed game message rides a candidate, the one type the broker forwards freely. */
 interface RelayPayload {
-  /** `start` asks the other end to switch to the relay; `m` is a framed message. */
-  relay: 'start' | 'm';
-  data?: string;
+  /** `start` asks the other end to switch to the relay; `m` is a framed message, `b` several. */
+  relay: 'start' | 'm' | 'b';
+  data?: string | string[];
 }
 
 function isRelay(payload: unknown): payload is RelayPayload {
@@ -73,9 +79,11 @@ export class Link {
   private relayOpen = false;
   private lastHeard = 0;
   private watchdog = 0;
+  private outbox: string[] = [];
+  private flushTimer = 0;
 
   constructor(
-    private broker: Broker,
+    private broker: Signaller,
     /** The broker id at the other end. */
     readonly remote: string,
     private events: LinkEvents,
@@ -174,6 +182,9 @@ export class Link {
     if (!this.relayed) this.becomeRelayed();
     this.lastHeard = performance.now();
     if (typeof payload.data === 'string') this.deliver(payload.data);
+    else if (Array.isArray(payload.data)) {
+      for (const item of payload.data) if (typeof item === 'string') this.deliver(item);
+    }
   }
 
   private signals: Promise<void> = Promise.resolve();
@@ -241,8 +252,10 @@ export class Link {
   send(text: string): void {
     if (!this.open) return;
     const put = (framed: string): void => {
-      if (this.relayed) this.broker.relay('CANDIDATE', this.remote, { relay: 'm', data: framed } satisfies RelayPayload);
-      else this.channel?.send(framed);
+      if (this.relayed) {
+        this.outbox.push(framed);
+        this.flushTimer ||= window.setTimeout(() => this.flush(), RELAY_BATCH_MS);
+      } else this.channel?.send(framed);
     };
     if (text.length <= CHUNK) {
       put(`W${text}`);
@@ -254,14 +267,39 @@ export class Link {
     }
   }
 
+  /** Everything waiting for the relay, in bundles no bigger than one chunk. */
+  private flush(): void {
+    window.clearTimeout(this.flushTimer);
+    this.flushTimer = 0;
+    let batch: string[] = [];
+    let size = 0;
+    const send = (): void => {
+      if (batch.length === 0) return;
+      const payload: RelayPayload = batch.length === 1 ? { relay: 'm', data: batch[0] } : { relay: 'b', data: batch };
+      this.broker.relay('CANDIDATE', this.remote, payload);
+      batch = [];
+      size = 0;
+    };
+    for (const framed of this.outbox) {
+      if (size + framed.length > CHUNK) send();
+      batch.push(framed);
+      size += framed.length;
+    }
+    send();
+    this.outbox = [];
+  }
+
   close(): void {
     if (this.closed) return;
+    // A refusal or goodbye still waiting for the relay goes before the line does.
+    if (this.relayed) this.flush();
     this.closed = true;
     window.clearTimeout(this.timer);
     window.clearTimeout(this.fallbackTimer);
     window.clearInterval(this.watchdog);
     // Tell a relayed partner at once rather than leaving it to notice the silence.
     if (this.relayed) this.broker.relay('LEAVE', this.remote, {});
+    this.broker.forget?.(this.remote);
     this.channel?.close();
     this.pc?.close();
     this.events.onClose();

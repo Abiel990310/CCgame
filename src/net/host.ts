@@ -4,9 +4,10 @@ import { normalizeSlots } from '@shared/sim/slots';
 import { checksum, decode, encode, takeSnapshot } from '@shared/sim/snapshot';
 import type { Player, PlayerInput, World } from '@shared/sim/types';
 import { createPlayer, spawnPoint } from '@shared/sim/world';
-import { Broker } from './broker';
+import { Broker, type RelayType, type Signaller } from './broker';
 import type { GuestBook } from './guests';
 import { Link } from './link';
+import { RealtimeBroker, realtimeAvailable } from './realtime';
 import {
   BUILD,
   CHECK_EVERY,
@@ -42,6 +43,25 @@ interface Guest {
   resync: boolean;
 }
 
+/** A route that has not opened by then counts as down. */
+const OPEN_TIMEOUT_MS = 10_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('Timed out reaching the matchmaking service')), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 const STILL: PlayerInput = { move: { x: 0, y: 0 }, dash: false, interact: false };
 
 /**
@@ -64,30 +84,53 @@ export class CoopHost {
   private guestIds = new Set<number>();
 
   private constructor(
-    private broker: Broker,
+    /** Every route a guest may arrive by; each guest's link stays on the one it came in on. */
+    private brokers: Signaller[],
     readonly code: string,
     private book: GuestBook,
     private events: HostEvents,
   ) {}
 
-  /** Register a fresh room code with the broker, retrying if one is taken. */
+  /**
+   * Register a fresh room code on every route there is: the game's own online
+   * service when this build has one, and the public broker. Either alone is
+   * enough to open the room; friends try the first, then the second.
+   */
   static async open(book: GuestBook, events: HostEvents): Promise<CoopHost> {
+    let host: CoopHost | null = null;
+    const onRelay = (broker: Signaller) => (type: RelayType, src: string, payload: unknown) =>
+      host?.relay(broker, type, src, payload);
+    const onFail = (reason: string): void => host?.events.onTrouble(reason);
+
     let lastError: unknown = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       const code = makeCode();
-      let host: CoopHost | null = null;
-      const broker = new Broker(peerId(code), {
-        onRelay: (type, src, payload) => host?.relay(type, src, payload),
-        onFail: (reason) => host?.events.onTrouble(reason),
-      });
-      try {
-        await broker.open();
-      } catch (error) {
-        lastError = error;
-        if (error instanceof Error && error.message.includes('in use')) continue;
-        throw error;
+      const peer: Broker = new Broker(peerId(code), { onRelay: (...args) => onRelay(peer)(...args), onFail });
+      const own: RealtimeBroker | null = realtimeAvailable()
+        ? new RealtimeBroker(peerId(code), 'host', { onRelay: (...args) => onRelay(own!)(...args), onFail })
+        : null;
+      // Both at once: a route that is slow to fail must not hold up the other.
+      const [peerOpen, ownOpen] = await Promise.allSettled([
+        withTimeout(peer.open(), OPEN_TIMEOUT_MS),
+        own ? withTimeout(own.open(), OPEN_TIMEOUT_MS) : Promise.reject(new Error('no online service')),
+      ]);
+      const taken = peerOpen.status === 'rejected' && peerOpen.reason instanceof Error && peerOpen.reason.message.includes('in use');
+      if (taken) {
+        peer.close();
+        own?.close();
+        lastError = peerOpen.reason;
+        continue;
       }
-      host = new CoopHost(broker, code, book, events);
+      const brokers: Signaller[] = [];
+      if (own && ownOpen.status === 'fulfilled') brokers.push(own);
+      else own?.close();
+      if (peerOpen.status === 'fulfilled') brokers.push(peer);
+      else {
+        peer.close();
+        lastError = peerOpen.reason;
+      }
+      if (brokers.length === 0) break;
+      host = new CoopHost(brokers, code, book, events);
       return host;
     }
     throw lastError instanceof Error ? lastError : new Error('Could not open a room');
@@ -108,18 +151,18 @@ export class CoopHost {
     return [...world.players.values()].map((p) => p.name);
   }
 
-  private relay(type: string, src: string, payload: unknown): void {
+  private relay(broker: Signaller, type: string, src: string, payload: unknown): void {
     let guest = this.guests.get(src);
     // A guest arrives with an offer, or, when it goes straight to the relay,
     // with the request to use it.
     const starts = type === 'OFFER' || (typeof payload === 'object' && payload !== null && (payload as { relay?: string }).relay === 'start');
     if (!guest && starts) {
-      guest = this.greet(src);
+      guest = this.greet(broker, src);
     }
     guest?.link.signal(type, payload);
   }
 
-  private greet(src: string): Guest {
+  private greet(broker: Signaller, src: string): Guest {
     const guest: Guest = {
       token: '',
       name: 'Friend',
@@ -128,7 +171,7 @@ export class CoopHost {
       input: STILL,
       dash: false,
       resync: false,
-      link: new Link(this.broker, src, {
+      link: new Link(broker, src, {
         onOpen: () => {},
         onMessage: (text) => this.receive(guest, text),
         onClose: () => this.drop(guest),
@@ -163,7 +206,11 @@ export class CoopHost {
           return;
         }
         const token = String(message.token).slice(0, 64);
-        if ([...this.guests.values()].some((g) => g !== guest && g.token === token)) {
+        const twin = [...this.guests.values()].find((g) => g !== guest && g.token === token);
+        // A twin still joining is this same friend's earlier try on another
+        // route, which never heard back; the new one replaces it.
+        if (twin && twin.playerId === null) twin.link.close();
+        else if (twin) {
           this.refuse(guest, 'You are already on this island in another tab.');
           return;
         }
@@ -312,7 +359,7 @@ export class CoopHost {
       guest.link.close();
     }
     this.guests.clear();
-    this.broker.close();
+    for (const broker of this.brokers) broker.close();
     // Their characters leave with them, or they would linger in a solo game.
     for (const id of this.guestIds) world.players.delete(id);
     this.guestIds.clear();
