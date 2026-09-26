@@ -1450,6 +1450,10 @@ export class Game {
         audio.play('parry', self ? {} : { pos: event.pos });
         // The longest hold in the game: a parry should feel like catching a blade.
         if (self) this.hitstop = Math.max(this.hitstop, 0.13);
+      } else if (event.kind === 'dodge') {
+        const self = event.playerId === this.selfId;
+        audio.play('dodge', self ? {} : { pos: event.pos });
+        if (self) this.hitstop = Math.max(this.hitstop, 0.07);
       } else if (event.kind === 'strike') {
         const self = event.playerId === this.selfId;
         const at = self ? {} : { pos: event.pos };

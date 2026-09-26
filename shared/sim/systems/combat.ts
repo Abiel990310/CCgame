@@ -195,6 +195,7 @@ export function stepWeapons(world: World, player: Player, dt: number): void {
 export function stepStrike(world: World, player: Player, input: PlayerInput, dt: number): void {
   player.strike = Math.max(0, (player.strike ?? 0) - dt);
   player.strikeCd = Math.max(0, (player.strikeCd ?? 0) - dt);
+  if (player.riposte) player.riposte = Math.max(0, player.riposte - dt);
   player.comboLeft = Math.max(0, (player.comboLeft ?? 0) - dt);
 
   const holding = input.attack === true;
@@ -235,7 +236,10 @@ export function stepStrike(world: World, player: Player, input: PlayerInput, dt:
   if (dir.x === 0 && dir.y === 0) dir.y = 1;
   player.facing = { ...dir };
 
-  const combo = player.comboLeft > 0 ? ((player.combo ?? 0) + 1) % MELEE.damage.length : 0;
+  // A counter after a dodge swings as the finisher, and the combo carries on from it.
+  const counter = (player.riposte ?? 0) > 0;
+  player.riposte = 0;
+  const combo = counter ? MELEE.damage.length - 1 : player.comboLeft > 0 ? ((player.combo ?? 0) + 1) % MELEE.damage.length : 0;
   player.combo = combo;
   player.strike = MELEE.duration;
   player.strikeCd = MELEE.cooldown[combo];
@@ -308,6 +312,18 @@ export function tryParry(world: World, player: Player, from: Vec2, mob?: Mob): b
     damageMob(world, mob, MELEE.parryDamage * player.stats.damage, player.id);
   }
   world.events.push({ kind: 'parry', playerId: player.id, pos: { x: (player.pos.x + from.x) / 2, y: (player.pos.y + from.y) / 2 } });
+  return true;
+}
+
+/**
+ * Whether a blow from `from` passes through a player mid-dash. It costs them
+ * nothing, and they may answer it: the next swing within `MELEE.riposte` is
+ * a counter.
+ */
+export function tryDodge(world: World, player: Player, from: Vec2): boolean {
+  if (player.dashTime <= 0 || player.downed > 0) return false;
+  player.riposte = MELEE.riposte;
+  world.events.push({ kind: 'dodge', playerId: player.id, pos: { x: (player.pos.x + from.x) / 2, y: (player.pos.y + from.y) / 2 } });
   return true;
 }
 
@@ -397,7 +413,8 @@ function spitHits(world: World, p: Projectile): boolean {
     if (player.downed > 0) continue;
     if (distance(player.pos, p.pos) > PLAYER.radius + 5) continue;
     // A parried glob is knocked out of the air.
-    if (!tryParry(world, player, { x: p.pos.x - p.vel.x * 0.05, y: p.pos.y - p.vel.y * 0.05 })) damagePlayer(world, player, p.damage);
+    const from = { x: p.pos.x - p.vel.x * 0.05, y: p.pos.y - p.vel.y * 0.05 };
+    if (!tryParry(world, player, from) && !tryDodge(world, player, from)) damagePlayer(world, player, p.damage);
     return true;
   }
   return false;

@@ -152,6 +152,71 @@ export function drawPixelPlayer(
 }
 
 /**
+ * The dash as a forward roll: the running pose tucked tight, turned a
+ * quarter further on each of four steps. Each frame rests on the ground where
+ * the feet were, so the tumble rolls along the floor instead of about the
+ * player's middle.
+ */
+export function drawPixelRoll(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  feet: number,
+  outfit: PixelOutfit,
+  step: number,
+  flip: boolean,
+): void {
+  const quarter = ((step % 4) + 4) % 4;
+  const key = `ppr|${outfit.jacket}${outfit.scarf}|${quarter}|${flip ? 1 : 0}`;
+  const make = (): PixelGrid => {
+    const g = new Rig();
+    drawTuck(g, paletteOf(outfit));
+    g.outline();
+    // Forward is clockwise for a figure facing right: three anticlockwise quarters.
+    let out: PixelGrid = g;
+    for (let i = 0; i < (4 - quarter) % 4; i++) out = out.rotated();
+    return flip ? out.mirrored() : out;
+  };
+  const b = rollBounds(key, make);
+  if (!b) return;
+  blitPixels(ctx, key, x, feet, (b.x0 + b.x1) / 2, b.y1, 1, make);
+}
+
+/** Curled up for the roll, facing right: pack at the back, knees to the chest, head tucked down. */
+function drawTuck(g: Rig, pal: Palette): void {
+  g.part((p) => {
+    p.ball(-5, -12, 4.5, 5, PACK);
+    p.ball(-4, -17, 3.5, 2.2, BEDROLL);
+  });
+  g.part((p) => p.ball(0, -10, 6.5, 6.5, pal.jacket));
+  g.part((p) => {
+    p.bone(-1, -6, 5, -8, 4, TROUSERS);
+    p.bone(5, -8, 3, -3, 3.6, TROUSERS);
+    p.box(1, -4, 5, -2, BOOTS, true);
+  });
+  g.part((p) => {
+    p.ball(5, -14, 4.5, 4.5, SKIN);
+    p.box(1, -19, 8, -15, pal.cap, true);
+    p.p(7, -13, EYE);
+    p.box(0, -15, 3, -13, pal.scarf);
+  });
+  g.part((p) => {
+    p.bone(1, -12, 7, -8, 3.2, pal.jacket);
+    p.ball(7, -7, 1.5, 1.5, SKIN);
+  });
+}
+
+const rollExtents = new Map<string, ReturnType<PixelGrid['bounds']>>();
+
+function rollBounds(key: string, make: () => PixelGrid): ReturnType<PixelGrid['bounds']> {
+  let b = rollExtents.get(key);
+  if (b === undefined) {
+    b = make().bounds();
+    rollExtents.set(key, b);
+  }
+  return b;
+}
+
+/**
  * Knocked down: the standing frame laid on its side, dimmed, head toward the
  * left, with a slow breath so a friend can tell they are only down.
  */

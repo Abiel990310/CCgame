@@ -14,8 +14,8 @@ import {
   tint,
   tone,
 } from './paint';
-import { BITE, MELEE } from '@shared/sim/constants';
-import { SWING_FRAMES, WALK_FRAMES, drawPixelDowned, drawPixelPlayer } from './pixelplayer';
+import { BITE, DASH, MELEE } from '@shared/sim/constants';
+import { SWING_FRAMES, WALK_FRAMES, drawPixelDowned, drawPixelPlayer, drawPixelRoll } from './pixelplayer';
 import {
   BRUTE_WALK,
   CRAWLER_STEPS as PIXEL_CRAWLER_STEPS,
@@ -118,6 +118,26 @@ export function drawPlayer(
     ctx.ellipse(x, feet, 8 + (MELEE.slamRadius - 8) * k, (8 + (MELEE.slamRadius - 8) * k) * 0.6, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
+  }
+
+  // A dodge earned a counter: a gold glint at the feet until the swing comes.
+  if ((player.riposte ?? 0) > 0 && player.downed <= 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.5 + 0.4 * Math.abs(Math.sin(time * 20));
+    ctx.strokeStyle = '#ffd46a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(x, feet, 13, 7, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (pixelSprites() && dashing) {
+    // The dash is a forward roll, four quarter turns over its length.
+    const through = 1 - player.dashTime / DASH.duration;
+    drawPixelRoll(ctx, x, feet, outfit, Math.min(3, Math.floor(through * 4)), player.facing.x < 0);
+    ctx.restore();
+    return;
   }
 
   if (pixelSprites()) {

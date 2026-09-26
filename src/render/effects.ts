@@ -120,6 +120,10 @@ export class Effects {
           this.burst(event.pos, 12, '#fff4c8', 260);
           this.shake = Math.min(10, this.shake + 4);
           break;
+        case 'dodge':
+          this.rings.push({ pos: { ...event.pos }, radius: 22, life: 0.25, maxLife: 0.25, color: '#bfe8ff' });
+          this.text(event.pos, 'Dodge', '#bfe8ff', 13);
+          break;
         case 'strike': {
           const heavy = event.combo === 2;
           const life = heavy ? 0.26 : 0.2;

@@ -356,6 +356,13 @@ export const SOUNDS = {
       NOISE(4200, 2600, 0.5, 0.001, 0.05, 2),
     ],
   },
+  // A blow slipping past a roll: a quick rising whistle, lighter than a parry.
+  dodge: {
+    gain: 0.24,
+    vary: 0.06,
+    throttle: 0.08,
+    layers: [TONE('sine', 620, 1480, 0.55, 0.004, 0.16), NOISE(5200, 3000, 0.35, 0.003, 0.09, 1.2)],
+  },
   thwack: {
     gain: 0.28,
     vary: 0.12,

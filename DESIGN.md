@@ -125,7 +125,9 @@ created, and is saved with it.
   throwing creatures back (2026-09-26, from the Cinderhollow comparison).
   Holding the button winds up a slam all around; a swing timed as a blow
   lands parries it, dazing the attacker and knocking spit out of the air.
-- One movement ability (dash) with its own cooldown.
+- One movement ability (dash) with its own cooldown. It is a forward roll:
+  a bite or glob that lands mid-roll passes through, and the next swing
+  within a second is a counter, hitting as hard as the combo's finisher.
 - Mobs are *easy* by default. Difficulty scales with player count and camp tier,
   never to the point of stress.
 
