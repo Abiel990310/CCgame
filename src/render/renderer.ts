@@ -569,7 +569,7 @@ export class Renderer {
       const airborne = player.vault !== undefined;
       if (dashing && !m.dashing) {
         this.effects.dust(feet, 7, 1.8);
-        this.onCue?.(airborne ? 'leap' : 'dash', feet, self);
+        this.onCue?.(player.vault?.hook ? 'hook' : airborne ? 'leap' : 'dash', feet, self);
       }
       if (m.airborne && !airborne) {
         this.effects.dust(feet, 10, 2.2);
@@ -1072,7 +1072,7 @@ function toolFor(world: World, player: Player): Tool {
  * than finishing early and snapping back.
  */
 /** Sounds the renderer notices from motion rather than from sim events. */
-export type Cue = 'chop' | 'chip' | 'rustle' | 'dash' | 'leap' | 'land';
+export type Cue = 'chop' | 'chip' | 'rustle' | 'dash' | 'leap' | 'hook' | 'land';
 
 /** How close the camera stands, as multiples of the size-based default. */
 const ZOOM_STEPS = [0.7, 0.85, 1, 1.2, 1.45];

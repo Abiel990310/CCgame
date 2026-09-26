@@ -1,4 +1,5 @@
 import { BUILDINGS } from '../../data/buildings';
+import { ITEMS } from '../../data/items';
 import { MACHINES } from '../../data/machines';
 import { DASH, MAP_SIZE, PLAYER, TILE, VAULT } from '../constants';
 import { clamp, damp, length, normalize } from '../math';
@@ -119,11 +120,30 @@ function clearAt(world: World, pos: Vec2, dir: Vec2, radius: number): boolean {
   return true;
 }
 
+/** How far the best hook carried reaches, 0 with none. */
+export function hookReach(player: Player): number {
+  let best = 0;
+  for (const slot of player.inventory) {
+    const leap = slot ? ITEMS[slot.id].leap : undefined;
+    if (leap && leap > best) best = leap;
+  }
+  return best;
+}
+
+/**
+ * How long a leap of this length spends in the air. A hook's long pull takes
+ * longer, but not in proportion, or crossing a strait would be a wait.
+ */
+export function vaultDuration(from: Vec2, to: Vec2): number {
+  return VAULT.duration * Math.sqrt(Math.max(1, Math.hypot(to.x - from.x, to.y - from.y) / VAULT.reach));
+}
+
 /**
  * Where a dash from `from` would land if it leapt what is in its way, or null
  * when its path is clear (a plain dash) or nothing on the far side is in reach.
+ * A hook (`reach` past the bare-handed one) also crosses deep water.
  */
-export function findVault(world: World, from: Vec2, dir: Vec2): Vec2 | null {
+export function findVault(world: World, from: Vec2, dir: Vec2, reach: number = VAULT.reach): Vec2 | null {
   const STEP = 4;
   const dash = DASH.speed * DASH.duration;
   const at = (s: number): Vec2 => ({ x: from.x + dir.x * s, y: from.y + dir.y * s });
@@ -135,9 +155,10 @@ export function findVault(world: World, from: Vec2, dir: Vec2): Vec2 | null {
     }
   }
   if (blocked < 0) return null;
-  for (let s = blocked; s <= VAULT.reach; s += STEP) {
+  const hooked = reach > VAULT.reach;
+  for (let s = blocked; s <= reach; s += STEP) {
     const p = at(s);
-    if (terrainAtIndex(world.terrain, Math.floor(p.x / TILE), Math.floor(p.y / TILE)) === 'deep') return null;
+    if (!hooked && terrainAtIndex(world.terrain, Math.floor(p.x / TILE), Math.floor(p.y / TILE)) === 'deep') return null;
     if (clearAt(world, p, dir, PLAYER.radius)) return p;
   }
   return null;
@@ -156,14 +177,15 @@ export function stepPlayerMovement(
   if (player.vault) {
     // In the air nothing collides: the landing was checked before leaving.
     const v = player.vault;
-    v.t = Math.min(VAULT.duration, v.t + dt);
-    const k = v.t / VAULT.duration;
+    const duration = vaultDuration(v.from, v.to);
+    v.t = Math.min(duration, v.t + dt);
+    const k = v.t / duration;
     player.pos.x = v.from.x + (v.to.x - v.from.x) * k;
     player.pos.y = v.from.y + (v.to.y - v.from.y) * k;
-    player.vel.x = (v.to.x - v.from.x) / VAULT.duration;
-    player.vel.y = (v.to.y - v.from.y) / VAULT.duration;
-    player.dashTime = VAULT.duration - v.t;
-    if (v.t >= VAULT.duration) {
+    player.vel.x = (v.to.x - v.from.x) / duration;
+    player.vel.y = (v.to.y - v.from.y) / duration;
+    player.dashTime = duration - v.t;
+    if (v.t >= duration) {
       player.vault = undefined;
       player.dashTime = 0;
       player.vel.x *= 0.3;
@@ -182,12 +204,20 @@ export function stepPlayerMovement(
   } else {
     if (input.dash && player.dashCd <= 0) {
       player.dashCd = DASH.cooldown * Math.pow(0.85, perk(player, 'recovery'));
-      const landing = findVault(world, player.pos, player.facing);
+      // A bare leap first; the hook only when that finds no far side.
+      let landing = findVault(world, player.pos, player.facing);
+      let hook = false;
+      const reach = hookReach(player);
+      if (!landing && reach > VAULT.reach) {
+        landing = findVault(world, player.pos, player.facing, reach);
+        hook = landing !== null;
+      }
       if (landing) {
-        player.vault = { from: { ...player.pos }, to: landing, t: 0 };
-        player.dashTime = VAULT.duration;
-        player.invuln = Math.max(player.invuln, VAULT.duration + 0.1);
-        world.events.push({ kind: 'vault', playerId: player.id, from: { ...player.pos }, to: { ...landing } });
+        const duration = vaultDuration(player.pos, landing);
+        player.vault = hook ? { from: { ...player.pos }, to: landing, t: 0, hook } : { from: { ...player.pos }, to: landing, t: 0 };
+        player.dashTime = duration;
+        player.invuln = Math.max(player.invuln, duration + 0.1);
+        world.events.push({ kind: 'vault', playerId: player.id, from: { ...player.pos }, to: { ...landing }, hook });
         return;
       }
       player.dashTime = DASH.duration;

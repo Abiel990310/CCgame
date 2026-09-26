@@ -43,6 +43,12 @@ const TOOLS: CraftDef[] = [
     { id: 'wood', count: 6 },
     { id: 'ironPlate', count: 10 },
   ]),
+  // A hook on a fibre rope: a dash at water too wide to leap throws it.
+  tool('grapple', [
+    { id: 'ironPlate', count: 10 },
+    { id: 'fiber', count: 24 },
+    { id: 'wood', count: 4 },
+  ]),
   tool('steelAxe', [
     { id: 'steelPlate', count: 6 },
     { id: 'gear', count: 2 },

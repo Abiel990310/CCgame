@@ -16,7 +16,8 @@ import {
   tint,
   tone,
 } from './paint';
-import { BITE, DASH, MELEE, VAULT } from '@shared/sim/constants';
+import { BITE, DASH, MELEE } from '@shared/sim/constants';
+import { vaultDuration } from '@shared/sim/systems/movement';
 import { rgba } from './palette';
 import { SWING_FRAMES, WALK_FRAMES, drawPixelDowned, drawPixelPlayer, drawPixelRoll } from './pixelplayer';
 import {
@@ -76,6 +77,37 @@ function viewOf(fx: number, fy: number): { view: View; flip: number } {
   return { view: fy < 0 ? 'up' : 'down', flip: 1 };
 }
 
+/**
+ * The rope of a grappling hook, taut from the hand to the prongs bitten into
+ * the far bank. A dark core under a lit strand, so it reads over water and grass.
+ */
+function drawHookLine(ctx: CanvasRenderingContext2D, x: number, y: number, tx: number, ty: number): void {
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(tx, ty);
+  ctx.strokeStyle = '#3b2a18';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.strokeStyle = '#d7b27a';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // The prongs, splayed where they caught.
+  ctx.beginPath();
+  ctx.moveTo(tx - 5, ty - 4);
+  ctx.quadraticCurveTo(tx, ty + 3, tx + 5, ty - 4);
+  ctx.moveTo(tx, ty + 1);
+  ctx.lineTo(tx, ty - 6);
+  ctx.strokeStyle = '#1c2230';
+  ctx.lineWidth = 3.5;
+  ctx.stroke();
+  ctx.strokeStyle = '#b8c3cf';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+}
+
 /** How high a vault carries the body at the top of its arc, in world units. */
 const VAULT_HEIGHT = 20;
 
@@ -90,8 +122,10 @@ export function drawPlayer(
   const ground = y + 7;
   // A leap rides a parabola over the shadow, which stays on the ground and
   // shrinks as the body rises, so the height reads in a top-down view.
-  const leap = player.vault ? Math.min(1, player.vault.t / VAULT.duration) : -1;
-  const lift = leap >= 0 ? 4 * VAULT_HEIGHT * leap * (1 - leap) : 0;
+  const vault = player.vault;
+  const leap = vault ? Math.min(1, vault.t / vaultDuration(vault.from, vault.to)) : -1;
+  // A hook's pull is flatter than a leap: the rope carries the body, it does not jump.
+  const lift = leap >= 0 ? 4 * VAULT_HEIGHT * (vault?.hook ? 0.6 : 1) * leap * (1 - leap) : 0;
   const feet = ground - lift;
   const outfit = isSelf ? SELF : OTHER;
 
@@ -112,6 +146,7 @@ export function drawPlayer(
   softShadow(ctx, x, ground, 10.5 * (1 - lift / (VAULT_HEIGHT * 2.2)), 0.38 * (1 - lift / (VAULT_HEIGHT * 1.8)));
 
   if (dashing && leap < 0) drawDashTrail(ctx, x, feet, player.vel.x, player.vel.y, outfit);
+  if (vault?.hook) drawHookLine(ctx, x, feet - 10, vault.to.x, vault.to.y + 7);
 
   ctx.save();
   if (player.invuln > 0 && !dashing && Math.floor(time * 14) % 2 === 0) ctx.globalAlpha *= 0.55;
@@ -143,7 +178,7 @@ export function drawPlayer(
     ctx.restore();
   }
 
-  if (pixelSprites() && dashing) {
+  if (pixelSprites() && dashing && !vault?.hook) {
     // The dash is a forward roll, four quarter turns over its length; a leap
     // is the same tuck turned once in the air.
     const through = leap >= 0 ? leap : 1 - player.dashTime / DASH.duration;

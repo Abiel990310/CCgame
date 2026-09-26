@@ -131,7 +131,9 @@ created, and is saved with it.
   A dash that runs into a machine, a wall or a shallow stream leaps it
   instead, landing on the far side if there is ground within about four
   tiles, so a factory never walls its builder in. Deep water is never
-  leapt, so the coast still bounds the island.
+  leapt bare-handed, so the coast still bounds the island; a grappling
+  hook from the workbench pulls its owner up to ten tiles across any
+  water, so straits and lakes open up in the iron age.
 - Spells, learned in the level-up draft and pressed with Q: a fireball that
   bursts, a frost nova that throws creatures back and slows them, and a
   mend. One is readied at a time; each has its own cooldown.

@@ -1009,7 +1009,10 @@ detail behind the factory entries is in
       somersault, with a shrinking shadow and a landing thud. Wall-jumps
       and air dashes are side-view verbs with nothing to push off in a
       top-down island; a grapple to cross wide water is the next candidate.*
-- [ ] A grapple or rope to cross water wider than a leap, as a crafted tool.
+- [x] A grapple or rope to cross water wider than a leap, as a crafted tool.
+      *(2026-09-26: the Grappling Hook, made at the workbench from iron,
+      fibre and wood. Carried, a dash at water too wide to leap throws it
+      and the rope pulls you up to ten tiles across, over deep water too.)*
 - [ ] 8. **Story framing.** Illustrated story cards and portraits; ours has
       none.
       *2026-09-26: a new island opens on three illustrated pixel story cards,
