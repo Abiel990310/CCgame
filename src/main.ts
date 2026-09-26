@@ -7,6 +7,8 @@ import { JoinScreen } from './ui/coop';
 import { cleanCode } from './net/protocol';
 import { account } from './account';
 import { AccountFlow } from './account/flow';
+// Last, so the frame's brass and book face win over each screen's own defaults.
+import './ui/frame.css';
 
 const canvas = document.getElementById('stage');
 if (!(canvas instanceof HTMLCanvasElement)) {

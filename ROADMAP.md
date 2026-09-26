@@ -896,9 +896,17 @@ detail behind the factory entries is in
       look soft; a small bitmap digit font would keep them crisp.
 - [ ] Needs testing: the pixel look on a real phone and a 4K screen, and
       whether the default pixel scale shows enough of the factory.
-- [ ] 4. **Menus look like a game.** Framed pixel panels, a serif face,
+- [x] 4. **Menus look like a game.** Framed pixel panels, a serif face,
       tabbed Status / Equipment / Inventory / Charms / Map; ours are web
       cards in a system font.
+      *2026-09-26: every sheet has a brass frame with filigree corners, titles
+      and captions are in a book serif (system fonts, nothing fetched), and
+      tabs are ledger tabs with a brass underline (`src/ui/frame.css`). The
+      one tabbed character sheet is still to do, with gap 5.*
+- [ ] One tabbed character sheet (Bag / Build / Map / Research) in place of
+      separate screens on Tab, M and the lab.
+- [ ] Small icons (bag slots, build bar) are still smooth vector art beside
+      the pixel scene; drawing them on a pixel grid would finish gap 3.
 - [ ] 5. **Character screen and gear.** Weapons, charms and spells to equip
       and swap; our bag holds materials and the build is a row of chips.
 - [ ] 6. **Bosses as events.** Intro cutscene, name card, phase change; our
@@ -1066,6 +1074,7 @@ detail behind the factory entries is in
       saying why you are here.
 - [ ] A display face for titles and headings, bundled from the same site.
       Needs Abiel's OK: it would be the page's first fetched asset.
+      *Until then titles use the system's book serif (Palatino, Iowan, Georgia).*
 - [ ] A boss entrance: name card and a beat of camera for the Stone Warden.
 - [ ] Grade by biome: colder in snow, warmer on sand, greener in the marsh.
 - [ ] Parallax sea and sky beyond the coast, so the island's edge has depth.
