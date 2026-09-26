@@ -22,9 +22,6 @@ const OVERHANG = 1;
 /** Colour field samples per tile edge. Four keeps biome edges organic, not stepped. */
 const FIELD_RES = 4;
 
-/** How much the field is enlarged once, up front, before it is ever drawn. */
-const FIELD_UPSCALE = 4;
-
 /**
  * Ground colours, and how far each wanders. `alt` is the colour a biome drifts
  * toward in patches (dry grass, damp sand, lichen on stone), so a meadow is
@@ -41,6 +38,9 @@ const GROUND: Record<Terrain, { base: [number, number, number]; alt: [number, nu
 
 /** How far out each band of the sea reaches from the shore, in world units. */
 const SEA_REACH = [9, 24, 46, 78];
+/** The eight directions the sea looks along for land, worked out once. */
+const RING_COS = Array.from({ length: 8 }, (_, k) => Math.cos((k / 8) * Math.PI * 2));
+const RING_SIN = Array.from({ length: 8 }, (_, k) => Math.sin((k / 8) * Math.PI * 2));
 
 /** Surf, shallows, open water, deeper water, and the deep beyond every band. */
 const SEA: [number, number, number][] = [
@@ -135,8 +135,7 @@ export class GroundMesh {
       for (let band = 0; band < SEA_REACH.length; band++) {
         const r = SEA_REACH[band];
         for (let k = 0; k < 8; k++) {
-          const a = (k / 8) * Math.PI * 2;
-          const found = kindAt(x + Math.cos(a) * r, y + Math.sin(a) * r);
+          const found = kindAt(x + RING_COS[k] * r, y + RING_SIN[k] * r);
           if (isWet(found) === wet) return band;
         }
         if (wet) return SEA_REACH.length;
@@ -188,29 +187,27 @@ export class GroundMesh {
     }
     c.putImageData(image, 0, 0);
 
-    // Smooth it up once, carefully, so every repaint can stretch it cheaply.
-    // A high-quality resample of the small field on each repaint tripled the
-    // cost of painting the ground; this is one resample per island.
-    const big = document.createElement('canvas');
-    big.width = size * FIELD_UPSCALE;
-    big.height = size * FIELD_UPSCALE;
-    const b = big.getContext('2d');
-    if (!b) return null;
-    b.imageSmoothingEnabled = true;
-    b.imageSmoothingQuality = 'high';
     // A blur about one sample wide melts the stair-steps a sample grid leaves
-    // along every biome edge. Where canvas filters are unsupported it is
-    // simply skipped, and the edges are a little crisper.
-    b.filter = `blur(${FIELD_UPSCALE * 0.75}px)`;
+    // along every biome edge, and lets every repaint stretch the field with
+    // plain bilinear smoothing. Blurring at this size rather than after
+    // enlarging it costs a seventh as much, which was most of the hitch as an
+    // island first appears. Where canvas filters are unsupported it is simply
+    // skipped, and the edges are a little crisper.
+    const soft = document.createElement('canvas');
+    soft.width = size;
+    soft.height = size;
+    const b = soft.getContext('2d');
+    if (!b) return null;
     // Blurring pulls in transparent black at the border; pad it with the sea.
     b.fillStyle = 'rgb(22, 64, 96)';
-    b.fillRect(0, 0, big.width, big.height);
-    b.drawImage(canvas, 0, 0, big.width, big.height);
+    b.fillRect(0, 0, size, size);
+    b.filter = 'blur(1px)';
+    b.drawImage(canvas, 0, 0);
     b.filter = 'none';
 
-    this.field = big;
+    this.field = soft;
     this.fieldOf = terrain;
-    return big;
+    return soft;
   }
 
   /**

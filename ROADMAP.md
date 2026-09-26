@@ -638,6 +638,14 @@ detail behind the factory entries is in
       between. An 80-creature night raid on Pixi, pixels taken out, went from
       21 to 4 ms a frame (8 to 33 fps headless). Still live: the wisp's tail,
       aura and motes, the warden, health bars and spit.
+- [x] An island's first frame froze while its ground was prepared: the
+      colour field was enlarged to 4096² (64 MB) and blurred there, about a
+      second headless, and its sea shading called cos and sin 32 times a
+      sample. The blur now runs on the small field and bilinear does the
+      rest (940 to 19 ms), the sea's eight directions are worked out once
+      (800 to 460 ms), and the big copy is gone. The ground looks the same,
+      with slightly softer beach edges. Headless on GPU the menu came up in 4
+      to 6 s instead of 12, its longest freeze 2 s instead of 8.
 - [x] Crawlers and slimes are baked like the brute: crawlers per heading (16)
       and stride phase (12), slimes per hop phase (12) and the way they look
       (8), both per hit flash. 76 of them around the camp went from 41 to 78
