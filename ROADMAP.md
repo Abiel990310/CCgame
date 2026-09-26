@@ -879,8 +879,8 @@ detail behind the factory entries is in
       player is now a pixel sprite (8-step walk in 3 views, 16-step chop,
       dash, hit flash) generated in `src/render/pixelplayer.ts`. Every
       creature followed (`src/render/pixelmobs.ts`), each with a rear-back
-      and a bite frame, and a death where it falls. A run cycle with more
-      frames is still to do.*
+      and a bite frame, and a death where it falls. The player's walk
+      became a 12-frame run with bending knees and pumping arms.*
 - [ ] 2. **The player does not fight.** His combat is pressed buttons (light,
       heavy, roll, parry, spells); ours auto-fires. "Action" is mostly this.
       *2026-09-26: a pressed three-hit melee combo with knockback, slash
