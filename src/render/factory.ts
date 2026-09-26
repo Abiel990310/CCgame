@@ -30,6 +30,7 @@ import {
   drawPixelTurretBase,
 } from './pixelmachines';
 import { pixelSprites } from './pixelmobs';
+import { drawPixelBelt, drawPixelPole, drawPixelTunnel } from './pixelworks';
 import { meter, shadow } from './shapes';
 
 /**
@@ -43,6 +44,10 @@ export function drawBelt(ctx: CanvasRenderingContext2D, belt: Belt, time: number
   // was half of a busy factory's frame. The treads only ever sit at one of a
   // few phases of their spacing, so each facing and phase is baked once.
   const phase = Math.floor((((time * BELT_SPEED * TILE) % BELT_SPACING) / BELT_SPACING) * BELT_PHASES);
+  if (pixelSprites()) {
+    drawPixelBelt(ctx, x, y, belt.dir, (time * BELT_SPEED * TILE) % BELT_SPACING);
+    return;
+  }
   const r = TILE * 0.5 + 1;
   blitCached(ctx, `belt:${belt.dir}:${phase}`, x, y, { left: r, right: r, top: r, bottom: r }, (c) =>
     drawBeltAt(c, 0, 0, belt.dir, (phase / BELT_PHASES) * (BELT_SPACING / (BELT_SPEED * TILE)), 0.5),
@@ -61,6 +66,10 @@ export function drawBeltAt(
   time: number,
   bleed = 0,
 ): void {
+  if (pixelSprites()) {
+    drawPixelBelt(ctx, x, y, dir, (time * BELT_SPEED * TILE) % BELT_SPACING);
+    return;
+  }
   const h = TILE / 2;
   // How far bed and rails reach past the tile, so baked neighbours, each
   // snapped to its own whole pixel, overlap instead of leaving a hairline.
@@ -216,7 +225,8 @@ function drawTunnel(
 ): void {
   const phase = Math.floor((((time * BELT_SPEED * TILE) % BELT_SPACING) / BELT_SPACING) * BELT_PHASES);
   const t = (phase / BELT_PHASES) * (BELT_SPACING / (BELT_SPEED * TILE));
-  if (cached) {
+  if (pixelSprites()) drawPixelTunnel(ctx, x, y, def, machine.dir, (time * BELT_SPEED * TILE) % BELT_SPACING);
+  else if (cached) {
     const r = TILE * 0.5 + 3;
     blitCached(ctx, `tunnel:${def.id}:${machine.dir}:${phase}`, x, y, { left: r, right: r, top: r, bottom: r }, (c) =>
       paintTunnel(c, def, machine.dir, t),
@@ -235,6 +245,11 @@ function drawTunnel(
   const lx = x + Math.cos(angle) * TILE * 0.22;
   const ly = y + Math.sin(angle) * TILE * 0.22;
   ctx.globalAlpha = 0.55 + Math.sin(time * 6) * 0.35;
+  if (pixelSprites()) {
+    drawPixelLamp(ctx, lx, ly, UI.danger);
+    ctx.globalAlpha = 1;
+    return;
+  }
   blitCached(ctx, 'lamp:tunnel', lx, ly, around(6.5), (c) => {
     c.fillStyle = rgba(UI.danger, 0.25);
     c.beginPath();
@@ -356,6 +371,10 @@ function drawPole(ctx: CanvasRenderingContext2D, def: MachineDef, x: number, y: 
   const foot = y + TILE * 0.3;
   const top = y - POLE_TOP;
   shadow(ctx, x + 3, foot + 1, TILE * 0.2, 0.28);
+  if (pixelSprites()) {
+    drawPixelPole(ctx, x, y, def);
+    return;
+  }
 
   // A stone footing, then the post.
   ctx.fillStyle = '#6d6a64';

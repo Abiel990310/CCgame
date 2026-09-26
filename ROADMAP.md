@@ -972,9 +972,17 @@ detail behind the factory entries is in
       tier mark, and the moving parts (drill, gears, arm, fire, lamp, lab
       dome, turret head, inserter arms, splitter and merger arrows), on whole
       pixels with the creatures' outline and light (`src/render/pixelmachines.ts`).
-- [ ] Belts, power poles, the steam engine's steam and the beacon are still
-      drawn smooth; the steam engine and fish trap have pixel bodies but were
-      not checked on a real shore.
+- [x] Belts, underground belts, power poles and the Skyward Beacon as pixel
+      sprites (2026-09-26): rails with a joint at every tile, treads that
+      scroll a whole pixel at a time, outlined tunnel hoods, timber poles with
+      glass insulators, and the beacon's plinth, lattice and scaffold
+      (`src/render/pixelworks.ts`). Its light and beam stay soft on purpose.
+- [ ] Items riding belts (and dropped on the ground) are still smooth vector
+      sprites, the last soft thing on a pixel belt.
+- [ ] Power wires are a smooth 1px curve; a stepped pixel sag would match the
+      poles, if it can be baked cheaply for a base with hundreds of wires.
+- [ ] The steam engine's steam is still drawn smooth; the steam engine and
+      fish trap have pixel bodies but were not checked on a real shore.
 - [x] Floating damage numbers and name tags are drawn at the pixel grid and
       look soft; a small bitmap digit font would keep them crisp.
       *(2026-09-26: damage, loot and combat words use a 5×5 outlined pixel

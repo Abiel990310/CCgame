@@ -4,6 +4,8 @@ import { tileCenter } from '@shared/sim/grid';
 import { TILE } from '@shared/sim/constants';
 import type { Machine } from '@shared/sim/types';
 import { rgba, shift } from './palette';
+import { pixelSprites } from './pixelmobs';
+import { beaconTop, drawPixelBeacon, drawPixelBeaconLamp } from './pixelworks';
 
 /**
  * The Skyward Beacon grows as it is built: a plinth, then a lattice spire a
@@ -22,6 +24,11 @@ export function drawBeacon(ctx: CanvasRenderingContext2D, machine: Machine, time
   ctx.beginPath();
   ctx.ellipse(x + 3, foot + 2, TILE * 0.5, TILE * 0.18, 0, 0, Math.PI * 2);
   ctx.fill();
+  if (pixelSprites()) {
+    drawPixelBeacon(ctx, x, y, def, Math.min(stage, BEACON_STAGES.length), lit);
+    if (lit) drawLamp(ctx, machine, def.accent, time, x, y + beaconTop(stage) - 6, true);
+    return;
+  }
   for (const [w, h, dy] of [
     [0.9, 0.22, 0],
     [0.7, 0.18, -0.2],
@@ -82,24 +89,41 @@ export function drawBeacon(ctx: CanvasRenderingContext2D, machine: Machine, time
   }
 
   // The lamp housing and its light.
-  const lampY = top - 6;
   ctx.fillStyle = shift(def.color, -40);
   ctx.fillRect(x - 6, top - 2, 12, 3);
+  drawLamp(ctx, machine, def.accent, time, x, top - 6, false);
+}
+
+/** The lamp's light: an ember while banked, a glow and a sweeping beam while it burns. */
+function drawLamp(
+  ctx: CanvasRenderingContext2D,
+  machine: Machine,
+  accent: string,
+  time: number,
+  x: number,
+  lampY: number,
+  pixel: boolean,
+): void {
   // Banked: lit once, out of fuel. An ember in the lamp, no beam.
   if (machine.progress <= 0) {
-    ctx.fillStyle = rgba(def.accent, 0.55 + Math.sin(time * 1.2) * 0.1);
-    ctx.beginPath();
-    ctx.arc(x, lampY, 3, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.globalAlpha = 0.55 + Math.sin(time * 1.2) * 0.1;
+    ctx.fillStyle = accent;
+    if (pixel) drawPixelBeaconLamp(ctx, x, lampY, accent);
+    else {
+      ctx.beginPath();
+      ctx.arc(x, lampY, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
     return;
   }
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   const pulse = 0.85 + Math.sin(time * 2) * 0.15;
   const glow = ctx.createRadialGradient(x, lampY, 0, x, lampY, TILE * 2.2);
-  glow.addColorStop(0, rgba(def.accent, 0.75 * pulse));
-  glow.addColorStop(0.3, rgba(def.accent, 0.25 * pulse));
-  glow.addColorStop(1, rgba(def.accent, 0));
+  glow.addColorStop(0, rgba(accent, 0.75 * pulse));
+  glow.addColorStop(0.3, rgba(accent, 0.25 * pulse));
+  glow.addColorStop(1, rgba(accent, 0));
   ctx.fillStyle = glow;
   ctx.fillRect(x - TILE * 2.2, lampY - TILE * 2.2, TILE * 4.4, TILE * 4.4);
 
@@ -108,8 +132,8 @@ export function drawBeacon(ctx: CanvasRenderingContext2D, machine: Machine, time
   const reach = TILE * 7;
   const spread = 0.16;
   const beam = ctx.createLinearGradient(x, lampY, x + Math.cos(a) * reach, lampY + Math.sin(a) * reach * 0.5);
-  beam.addColorStop(0, rgba(def.accent, 0.4));
-  beam.addColorStop(1, rgba(def.accent, 0));
+  beam.addColorStop(0, rgba(accent, 0.4));
+  beam.addColorStop(1, rgba(accent, 0));
   ctx.fillStyle = beam;
   ctx.beginPath();
   ctx.moveTo(x, lampY);
@@ -119,6 +143,10 @@ export function drawBeacon(ctx: CanvasRenderingContext2D, machine: Machine, time
   ctx.fill();
   ctx.restore();
 
+  if (pixel) {
+    drawPixelBeaconLamp(ctx, x, lampY, '#fff6d8');
+    return;
+  }
   ctx.fillStyle = '#fff6d8';
   ctx.beginPath();
   ctx.arc(x, lampY, 4.2, 0, Math.PI * 2);
