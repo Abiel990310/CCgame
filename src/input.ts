@@ -89,7 +89,7 @@ export class InputManager {
       // Typing a save name is not a move order.
       if (e.target instanceof HTMLInputElement) return;
       // Let the browser keep its own shortcuts; only claim game keys.
-      const claimed = ['Space', 'KeyE', 'KeyB', 'KeyR', 'KeyX', 'KeyM', 'KeyL', 'KeyU', 'Tab', 'Escape'];
+      const claimed = ['Space', 'KeyE', 'KeyF', 'KeyB', 'KeyR', 'KeyX', 'KeyM', 'KeyL', 'KeyU', 'Tab', 'Escape'];
       if (e.code in MOVE_KEYS || claimed.includes(e.code)) e.preventDefault();
 
       // A number picks a quick slot; with shift it binds the selected piece to
@@ -324,6 +324,7 @@ export class InputManager {
       move: { x, y },
       dash,
       interact: this.keys.has('KeyE') || this.pointerDown || this.touchInteract,
+      attack: this.keys.has('KeyF'),
     };
   }
 }

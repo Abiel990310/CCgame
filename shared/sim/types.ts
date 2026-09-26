@@ -248,6 +248,14 @@ export interface Player {
   gatherNodeId: number | null;
   gatherProgress: number;
   hitFlash: number;
+  /** Seconds left of the swing in progress; absent or 0 when not swinging. */
+  strike?: number;
+  /** Seconds until the next swing can start. */
+  strikeCd?: number;
+  /** Which hit of the combo the last swing was, 0..2. */
+  combo?: number;
+  /** Seconds left to chain the next hit of the combo. */
+  comboLeft?: number;
 }
 
 export interface PlayerStats {
@@ -270,6 +278,8 @@ export interface PlayerInput {
   dash: boolean;
   /** Held to harvest the nearest resource node. */
   interact: boolean;
+  /** Held to swing at whatever is in front. Absent from older clients, which never attack. */
+  attack?: boolean;
 }
 
 /** Grid-aligned facing. Belts flow this way; machines output this way. */
@@ -473,6 +483,8 @@ export type SimEvent =
   | { kind: 'gathered'; pos: Vec2; item: ItemId }
   | { kind: 'phase'; phase: Phase; nightIndex: number }
   | { kind: 'playerHit'; playerId: number; amount: number }
+  /** A melee swing starting, toward `dir`; `hits` is how many creatures it caught. */
+  | { kind: 'strike'; playerId: number; pos: Vec2; dir: Vec2; combo: number; hits: number }
   | { kind: 'downed'; playerId: number }
   | { kind: 'built'; pos: Vec2; type: BuildingId }
   | { kind: 'crafted'; pos: Vec2; item: ItemId }
