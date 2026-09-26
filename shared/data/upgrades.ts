@@ -131,6 +131,11 @@ const PERKS: UpgradeDef[] = [
       p.hp = Math.min(p.hp, p.maxHp);
     },
   }),
+  // The blade.
+  perkUpgrade('longBlade', 'Long Blade', 'attack', 'Your swing and slam reach 15% further.', 3),
+  perkUpgrade('quickBlade', 'Quick Blade', 'attack', 'Swings recover 12% faster.', 3),
+  perkUpgrade('stagger', 'Staggering Blows', 'attack', 'The third hit of a combo leaves what it hits unable to bite for a moment.', 1, { weight: 0.6 }),
+  perkUpgrade('thirst', 'Thirsting Blade', 'survival', 'Heal 1 for every creature a swing or slam lands on.', 3),
   // Staying alive.
   perkUpgrade('padded', 'Padded Coat', 'survival', 'Take 1 less damage from every hit.', 5),
   perkUpgrade('bramble', 'Bramble Coat', 'survival', 'Whatever bites you takes 8 damage back.', 4),

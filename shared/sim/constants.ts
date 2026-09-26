@@ -103,6 +103,8 @@ export const MELEE = {
   daze: 1.6,
   parryKnock: 420,
   parryDamage: 12,
+  /** How long a finisher leaves what it hits unable to bite, with Staggering Blows. */
+  stagger: 1.2,
   /**
    * Seconds after dodging a blow in which the next swing is a counter: it
    * lands as hard as the third hit of the combo, whatever hit it is.

@@ -910,8 +910,9 @@ detail behind the factory entries is in
 - [ ] Parry is hard to land on small creatures because the swing's own
       knockback throws them out of reach first; it is mostly a boss and
       spit tool until creatures telegraph.
-- [ ] Melee in the level-up upgrades: reach, combo speed, a finisher that
-      stuns, lifesteal on the blade.
+- [x] Melee in the level-up upgrades: reach, combo speed, a finisher that
+      stuns, lifesteal on the blade. *(2026-09-26: Long Blade, Quick Blade,
+      Staggering Blows, Thirsting Blade.)*
 - [x] A dodge counter could have its own heavier slash and sound, rather
       than reusing the third combo hit's. *(2026-09-26: a wider gold arc,
       sparks, "Counter", a bell-like ring and a longer hold.)*
