@@ -65,11 +65,27 @@ export function stepLandmarkGuards(world: World): void {
   }
 }
 
+/**
+ * Marks a mob as covered when a living shield bearer other than itself stands
+ * close enough, keeping the strongest cover if two overlap. Deleted rather than
+ * left undefined when nothing covers it, so a snapshot never carries the key.
+ */
+function shelter(mob: Mob, bearers: Mob[]): void {
+  let take = 1;
+  for (const b of bearers) {
+    const s = MOBS[b.type].shields!;
+    if (b !== mob && s.take < take && distance(b.pos, mob.pos) < s.radius) take = s.take;
+  }
+  if (take < 1) mob.shield = take;
+  else if (mob.shield !== undefined) delete mob.shield;
+}
+
 /** How much frost holds a mob back, as a share of its speed. */
 const CHILLED = 0.45;
 
 export function stepMobs(world: World, dt: number): void {
   const wards = world.mobs.length > 0 ? beaconWards(world) : [];
+  const bearers = world.mobs.filter((m) => m.hp > 0 && MOBS[m.type].shields);
   for (let i = world.mobs.length - 1; i >= 0; i--) {
     const mob = world.mobs[i];
     if (mob.hp <= 0) {
@@ -78,6 +94,7 @@ export function stepMobs(world: World, dt: number): void {
     }
 
     const def = MOBS[mob.type];
+    shelter(mob, bearers);
     mob.attackCd = Math.max(0, mob.attackCd - dt);
     mob.hitFlash = Math.max(0, mob.hitFlash - dt);
 

@@ -29,6 +29,11 @@ export interface MobDef {
   bossEvery?: number;
   /** Shifts which nights a boss walks in on: those where (night - phase) is a multiple of `bossEvery`. */
   bossPhase?: number;
+  /**
+   * Wards every other creature within `radius`: while it lives they take only
+   * `take` of each hit. The fight is reaching it through what it covers.
+   */
+  shields?: { radius: number; take: number };
   /** Orbs it drops, and the share of them that are essence. Default 1–2 at a quarter. */
   loot?: { orbs: number; essence: number };
 }
@@ -166,6 +171,28 @@ export const MOBS: Record<MobTypeId, MobDef> = {
     bossEvery: 5,
     bossPhase: 3,
     loot: { orbs: 20, essence: 0.6 },
+  },
+  bulwark: {
+    id: 'bulwark',
+    name: 'Crystal Bulwark',
+    // The third boss, for the late twenties on: a slow shelled walker with a
+    // crystal on its back that wards the raid around it. It bites hard but
+    // barely hunts; what makes it a boss is that everything near it shrugs
+    // off two hits in three, so a night with one in it is won by getting to it.
+    hp: 900,
+    speed: 24,
+    damage: 22,
+    radius: 30,
+    xp: 160,
+    cost: 0,
+    minNight: 26,
+    color: '#56707e',
+    accent: '#8fe6ff',
+    armor: 4,
+    shields: { radius: 210, take: 0.35 },
+    bossEvery: 5,
+    bossPhase: 1,
+    loot: { orbs: 24, essence: 0.65 },
   },
 };
 

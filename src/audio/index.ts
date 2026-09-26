@@ -330,6 +330,7 @@ const MOB_DEATH = {
   mother: 'diedMother',
   warden: 'diedWarden',
   queen: 'diedQueen',
+  bulwark: 'diedBulwark',
 } as const satisfies Record<MobTypeId, SoundId>;
 
 /**
