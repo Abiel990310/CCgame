@@ -857,6 +857,14 @@ detail behind the factory entries is in
       per variant, keyed by name then scale, and indexed: a camp scene went
       from 68 to 19 KB of garbage a frame, and a night with 20 creatures from
       112 to 50 KB (the rest is spread thin across creature painters).
+- [x] A new island's first autosave grew the whole island again from its
+      seed, just to learn which trees had been cut: a one-off hitch a few
+      seconds into a player's first island, about 45 ms on a desktop and 190
+      ms on a phone (emulated, 4x slower CPU). A new island now hands its own
+      untouched scenery to the save, as a loaded one already did.
+      Re-profiled after the pixel creatures, death animations and 12-frame
+      run, on desktop and emulated phone: camp, running, a 40-creature night
+      and 40 deaths all within noise of the morning's build.
 - [ ] On the GPU renderer, the first seconds after a big factory comes into
       view were ~100 ms frames headless, nearly all in vertex buffer uploads
       (`bufferSubData`) inside software WebGL; steady state is ~5 ms. Needs a
