@@ -68,7 +68,7 @@ import { audio } from './audio';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview, type RemovalPreview } from './render/renderer';
 import { Interpolator } from './render/interpolate';
-import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from './save';
+import { forgetSlot, loadWorld, rememberNewIsland, saveWorld, type LoadNotes } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { SlotLock, type EvictReason } from './tablock';
 import type { CloudSession } from './account/sync';
@@ -317,6 +317,7 @@ export class Game {
       );
     } else {
       this.world = createWorld(Date.now() & 0xffff, peaceful);
+      rememberNewIsland(this.world);
       this.selfId = addPlayer(this.world, 'You').id;
     }
 
