@@ -578,6 +578,10 @@ detail behind the factory entries is in
       seconds, sim and draw time, and what is on the island; on GPU also how
       many sprites and shapes were drawn.
 
+- [x] Eating: H or the Eat button (shown only with food in the bag) eats the
+      food that best fits the wound. Berries +5, fish +12, Grilled Fish +35
+      (a furnace recipe, fish in), so fish finally has a use (2026-09-26).
+
 ### Changes
 
 - [x] **Nights keep getting harder.** A scripted player showed nights 6 to 9
@@ -1005,6 +1009,10 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Cook at the campfire by hand, so grilled fish does not wait for a
+      furnace, and more meals (berry pie, stew) that heal over time or buff.
+- [ ] Eating is instant; a short eat time or cooldown would stop a stack of
+      grilled fish trivialising a boss fight if it turns out to.
 - [ ] Underground belts carry items across instantly; a transit delay equal to
       the belt time over the gap would feel truer on long lines.
 - [ ] A way to place an underground exit on purpose (a key to flip in/out),
@@ -1206,6 +1214,8 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Food balance: whether +12 fish and +35 grilled fish, eaten instantly,
+      make night raids and the Stone Warden too easy with a fish trap running.
 - [ ] Underground belts by touch: the pairing preview was driven with a mouse
       only, and a finger has no hover to show the exit's dashed link first.
 

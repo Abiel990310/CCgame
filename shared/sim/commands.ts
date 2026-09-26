@@ -19,6 +19,7 @@ import {
   type SlotRef,
 } from './containers';
 import { craft } from './crafting';
+import { eat } from './food';
 import {
   pasteSettings,
   placeBelt,
@@ -65,6 +66,8 @@ export type Command =
   | { k: 'stow' }
   | { k: 'upgrade'; id: string }
   | { k: 'craft'; id: string }
+  /** Eats one food from the bag, whichever suits the damage taken. */
+  | { k: 'eat' }
   /** Readies a learned spell for Q. */
   | { k: 'spell'; id: SpellId }
   /** Host only: a player arrives, whole, carrying whatever they had last time. */
@@ -158,6 +161,8 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
       return typeof c.id === 'string' && chooseUpgrade(world, player, c.id);
     case 'craft':
       return typeof c.id === 'string' && CRAFT_BY_ID.has(c.id) && craft(world, player, c.id);
+    case 'eat':
+      return eat(world, player);
     case 'spell':
       return typeof c.id === 'string' && c.id in SPELLS && readySpell(player, c.id);
     default:

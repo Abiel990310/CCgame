@@ -293,6 +293,9 @@ export class GameAudio {
         case 'crafted':
           this.play('crafted');
           break;
+        case 'ate':
+          this.play('eat', { pos: event.pos });
+          break;
         case 'removed':
           this.play('removed', { pos: event.pos });
           break;

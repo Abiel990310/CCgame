@@ -5,6 +5,7 @@ import { perk } from '@shared/sim/perks';
 import { CYCLE } from '@shared/sim/constants';
 import { activeTech, cyclesDone, cyclesNeeded, type QueueOp } from '@shared/sim/research';
 import { countItem, hasAll } from '@shared/sim/inventory';
+import { pickFood } from '@shared/sim/food';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
 import type { ItemId, ItemStack, Machine, MachineFamily, Mob, Player, SpellId, World } from '@shared/sim/types';
 import { audio } from '../audio';
@@ -54,6 +55,8 @@ export interface HudCallbacks {
   onCast: () => void;
   onAttack: (down: boolean) => void;
   onSwapSpell: () => void;
+  /** Eat one food from the bag; the H key's button. */
+  onEat: () => void;
   onTogglePause: () => void;
   onQuitToMenu: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
@@ -109,6 +112,9 @@ export class Hud {
     btnBag: $<HTMLButtonElement>('btn-bag'),
     btnDash: $<HTMLButtonElement>('btn-dash'),
     btnSpell: $<HTMLButtonElement>('btn-spell'),
+    btnEat: $<HTMLButtonElement>('btn-eat'),
+    eatArt: $('eat-art'),
+    eatCount: $('eat-count'),
     btnAttack: $<HTMLButtonElement>('btn-attack'),
     spellGlyph: $('spell-glyph'),
     spellName: $('spell-name'),
@@ -185,6 +191,7 @@ export class Hud {
     });
     this.els.btnBag.addEventListener('click', () => this.callbacks.onToggleBag());
     this.els.btnDash.addEventListener('click', () => this.callbacks.onDash());
+    this.els.btnEat.addEventListener('click', () => this.callbacks.onEat());
     this.bindSpellButton();
     const attack = this.els.btnAttack;
     attack.addEventListener('pointerdown', (e) => {
@@ -568,6 +575,7 @@ export class Hud {
     this.updatePouch(player);
     this.updateDash(player);
     this.updateSpell(player);
+    this.updateEat(player);
     this.updateBoss(world, player);
     this.updateOffers(player);
     this.updateHotbar(player);
@@ -752,6 +760,7 @@ export class Hud {
   }
 
   private shownSpell: SpellId | null = null;
+  private shownFood: ItemId | null = null;
 
   private updateSpell(player: Player): void {
     const id = player.spell ?? null;
@@ -773,6 +782,26 @@ export class Hud {
     const fraction = left > 0 ? Math.min(1, left / spellCooldown(id, level)) : 0;
     this.els.spellCd.style.transform = `scaleY(${fraction})`;
     this.els.btnSpell.classList.toggle('ready', fraction === 0);
+  }
+
+  /**
+   * The eat button shows only while there is food in the bag, wearing the
+   * food it would eat next, and dims at full health where it would do nothing.
+   */
+  private updateEat(player: Player): void {
+    const food = pickFood(player);
+    this.els.btnEat.classList.toggle('hidden', food === null);
+    if (!food) return;
+    if (food !== this.shownFood) {
+      this.shownFood = food;
+      this.els.eatArt.style.backgroundImage = itemIconVar(food);
+      this.els.btnEat.title = `Eat ${ITEMS[food].name}: +${ITEMS[food].food} health (H)`;
+    }
+    let count = 0;
+    for (const slot of player.inventory) if (slot && ITEMS[slot.id].food) count += slot.count;
+    const label = count > 99 ? '99+' : String(count);
+    if (this.els.eatCount.textContent !== label) this.els.eatCount.textContent = label;
+    this.els.btnEat.classList.toggle('full', player.hp >= player.maxHp);
   }
 
   private updateDash(player: Player): void {

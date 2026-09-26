@@ -35,6 +35,7 @@ export type ActionKey =
   | 'zoomIn'
   | 'zoomOut'
   | 'swapSpell'
+  | 'eat'
   | `hotbar${HotbarKey}`
   | `bind${HotbarKey}`;
 
@@ -96,7 +97,7 @@ export class InputManager {
       // Typing a save name is not a move order.
       if (e.target instanceof HTMLInputElement) return;
       // Let the browser keep its own shortcuts; only claim game keys.
-      const claimed = ['Space', 'KeyE', 'KeyF', 'KeyQ', 'KeyB', 'KeyR', 'KeyX', 'KeyM', 'KeyL', 'KeyU', 'Tab', 'Escape'];
+      const claimed = ['Space', 'KeyE', 'KeyF', 'KeyQ', 'KeyB', 'KeyR', 'KeyX', 'KeyM', 'KeyL', 'KeyU', 'KeyH', 'Tab', 'Escape'];
       if (e.code in MOVE_KEYS || claimed.includes(e.code)) e.preventDefault();
 
       // A number picks a quick slot; with shift it binds the selected piece to
@@ -125,6 +126,7 @@ export class InputManager {
       if (e.code === 'KeyL') this.pending.push('ledger');
       if (e.code === 'KeyC') this.pending.push('craft');
       if (e.code === 'KeyU') this.pending.push('upgrade');
+      if (e.code === 'KeyH') this.pending.push('eat');
       if (e.code === 'Tab') this.pending.push('inventory');
       if ((e.code === 'Equal' || e.code === 'NumpadAdd') && !e.ctrlKey && !e.metaKey) this.pending.push('zoomIn');
       if ((e.code === 'Minus' || e.code === 'NumpadSubtract') && !e.ctrlKey && !e.metaKey) this.pending.push('zoomOut');
