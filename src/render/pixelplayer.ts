@@ -45,7 +45,7 @@ const H = 50;
 const AX = 24;
 const AY = 46;
 
-export const WALK_FRAMES = 8;
+export const WALK_FRAMES = 12;
 export const SWING_FRAMES = 16;
 
 const SKIN = ramp('#e6bd95');
@@ -174,17 +174,27 @@ function darken(hex: string): string {
   return `#${ch((n >> 16) & 255)}${ch((n >> 8) & 255)}${ch(n & 255)}`;
 }
 
-/** Down on the contact frames, up as the legs pass: the walk's bounce. */
-const WALK_BOB = [1, 0, -1, 0, 1, 0, -1, 0];
+/**
+ * The run, keyed by hand the way a sprite artist times one: for the near leg
+ * on each of the twelve frames, how far the thigh swings forward and how far
+ * the knee folds. The far leg runs the same keys half a cycle behind. Contact
+ * with the leg reaching out, the body dropping onto it, the push, toe-off,
+ * then the heel folding up under the seat as the leg swings through.
+ */
+const RUN_THIGH = [0.55, 0.35, 0.1, -0.2, -0.5, -0.7, -0.55, -0.2, 0.15, 0.45, 0.65, 0.62];
+const RUN_KNEE = [0.15, 0.45, 0.35, 0.2, 0.25, 0.6, 1.3, 1.7, 1.6, 1.2, 0.6, 0.3];
+/** Down as each foot takes the weight, up in the stride between: twice a cycle. */
+const RUN_BOB = [0, 1, 1, 0, -1, -1, 0, 1, 1, 0, -1, -1];
 
 function bobOf(pose: PixelPose): number {
   if (pose.swing >= 12 && pose.swing <= 13) return 1;
-  if (pose.walk >= 0) return WALK_BOB[pose.walk];
+  if (pose.walk >= 0) return RUN_BOB[pose.walk % WALK_FRAMES];
   return pose.idle;
 }
 
+/** The near arm's swing: forward as the far leg reaches, the way arms and legs oppose. */
 function strideOf(pose: PixelPose): number {
-  return pose.walk >= 0 ? Math.sin((pose.walk / WALK_FRAMES) * Math.PI * 2) * 0.62 : 0;
+  return pose.walk >= 0 ? -RUN_THIGH[pose.walk % WALK_FRAMES] * 1.1 : 0;
 }
 
 // ─── Side view, facing right ────────────────────────────────────────────────
@@ -194,12 +204,15 @@ function drawSide(g: Rig, pal: Palette, pose: PixelPose, swingAngle: (t: number)
   const stride = strideOf(pose);
   const hip = -11 + bob;
   const moving = pose.walk >= 0;
+  const frame = moving ? pose.walk % WALK_FRAMES : 0;
+  const far = (frame + WALK_FRAMES / 2) % WALK_FRAMES;
 
-  sideLeg(g, 0, hip, -stride, true);
+  sideLeg(g, 0, hip, moving ? RUN_THIGH[far] : 0, moving ? RUN_KNEE[far] : 0, true);
 
   const shoulder = -19 + bob;
-  const farArm = moving ? -stride * 1.2 : 0.12;
-  g.part((p) => sideArm(p, 0, shoulder, farArm, pal.far, null));
+  // Running arms pump bent at the elbow, opposite the legs.
+  const farArm = moving ? -stride : 0.12;
+  g.part((p) => sideArm(p, 0, shoulder, farArm, pal.far, null, moving ? 1.3 : 0));
 
   // Pack and the bedroll strapped over it.
   g.box(-9, -21 + bob, -5, -11 + bob, PACK, true);
@@ -222,35 +235,63 @@ function drawSide(g: Rig, pal: Palette, pose: PixelPose, swingAngle: (t: number)
   const tail = moving || pose.dash ? 4 : 1;
   g.bone(-4, -21 + bob, -4 - tail, -18 + bob - (moving ? 2 : 0) + flutter, 2, pal.scarf);
 
-  const near =
-    pose.swing >= 0 ? swingAngle((pose.swing + 0.5) / SWING_FRAMES) : moving ? stride * 1.2 : 0.1;
-  const arm = (): void => g.part((p) => sideArm(p, 1, shoulder, near, pal.jacket, pose.swing >= 0 ? pose.tool : null));
+  const working = pose.swing >= 0;
+  const near = working ? swingAngle((pose.swing + 0.5) / SWING_FRAMES) : moving ? stride : 0.1;
+  const arm = (): void =>
+    g.part((p) => sideArm(p, 1, shoulder, near, pal.jacket, working ? pose.tool : null, moving && !working ? 1.3 : 0));
   // Raised over the shoulder the arm passes behind the head, not across the face.
   const raised = near > 2.3;
   if (raised) arm();
   g.part((p) => sideHead(p, pal, bob, pose.blink === true));
   if (!raised) arm();
 
-  g.part((p) => sideLeg(p, 1, hip, stride, false));
+  g.part((p) => sideLeg(p, 1, hip, moving ? RUN_THIGH[frame] : 0, moving ? RUN_KNEE[frame] : 0, false));
 
   if (pose.recoil) g.lean(hip, -0.16);
   else if (pose.dash) g.lean(hip, 0.28);
-  else if (moving) g.lean(hip, 0.06);
+  else if (moving) g.lean(hip, 0.12);
 }
 
-function sideLeg(g: Rig, x: number, hip: number, angle: number, far: boolean): void {
-  const len = 10;
-  // The leg swinging back lifts its heel, which is what makes a stride read.
-  const lift = angle < 0 ? Math.round(-angle * 2.6) : 0;
-  const fx = Math.round(x + Math.sin(angle) * len * 0.8);
-  const fy = Math.min(0, Math.round(hip + Math.cos(angle) * len)) - lift;
-  g.bone(x, hip, fx, fy - 3, 4, far ? TROUSERS_FAR : TROUSERS);
+/**
+ * A leg from the hip: the thigh swung `thigh` forward of straight down, the
+ * shin folded `knee` back from it. The boot stays level on the ground and
+ * tips toe-down when the heel is up.
+ */
+function sideLeg(g: Rig, x: number, hip: number, thigh: number, knee: number, far: boolean): void {
+  const upper = 5.5;
+  const lower = 5.5;
+  const kx = x + Math.sin(thigh) * upper;
+  const ky = hip + Math.cos(thigh) * upper;
+  const shin = thigh - knee;
+  const ax = Math.round(kx + Math.sin(shin) * lower);
+  const ay = Math.min(-2, Math.round(ky + Math.cos(shin) * lower));
+  const cloth = far ? TROUSERS_FAR : TROUSERS;
+  g.bone(x, hip, kx, ky, 4, cloth);
+  g.bone(kx, ky, ax, ay, 3.6, cloth);
   const boots = far ? BOOTS_FAR : BOOTS;
-  g.box(fx - 2, fy - 3, fx + 3, fy - 1, boots, true);
-  g.seam(fx - 2, fy - 1, fx + 3, fy - 1, boots[2]);
+  // A heel lifted well off the ground points the toe down.
+  const tipped = ay < -4 && shin < -0.2;
+  if (tipped) {
+    g.box(ax - 2, ay - 1, ax + 1, ay + 2, boots, true);
+  } else {
+    g.box(ax - 2, ay - 1, ax + 3, ay + 1, boots, true);
+    g.seam(ax - 2, ay + 1, ax + 3, ay + 1, boots[2]);
+  }
 }
 
-function sideArm(g: Rig, sx: number, sy: number, angle: number, cloth: Ramp, tool: PixelTool): void {
+/** An arm from the shoulder, swung `angle` forward, the forearm bent `elbow` further forward. */
+function sideArm(g: Rig, sx: number, sy: number, angle: number, cloth: Ramp, tool: PixelTool, elbow = 0): void {
+  if (elbow > 0) {
+    const ex = sx + Math.sin(angle) * 4.5;
+    const ey = sy + Math.cos(angle) * 4.5;
+    const fore = angle + elbow;
+    const hx = ex + Math.sin(fore) * 4;
+    const hy = ey + Math.cos(fore) * 4;
+    g.bone(sx, sy, ex, ey, 3.4, cloth);
+    g.bone(ex, ey, hx, hy, 3, cloth);
+    g.ball(hx, hy, 1.5, 1.5, SKIN);
+    return;
+  }
   const len = 8;
   const dx = Math.sin(angle);
   const dy = Math.cos(angle);
@@ -323,25 +364,42 @@ function sideHead(g: Rig, pal: Palette, bob: number, blink: boolean): void {
 function drawFrontBack(g: Rig, pal: Palette, pose: PixelPose, back: boolean): void {
   const bob = bobOf(pose);
   const hip = -11 + bob;
-  const cycle = (pose.walk / WALK_FRAMES) * Math.PI * 2;
   const moving = pose.walk >= 0;
+  const frame = moving ? pose.walk % WALK_FRAMES : 0;
+  // The left leg runs the near leg's keys, the right one half a cycle behind.
+  const keyOf = (side: number): number => (side < 0 ? frame : (frame + WALK_FRAMES / 2) % WALK_FRAMES);
 
   for (const side of [-1, 1]) {
-    const lift = moving ? Math.round(Math.max(0, Math.sin(cycle) * side) * 2.6) : 0;
+    const k = keyOf(side);
+    const thigh = moving ? RUN_THIGH[k] : 0;
+    const knee = moving ? RUN_KNEE[k] : 0;
+    // Seen from the front a leg only shortens: the foot rises as the knee
+    // comes up toward the camera, or as the heel folds up behind.
+    const reach = Math.cos(thigh) * 5.5 + Math.cos(thigh - knee) * 5.5;
+    const lift = Math.max(0, Math.round(11 - reach - 1));
     const fx = side * 3;
     const legs = side < 0 ? TROUSERS : TROUSERS_FAR;
+    const tucked = knee > 1.1;
     g.part((p) => {
       p.bone(side * 2.5, hip, fx, -3 - lift, 4, legs);
-      p.box(fx - 2, -3 - lift, fx + 2, -1 - lift, BOOTS, true);
+      if (tucked) p.box(fx - 1, -3 - lift, fx + 1, -2 - lift, BOOTS, true);
+      else p.box(fx - 2, -3 - lift, fx + 2, -1 - lift, BOOTS, true);
     });
   }
 
   const arms = (): void => {
     for (const side of [-1, 1]) {
-      const swing = moving ? Math.round(Math.sin(cycle) * -side * 2) : 0;
+      // Each arm swings with the opposite leg: forward, the fist comes up
+      // and across the body; back, it drops out to the side.
+      const fwd = moving ? RUN_THIGH[keyOf(-side)] / 0.7 : 0;
+      const ex = side * 7;
+      const ey = -16 + bob;
+      const hx = side * (7 - Math.max(0, fwd) * 2.5);
+      const hy = -13 + bob - Math.round(fwd * 2.5);
       g.part((p) => {
-        p.bone(side * 6, -20 + bob, side * 7, -14 + bob + swing, 3.4, side < 0 ? pal.jacket : pal.far);
-        p.ball(side * 7, -13 + bob + swing, 1.5, 1.5, SKIN);
+        p.bone(side * 6, -20 + bob, ex, ey, 3.4, side < 0 ? pal.jacket : pal.far);
+        p.bone(ex, ey, hx, hy, 3, side < 0 ? pal.jacket : pal.far);
+        p.ball(hx, hy + 1, 1.5, 1.5, SKIN);
       });
     }
   };
