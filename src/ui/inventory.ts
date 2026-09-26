@@ -228,7 +228,9 @@ export class InventoryScreen {
     this.open = true;
     this.machine = machine;
     this.painted = '';
-    this.recipeKey = '';
+    // Never a real key, so the panel is rebuilt even for a container with
+    // none: a chest opened after an assembler kept the assembler's recipes.
+    this.recipeKey = '-';
     this.pageKey = '';
     this.pressRef = null;
     this.root.classList.remove('hidden');
@@ -482,7 +484,7 @@ export class InventoryScreen {
       list.map((s) => (s ? `${s.id}x${s.count}` : '-')).join(',');
     const cursor = player.cursor ? `${player.cursor.id}x${player.cursor.count}` : '-';
     const held = machine
-      ? `${slots(machine.input)}|${slots(machine.output)}|${slots(machine.fuel ?? [])}`
+      ? `${slots(machine.input)}|${slots(machine.output)}|${slots(machine.fuel ?? [])}|${machine.recipe ?? ''}`
       : '';
     const sides = machine?.filters?.join(',') ?? '';
     return `${slots(player.inventory)}|${held}|${cursor}|${sides}|${this.filtering}`;
@@ -493,9 +495,15 @@ export class InventoryScreen {
     this.buildGrid('bag', player.inventory.length);
     this.paintGrid('bag', player.inventory);
     if (machine) {
-      this.paintGrid('input', machine.input, hasSlotFilters(machine) ? machine.filters : undefined);
-      this.paintGrid('output', machine.output);
-      if (machine.fuel) this.paintGrid('fuel', machine.fuel);
+      // Empty slots show faintly what the machine is waiting for, so a new
+      // assembler says what to feed it before anything has been put in.
+      const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : undefined;
+      const filters = hasSlotFilters(machine) ? machine.filters : undefined;
+      const wants = (slots: Slot[], items: readonly ItemId[] | undefined): (ItemId | null)[] | undefined =>
+        items ? awaited(slots, items) : undefined;
+      this.paintGrid('input', machine.input, filters, filters ? undefined : wants(machine.input, recipe?.inputs.map((i) => i.id)), 'Takes');
+      this.paintGrid('output', machine.output, undefined, wants(machine.output, recipe?.outputs.map((i) => i.id)), 'Makes');
+      if (machine.fuel) this.paintGrid('fuel', machine.fuel, undefined, wants(machine.fuel, FUEL_ITEMS), 'Burns');
       if (MACHINES[machine.type].family === 'splitter') this.paintSides(machine);
       const stored =
         totalIn(machine.input) + totalIn(machine.output) + totalIn(machine.fuel ?? []);
@@ -508,10 +516,16 @@ export class InventoryScreen {
     this.paintCarried(player);
   }
 
-  private paintGrid(area: SlotArea, slots: Slot[], filters?: (ItemId | null)[]): void {
+  private paintGrid(
+    area: SlotArea,
+    slots: Slot[],
+    filters?: (ItemId | null)[],
+    hints?: (ItemId | null)[],
+    verb = '',
+  ): void {
     const grid = this.grids.find((g) => g.area === area)!;
     for (let i = 0; i < grid.cells.length; i++) {
-      paintSlot(grid.cells[i], slots[i] ?? null, filters?.[i] ?? null);
+      paintSlot(grid.cells[i], slots[i] ?? null, filters?.[i] ?? null, hints?.[i] ?? null, verb);
     }
   }
 
@@ -860,10 +874,16 @@ function refAt(target: EventTarget | null): SlotRef | null {
  * One slot. `filter` is the item a chest slot is kept for: an empty kept slot
  * shows that item faintly, so a chest's layout reads before anything arrives.
  */
-function paintSlot(cell: HTMLElement, slot: Slot, filter: ItemId | null = null): void {
+function paintSlot(
+  cell: HTMLElement,
+  slot: Slot,
+  filter: ItemId | null = null,
+  hint: ItemId | null = null,
+  verb = '',
+): void {
   // Painted every frame the screen is open, so only a change touches the DOM;
   // that also lets a stack that just grew play its bump rather than restart it.
-  const key = `${slot ? `${slot.id}:${slot.count}` : '-'}|${filter ?? ''}`;
+  const key = `${slot ? `${slot.id}:${slot.count}` : '-'}|${filter ?? ''}|${hint ?? ''}`;
   const before = cell.dataset.paint;
   if (before === key) return;
   cell.dataset.paint = key;
@@ -877,14 +897,15 @@ function paintSlot(cell: HTMLElement, slot: Slot, filter: ItemId | null = null):
   }
   cell.classList.toggle('kept', filter !== null);
   cell.classList.toggle('reserved', filter !== null && !slot);
+  cell.classList.toggle('hinted', filter === null && hint !== null && !slot);
   const kept = filter ? ` Kept for ${ITEMS[filter].name}.` : '';
 
   if (!slot) {
     cell.classList.remove('filled');
-    cell.innerHTML = filter
-      ? `<i class="item" style="background-image:${itemIconVar(filter)}"></i>`
-      : '';
+    const ghost = filter ?? hint;
+    cell.innerHTML = ghost ? `<i class="item" style="background-image:${itemIconVar(ghost)}"></i>` : '';
     if (filter) cell.title = kept.trim();
+    else if (hint) cell.title = `${verb} ${ITEMS[hint].name}.`;
     else cell.removeAttribute('title');
     return;
   }
@@ -896,6 +917,21 @@ function paintSlot(cell: HTMLElement, slot: Slot, filter: ItemId | null = null):
   cell.innerHTML =
     `<i class="item" style="background-image:${itemIconVar(slot.id)}"></i>` +
     `<b>${slot.count}</b>`;
+}
+
+/** Anything that burns, in table order: what an empty fuel slot shows. */
+const FUEL_ITEMS = ITEM_ORDER.filter((id) => (FUEL_VALUE[id] ?? 0) > 0);
+
+/**
+ * Which of `items` each empty slot should show as a ghost: the ones no slot
+ * holds yet, laid into the empty slots in order, so a half-fed assembler
+ * shows only what it is still missing.
+ */
+function awaited(slots: Slot[], items: readonly ItemId[]): (ItemId | null)[] {
+  const missing = items.filter((id) => !slots.some((s) => s?.id === id));
+  const out: (ItemId | null)[] = [];
+  for (const s of slots) out.push(s ? null : (missing.shift() ?? null));
+  return out;
 }
 
 function paintSide(cell: HTMLElement, item: ItemId | null): void {
