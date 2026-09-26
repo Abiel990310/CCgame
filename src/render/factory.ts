@@ -462,11 +462,14 @@ function drawTurretHead(ctx: CanvasRenderingContext2D, machine: Machine, time: n
 
 /** Rounds left, as a bar along the front, so a turret running dry is seen before it goes quiet. */
 function drawAmmo(ctx: CanvasRenderingContext2D, machine: Machine, def: MachineDef, x: number, y: number): void {
-  const rounds = machine.input.reduce((n, s) => n + (s?.count ?? 0), 0);
+  // The bar is the round being fired, so a line switched to steel shows it.
+  const steel = machine.input.some((s) => s?.id === 'steelRounds');
+  const rounds = machine.input.reduce((n, s) => n + (s && (!steel || s.id === 'steelRounds') ? s.count : 0), 0);
   const f = Math.round(Math.min(rounds / def.slotSize, 1) * METER_STEPS);
   const half = TILE * 0.36;
-  blitCached(ctx, `ammo:${f}`, x, y + TILE * 0.47, { left: half, right: half, top: 0, bottom: 3 }, (c) =>
-    meter(c, 0, 0, TILE * 0.72, 3, f / METER_STEPS, '#d8b070'),
+  const colour = steel ? ITEMS.steelRounds.color : ITEMS.rounds.color;
+  blitCached(ctx, `ammo:${colour}:${f}`, x, y + TILE * 0.47, { left: half, right: half, top: 0, bottom: 3 }, (c) =>
+    meter(c, 0, 0, TILE * 0.72, 3, f / METER_STEPS, colour),
   );
 }
 

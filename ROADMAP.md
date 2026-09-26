@@ -534,11 +534,19 @@ detail behind the factory entries is in
       nearest creature within 8 tiles, twice a second, led like a thrown
       weapon and boosted by weapon research. It takes rounds from belts,
       arms or by hand, shows a rounds bar, and its barrel tracks its target.*
-- [ ] Turrets want a sound of their own; they borrow the sling's shot now.
+- [x] Turrets want a sound of their own; they borrow the sling's shot now.
+      *A dry crack over a low thump, and a heavier one for steel.*
 - [ ] Creatures should go for turrets and machines near camp, so a turret
       line needs walls and repairs rather than only ammo.
-- [ ] Turret tiers: a steel turret, and Steel Rounds that pierce, as rows.
-- [ ] A goal in the chain for the first turret fed by a belt.
+- [x] Turret tiers: a steel turret, and Steel Rounds that pierce, as rows.
+      *Steel Rounds (a steel and a copper plate make four) hit for 20 against
+      iron's 9 and pass through the first creature. A turret keeps a slot for
+      each and fires steel first; no second turret was needed.*
+- [ ] A goal in the chain for the first turret fed by a belt. Blocked on the
+      next item: goals are saved as an index, so a row inserted mid-chain
+      would re-pay everyone past it for a goal they already met.
+- [ ] Save a player's goal as the id of the next goal rather than its index,
+      so the chain can grow in the middle without shifting old islands.
 - [x] **Production ledger** — items per minute per item, with a graph and a
       personal best. A Production tab beside the island map (L on desktop):
       ten minutes of island time per item, the busiest first, and the best

@@ -304,15 +304,17 @@ function describeMachine(world: World, machine: Machine): Card {
   if (def.family === 'pole' || def.generates) return describePower(world, machine);
   if (def.family === 'beacon') return describeBeacon(machine);
   if (def.family === 'turret') {
-    const rounds = machine.input.reduce((n, s) => n + (s ? s.count : 0), 0);
+    const iron = countIn(machine.input, 'rounds');
+    const steel = countIn(machine.input, 'steelRounds');
+    const rows: Array<[string, string]> = [];
+    if (steel > 0) rows.push(['Steel Rounds', `${steel}, firing`]);
+    rows.push(['Iron Rounds', steel > 0 ? `${iron}` : `${iron} of ${def.slotSize}`]);
+    rows.push(['Range', `${Math.round(TURRET.range / TILE)} tiles`]);
     return {
       title: def.name,
       icon: pieceIconVar(`machine:${machine.type}`),
-      status: rounds > 0 ? { text: 'Armed', tone: 'good' } : { text: 'Out of rounds', tone: 'bad' },
-      rows: [
-        ['Rounds', `${rounds} of ${def.slotSize}`],
-        ['Range', `${Math.round(TURRET.range / TILE)} tiles`],
-      ],
+      status: iron + steel > 0 ? { text: 'Armed', tone: 'good' } : { text: 'Out of rounds', tone: 'bad' },
+      rows,
       hint: 'Click to open',
     };
   }
