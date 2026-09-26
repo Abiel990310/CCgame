@@ -3312,6 +3312,19 @@ kbd {
   color: #dfe5ff;
 }
 
+.banner.boss {
+  color: #ffe0cc;
+  animation-duration: 5s;
+}
+
+.banner.boss .banner-title {
+  font-size: clamp(34px, 7vw, 66px);
+}
+
+.banner.boss .banner-sub {
+  color: #f2a98a;
+}
+
 .banner.night .banner-sub {
   color: #aebbf0;
 }
