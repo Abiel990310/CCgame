@@ -47,11 +47,15 @@ import { tunnelEnd, tunnelEntranceOf } from '@shared/sim/factory';
 /** How much coarser than the screen, in CSS pixels, the night's lights are gathered. */
 const LIGHT_DOWNSCALE = 4;
 
-/** Anything that needs depth sorting, collected once per frame. */
-interface Drawable {
-  y: number;
-  draw: () => void;
+/** What a depth-sorted entry is, so it can be drawn without a closure. */
+const enum Layer {
+  Machine,
+  Node,
+  Building,
+  Mob,
+  Player,
 }
+type LayerRef = Machine | World['nodes'][number] | World['buildings'][number] | World['mobs'][number] | Player;
 
 /** Where the choice of renderer is remembered; `?renderer=pixi` or `?renderer=canvas` sets it. */
 const RENDERER_KEY = 'ccgame.renderer';
@@ -96,6 +100,16 @@ export class Renderer {
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
   private visibleBelts: Belt[] = [];
   private visibleMachines: Machine[] = [];
+  /**
+   * Everything that needs depth sorting, as parallel arrays kept across
+   * frames. An object and a closure per visible entity per frame was a
+   * steady stream of garbage, and the collector's pauses read as stutter.
+   */
+  private depthY: number[] = [];
+  private depthKind: Layer[] = [];
+  private depthRef: LayerRef[] = [];
+  private depthOrder: number[] = [];
+  private readonly byDepth = (a: number, b: number): number => this.depthY[a] - this.depthY[b] || a - b;
   /**
    * The night layers stacked over the stage, where the browser supports
    * adding one layer onto another; see the constructor. Without them the night
@@ -375,34 +389,61 @@ export class Renderer {
     // Build mode snaps to tiles, so the tiles have to be visible while it is on.
     if (ghost) this.drawBuildGrid(view);
 
-    const layers: Drawable[] = [];
+    const ys = this.depthY;
+    const kinds = this.depthKind;
+    const refs = this.depthRef;
+    let count = 0;
+    const add = (y: number, kind: Layer, ref: LayerRef): void => {
+      ys[count] = y;
+      kinds[count] = kind;
+      refs[count] = ref;
+      count++;
+    };
 
-    for (const machine of this.visibleMachines) {
-      const pos = tileCenter(machine.tx, machine.ty);
-      layers.push({ y: pos.y, draw: () => drawMachine(ctx, machine, time) });
-    }
-
+    for (const machine of this.visibleMachines) add(tileCenter(machine.tx, machine.ty).y, Layer.Machine, machine);
     for (const node of world.nodes) {
-      if (!visible(node.pos, 60)) continue;
-      layers.push({ y: node.pos.y, draw: () => drawNode(ctx, node, time) });
+      if (visible(node.pos, 60)) add(node.pos.y, Layer.Node, node);
     }
     for (const building of world.buildings) {
-      if (!visible(building.pos, 60)) continue;
-      layers.push({ y: building.pos.y, draw: () => drawBuilding(ctx, building, time) });
+      if (visible(building.pos, 60)) add(building.pos.y, Layer.Building, building);
     }
     for (const mob of world.mobs) {
-      if (!visible(mob.pos, 60)) continue;
-      layers.push({ y: mob.pos.y, draw: () => drawMob(ctx, mob, time) });
+      if (visible(mob.pos, 60)) add(mob.pos.y, Layer.Mob, mob);
     }
     for (const player of world.players.values()) {
-      if (!visible(player.pos, 60)) continue;
-      const tool = toolFor(world, player);
-      layers.push({ y: player.pos.y, draw: () => drawPlayer(ctx, player, time, player.id === selfId, tool) });
+      if (visible(player.pos, 60)) add(player.pos.y, Layer.Player, player);
     }
+    // Last frame's references would keep removed entities alive.
+    refs.length = count;
 
     // Painter's algorithm on Y — the whole reason the scene reads as 3/4 view.
-    layers.sort((a, b) => a.y - b.y);
-    for (const layer of layers) layer.draw();
+    // Ties keep collection order, as the stable sort on objects did.
+    const order = this.depthOrder;
+    order.length = count;
+    for (let i = 0; i < count; i++) order[i] = i;
+    order.sort(this.byDepth);
+    for (const i of order) {
+      const ref = refs[i];
+      switch (kinds[i]) {
+        case Layer.Machine:
+          drawMachine(ctx, ref as Machine, time);
+          break;
+        case Layer.Node:
+          drawNode(ctx, ref as World['nodes'][number], time);
+          break;
+        case Layer.Building:
+          drawBuilding(ctx, ref as World['buildings'][number], time);
+          break;
+        case Layer.Mob:
+          drawMob(ctx, ref as World['mobs'][number], time);
+          break;
+        case Layer.Player: {
+          const player = ref as Player;
+          drawPlayer(ctx, player, time, player.id === selfId, toolFor(world, player));
+          break;
+        }
+      }
+    }
     // Wires hang above everything standing on the ground, so they go last.
     drawPowerWires(ctx, world, view);
 
