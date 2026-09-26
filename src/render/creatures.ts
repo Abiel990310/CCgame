@@ -1,10 +1,14 @@
 import { MOBS } from '@shared/data/mobs';
 import type { Mob } from '@shared/sim/types';
 import {
+  BOSS_WALK,
   SHELLBACK_STEPS as PIXEL_SHELLBACK_STEPS,
   SHELLBACK_TURNS as PIXEL_SHELLBACK_TURNS,
   SPITTER_FILLS,
+  drawPixelBulwark,
+  drawPixelQueen,
   drawPixelShellback,
+  drawPixelWarden,
   drawPixelSpitter,
   mobAct,
   pixelSprites,
@@ -243,6 +247,23 @@ export function drawWarden(ctx: CanvasRenderingContext2D, mob: Mob, time: number
   const ember = def.accent;
 
   softShadow(ctx, x, feet, r * 1.5, 0.5);
+  if (pixelSprites()) {
+    const walk = moving ? Math.floor(((((gait / (Math.PI * 2)) % 1) + 1) % 1) * BOSS_WALK) : Math.floor(time * 1.2) % 2;
+    drawPixelWarden(ctx, x, feet, mobAct(mob, moving), walk, hurt, face.x < 0, paintFlash() > 0);
+    // The fire inside shows through as light, not pixels.
+    const heat = 0.45 + hurt * 0.55 + Math.sin(time * 4) * 0.08;
+    const cx = x + (face.x < 0 ? -1 : 1) * r * 0.05;
+    const cy = feet - stomp - r * 1.2;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.75);
+    core.addColorStop(0, `rgba(255, 190, 90, ${0.55 * heat})`);
+    core.addColorStop(1, 'rgba(255, 140, 40, 0)');
+    ctx.fillStyle = core;
+    ctx.fillRect(cx - r * 0.75, cy - r * 0.75, r * 1.5, r * 1.5);
+    ctx.restore();
+    return;
+  }
   ctx.translate(x, feet);
   if (face.x < 0) ctx.scale(-1, 1);
 
@@ -381,6 +402,16 @@ export function drawQueen(ctx: CanvasRenderingContext2D, mob: Mob, time: number)
     }
   }
 
+  if (pixelSprites()) {
+    // The wings are drawn in the flipped frame; the sprite mirrors itself.
+    const m = ctx.getTransform();
+    ctx.setTransform(m.a < 0 ? -m.a : m.a, m.b, m.c, m.d, m.e, m.f);
+    const moving = Math.hypot(mob.vel.x, mob.vel.y) > 3;
+    drawPixelQueen(ctx, 0, 0, mobAct(mob, moving), Math.round(swell * 3), Math.floor(time * 3) % 2, face.x < 0, paintFlash() > 0);
+    ctx.setTransform(m);
+    return;
+  }
+
   // Abdomen trailing behind and below, banded, swelling before she calls.
   const ax = -r * 0.85;
   const ay = r * 0.25;
@@ -471,6 +502,13 @@ export function drawBulwark(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
   const glowC = def.accent;
 
   softShadow(ctx, x, feet, r * 1.6, 0.5);
+  if (pixelSprites()) {
+    const walk = moving ? Math.floor(((((gait / (Math.PI * 2)) % 1) + 1) % 1) * BOSS_WALK) : 0;
+    drawPixelBulwark(ctx, x, feet, mobAct(mob, moving), walk, hurt, face.x < 0, paintFlash() > 0);
+    const pulse = 0.55 + Math.sin(time * 3 + mob.seed) * 0.15;
+    crystalHalo(ctx, x, feet - r * 1.85, r, pulse * (1 - hurt * 0.5));
+    return;
+  }
   ctx.translate(x, feet);
   if (face.x < 0) ctx.scale(-1, 1);
 
@@ -549,13 +587,18 @@ export function drawBulwark(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
     ctx.fill();
     ctx.restore();
   }
+  crystalHalo(ctx, 0, cy - r * 0.5, r, bright);
+}
+
+/** The ward's light round the crystals, added over the scene so it glows. */
+function crystalHalo(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, bright: number): void {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  const halo = ctx.createRadialGradient(0, cy - r * 0.5, 0, 0, cy - r * 0.5, r * 1.1);
+  const halo = ctx.createRadialGradient(x, y, 0, x, y, r * 1.1);
   halo.addColorStop(0, `rgba(160, 235, 255, ${0.45 * bright})`);
   halo.addColorStop(1, 'rgba(120, 210, 255, 0)');
   ctx.fillStyle = halo;
-  ctx.fillRect(-r * 1.1, cy - r * 1.6, r * 2.2, r * 2.2);
+  ctx.fillRect(x - r * 1.1, y - r * 1.1, r * 2.2, r * 2.2);
   ctx.restore();
 }
 

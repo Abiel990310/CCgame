@@ -100,10 +100,12 @@ function finish(g: Sprite, flash: boolean): Sprite {
 export const SLIME_HOPS = 8;
 export const SLIME_LOOKS = 8;
 
-const SW = 41;
-const SH = 42;
-const SAX = 20;
-const SAY = 36;
+/** A slime's grid, sized to its radius: the mother is a slime half again as big. */
+function slimeGrid(r: number): { w: number; h: number; ax: number; ay: number } {
+  const half = Math.ceil(r * 1.35) + 2;
+  const h = Math.ceil(r * 1.95) + 10;
+  return { w: half * 2 + 1, h, ax: half, ay: h - 6 };
+}
 
 function hopShape(step: number): { lift: number; sx: number; sy: number } {
   const p = (step + 0.5) / SLIME_HOPS;
@@ -120,7 +122,7 @@ function hopShape(step: number): { lift: number; sx: number; sy: number } {
  */
 export function drawPixelSlime(
   ctx: CanvasRenderingContext2D,
-  type: 'slime' | 'spitter',
+  type: 'slime' | 'mother',
   x: number,
   base: number,
   act: MobAct,
@@ -129,7 +131,8 @@ export function drawPixelSlime(
   flash: boolean,
 ): void {
   const key = `pm|${type}|${act}|${act === 'move' || act === 'still' ? step : 0}|${look}|${flash ? 1 : 0}`;
-  blitPixels(ctx, key, x, base, SAX, SAY, 1, () => {
+  const grid = slimeGrid(MOBS[type].radius);
+  blitPixels(ctx, key, x, base, grid.ax, grid.ay, 1, () => {
     const def = MOBS[type];
     const r = def.radius;
     const gel = ramp(def.color);
@@ -144,7 +147,7 @@ export function drawPixelSlime(
       shape = { lift: 2, sx: 0.86, sy: 1.24 };
       lean = Math.round(fx * 3);
     }
-    const g = new Sprite(SW, SH, SAX, SAY);
+    const g = new Sprite(grid.w, grid.h, grid.ax, grid.ay);
     const rx = r * shape.sx;
     const h = r * 1.5 * shape.sy;
     const bottom = -shape.lift;
@@ -162,12 +165,25 @@ export function drawPixelSlime(
         g.p(px, y, lit > 0.45 ? gel[0] : edge || lit < -0.5 ? deep[1] : gel[1]);
       }
     }
+    // A mother carries her brood inside her, turning slowly as she hops.
+    if (type === 'mother') {
+      const young = ramp(MOBS.slime.color);
+      for (let i = 0; i < 3; i++) {
+        const a = (step / SLIME_HOPS + i / 3) * Math.PI * 2;
+        const bx = Math.round(Math.cos(a) * rx * 0.35);
+        const by = Math.round(cy + h * 0.1 + Math.sin(a) * h * 0.14);
+        g.ball(bx, by, 3.6, 3, [young[0], young[1], young[1]]);
+        g.p(bx - 1, by - 1, young[0]);
+      }
+    }
     // Something half digested, and bubbles rising as it hops.
-    const mid = Math.round(cy + h * 0.12);
-    g.p(3 + lean, mid, deep[1]);
-    g.p(4 + lean, mid, deep[1]);
-    g.p(3 + lean, mid + 1, deep[2]);
-    g.p(4 + lean, mid - 1, deep[1]);
+    if (type !== 'mother') {
+      const mid = Math.round(cy + h * 0.12);
+      g.p(3 + lean, mid, deep[1]);
+      g.p(4 + lean, mid, deep[1]);
+      g.p(3 + lean, mid + 1, deep[2]);
+      g.p(4 + lean, mid - 1, deep[1]);
+    }
     for (let i = 0; i < 2; i++) {
       const rise = ((step / SLIME_HOPS) * 0.5 + i * 0.5) % 1;
       g.p(i ? -4 : 5, Math.round(bottom - 2 - rise * h * 0.7), gel[0]);
@@ -183,7 +199,7 @@ export function drawPixelSlime(
     const ex = Math.round(fx * r * 0.28) + lean;
     const ey = Math.round(cy - h * 0.02 + fy * 1.5);
     for (const side of [-1, 1]) {
-      const px = ex + side * 4 - (side < 0 ? 1 : 0);
+      const px = ex + side * Math.round(r * 0.3) - (side < 0 ? 1 : 0);
       for (let dy = -1; dy <= 1; dy++) {
         g.p(px, ey + dy, EYE);
         g.p(px + 1, ey + dy, EYE);
@@ -653,5 +669,330 @@ export function drawPixelWisp(
     if (flash) g.silhouette(FLASH);
     g.outline(ramp(def.accent)[2]);
     return g;
+  });
+}
+
+// ─── Bosses ─────────────────────────────────────────────────────────────────
+
+export const BOSS_WALK = 8;
+
+/** Fill a convex polygon given relative to the sprite's anchor, lit toward the upper left. */
+function polygon(g: Sprite, pts: ReadonlyArray<readonly [number, number]>, rp: Ramp): void {
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const x0 = Math.floor(Math.min(...xs));
+  const x1 = Math.ceil(Math.max(...xs));
+  const y0 = Math.floor(Math.min(...ys));
+  const y1 = Math.ceil(Math.max(...ys));
+  const cx = (x0 + x1) / 2;
+  const cy = (y0 + y1) / 2;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      let inside = false;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [xi, yi] = pts[i];
+        const [xj, yj] = pts[j];
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+      if (!inside) continue;
+      const lit = -(x - cx) / (x1 - x0 + 1) - (y - cy) / (y1 - y0 + 1);
+      g.p(x, y, x < cx ? (lit > 0.1 ? rp[0] : rp[1]) : lit < -0.2 ? rp[2] : rp[1]);
+    }
+  }
+}
+
+const WW = 101;
+const WH = 118;
+const WAX = 50;
+const WAY = 108;
+
+/**
+ * The Stone Warden side-on: a walking cairn of three slabs on pillar legs,
+ * boulder arms hanging to the ground, a small head set forward. Its cracks
+ * burn brighter at each third of its health lost. It heaves its arms up to
+ * wind up a blow and brings them down in front of it.
+ */
+export function drawPixelWarden(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  feet: number,
+  act: MobAct,
+  step: number,
+  hurt: number,
+  flip: boolean,
+  flash: boolean,
+): void {
+  const frame = act === 'move' ? step % BOSS_WALK : act === 'still' ? step % 2 : 0;
+  const heat = Math.min(2, Math.floor(hurt * 3));
+  const key = `pm|warden|${act}|${frame}|${heat}|${flip ? 1 : 0}|${flash ? 1 : 0}`;
+  blitPixels(ctx, key, x, feet, WAX, WAY, 1, () => {
+    const def = MOBS.warden;
+    const r = def.radius;
+    const stone = ramp(def.color);
+    const stoneFar: Ramp = [stone[1], stone[2], [stone[2][0] * 0.7, stone[2][1] * 0.7, stone[2][2] * 0.75 + 4].map(Math.round) as unknown as Rgb];
+    const ember = ramp(def.accent);
+    const moss = ramp('#6f8a4a');
+    const g = new Sprite(WW, WH, WAX, WAY);
+    const cycle = act === 'move' ? (frame / BOSS_WALK) * Math.PI * 2 : 0;
+    const stomp = act === 'move' ? Math.round(Math.abs(Math.sin(cycle)) * 3) : act === 'still' ? frame : 0;
+    const lift = (side: number): number => (act === 'move' ? Math.round(Math.max(0, Math.sin(cycle) * side) * 5) : 0);
+    const by = -stomp + (act === 'rear' ? -3 : act === 'lunge' ? 3 : 0);
+
+    for (const side of [-1, 1]) {
+      const lx = side * Math.round(r * 0.45);
+      const up = lift(side);
+      g.part((p) => p.box(lx - 7, -21 - up, lx + 7, -up, side < 0 ? stoneFar : stone));
+    }
+
+    const arm = (side: number): void => {
+      const tone = side < 0 ? stoneFar : stone;
+      const sx = side * r;
+      const sway = act === 'move' ? Math.round(Math.sin(cycle + (side > 0 ? Math.PI : 0)) * 3) : 0;
+      g.part((p) => {
+        for (let i = 0; i < 3; i++) {
+          const cr = r * (0.34 - i * 0.02) * (i === 2 ? 1.25 : 1);
+          let bx = sx + sway * i * 0.5;
+          let bY = by - r * (1.7 - i * 0.5);
+          if (act === 'rear') {
+            // Boulders stacked up over its head.
+            bx = side * r * 0.55 - i * side * 2;
+            bY = by - r * (2.4 + i * 0.55);
+          } else if (act === 'lunge') {
+            // Brought down in front, the last boulder on the ground.
+            bx = r * (0.6 + i * 0.35) + (side < 0 ? -6 : 0);
+            bY = by - r * (1.45 - i * 0.5) + (i === 2 ? 4 : 0);
+          }
+          p.ball(bx, bY, cr, cr, tone);
+        }
+      });
+    };
+
+    arm(-1);
+    g.part((p) => {
+      p.ball(0, by - r * 0.95, r * 0.95, r * 0.5, stone);
+      p.ball(r * 0.05, by - r * 1.55, r * 0.82, r * 0.42, stone);
+      p.ball(r * 0.1, by - r * 2.05, r * 0.6, r * 0.36, stone);
+      for (let i = 0; i < 4; i++) {
+        const mx = Math.round(-r * 0.5 + i * r * 0.32);
+        const my = Math.round(by - r * 1.9 + Math.abs(i - 1.5) * 2.4);
+        p.seam(mx - 3, my, mx + 3, my, moss[1]);
+        p.seam(mx - 2, my - 1, mx + 1, my - 1, moss[0]);
+      }
+      // Cracks, burning brighter as it is hurt, and the core showing through.
+      const crack = heat === 0 ? ember[1] : heat === 1 ? ember[0] : EMBER_HOT;
+      const pts: Array<[number, number]> = [
+        [-0.5, -0.9],
+        [-0.15, -1.15],
+        [0.05, -0.85],
+        [0.45, -1.05],
+      ];
+      for (let i = 0; i < pts.length - 1; i++) {
+        p.seam(pts[i][0] * r, by + pts[i][1] * r, pts[i + 1][0] * r, by + pts[i + 1][1] * r, crack);
+        if (heat === 2) p.seam(pts[i][0] * r, by + pts[i][1] * r - 1, pts[i + 1][0] * r, by + pts[i + 1][1] * r - 1, ember[0]);
+      }
+      p.seam(-0.2 * r, by - 1.45 * r, 0.1 * r, by - 1.65 * r, crack);
+      p.seam(0.1 * r, by - 1.65 * r, 0.35 * r, by - 1.5 * r, crack);
+      p.ball(r * 0.05, by - r * 1.25, 2.5 + heat, 2 + heat, [EMBER_HOT, ember[0], ember[1]]);
+    });
+    arm(1);
+    // The head goes on last: arms raised over it stay behind it.
+    g.part((p) => {
+      const hx = Math.round(r * 0.35);
+      const hy = Math.round(by - r * 2.45);
+      p.ball(hx, hy, r * 0.34, r * 0.26, stone);
+      for (const side of [-1, 1]) {
+        const ex = hx + Math.round(r * 0.1 + side * r * 0.12);
+        p.p(ex, hy, act === 'rear' ? EMBER_HOT : ember[0]);
+        p.p(ex + 1, hy, act === 'rear' ? EMBER_HOT : ember[0]);
+      }
+    });
+    const out = finish(g, flash);
+    return flip ? out.mirrored() : out;
+  });
+}
+
+const UW = 111;
+const UH = 104;
+const UAX = 55;
+const UAY = 88;
+
+/**
+ * The Crystal Bulwark side-on: a low domed shell on four stubby legs, a head
+ * low and forward, and the crystal cluster that wards the raid on its back.
+ * The crystals dim in two steps as it is hurt; its halo stays soft light,
+ * drawn over the sprite.
+ */
+export function drawPixelBulwark(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  feet: number,
+  act: MobAct,
+  step: number,
+  hurt: number,
+  flip: boolean,
+  flash: boolean,
+): void {
+  const frame = act === 'move' ? step % BOSS_WALK : 0;
+  const dim = Math.min(2, Math.floor(hurt * 3));
+  const key = `pm|bulwark|${act}|${frame}|${dim}|${flip ? 1 : 0}|${flash ? 1 : 0}`;
+  blitPixels(ctx, key, x, feet, UAX, UAY, 1, () => {
+    const def = MOBS.bulwark;
+    const r = def.radius;
+    const shell = ramp(def.color);
+    const shellDark = ramp('#3c4e58');
+    const glass = ramp(def.accent);
+    const crystal: Ramp = dim === 0 ? [[236, 252, 255], glass[0], glass[1]] : dim === 1 ? glass : [glass[1], glass[2], [60, 110, 130]];
+    const g = new Sprite(UW, UH, UAX, UAY);
+    const cycle = act === 'move' ? (frame / BOSS_WALK) * Math.PI * 2 : 0;
+    const sway = act === 'move' ? Math.round(Math.sin(cycle * 2) * 1.2) : 0;
+    const dip = act === 'rear' ? -2 : act === 'lunge' ? 2 : 0;
+    const hs = act === 'rear' ? -3 : act === 'lunge' ? 5 : 0;
+
+    for (const [lx, far, phase] of [
+      [-0.75, true, 0],
+      [0.55, true, Math.PI],
+      [-0.55, false, Math.PI],
+      [0.75, false, 0],
+    ] as const) {
+      const up = act === 'move' ? Math.round(Math.max(0, Math.sin(cycle + phase)) * 4) : 0;
+      const cx = Math.round(lx * r);
+      g.part((p) => p.box(cx - 6, -15 - up, cx + 6, -up, far ? shellDark : ramp(def.color)));
+    }
+    // Head, low and forward; thrust out on the blow.
+    g.part((p) => {
+      const hx = Math.round(r * 1.05) + hs;
+      const hy = Math.round(-r * 0.55 + sway * 0.5) + (act === 'lunge' ? 3 : 0);
+      p.ball(hx, hy, r * 0.36, r * 0.27, shell);
+      p.p(hx + 5, hy - 2, act === 'rear' ? RED_EYE : glass[0]);
+      p.p(hx + 6, hy - 2, act === 'rear' ? RED_EYE : glass[0]);
+      if (act === 'lunge') p.seam(hx + 3, hy + 3, hx + 9, hy + 2, OUTLINE);
+    });
+    const base = -Math.round(r * 0.55) + sway + dip;
+    g.part((p) => {
+      // Rim, then the dome over it with a band of plates.
+      p.ball(0, base, r * 1.15, r * 0.34, shellDark);
+      const top = base - r;
+      for (let yy = Math.floor(top); yy <= base; yy++) {
+        const t = (base - yy) / (base - top);
+        const half = r * 1.08 * Math.sqrt(Math.max(0, 1 - t * t));
+        for (let xx = Math.ceil(-half); xx <= Math.floor(half); xx++) {
+          const lit = (-xx / (r * 1.08)) * 0.6 + t * 0.9 - 0.3;
+          p.p(xx, yy, lit > 0.45 ? shell[0] : lit < -0.35 || Math.abs(xx) > half - 1.5 ? shell[2] : shell[1]);
+        }
+      }
+      for (const px of [-0.55, 0, 0.55]) {
+        const cx = px * r;
+        const cy = base - r * 0.4;
+        for (let a = 0; a < 40; a++) {
+          const t = (a / 40) * Math.PI * 2;
+          p.p(cx + Math.cos(t) * r * 0.3, cy + Math.sin(t) * r * 0.22, shellDark[1]);
+        }
+      }
+    });
+    // The crystals on its back.
+    g.part((p) => {
+      const cy = base - r * 0.75;
+      for (const [cx, h, w, lean] of [
+        [-0.28, 0.75, 0.2, -0.3],
+        [0.3, 0.65, 0.18, 0.35],
+        [0.02, 1.05, 0.26, 0],
+      ] as const) {
+        const rot = (px: number, py: number): readonly [number, number] => [
+          cx * r + px * Math.cos(lean) - py * Math.sin(lean),
+          cy + px * Math.sin(lean) + py * Math.cos(lean),
+        ];
+        polygon(
+          p,
+          [rot(-w * r, 0), rot(-w * r * 0.7, -h * r * 0.7), rot(0, -h * r), rot(w * r * 0.7, -h * r * 0.7), rot(w * r, 0)],
+          crystal,
+        );
+      }
+    }, [18, 40, 60]);
+    const out = finish(g, flash);
+    return flip ? out.mirrored() : out;
+  });
+}
+
+const QW = 111;
+const QH = 91;
+const QAX = 55;
+const QAY = 45;
+
+/**
+ * The Swarm Queen's body side-on: the thorax, a banded abdomen that swells as
+ * her next call comes due, dangling legs, and a head with gold eyes and a
+ * crown of antennae. Her wings are a blur and stay soft, drawn under this.
+ */
+export function drawPixelQueen(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  act: MobAct,
+  swell: number,
+  legs: number,
+  flip: boolean,
+  flash: boolean,
+): void {
+  const key = `pm|queen|${act === 'rear' || act === 'lunge' ? act : 'still'}|${swell}|${legs}|${flip ? 1 : 0}|${flash ? 1 : 0}`;
+  blitPixels(ctx, key, x, y, QAX, QAY, 1, () => {
+    const def = MOBS.queen;
+    const r = def.radius;
+    const body = ramp(def.color);
+    const gold = ramp(def.accent);
+    const g = new Sprite(QW, QH, QAX, QAY);
+    const k = swell / 3;
+    // The abdomen curls under to sting on the wind-up and drives forward on the blow.
+    const tilt = act === 'rear' ? 0.95 : act === 'lunge' ? 1.3 : 0.45;
+
+    for (let i = 0; i < 3; i++) {
+      const lx = -r * 0.2 + i * r * 0.22;
+      const sway = ((legs + i) % 2 ? 1 : -1) * 1.5;
+      g.bone(lx, r * 0.2, lx - r * 0.12 + sway, r * 0.72, 2.2, [body[2], body[2], OUTLINE]);
+    }
+    g.part((p) => {
+      const ax = -r * 0.85 + (act === 'lunge' ? r * 0.3 : 0);
+      const ay = r * 0.25 + (act === 'rear' ? r * 0.2 : act === 'lunge' ? r * 0.35 : 0);
+      const aw = r * (0.78 + k * 0.1);
+      const ah = r * (0.52 + k * 0.08);
+      const c = Math.cos(tilt);
+      const s = Math.sin(tilt);
+      for (let py = Math.floor(-aw * 1.5); py <= Math.ceil(aw * 1.5); py++) {
+        for (let px = Math.floor(-aw * 1.5); px <= Math.ceil(aw * 1.5); px++) {
+          const u = px * c + py * s;
+          const v = -px * s + py * c;
+          const d = (u / aw) ** 2 + (v / ah) ** 2;
+          const tip = u < -aw * 0.9 && u > -aw * 1.35 && Math.abs(v) < (u + aw * 1.35) * 0.35;
+          if (d > 1.02 && !tip) continue;
+          // Three gold bands across the abdomen.
+          const along = u + aw * 0.55;
+          const band = !tip && along >= 0 && u < aw * 0.5 && along % (aw * 0.45) < aw * 0.16;
+          const lit = -(px / aw) * 0.6 - (py / aw) * 0.8;
+          const rp: Ramp = band ? gold : tip ? [body[2], body[2], OUTLINE] : body;
+          p.p(ax + px, ay + py, lit > 0.35 ? rp[0] : d > 0.75 || lit < -0.4 ? rp[2] : rp[1]);
+        }
+      }
+    });
+    g.part((p) => {
+      p.ball(0, 0, r * 0.5, r * 0.42, body);
+      p.seam(-r * 0.2, -r * 0.2, r * 0.1, -r * 0.2, gold[1]);
+      p.seam(-r * 0.15, -r * 0.14, r * 0.05, -r * 0.14, gold[2]);
+    });
+    g.part((p) => {
+      const hx = r * 0.62;
+      const hy = -r * 0.12;
+      for (const side of [-1, 1]) {
+        const tx = hx + r * 0.6 + side * r * 0.12;
+        const ty = hy - r * 0.7;
+        p.seam(hx + r * 0.1, hy - r * 0.22, hx + r * 0.3 + side * 2, hy - r * 0.6, body[2]);
+        p.seam(hx + r * 0.3 + side * 2, hy - r * 0.6, tx, ty, body[2]);
+        p.ball(tx, ty, 1.2, 1.2, gold);
+      }
+      p.ball(hx, hy, r * 0.34, r * 0.3, body);
+      p.ball(hx + r * 0.14, hy - r * 0.04, r * 0.14, r * 0.17, act === 'rear' ? [[255, 200, 180], [255, 110, 90], [190, 50, 50]] : gold);
+      p.p(hx + r * 0.1, hy - r * 0.12, WHITE);
+      if (act === 'lunge') p.seam(hx + r * 0.1, hy + r * 0.22, hx + r * 0.32, hy + r * 0.18, OUTLINE);
+    });
+    const out = finish(g, flash);
+    return flip ? out.mirrored() : out;
   });
 }

@@ -734,7 +734,7 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
 }
 
 /** Creatures drawn as pixel sprites when the player is. */
-const PIXEL_MOBS = new Set<Mob['type']>(['slime', 'crawler', 'brute', 'spitter', 'shellback', 'wisp']);
+const PIXEL_MOBS = new Set<Mob['type']>(['slime', 'crawler', 'brute', 'spitter', 'shellback', 'wisp', 'mother', 'warden', 'queen', 'bulwark']);
 
 
 /** A slim framed bar: the enemy's health, readable without shouting. */
@@ -784,10 +784,10 @@ function drawSlime(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void 
   const a = (look / SLIME_LOOKS) * Math.PI * 2;
   const eyes = { x: Math.cos(a), y: Math.sin(a) };
   const flash = paintFlash() > 0 ? 1 : 0;
-  if (mob.type === 'slime' && pixelSprites()) {
+  if (pixelSprites()) {
     const hopStep = Math.floor(p * PIXEL_SLIME_HOPS) % PIXEL_SLIME_HOPS;
     const pixelLook = (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * SLIME_LOOKS) + SLIME_LOOKS) % SLIME_LOOKS;
-    drawPixelSlime(ctx, 'slime', x, base, mobAct(mob, true), hopStep, pixelLook, flash > 0);
+    drawPixelSlime(ctx, mob.type === 'mother' ? 'mother' : 'slime', x, base, mobAct(mob, true), hopStep, pixelLook, flash > 0);
     return;
   }
   const box = { left: r * 1.3, right: r * 1.3, top: r * 1.9 + 8, bottom: r * 0.5 };
