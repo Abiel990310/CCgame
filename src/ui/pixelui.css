@@ -139,3 +139,46 @@
   font-family: var(--display);
   letter-spacing: 0.3em;
 }
+
+/* Icons: every icon carries both drawings, and the look picks one. The pixel
+   sprites are 16 pixels, so they sit at 16 or 32 CSS pixels, never between,
+   where a sprite pixel would round to uneven widths. */
+.ico .px {
+  display: none;
+}
+
+.pixel-ui .ico .ln {
+  display: none;
+}
+
+.pixel-ui .ico .px {
+  display: inline;
+}
+
+.pixel-ui .ico {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.pixel-ui :is(.action, .levelup-badge, .up-icon, .gear-icon, .phase-dial) .ico {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.pixel-ui .bar-icon {
+  width: 16px;
+}
+
+/* The key hint sits in the corner the larger sprite reaches, so the icon and
+   its label move down out from under it. */
+.pixel-ui .action {
+  justify-content: flex-end;
+  gap: 1px;
+  padding-bottom: 5px;
+}
+
+/* Dark ink on a gold button: an outline would merge with the glyph, and the
+   colours would fight the gold, so it keeps the button's ink alone. */
+.pixel-ui .primary-btn .ico :is(.o, .c) {
+  display: none;
+}

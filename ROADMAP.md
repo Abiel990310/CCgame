@@ -947,7 +947,13 @@ detail behind the factory entries is in
       are square framed pixel panels with a gold bevel, buttons press into
       a lip, and titles use a book face (`src/ui/pixelui.css`). Still
       missing: one tabbed character screen, pixel icons, portraits.*
-- [ ] Hotbar and action-bar icons redrawn as pixel icons to match the frames.
+- [x] Hotbar and action-bar icons redrawn as pixel icons to match the frames.
+      *2026-09-26: every interface icon has a 16-pixel sprite with an outline,
+      a lit and a shaded side and real colours (`src/ui/pixelicons.ts`),
+      shown at 16 or 32 pixels in the pixel look; the smooth look keeps the
+      line icons. The hotbar already showed each piece's own art.*
+- [ ] The top-right pouch shows items as soft round swatches; pixel item
+      sprites like the icons' would match the rest of the HUD.
 - [x] One tabbed character screen (bag, build, upgrades, map) instead of
       separate modals. *2026-09-26: Tab opens Bag, Gear, Stats and Skills
       (`src/ui/character.ts`); keys 1 to 4 switch, and it reopens on the last
