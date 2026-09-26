@@ -97,3 +97,8 @@ export function beaconWards(world: World): { pos: Vec2; radius: number }[] {
   }
   return wards;
 }
+
+/** How many beacons on the island have been lit, burning or not. */
+export function litBeacons(world: World): number {
+  return world.machines.filter((m) => m.type === 'beacon' && beaconLit(m)).length;
+}

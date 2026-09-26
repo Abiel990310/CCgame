@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BEACON_BOOST, BEACON_BURN_SECONDS, BEACON_FUEL_CAP, BEACON_LIT, BEACON_STAGES, BEACON_WARD_PACE, BEACON_WARD_TILES, BEACON_XP } from '../../data/beacon';
 import { GOAL_BY_ID } from '../../data/goals';
-import { beaconBurning, beaconStage, withBeacon } from '../beacon';
+import { beaconBurning, beaconStage, litBeacons, withBeacon } from '../beacon';
 import { researchBonuses } from '../research';
 import { tileCenter } from '../grid';
 import { TILE } from '../constants';
@@ -40,6 +40,21 @@ describe('beacon stages', () => {
     expect(m.input.every((s) => s === null)).toBe(true);
     expect(b.player.level > level || b.player.xp >= xp + BEACON_XP * 0.5).toBe(true);
     expect(GOAL_BY_ID.get('beaconLit')!.have(b.world, b.player)).toBe(1);
+  });
+
+  it('counts lit beacons, which is what shows the ending only for the first', () => {
+    const b = bench();
+    const m = beacon(b);
+    advance(b.world, 0.2);
+    expect(litBeacons(b.world)).toBe(0);
+    for (let i = 0; i < BEACON_STAGES.length - 1; i++) {
+      feedStage(m);
+      advance(b.world, 0.2);
+    }
+    expect(litBeacons(b.world)).toBe(0);
+    feedStage(m);
+    advance(b.world, 0.2);
+    expect(litBeacons(b.world)).toBe(1);
   });
 
   it('takes from an arm only what the stage still needs', () => {

@@ -5,6 +5,7 @@ import { BELT_COST, MACHINES, placementCost } from '@shared/data/machines';
 import { ITEMS, RESOURCES } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
 import { BEACON_STAGES } from '@shared/data/beacon';
+import { litBeacons } from '@shared/sim/beacon';
 import { CAMP, TICK_DT } from '@shared/sim/constants';
 import {
   buildingAt,
@@ -333,7 +334,7 @@ export class Game {
       // The day starts once the story is read, so the title card and the
       // camera's sweep in are what the last card turns into.
       const world = this.world;
-      void this.story.play(peaceful).then(() => {
+      void this.story.play('opening', peaceful).then(() => {
         if (this.world !== world) return;
         this.hud.banner(slot.name, peaceful ? 'A peaceful island. Build freely.' : 'Day one. Go gather.');
         const at = this.self.pos;
@@ -1399,6 +1400,9 @@ export class Game {
           'good',
         );
         this.requestSave();
+        // The ending belongs to the first beacon an island lights; a second
+        // one is more boost, not the story again.
+        if (event.lit && litBeacons(this.world) === 1) void this.story.play('ending', this.world.peaceful);
         continue;
       }
       if (event.kind === 'guardsWoke') {
