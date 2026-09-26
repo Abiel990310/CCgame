@@ -977,8 +977,13 @@ detail behind the factory entries is in
       scroll a whole pixel at a time, outlined tunnel hoods, timber poles with
       glass insulators, and the beacon's plinth, lattice and scaffold
       (`src/render/pixelworks.ts`). Its light and beam stay soft on purpose.
-- [ ] Items riding belts (and dropped on the ground) are still smooth vector
-      sprites, the last soft thing on a pixel belt.
+- [x] Items as 12-pixel sprites (2026-09-26), one per shape in each item's
+      own colour, on belts, in inserter hands, on the ground and in every
+      bag slot and resource chip in the pixel look (`src/render/pixelitems.ts`).
+- [ ] The inserter filter mark and the coal on the no-fuel sign are smaller
+      than a 12-pixel item and still use the smooth drawing.
+- [ ] Rounds share the nugget shape; a bullet sprite would read better on a
+      turret's feed belt.
 - [ ] Power wires are a smooth 1px curve; a stepped pixel sag would match the
       poles, if it can be baked cheaply for a base with hundreds of wires.
 - [ ] The steam engine's steam is still drawn smooth; the steam engine and

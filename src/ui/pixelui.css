@@ -182,3 +182,8 @@
 .pixel-ui .primary-btn .ico :is(.o, .c) {
   display: none;
 }
+
+/* Item icons are 12-pixel sprites in the pixel look; scale them by the pixel. */
+.pixel-ui [style*='--icon-'] {
+  image-rendering: pixelated;
+}
