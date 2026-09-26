@@ -14,7 +14,7 @@ import {
   tint,
   tone,
 } from './paint';
-import { drawBrood, drawQueen, drawShellback, drawSpitter, drawWarden } from './creatures';
+import { drawBrood, drawBulwark, drawQueen, drawShellback, drawShield, drawSpitter, drawWarden } from './creatures';
 
 /**
  * The people and creatures of the island.
@@ -563,6 +563,9 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
     case 'queen':
       drawQueen(ctx, mob, time);
       break;
+    case 'bulwark':
+      drawBulwark(ctx, mob, time);
+      break;
     case 'crawler':
       drawCrawler(ctx, mob, time);
       break;
@@ -575,9 +578,10 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   }
   ctx.restore();
   setFlash(0);
+  if (mob.shield !== undefined) drawShield(ctx, mob, time);
 
   if (mob.hp < mob.maxHp) {
-    const tall = mob.type === 'brute' ? 2.9 : mob.type === 'wisp' ? 3 : mob.type === 'warden' ? 3.2 : mob.type === 'queen' ? 3.4 : 2.1;
+    const tall = mob.type === 'brute' ? 2.9 : mob.type === 'wisp' ? 3 : mob.type === 'warden' ? 3.2 : mob.type === 'queen' ? 3.4 : mob.type === 'bulwark' ? 3.3 : 2.1;
     healthBar(ctx, mob.pos.x, mob.pos.y - def.radius * tall, def.radius * 2.2, mob.hp / mob.maxHp);
   }
 }
@@ -1154,6 +1158,10 @@ export function drawMobGlow(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
     }
     case 'warden': {
       glow(x, y - r * 1.2, r * 2.2, 'rgba(255, 160, 60, A)', 0.4);
+      break;
+    }
+    case 'bulwark': {
+      glow(x, y - r * 1.9, r * 1.8, 'rgba(140, 230, 255, A)', 0.4);
       break;
     }
     case 'queen': {

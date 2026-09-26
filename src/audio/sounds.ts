@@ -225,6 +225,19 @@ export const SOUNDS = {
       NOISE(1500, 300, 0.3, 0.003, 0.2, 1.2, 0.55),
     ],
   },
+  // Crystal shattering over a heavy shell settling: bright, then low.
+  diedBulwark: {
+    gain: 0.4,
+    vary: 0,
+    throttle: 0.5,
+    layers: [
+      TONE('sine', 2200, 1900, 0.3, 0.002, 0.6),
+      TONE('sine', 3300, 2900, 0.2, 0.002, 0.5, 0.03),
+      NOISE(6000, 3000, 0.4, 0.001, 0.35, 2, 0, 'highpass'),
+      TONE('sine', 80, 36, 0.6, 0.01, 0.9, 0.12),
+      NOISE(400, 80, 0.5, 0.01, 0.8, 0.7, 0.12, 'lowpass'),
+    ],
+  },
   // A falling shriek, the summon buzz turned downward.
   diedQueen: {
     gain: 0.36,

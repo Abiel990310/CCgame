@@ -259,7 +259,7 @@ function splash(world: World, struck: Mob, at: Vec2, radius: number, amount: num
 
 export function damageMob(world: World, mob: Mob, amount: number, sourceId: number): void {
   const def = MOBS[mob.type];
-  const dealt = Math.max(1, amount - (def.armor ?? 0));
+  const dealt = Math.max(1, amount * (mob.shield ?? 1) - (def.armor ?? 0));
   mob.hp -= dealt;
   mob.hitFlash = 0.12;
   world.events.push({ kind: 'hit', pos: { ...mob.pos }, amount: Math.round(dealt) });

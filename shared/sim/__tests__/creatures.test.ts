@@ -167,6 +167,51 @@ describe('the swarm queen', () => {
   });
 });
 
+describe('the crystal bulwark', () => {
+  it('comes on its own nights from the twenty-sixth, never alongside another boss', () => {
+    const { world } = arena();
+    const seen: Record<string, number[]> = { warden: [], queen: [], bulwark: [] };
+    for (let night = 1; night <= 40; night++) {
+      world.phase = 'day';
+      world.phaseTime = 0;
+      world.mobs.length = 0;
+      stepCycle(world, 0);
+      for (const type of Object.keys(seen)) if (world.mobs.some((m) => m.type === type)) seen[type].push(world.nightIndex);
+    }
+    expect(seen.bulwark).toEqual([26, 31, 36]);
+    const nights = [...seen.warden, ...seen.queen, ...seen.bulwark];
+    expect(new Set(nights).size).toBe(nights.length);
+  });
+
+  it('shields what stands near it, and not itself', () => {
+    const { world, player } = arena();
+    const bulwark = near(world, player, 'bulwark', 600);
+    const covered = near(world, player, 'brute', 600, 80);
+    const bare = near(world, player, 'brute', -600);
+    run(world, 1 / 30);
+    expect(covered.shield).toBe(MOBS.bulwark.shields!.take);
+    expect(bare.shield).toBeUndefined();
+    expect(bulwark.shield).toBeUndefined();
+
+    const before = { covered: covered.hp, bare: bare.hp };
+    damageMob(world, covered, 30, player.id);
+    damageMob(world, bare, 30, player.id);
+    expect(before.covered - covered.hp).toBeCloseTo(30 * MOBS.bulwark.shields!.take, 6);
+    expect(before.bare - bare.hp).toBe(30);
+  });
+
+  it('drops the ward once it dies', () => {
+    const { world, player } = arena();
+    const bulwark = near(world, player, 'bulwark', 600);
+    const covered = near(world, player, 'crawler', 600, 60);
+    run(world, 1 / 30);
+    expect(covered.shield).toBeDefined();
+    damageMob(world, bulwark, 1e6, player.id);
+    run(world, 2 / 30);
+    expect('shield' in covered).toBe(false);
+  });
+});
+
 describe('new weapons', () => {
   it('Ember Pot bursts over everything around the one it hits', () => {
     const { world, player } = arena();

@@ -568,8 +568,16 @@ detail behind the factory entries is in
       crawlers every nine seconds; the crawlers she calls are worth no XP or
       orbs, so leaving her alive is not a farm. The scripted player loses
       about 120 to 150 health on her nights, the hardest of each stretch.
-- [ ] A third boss for the thirties, with a shape of its own: one that
-      burrows and surfaces under the player, or one that shields others.
+- [x] **The Crystal Bulwark**, a third boss on nights 26, 31 and 36 (off the
+      Warden's and the Queen's nights). A slow shelled walker with a crystal on
+      its back: every other creature within about six tiles of it takes only a
+      third of each hit, drawn as a cold bubble round each one it covers. The
+      night is won by getting to it. Its death is a crystal shattering.
+- [ ] A burrowing boss that surfaces under the player, the other shape the
+      thirties could take.
+- [ ] Needs testing: nights 26 and on with a Bulwark in the raid. A shielded
+      mother slime or brute pack may make those nights a wall; if so, shrink
+      the ward's radius before its strength.
 - [ ] Mob damage does not scale with nights, only health. If late nights
       read as sponge fights, trade some of the health for bite.
 - [x] Belts, machine bodies and belt items are baked sprites copied to whole

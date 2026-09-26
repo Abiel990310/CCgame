@@ -1330,7 +1330,8 @@ export class Game {
         continue;
       }
       if (event.kind === 'boss') {
-        this.hud.toast(`${MOBS[event.type].name} is coming for the camp`, 'warn');
+        const ward = MOBS[event.type].shields ? '. Anything near it shrugs off your hits' : '';
+        this.hud.toast(`${MOBS[event.type].name} is coming for the camp${ward}`, 'warn');
         continue;
       }
       // The first level-up in a queue says how to spend it; the ring's badge

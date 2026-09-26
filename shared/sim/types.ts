@@ -132,6 +132,11 @@ export interface Mob {
   spitCd?: number;
   /** Seconds until a mob that calls for help calls again. */
   summonCd?: number;
+  /**
+   * The share of each hit it takes while it stands in a shield bearer's ward,
+   * set each tick by the mobs step. Absent when nothing covers it.
+   */
+  shield?: number;
   /** Called in by another mob: worth no XP or orbs, so a boss left alive is not a farm. */
   brood?: boolean;
   /** The post a landmark's keeper holds: it leaves it only for a player close by, and dawn does not clear it. */
@@ -149,7 +154,8 @@ export type MobTypeId =
   | 'shellback'
   | 'mother'
   | 'warden'
-  | 'queen';
+  | 'queen'
+  | 'bulwark';
 
 export interface Projectile {
   id: number;

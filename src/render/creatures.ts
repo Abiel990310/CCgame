@@ -429,3 +429,126 @@ export function drawQueen(ctx: CanvasRenderingContext2D, mob: Mob, time: number)
   ctx.arc(hx + r * 0.1, hy - r * 0.1, 1.6, 0, Math.PI * 2);
   ctx.fill();
 }
+
+/**
+ * The Crystal Bulwark: a great slow shell-walker carrying a crystal on its
+ * back. The crystal is what wards the raid, so it is the brightest thing on
+ * the creature and pulses; it dims as the Bulwark is hurt.
+ */
+export function drawBulwark(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
+  const def = MOBS.bulwark;
+  const r = def.radius;
+  const { x, y } = mob.pos;
+  const face = heading(mob);
+  const moving = Math.hypot(mob.vel.x, mob.vel.y) > 3;
+  const gait = time * (moving ? 2.6 : 0.8) + mob.seed;
+  const feet = y + r * 0.45;
+  const hurt = 1 - mob.hp / mob.maxHp;
+  const shell = def.color;
+  const glowC = def.accent;
+
+  softShadow(ctx, x, feet, r * 1.6, 0.5);
+  ctx.translate(x, feet);
+  if (face.x < 0) ctx.scale(-1, 1);
+
+  // Four stubby legs, far pair darker, stepping in diagonal pairs.
+  for (const [lx, far, phase] of [
+    [-0.75, true, 0],
+    [0.55, true, Math.PI],
+    [-0.55, false, Math.PI],
+    [0.75, false, 0],
+  ] as const) {
+    const lift = moving ? Math.max(0, Math.sin(gait + phase)) * 4 : 0;
+    ctx.beginPath();
+    ctx.roundRect(lx * r - r * 0.2, -r * 0.5 - lift, r * 0.4, r * 0.5, r * 0.14);
+    fillInk(ctx, litFill(ctx, tone(shell, far ? -0.45 : -0.25), -r, -r, r, 0), 1.3);
+  }
+
+  const sway = moving ? Math.sin(gait * 2) * 1.2 : 0;
+  // Head, low and forward, with two pale eyes.
+  const hx = r * 1.05;
+  const hy = -r * 0.55 + sway * 0.5;
+  ctx.beginPath();
+  ctx.ellipse(hx, hy, r * 0.36, r * 0.27, 0.15, 0, Math.PI * 2);
+  fillInk(ctx, litFill(ctx, tone(shell, -0.1), hx - r * 0.3, hy - r * 0.3, hx + r * 0.3, hy + r * 0.3), 1.3);
+  ctx.fillStyle = tint(tone(glowC, 0.2));
+  ctx.beginPath();
+  ctx.ellipse(hx + r * 0.16, hy - r * 0.05, r * 0.07, r * 0.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // The shell: a low dome with a darker rim and a band of plates.
+  const top = -r * 1.55 + sway;
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.55 + sway, r * 1.15, r * 0.34, 0, 0, Math.PI * 2);
+  fillInk(ctx, tint(tone(shell, -0.4)), 1.4);
+  ctx.beginPath();
+  ctx.moveTo(-r * 1.08, -r * 0.6 + sway);
+  ctx.bezierCurveTo(-r * 1.05, top, r * 1.05, top, r * 1.08, -r * 0.6 + sway);
+  ctx.closePath();
+  fillInk(ctx, litFill(ctx, shell, -r, top, r, -r * 0.5, 0.3, -0.4), 1.6);
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle = tint(tone(shell, -0.35));
+  ctx.lineWidth = 1.3;
+  for (const px of [-0.55, 0, 0.55]) {
+    ctx.beginPath();
+    ctx.ellipse(px * r, -r * 0.95 + sway, r * 0.3, r * 0.22, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // The crystal cluster on its back, lit from inside.
+  const pulse = 0.55 + Math.sin(time * 3 + mob.seed) * 0.15;
+  const bright = pulse * (1 - hurt * 0.5);
+  const cy = -r * 1.3 + sway;
+  for (const [cx, h, w, lean] of [
+    [-0.28, 0.75, 0.2, -0.3],
+    [0.3, 0.65, 0.18, 0.35],
+    [0.02, 1.05, 0.26, 0],
+  ] as const) {
+    ctx.save();
+    ctx.translate(cx * r, cy);
+    ctx.rotate(lean);
+    ctx.beginPath();
+    ctx.moveTo(-w * r, 0);
+    ctx.lineTo(-w * r * 0.7, -h * r * 0.7);
+    ctx.lineTo(0, -h * r);
+    ctx.lineTo(w * r * 0.7, -h * r * 0.7);
+    ctx.lineTo(w * r, 0);
+    ctx.closePath();
+    fillInk(ctx, litFill(ctx, glowC, -w * r, -h * r, w * r, 0, 0.35, -0.3), 1.2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.35 * bright})`;
+    ctx.beginPath();
+    ctx.moveTo(-w * r * 0.35, -h * r * 0.15);
+    ctx.lineTo(-w * r * 0.2, -h * r * 0.75);
+    ctx.lineTo(0, -h * r * 0.85);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const halo = ctx.createRadialGradient(0, cy - r * 0.5, 0, 0, cy - r * 0.5, r * 1.1);
+  halo.addColorStop(0, `rgba(160, 235, 255, ${0.45 * bright})`);
+  halo.addColorStop(1, 'rgba(120, 210, 255, 0)');
+  ctx.fillStyle = halo;
+  ctx.fillRect(-r * 1.1, cy - r * 1.6, r * 2.2, r * 2.2);
+  ctx.restore();
+}
+
+/**
+ * The ward a Bulwark casts, drawn round each creature it covers: a thin cold
+ * bubble, so it reads which ones are shrugging off hits before the numbers do.
+ */
+export function drawShield(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
+  const r = MOBS[mob.type].radius;
+  const { x, y } = mob.pos;
+  const shimmer = 0.4 + Math.sin(time * 4 + mob.seed) * 0.12;
+  ctx.beginPath();
+  ctx.ellipse(x, y - r * 0.45, r * 1.3, r * 1.2, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(143, 230, 255, 0.09)';
+  ctx.fill();
+  ctx.strokeStyle = `rgba(160, 235, 255, ${shimmer})`;
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+}
