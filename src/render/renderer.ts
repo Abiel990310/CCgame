@@ -17,6 +17,7 @@ import type {
 } from '@shared/sim/types';
 import { Camera } from './camera';
 import { Effects } from './effects';
+import { drawPixelDeath } from './pixelmobs';
 import {
   drawBuilding,
   drawCampRing,
@@ -54,8 +55,15 @@ const enum Layer {
   Building,
   Mob,
   Player,
+  Body,
 }
-type LayerRef = Machine | World['nodes'][number] | World['buildings'][number] | World['mobs'][number] | Player;
+type LayerRef =
+  | Machine
+  | World['nodes'][number]
+  | World['buildings'][number]
+  | World['mobs'][number]
+  | Player
+  | Effects['bodies'][number];
 
 /** Where the choice of renderer is remembered; `?renderer=pixi` or `?renderer=canvas` sets it. */
 const RENDERER_KEY = 'ccgame.renderer';
@@ -419,6 +427,10 @@ export class Renderer {
     for (const player of world.players.values()) {
       if (visible(player.pos, 60)) add(player.pos.y, Layer.Player, player);
     }
+    // A body lies on the ground, so it goes under anything standing level with it.
+    for (const body of this.effects.bodies) {
+      if (visible(body.pos, 60)) add(body.pos.y - 8, Layer.Body, body);
+    }
     // Last frame's references would keep removed entities alive.
     refs.length = count;
 
@@ -447,6 +459,11 @@ export class Renderer {
         case Layer.Player: {
           const player = ref as Player;
           drawPlayer(ctx, player, time, player.id === selfId, toolFor(world, player));
+          break;
+        }
+        case Layer.Body: {
+          const body = ref as Effects['bodies'][number];
+          drawPixelDeath(ctx, body.type, body.pos.x, body.pos.y, body.age, body.flip);
           break;
         }
       }

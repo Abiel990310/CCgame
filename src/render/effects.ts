@@ -1,8 +1,9 @@
 import { ITEMS } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
-import type { ItemId, SimEvent, Vec2 } from '@shared/sim/types';
+import type { ItemId, MobTypeId, SimEvent, Vec2 } from '@shared/sim/types';
 import { drawItemSprite } from './items';
 import { INK } from './paint';
+import { DEATH_TIME, pixelSprites } from './pixelmobs';
 
 interface Particle {
   pos: Vec2;
@@ -45,6 +46,11 @@ export class Effects {
   private rings: Array<{ pos: Vec2; radius: number; life: number; maxLife: number; color: string }> = [];
   /** Melee swings: a bright crescent that sweeps across the arc and fades. */
   private slashes: Array<{ pos: Vec2; angle: number; life: number; maxLife: number; heavy: boolean; flip: boolean }> = [];
+  /**
+   * Creatures dying where they fell. They stand in the world, so the renderer
+   * sorts them in with everything else rather than drawing them on top.
+   */
+  readonly bodies: Array<{ pos: Vec2; type: MobTypeId; age: number; flip: boolean }> = [];
   /** Screen-space shake, decayed every frame. */
   shake = 0;
 
@@ -61,6 +67,11 @@ export class Effects {
           break;
         case 'mobDied':
           this.burst(event.pos, 14, MOBS[event.type].color, 170);
+          if (pixelSprites() && event.type !== 'wisp') {
+            // Which way it falls only has to look arbitrary, not be remembered.
+            const flip = (Math.floor(event.pos.x) + Math.floor(event.pos.y)) % 2 === 0;
+            this.bodies.push({ pos: { ...event.pos }, type: event.type, age: 0, flip });
+          }
           this.shake = Math.min(6, this.shake + 1.5);
           break;
         case 'blast':
@@ -280,6 +291,11 @@ export class Effects {
       p.vel.y *= 1 - drag * dt;
       if (p.gravity) p.vel.y += p.gravity * dt;
       if (p.grow) p.size += p.grow * dt;
+    }
+
+    for (let i = this.bodies.length - 1; i >= 0; i--) {
+      this.bodies[i].age += dt;
+      if (this.bodies[i].age >= DEATH_TIME) this.bodies.splice(i, 1);
     }
 
     for (let i = this.slashes.length - 1; i >= 0; i--) {
