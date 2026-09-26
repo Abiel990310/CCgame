@@ -32,6 +32,8 @@ export type ActionKey =
   | 'upgrade'
   | 'map'
   | 'ledger'
+  | 'zoomIn'
+  | 'zoomOut'
   | `hotbar${HotbarKey}`
   | `bind${HotbarKey}`;
 
@@ -111,6 +113,8 @@ export class InputManager {
       if (e.code === 'KeyC') this.pending.push('craft');
       if (e.code === 'KeyU') this.pending.push('upgrade');
       if (e.code === 'Tab') this.pending.push('inventory');
+      if ((e.code === 'Equal' || e.code === 'NumpadAdd') && !e.ctrlKey && !e.metaKey) this.pending.push('zoomIn');
+      if ((e.code === 'Minus' || e.code === 'NumpadSubtract') && !e.ctrlKey && !e.metaKey) this.pending.push('zoomOut');
       if (e.code === 'Escape') this.pending.push('cancel');
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -130,6 +134,22 @@ export class InputManager {
     });
     // Right-click removes, so the browser menu must not fight it.
     this.target.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // A trackpad sends a stream of small deltas and a mouse wheel a few large
+    // ones; both add up to one zoom step per notch's worth of scrolling.
+    let wheel = 0;
+    this.target.addEventListener(
+      'wheel',
+      (e) => {
+        if (e.ctrlKey) return;
+        e.preventDefault();
+        wheel += e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY;
+        if (Math.abs(wheel) < 90) return;
+        this.pending.push(wheel < 0 ? 'zoomIn' : 'zoomOut');
+        wheel = 0;
+      },
+      { passive: false },
+    );
 
     this.target.addEventListener('pointerdown', (e) => {
       this.touched = e.pointerType === 'touch';

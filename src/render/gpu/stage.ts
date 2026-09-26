@@ -1,5 +1,6 @@
 import { WebGLRenderer } from 'pixi.js';
 import { PixiContext2D } from './context';
+import { softwareGl } from '../softgl';
 
 /**
  * The WebGL stage the Pixi renderer draws into. It is loaded on its own, only
@@ -49,11 +50,4 @@ export class GpuStage {
     this.renderer.destroy();
     this.ctx.destroy();
   }
-}
-
-/** Whether the browser is drawing WebGL on the CPU, where Canvas is the faster of the two. */
-function softwareGl(gl: WebGLRenderingContext | WebGL2RenderingContext): boolean {
-  const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const name = String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
-  return /swiftshader|llvmpipe|softpipe|software|basic render/i.test(name);
 }

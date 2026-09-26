@@ -3196,3 +3196,101 @@ kbd {
 .offer.queued {
   border-color: var(--gold-line);
 }
+
+/* ---------- Title cards ---------- */
+
+/* The one place a book face is used: the turn of the day is an occasion, and
+   the rounded interface voice reads as a notification. System faces only. */
+.banner {
+  position: absolute;
+  top: calc(max(14px, env(safe-area-inset-top)) + 17vh);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  pointer-events: none;
+  width: min(92vw, 900px);
+  text-align: center;
+  color: #f7ecd2;
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75), 0 1px 2px rgba(0, 0, 0, 0.9);
+  animation: banner 4.2s ease-in-out both;
+}
+
+.banner-title {
+  font-size: clamp(30px, 6vw, 56px);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  /* Letter-spacing trails after the last letter too; this re-centres it. */
+  margin-right: -0.22em;
+}
+
+.banner-sub {
+  margin-top: 6px;
+  font-size: clamp(13px, 2.2vw, 17px);
+  font-style: italic;
+  letter-spacing: 0.06em;
+  color: #e3cf9f;
+}
+
+.banner-sub::before,
+.banner-sub::after {
+  content: '';
+  display: inline-block;
+  width: clamp(24px, 6vw, 56px);
+  height: 1px;
+  margin: 0 12px;
+  vertical-align: middle;
+  background: linear-gradient(90deg, transparent, var(--gold-line));
+}
+
+.banner-sub::after {
+  background: linear-gradient(90deg, var(--gold-line), transparent);
+}
+
+.banner.night {
+  color: #dfe5ff;
+}
+
+.banner.night .banner-sub {
+  color: #aebbf0;
+}
+
+@keyframes banner {
+  0% {
+    opacity: 0;
+    filter: blur(6px);
+  }
+  18%,
+  72% {
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner {
+    animation-name: banner-still;
+  }
+  @keyframes banner-still {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    10%,
+    80% {
+      opacity: 1;
+    }
+  }
+}
+
+/* On a phone the goal card fills the upper left, so the card sits below it. */
+@media (max-width: 640px) {
+  .banner {
+    top: calc(max(14px, env(safe-area-inset-top)) + 250px);
+  }
+}
