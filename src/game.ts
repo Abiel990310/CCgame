@@ -57,6 +57,7 @@ import type {
   MachineFamily,
   ItemStack,
   Machine,
+  MobTypeId,
   Player,
   PlayerInput,
   SimEvent,
@@ -106,6 +107,10 @@ export interface GameCallbacks {
 
 /** How long the camera takes to settle onto the player on a new island. */
 const ARRIVAL_MS = 2600;
+/** How long the camera looks off toward a boss walking in, there and back. */
+const GLANCE_MS = 2400;
+/** Furthest the camera leans toward a boss: toward where it is, not all the way to the coast. */
+const GLANCE_REACH = 420;
 
 export class Game {
   private world: World;
@@ -152,6 +157,10 @@ export class Game {
    * onto the player, so the first thing seen is the place rather than a HUD.
    */
   private arrival: { from: { x: number; y: number }; start: number } | null = null;
+  /** A boss walking in: the camera leans that way for a beat, then comes home. */
+  private glance: { offset: { x: number; y: number }; start: number } | null = null;
+  /** The night a boss was announced on, so the plain night card does not talk over it. */
+  private bossNight = -1;
   /** Facing applied to the next belt or machine placed. */
   private buildDir: Direction = 0;
   /**
@@ -1358,8 +1367,7 @@ export class Game {
         continue;
       }
       if (event.kind === 'boss') {
-        const ward = MOBS[event.type].shields ? '. Anything near it shrugs off your hits' : '';
-        this.hud.toast(`${MOBS[event.type].name} is coming for the camp${ward}`, 'warn');
+        this.announceBoss(event.type, event.pos);
         continue;
       }
       // The first level-up in a queue says how to spend it; the ring's badge
@@ -1432,7 +1440,7 @@ export class Game {
     const camera = this.renderer.camera;
     const arrival = this.arrival;
     if (!arrival) {
-      camera.follow(this.self.pos, elapsed);
+      camera.follow(this.glanceTarget(), elapsed);
       return;
     }
     const t = (performance.now() - arrival.start) / ARRIVAL_MS;
@@ -1449,17 +1457,51 @@ export class Game {
     camera.follow(camera.pos, 0);
   }
 
+  /**
+   * A boss gets an entrance rather than a toast: its name as the night's title
+   * card, and the camera leaning toward where it is coming from. Both are the
+   * client's own; nothing in the world waits on them.
+   */
+  private announceBoss(type: MobTypeId, pos: { x: number; y: number }): void {
+    const def = MOBS[type];
+    this.bossNight = this.world.nightIndex;
+    this.hud.banner(def.name, `${def.epithet ?? 'Night ' + this.world.nightIndex}.`, 'boss');
+    const dx = pos.x - this.self.pos.x;
+    const dy = pos.y - this.self.pos.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 1 || this.arrival) return;
+    const reach = Math.min(d, GLANCE_REACH);
+    this.glance = { offset: { x: (dx / d) * reach, y: (dy / d) * reach }, start: performance.now() };
+  }
+
+  /** Where the camera should sit: on the player, or leaning toward a boss. */
+  private glanceTarget(): { x: number; y: number } {
+    const glance = this.glance;
+    const at = this.self.pos;
+    if (!glance) return at;
+    const t = (performance.now() - glance.start) / GLANCE_MS;
+    if (t >= 1 || this.self.downed > 0) {
+      this.glance = null;
+      return at;
+    }
+    // Out quickly, hold, and back: the follow's own easing smooths the corners.
+    const lean = t < 0.3 ? t / 0.3 : t < 0.65 ? 1 : 1 - (t - 0.65) / 0.35;
+    return { x: at.x + glance.offset.x * lean, y: at.y + glance.offset.y * lean };
+  }
+
   private announcePhase(): void {
     if (this.world.phase === this.lastPhase) return;
     this.lastPhase = this.world.phase;
 
     const n = this.world.nightIndex;
     if (this.world.phase === 'night') {
-      this.hud.banner(
-        `Night ${n}`,
-        this.world.peaceful ? 'A quiet night. The fire keeps you company.' : 'Get to camp. They are coming.',
-        'night',
-      );
+      if (this.bossNight !== n) {
+        this.hud.banner(
+          `Night ${n}`,
+          this.world.peaceful ? 'A quiet night. The fire keeps you company.' : 'Get to camp. They are coming.',
+          'night',
+        );
+      }
       this.hud.setBuildMode(false);
     } else {
       this.hud.banner(`Day ${n + 1}`, `${n === 1 ? 'The first night' : `Night ${n}`} survived`);

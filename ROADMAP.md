@@ -1072,7 +1072,12 @@ detail behind the factory entries is in
       saying why you are here.
 - [ ] A display face for titles and headings, bundled from the same site.
       Needs Abiel's OK: it would be the page's first fetched asset.
-- [ ] A boss entrance: name card and a beat of camera for the Stone Warden.
+- [x] A boss entrance: every boss (Warden, Queen, Bulwark) walks in under a
+      title card of its own, its name and a line about it, in place of the
+      night card and the toast; the camera leans up to about 13 tiles toward
+      where it comes from and settles back over 2.4 seconds.
+- [ ] On a phone the boss card's decorative rule reaches the Dash button's
+      edge; the card could narrow to clear the right-hand button column.
 - [ ] Grade by biome: colder in snow, warmer on sand, greener in the marsh.
 - [ ] Parallax sea and sky beyond the coast, so the island's edge has depth.
 - [ ] Pinch to zoom on phones; zoom is wheel and keys only so far.

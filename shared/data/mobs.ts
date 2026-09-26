@@ -34,6 +34,8 @@ export interface MobDef {
    * `take` of each hit. The fight is reaching it through what it covers.
    */
   shields?: { radius: number; take: number };
+  /** A boss's line under its name when it walks in. */
+  epithet?: string;
   /** Orbs it drops, and the share of them that are essence. Default 1–2 at a quarter. */
   loot?: { orbs: number; essence: number };
 }
@@ -148,6 +150,7 @@ export const MOBS: Record<MobTypeId, MobDef> = {
     accent: '#e0a040',
     armor: 3,
     bossEvery: 5,
+    epithet: 'The hill has got up and is walking',
     loot: { orbs: 16, essence: 0.6 },
   },
   queen: {
@@ -170,6 +173,7 @@ export const MOBS: Record<MobTypeId, MobDef> = {
     summons: { into: 'crawler', count: 3, interval: 9 },
     bossEvery: 5,
     bossPhase: 3,
+    epithet: 'Mother of the swarm',
     loot: { orbs: 20, essence: 0.6 },
   },
   bulwark: {
@@ -192,6 +196,7 @@ export const MOBS: Record<MobTypeId, MobDef> = {
     shields: { radius: 210, take: 0.35 },
     bossEvery: 5,
     bossPhase: 1,
+    epithet: 'Its crystal wards the raid. Reach it first',
     loot: { orbs: 24, essence: 0.65 },
   },
 };

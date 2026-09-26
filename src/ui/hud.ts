@@ -505,7 +505,7 @@ export class Hud {
    * this is for the turn of the day, so it is large, set in a book face, and
    * gone before it gets in the way.
    */
-  banner(title: string, subtitle: string, tone: 'day' | 'night' = 'day'): void {
+  banner(title: string, subtitle: string, tone: 'day' | 'night' | 'boss' = 'day'): void {
     this.bannerEl?.remove();
     const el = document.createElement('div');
     el.className = `banner ${tone}`;
