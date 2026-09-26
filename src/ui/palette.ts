@@ -41,6 +41,7 @@ const FAMILY_GROUP: Record<MachineFamily, (typeof GROUPS)[number]> = {
   inserter: 'Logistics',
   splitter: 'Logistics',
   merger: 'Logistics',
+  tunnel: 'Logistics',
   lab: 'Research',
   furnace: 'Smelting',
   assembler: 'Assembly',

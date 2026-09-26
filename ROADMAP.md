@@ -506,8 +506,9 @@ detail behind the factory entries is in
       machine. A sink that never saturates.
 - [ ] **Belt tiers Mk2 and Mk3** (3.2 and 6.4 tiles/s), pending the open
       question on whether belts get tiers at all.
-- [ ] **Underground belts** — a placed pair passing items beneath up to 6
-      tiles. What makes a large factory readable.
+- [x] **Underground belts** — a placed pair passing items beneath up to 6
+      tiles. What makes a large factory readable. One crafted item (Belt
+      Logistics); the second placed facing the same way becomes the exit.
 - [ ] **Long-haul transport** — a bound pair of ports, items entering one
       arriving at the other after a delay. Matches the tier-6 drone decision
       and costs a fraction of rails.
@@ -815,6 +816,12 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Underground belts carry items across instantly; a transit delay equal to
+      the belt time over the gap would feel truer on long lines.
+- [ ] A way to place an underground exit on purpose (a key to flip in/out),
+      for the rare layout where the automatic pairing guesses wrong.
+- [ ] An Mk2 underground belt reaching 10 tiles, once belts get tiers.
+
 - [ ] A merger with a priority side, draining one feed first and topping up
       from the other, for a main line that should never starve.
 - [ ] Splitters and mergers draw no status light, so one jammed on a full line
@@ -951,6 +958,9 @@ detail behind the factory entries is in
       a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
 
 ### Needs testing
+
+- [ ] Underground belts by touch: the pairing preview was driven with a mouse
+      only, and a finger has no hover to show the exit's dashed link first.
 
 - [ ] Joining through the relay on two real networks. When a direct connection
       does not open within 6 seconds, the game now carries the session through

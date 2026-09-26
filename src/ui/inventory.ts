@@ -281,7 +281,7 @@ export class InventoryScreen {
         ? 'Machine'
         : arm
           ? 'Arm'
-          : def.family === 'splitter' || def.family === 'merger'
+          : def.family === 'splitter' || def.family === 'merger' || def.family === 'tunnel'
             ? 'Logistics'
             : 'Storage';
     this.els.title.textContent = def.name;
@@ -304,7 +304,7 @@ export class InventoryScreen {
         ? 'In'
         : arm
           ? 'Holding'
-          : def.family === 'splitter' || def.family === 'merger'
+          : def.family === 'splitter' || def.family === 'merger' || def.family === 'tunnel'
             ? 'Passing through'
             : 'Stored';
     this.els.inputGrid.parentElement?.classList.toggle('hidden', def.inputSlots === 0);

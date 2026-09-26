@@ -118,8 +118,8 @@ describe('machines are solid', () => {
     expect(mob.pos.x).toBeGreaterThan(face - 13 - 2);
   });
 
-  it('marks every machine but the splitter, the merger and the pole solid', () => {
+  it('marks every machine but the splitter, the merger, the tunnel ends and the pole solid', () => {
     const walkable = Object.values(MACHINES).filter((m) => !m.solid).map((m) => m.id);
-    expect(walkable).toEqual(['splitter', 'merger', 'pole']);
+    expect(walkable).toEqual(['splitter', 'merger', 'tunnel', 'tunnelExit', 'pole']);
   });
 });

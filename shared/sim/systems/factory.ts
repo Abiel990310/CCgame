@@ -25,6 +25,7 @@ import {
   outputTile,
   sideTiles,
   splitterAccepts,
+  tunnelExitOf,
 } from '../factory';
 import { tileCenter } from '../grid';
 import { rollDrop } from './gathering';
@@ -266,6 +267,9 @@ export function stepMachines(world: World, dt: number): void {
         break;
       case 'merger':
         stepMerger(world, machine);
+        break;
+      case 'tunnel':
+        stepTunnel(world, machine);
         break;
       case 'fishTrap':
         stepTrap(world, machine, dt);
@@ -599,6 +603,35 @@ function stepMerger(world: World, machine: Machine): void {
   const sources = mergerSources(machine);
   for (let guard = 0; guard < cap; guard++) {
     if (!takeFromFeeds(world, machine, sources)) return;
+  }
+}
+
+/**
+ * An underground entrance hands its buffer straight to the exit it pairs with,
+ * which lets items out onto its front like any machine's output. Nothing rides
+ * the gap between, so a tunnel carries exactly what the belts at either end
+ * do and never costs the line anything but the two tiles it stands on.
+ */
+function stepTunnel(world: World, machine: Machine): void {
+  // An exit has nothing to do beyond the output push every machine gets.
+  if (MACHINES[machine.type].tunnel !== 'in') {
+    machine.stalled = false;
+    return;
+  }
+  const exit = tunnelExitOf(world, machine);
+  if (!exit) {
+    machine.stalled = true;
+    return;
+  }
+
+  // A full exit is only the line ahead backing up, which the belts already
+  // show; stalled is kept for the one thing a player has to come and fix.
+  machine.stalled = false;
+  const cap = MACHINES[exit.type].slotSize;
+  for (let guard = 0; guard < MACHINES[machine.type].slotSize; guard++) {
+    const slot = machine.input.find((s): s is ItemStack => s !== null && s.count > 0);
+    if (!slot || addToSlots(exit.output, slot.id, 1, cap) !== 1) return;
+    takeStack(machine.input, slot.id, 1);
   }
 }
 

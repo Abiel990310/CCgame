@@ -185,3 +185,18 @@ describe('saving a merger', () => {
     expect(loaded.filters).toBeUndefined();
   });
 });
+
+describe('saving an underground belt', () => {
+  it('brings back which end each piece is and what is under way', () => {
+    const world = createWorld(7, true);
+    const entrance = machine('tunnel', 30, 30);
+    const exit = machine('tunnelExit', 34, 30);
+    exit.output[0] = { id: 'ironPlate', count: 3 };
+    world.machines.push(entrance, exit);
+
+    expect(saveWorld(world, 'a')).toBe(true);
+    const loaded = loadWorld('a')!.machines;
+    expect(loaded.map((m) => m.type)).toEqual(['tunnel', 'tunnelExit']);
+    expect(loaded[1].output[0]).toEqual({ id: 'ironPlate', count: 3 });
+  });
+});

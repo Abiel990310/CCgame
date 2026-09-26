@@ -37,7 +37,9 @@ import { setPaintScale } from './paint';
 import { polygon } from './shapes';
 import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFactoryScale } from './factory';
 import { drawPowerCoverage, drawPowerWires } from './power';
-import { dirAngle, tileCenter, tileKey } from '@shared/sim/grid';
+import { dirAngle, stepN, tileCenter, tileKey } from '@shared/sim/grid';
+import { MACHINES, TUNNEL_REACH } from '@shared/data/machines';
+import { tunnelEnd, tunnelEntranceOf } from '@shared/sim/factory';
 
 /** How much coarser than the screen, in CSS pixels, the night's lights are gathered. */
 const LIGHT_DOWNSCALE = 4;
@@ -552,6 +554,10 @@ export class Renderer {
     }
 
     if (ghost.what !== 'belt') drawPowerCoverage(ctx, world, ghost.what, ghost);
+    // An underground belt turns into an exit where it closes a tunnel, and the
+    // ghost has to say which it is about to be before the click, not after.
+    const what = ghost.what === 'belt' ? 'belt' : tunnelEnd(world, ghost.what, ghost.tx, ghost.ty, ghost.dir);
+    if (what !== 'belt' && MACHINES[what].tunnel) drawTunnelSpan(ctx, world, what, ghost, tint);
 
     const { x, y } = tileCenter(ghost.tx, ghost.ty);
     ctx.beginPath();
@@ -563,8 +569,8 @@ export class Renderer {
     // The piece itself, half there, so what lands is what was previewed —
     // facing, output port and all.
     ctx.globalAlpha = 0.62;
-    if (ghost.what === 'belt') drawBeltAt(ctx, x, y, ghost.dir, time);
-    else drawMachine(ctx, previewMachine(ghost.what, ghost.tx, ghost.ty, ghost.dir), time);
+    if (what === 'belt') drawBeltAt(ctx, x, y, ghost.dir, time);
+    else drawMachine(ctx, previewMachine(what, ghost.tx, ghost.ty, ghost.dir), time);
     ctx.globalAlpha = 1;
 
     // An arrow beyond the tile so facing is obvious before anything is committed.
@@ -773,6 +779,49 @@ export class Renderer {
  * Camp decoration is placed freely at a world position; factory pieces snap to
  * a tile and carry a facing, so the preview has to describe both cases.
  */
+/**
+ * Where an underground belt reaches. An entrance marks the tiles its exit may
+ * stand on; an exit is joined to the entrance it closes, so the pairing is
+ * seen before it is made.
+ */
+function drawTunnelSpan(
+  ctx: CanvasRenderingContext2D,
+  world: World,
+  what: MachineId,
+  ghost: { tx: number; ty: number; dir: Direction },
+  tint: string,
+): void {
+  const probe = previewMachine(what, ghost.tx, ghost.ty, ghost.dir);
+  ctx.save();
+  if (MACHINES[what].tunnel === 'out') {
+    const entrance = tunnelEntranceOf(world, probe);
+    if (entrance) {
+      const a = tileCenter(entrance.tx, entrance.ty);
+      const b = tileCenter(ghost.tx, ghost.ty);
+      ctx.strokeStyle = tint;
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+    }
+  } else {
+    ctx.fillStyle = tint;
+    for (let d = 1; d <= TUNNEL_REACH + 1; d++) {
+      const at = stepN(ghost.tx, ghost.ty, ghost.dir, d);
+      const { x, y } = tileCenter(at.tx, at.ty);
+      // Fading with distance, so the far end of the reach reads as the limit.
+      ctx.globalAlpha = 0.5 - (d / (TUNNEL_REACH + 2)) * 0.3;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
 export type GhostPreview =
   | { kind: 'building'; type: BuildingId; pos: Vec2; valid: boolean }
   | {

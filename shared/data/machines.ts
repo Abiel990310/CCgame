@@ -71,6 +71,19 @@ export interface MachineDef {
    * one of the crafted item instead. Must be listed in `CraftedMachineId`.
    */
   crafted?: boolean;
+  /**
+   * Underground belts only: which end of the tunnel this is. The entrance
+   * swallows what is fed to it and the exit it pairs with lets it out.
+   */
+  tunnel?: 'in' | 'out';
+  /** An underground entrance's exit: what placing it becomes when it closes a tunnel. */
+  pairsWith?: MachineId;
+  /**
+   * The crafted item that places this machine, when that is not the machine
+   * itself. An underground exit is the same item as its entrance, put down
+   * where it pairs with one, so the palette never needs a second entry.
+   */
+  placedWith?: CraftedMachineId;
 }
 
 /**
@@ -100,6 +113,12 @@ export function isFuel(item: ItemId): boolean {
  * furnace both its fuel and its ingredient without either starving the other.
  */
 export const FUEL_RESERVE = 5;
+
+/**
+ * Tiles an underground belt passes beneath between its entrance and its exit.
+ * The exit may stand anywhere up to one past that.
+ */
+export const TUNNEL_REACH = 6;
 
 /** Items a splitter holds while waiting for a side to take them. */
 export const SPLITTER_BUFFER = 4;
@@ -550,6 +569,56 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     fuelSlots: 0,
     solid: false,
   },
+  tunnel: {
+    id: 'tunnel',
+    crafted: true,
+    family: 'tunnel',
+    tunnel: 'in',
+    pairsWith: 'tunnelExit',
+    tier: 1,
+    name: 'Underground Belt',
+    description: `Takes a line under up to ${TUNNEL_REACH} tiles. Place one, then another further on facing the same way to make its exit.`,
+    cost: [
+      { id: 'wood', count: 4 },
+      { id: 'ironPlate', count: 4 },
+    ],
+    color: '#4c5a6b',
+    accent: '#7ec8e3',
+    inputSlots: 1,
+    outputSlots: 0,
+    slotSize: SPLITTER_BUFFER,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: true,
+    fuelSlots: 0,
+    // Walkable like the belts it joins, so a tunnel mouth never fences anyone in.
+    solid: false,
+  },
+  tunnelExit: {
+    id: 'tunnelExit',
+    crafted: true,
+    placedWith: 'tunnel',
+    family: 'tunnel',
+    tunnel: 'out',
+    tier: 1,
+    name: 'Underground Exit',
+    description: 'Where an underground belt comes back up, onto whatever it faces.',
+    cost: [],
+    color: '#4c5a6b',
+    accent: '#7ec8e3',
+    inputSlots: 0,
+    outputSlots: 1,
+    slotSize: SPLITTER_BUFFER,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: true,
+    fuelSlots: 0,
+    solid: false,
+  },
   fishTrap: {
     id: 'fishTrap',
     family: 'fishTrap',
@@ -704,6 +773,7 @@ export const MACHINE_ORDER: MachineId[] = [
   'longInserter',
   'splitter',
   'merger',
+  'tunnel',
   'lab',
   'fishTrap',
   'generator',
@@ -743,5 +813,7 @@ export const CRAFTED_MACHINES = MACHINE_ORDER.filter((id) => MACHINES[id].crafte
  * machine the one item the workbench made. Removing it hands the same back.
  */
 export function placementCost(id: MachineId): ItemStack[] {
-  return MACHINES[id].crafted ? [{ id: id as CraftedMachineId, count: 1 }] : MACHINES[id].cost;
+  const def = MACHINES[id];
+  if (!def.crafted) return def.cost;
+  return [{ id: def.placedWith ?? (id as CraftedMachineId), count: 1 }];
 }

@@ -79,6 +79,7 @@ export type CraftedMachineId =
   | 'lab'
   | 'splitter'
   | 'merger'
+  | 'tunnel'
   | 'generator'
   | 'solar'
   | 'beacon';
@@ -283,6 +284,7 @@ export type MachineFamily =
   | 'inserter'
   | 'splitter'
   | 'merger'
+  | 'tunnel'
   | 'lab'
   | 'fishTrap'
   | 'generator'
@@ -301,7 +303,8 @@ export type MachineId =
   | 'longInserter'
   | 'fastInserter'
   | 'stackInserter'
-  | 'steelChest';
+  | 'steelChest'
+  | 'tunnelExit';
 
 /** One item riding a belt tile, positioned 0..1 along its length. */
 export interface BeltItem {
