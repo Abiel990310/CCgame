@@ -527,9 +527,18 @@ detail behind the factory entries is in
 - [ ] **Long-haul transport** — a bound pair of ports, items entering one
       arriving at the other after a delay. Matches the tier-6 drone decision
       and costs a fraction of rails.
-- [ ] **Belt-fed turrets** — ammo becomes a production line and the factory
+- [x] **Belt-fed turrets** — ammo becomes a production line and the factory
       starts defending itself. The cleanest way to make the two halves of the
-      game touch.
+      game touch. *Built: a Gun Turret (workbench, after Fortification) fires
+      Iron Rounds (assembler: an iron and a copper plate make four) at the
+      nearest creature within 8 tiles, twice a second, led like a thrown
+      weapon and boosted by weapon research. It takes rounds from belts,
+      arms or by hand, shows a rounds bar, and its barrel tracks its target.*
+- [ ] Turrets want a sound of their own; they borrow the sling's shot now.
+- [ ] Creatures should go for turrets and machines near camp, so a turret
+      line needs walls and repairs rather than only ammo.
+- [ ] Turret tiers: a steel turret, and Steel Rounds that pierce, as rows.
+- [ ] A goal in the chain for the first turret fed by a belt.
 - [x] **Production ledger** — items per minute per item, with a graph and a
       personal best. A Production tab beside the island map (L on desktop):
       ten minutes of island time per item, the busiest first, and the best

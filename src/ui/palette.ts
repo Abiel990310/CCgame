@@ -51,6 +51,7 @@ const FAMILY_GROUP: Record<MachineFamily, (typeof GROUPS)[number]> = {
   solar: 'Power',
   pole: 'Power',
   beacon: 'Research',
+  turret: 'Camp',
 };
 
 const FACTORY: PaletteEntry[] = [
