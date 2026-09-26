@@ -886,6 +886,15 @@ detail behind the factory entries is in
       Re-profiled after the pixel creatures, death animations and 12-frame
       run, on desktop and emulated phone: camp, running, a 40-creature night
       and 40 deaths all within noise of the morning's build.
+- [x] A late-game factory cost 10 ms a frame on the Canvas renderer (41 ms on
+      an emulated phone), most of it not drawing: each cached sprite put the
+      canvas's transform back by handing it the matrix object, which Chrome
+      converts through a slow dictionary path, and a factory is thousands of
+      sprites. Handing back the six numbers instead: 5.3 ms desktop, 19 ms
+      phone, a night raid over the factory 11 → 6 ms and 47 → 26 ms, with a
+      pixel-identical frame. GPU renderer unchanged (its context never paid
+      that). Re-profiled after the spells, boss cutscene, turrets, dash jump
+      and pixel icons merges first: no regression on desktop or phone.
 - [ ] On the GPU renderer, the first seconds after a big factory comes into
       view were ~100 ms frames headless, nearly all in vertex buffer uploads
       (`bufferSubData`) inside software WebGL; steady state is ~5 ms. Needs a

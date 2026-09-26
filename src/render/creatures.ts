@@ -408,7 +408,7 @@ export function drawQueen(ctx: CanvasRenderingContext2D, mob: Mob, time: number)
     ctx.setTransform(m.a < 0 ? -m.a : m.a, m.b, m.c, m.d, m.e, m.f);
     const moving = Math.hypot(mob.vel.x, mob.vel.y) > 3;
     drawPixelQueen(ctx, 0, 0, mobAct(mob, moving), Math.round(swell * 3), Math.floor(time * 3) % 2, face.x < 0, paintFlash() > 0);
-    ctx.setTransform(m);
+    ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
     return;
   }
 

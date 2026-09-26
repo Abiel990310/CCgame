@@ -714,7 +714,7 @@ export function drawItemSprite(
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(sprite, Math.round(m.a * x + m.e - px / 2), Math.round(m.d * y + m.f - px / 2));
-  ctx.setTransform(m);
+  ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
 }
 
 /**
