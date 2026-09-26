@@ -131,7 +131,31 @@ export class GroundMesh {
      * The first of the sea's bands that reaches the other element: land, for
      * a water sample; water, when `wet` asks from the beach. 4 means none.
      */
+    // Most samples on a big island are open sea, and each would look at 32
+    // points to learn that no land is near. A running count of land tiles
+    // answers that for a whole neighbourhood at once; a tile of margin keeps
+    // the answer the same as the ring search would give.
+    const n = MAP_TILES;
+    const landSum = new Uint32Array((n + 1) * (n + 1));
+    for (let ty = 0; ty < n; ty++) {
+      for (let tx = 0; tx < n; tx++) {
+        const land = isWet(terrainAt(terrain, tx, ty)) ? 0 : 1;
+        landSum[(ty + 1) * (n + 1) + tx + 1] =
+          land + landSum[ty * (n + 1) + tx + 1] + landSum[(ty + 1) * (n + 1) + tx] - landSum[ty * (n + 1) + tx];
+      }
+    }
+    const reach = SEA_REACH[SEA_REACH.length - 1];
+    const landNear = (x: number, y: number): boolean => {
+      const x0 = Math.max(0, Math.floor((x - reach) / TILE) - 1);
+      const y0 = Math.max(0, Math.floor((y - reach) / TILE) - 1);
+      const x1 = Math.min(n - 1, Math.floor((x + reach) / TILE) + 1);
+      const y1 = Math.min(n - 1, Math.floor((y + reach) / TILE) + 1);
+      if (x1 < x0 || y1 < y0) return false;
+      const w = n + 1;
+      return landSum[(y1 + 1) * w + x1 + 1] - landSum[y0 * w + x1 + 1] - landSum[(y1 + 1) * w + x0] + landSum[y0 * w + x0] > 0;
+    };
     const landWithin = (x: number, y: number, wet = false): number => {
+      if (!wet && !landNear(x, y)) return SEA_REACH.length;
       for (let band = 0; band < SEA_REACH.length; band++) {
         const r = SEA_REACH[band];
         for (let k = 0; k < 8; k++) {
