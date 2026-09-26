@@ -2,6 +2,8 @@ import { audio } from '../audio';
 import { netLogButton } from './netlog';
 import { SoundPanel } from './sound';
 import { icon } from './icons';
+import { emblemSvg } from './emblem';
+import './title.css';
 import {
   createSlot,
   deleteSlot,
@@ -50,6 +52,25 @@ export interface MenuCloud {
 }
 
 /**
+ * Motes of light drifting up over the island behind the title. Fixed spots
+ * rather than random ones, so the title looks the same every time it opens;
+ * mostly over the right, where the scene shows, clear of the banner.
+ */
+function motes(): HTMLElement {
+  const layer = document.createElement('div');
+  layer.className = 'menu-motes';
+  const spots = [
+    [48, 13, 0, 24], [56, 17, 3, -30], [63, 12, 7, 40], [71, 15, 1, -20], [78, 19, 5, 30],
+    [84, 14, 9, -36], [90, 16, 2, 22], [95, 13, 11, -18], [67, 18, 4, 34], [59, 15, 10, -26],
+    [87, 12, 6, 18], [75, 20, 12, -40],
+  ];
+  layer.innerHTML = spots
+    .map(([left, time, delay, drift]) => `<i style="left:${left}%;--t:${time}s;--d:-${delay}s;--x:${drift}px"></i>`)
+    .join('');
+  return layer;
+}
+
+/**
  * The main menu. It owns the list of saves and nothing about the simulation:
  * it hands a slot to the game and steps out of the way.
  */
@@ -78,6 +99,8 @@ export class MainMenu {
     // Mounted here as well as in the pause screen so the first thing a player
     // can do on the page is decide how loud it is.
     this.sound = new SoundPanel(this.els.sound);
+    $('menu-logo').insertAdjacentHTML('afterbegin', emblemSvg());
+    this.els.root.prepend(motes());
 
     this.els.continue.addEventListener('click', () => {
       const slot = lastPlayed() ?? listSaves()[0];
