@@ -52,6 +52,7 @@ export interface HudCallbacks {
   onToggleBag: () => void;
   onDash: () => void;
   onCast: () => void;
+  onAttack: (down: boolean) => void;
   onSwapSpell: () => void;
   onTogglePause: () => void;
   onQuitToMenu: () => void;
@@ -108,6 +109,7 @@ export class Hud {
     btnBag: $<HTMLButtonElement>('btn-bag'),
     btnDash: $<HTMLButtonElement>('btn-dash'),
     btnSpell: $<HTMLButtonElement>('btn-spell'),
+    btnAttack: $<HTMLButtonElement>('btn-attack'),
     spellGlyph: $('spell-glyph'),
     spellName: $('spell-name'),
     spellCd: $('spell-cd'),
@@ -183,6 +185,14 @@ export class Hud {
     this.els.btnBag.addEventListener('click', () => this.callbacks.onToggleBag());
     this.els.btnDash.addEventListener('click', () => this.callbacks.onDash());
     this.bindSpellButton();
+    const attack = this.els.btnAttack;
+    attack.addEventListener('pointerdown', (e) => {
+      attack.setPointerCapture(e.pointerId);
+      this.callbacks.onAttack(true);
+    });
+    for (const end of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
+      attack.addEventListener(end, () => this.callbacks.onAttack(false));
+    }
     this.els.btnMenu.addEventListener('click', () => this.callbacks.onTogglePause());
     this.els.pauseResume.addEventListener('click', () => this.callbacks.onTogglePause());
     this.els.pauseQuit.addEventListener('click', () => this.callbacks.onQuitToMenu());

@@ -745,6 +745,17 @@ kbd {
   pointer-events: none;
 }
 
+/* F does this on a keyboard; the button is for thumbs, and held it winds up the slam. */
+.action.attack {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .action.attack {
+    display: flex;
+  }
+}
+
 /* The spell button takes the readied spell's colour, and glows while it is ready. */
 .action.spell {
   --spell: #9fe3ff;

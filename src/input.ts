@@ -64,6 +64,7 @@ export class InputManager {
    */
   private touchCast = 0;
   private touchInteract = false;
+  private touchAttack = false;
   /** Edge-triggered actions, drained once per frame. */
   private pending: ActionKey[] = [];
 
@@ -295,6 +296,11 @@ export class InputManager {
     this.touchDash = true;
   }
 
+  /** The on-screen Attack button, held like F. */
+  holdAttack(down: boolean): void {
+    this.touchAttack = down;
+  }
+
   triggerCast(): void {
     this.touchCast = 4;
   }
@@ -342,7 +348,7 @@ export class InputManager {
       move: { x, y },
       dash,
       interact: this.keys.has('KeyE') || this.pointerDown || this.touchInteract,
-      attack: this.keys.has('KeyF'),
+      attack: this.keys.has('KeyF') || this.touchAttack,
       cast: this.keys.has('KeyQ') || casting,
     };
   }

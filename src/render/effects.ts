@@ -47,7 +47,7 @@ export class Effects {
   /** Columns of light rising off a player: a heal, seen from across the screen. */
   private pillars: Array<{ pos: Vec2; life: number; maxLife: number; color: string }> = [];
   /** Melee swings: a bright crescent that sweeps across the arc and fades. */
-  private slashes: Array<{ pos: Vec2; angle: number; life: number; maxLife: number; heavy: boolean; flip: boolean }> = [];
+  private slashes: Array<{ pos: Vec2; angle: number; life: number; maxLife: number; heavy: boolean; flip: boolean; counter?: boolean }> = [];
   /**
    * Creatures dying where they fell. They stand in the world, so the renderer
    * sorts them in with everything else rather than drawing them on top.
@@ -142,7 +142,15 @@ export class Effects {
           const heavy = event.combo === 2;
           const life = heavy ? 0.26 : 0.2;
           // Alternate hits sweep opposite ways, like a forehand and a backhand.
-          this.slashes.push({ pos: { ...event.pos }, angle: Math.atan2(event.dir.y, event.dir.x), life, maxLife: life, heavy, flip: event.combo === 1 });
+          this.slashes.push({ pos: { ...event.pos }, angle: Math.atan2(event.dir.y, event.dir.x), life, maxLife: life, heavy, flip: event.combo === 1, counter: event.counter });
+          if (event.counter) {
+            // The answer to a dodge: a wider gold arc, sparks thrown along it, and its name.
+            const at = { x: event.pos.x + event.dir.x * 30, y: event.pos.y - 10 + event.dir.y * 22 };
+            this.spray(at, event.dir, 16, ['#ffe7a0', '#ffd46a', '#ffffff'], 260);
+            this.rings.push({ pos: at, radius: 30, life: 0.25, maxLife: 0.25, color: '#ffd46a' });
+            this.text({ x: event.pos.x - event.dir.x * 10, y: event.pos.y - 22 }, 'Counter', '#ffd46a', 14);
+            this.shake = Math.min(10, this.shake + 3);
+          }
           if (event.hits > 0) this.shake = Math.min(8, this.shake + (heavy ? 3 : 1.2));
           break;
         }
@@ -417,7 +425,7 @@ export class Effects {
    */
   private drawSlash(
     ctx: CanvasRenderingContext2D,
-    s: { pos: Vec2; angle: number; life: number; maxLife: number; heavy: boolean; flip: boolean },
+    s: { pos: Vec2; angle: number; life: number; maxLife: number; heavy: boolean; flip: boolean; counter?: boolean },
   ): void {
     const f = 1 - s.life / s.maxLife;
     const half = 1.15;
@@ -427,13 +435,13 @@ export class Effects {
     const dir = s.flip ? -1 : 1;
     const a0 = s.angle - half * dir + 2 * half * dir * tail;
     const a1 = s.angle - half * dir + 2 * half * dir * head;
-    const reach = s.heavy ? 46 : 40;
-    const width = s.heavy ? 12 : 8;
+    const reach = s.counter ? 54 : s.heavy ? 46 : 40;
+    const width = s.counter ? 15 : s.heavy ? 12 : 8;
     ctx.save();
     ctx.translate(s.pos.x, s.pos.y - 10);
     ctx.scale(1, 0.72);
     ctx.globalAlpha = Math.min(1, (1 - f) * 1.6);
-    ctx.fillStyle = s.heavy ? '#ffc85a' : '#fff1d0';
+    ctx.fillStyle = s.counter ? '#ffb02a' : s.heavy ? '#ffc85a' : '#fff1d0';
     ctx.beginPath();
     ctx.arc(0, 0, reach, a0, a1, s.flip);
     ctx.arc(0, 0, reach - width, a1, a0, !s.flip);

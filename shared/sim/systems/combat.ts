@@ -266,7 +266,7 @@ export function stepStrike(world: World, player: Player, input: PlayerInput, dt:
     damageMob(world, mob, damage, player.id);
     hits++;
   }
-  world.events.push({ kind: 'strike', playerId: player.id, pos: { ...player.pos }, dir, combo, hits });
+  world.events.push({ kind: 'strike', playerId: player.id, pos: { ...player.pos }, dir, combo, hits, counter: counter || undefined });
 }
 
 function slam(world: World, player: Player): void {
