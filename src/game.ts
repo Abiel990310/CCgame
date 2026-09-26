@@ -82,6 +82,7 @@ import { Hud, PILING } from './ui/hud';
 import { Inspector } from './ui/inspect';
 import { PerfMeter } from './ui/perfmeter';
 import { WorkbenchScreen } from './ui/workbench';
+import { StoryCards } from './ui/story';
 
 /** A finger has no hover and no E key, so its prompts say so. */
 const COARSE = matchMedia('(pointer: coarse)');
@@ -124,6 +125,7 @@ export class Game {
   private perf: PerfMeter;
   private goals: GoalTracker;
   private worldMap: WorldMap;
+  private story: StoryCards;
   /** What the factory makes a minute; the island's own, or a blank one off a guest. */
   private ledger = new Ledger();
 
@@ -223,6 +225,7 @@ export class Game {
 
     this.goals = new GoalTracker(document.getElementById('ui')!);
     this.worldMap = new WorldMap(document.getElementById('ui')!, () => this.worldMap.setOpen(false));
+    this.story = new StoryCards(document.getElementById('ui')!);
     document.getElementById('btn-map')!.addEventListener('click', () => this.toggleMap());
     this.coop = new CoopPanel({
       onHost: () => this.startHosting(),
@@ -315,19 +318,26 @@ export class Game {
     } else {
       this.world = createWorld(Date.now() & 0xffff, peaceful);
       this.selfId = addPlayer(this.world, 'You').id;
-      this.hud.banner(slot.name, peaceful ? 'A peaceful island. Build freely.' : 'Day one. Go gather.');
     }
 
     this.begin();
     if (!loaded) {
-      const at = this.self.pos;
-      this.arrival = { from: { x: at.x - 260, y: at.y - 380 }, start: performance.now() };
+      // The day starts once the story is read, so the title card and the
+      // camera's sweep in are what the last card turns into.
+      const world = this.world;
+      void this.story.play(peaceful).then(() => {
+        if (this.world !== world) return;
+        this.hud.banner(slot.name, peaceful ? 'A peaceful island. Build freely.' : 'Day one. Go gather.');
+        const at = this.self.pos;
+        this.arrival = { from: { x: at.x - 260, y: at.y - 380 }, start: performance.now() };
+      });
     }
   }
 
   /** Everything entering an island shares, however it was reached. */
   private begin(): void {
     this.showcasing = false;
+    this.story.close();
     // Whatever was pressed on the menu is not a move order.
     this.input.drainActions();
     this.hud.setPauseOpen(false);
@@ -761,6 +771,13 @@ export class Game {
       this.workbench.isOpen ||
       this.worldMap.isOpen;
 
+    // The story cards take their own keys; nothing reaches the world under them.
+    if (this.story.isOpen) {
+      this.input.drainActions();
+      this.input.takeClick();
+      return;
+    }
+
     for (const action of this.input.drainActions()) {
       // With the draft open the number keys pick a card instead of a quick slot.
       if (action.startsWith('hotbar') && this.hud.isDraftOpen && !this.hud.isPauseOpen) {
@@ -1130,7 +1147,7 @@ export class Game {
 
     this.handleActions();
 
-    const paused = this.hud.isDraftOpen || this.hud.isPauseOpen;
+    const paused = this.hud.isDraftOpen || this.hud.isPauseOpen || this.story.isOpen;
     // Inspecting a machine should not also swing the pickaxe at it.
     if (this.hud.isInventoryOpen || this.workbench.isOpen || this.worldMap.isOpen) this.input.takeClick();
     const ghost = this.ghost();

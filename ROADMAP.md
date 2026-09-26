@@ -1073,8 +1073,16 @@ detail behind the factory entries is in
       boss stagger, so hits land instead of passing through.
 - [ ] A painted title screen with a logo lockup, in place of the menu that
       reads like a web form.
-- [ ] Two or three illustrated story cards before a new island's first day,
-      saying why you are here.
+- [x] Two or three illustrated story cards before a new island's first day,
+      saying why you are here. *Three animated pixel scenes (the pod coming
+      down, ruins and a shrine with eyes in the trees, the Skyward Beacon
+      firing) in `src/ui/story.ts`; the world holds still behind them, Esc or
+      Skip passes them, and the day's title card and camera sweep follow the
+      last one. A peaceful island gets quiet nights in the second card.*
+- [ ] A closing story card when the Skyward Beacon's last stage is built, so
+      the opening's promise ("someone up there will see you") pays off.
+- [ ] A soft page-turn sound for the story cards, and a Prologue button on
+      the menu to read them again.
 - [ ] A display face for titles and headings, bundled from the same site.
       Needs Abiel's OK: it would be the page's first fetched asset.
 - [x] A boss entrance: every boss (Warden, Queen, Bulwark) walks in under a
