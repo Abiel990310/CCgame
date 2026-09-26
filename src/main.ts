@@ -1,4 +1,5 @@
 import './style.css';
+import './ui/pixelui.css';
 import { hasNetlog } from './net/netlog';
 import { Game } from './game';
 import { MainMenu } from './ui/menu';

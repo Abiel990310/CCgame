@@ -308,6 +308,8 @@ export class Renderer {
     const pw = Math.ceil(w * dpr);
     const ph = Math.ceil(h * dpr);
     const rendering = pixel ? 'pixelated' : '';
+    // The interface follows the look, so framed pixel panels sit over pixel art.
+    document.body.classList.toggle('pixel-ui', pixel);
     this.canvas.style.imageRendering = rendering;
     if (this.gpu) this.gpu.canvas.style.imageRendering = rendering;
     if (this.night) {

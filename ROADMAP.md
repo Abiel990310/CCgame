@@ -898,7 +898,13 @@ detail behind the factory entries is in
       whether the default pixel scale shows enough of the factory.
 - [ ] 4. **Menus look like a game.** Framed pixel panels, a serif face,
       tabbed Status / Equipment / Inventory / Charms / Map; ours are web
-      cards in a system font.
+      cards in a system font. *2026-09-26: with the pixel look the panels
+      are square framed pixel panels with a gold bevel, buttons press into
+      a lip, and titles use a book face (`src/ui/pixelui.css`). Still
+      missing: one tabbed character screen, pixel icons, portraits.*
+- [ ] Hotbar and action-bar icons redrawn as pixel icons to match the frames.
+- [ ] One tabbed character screen (bag, build, upgrades, map) instead of
+      separate modals.
 - [ ] 5. **Character screen and gear.** Weapons, charms and spells to equip
       and swap; our bag holds materials and the build is a row of chips.
 - [ ] 6. **Bosses as events.** Intro cutscene, name card, phase change; our
