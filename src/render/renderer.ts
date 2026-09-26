@@ -102,7 +102,7 @@ export class Renderer {
   /** Told when a tool lands or a dash sets off, so the game can play it. */
   onCue: ((cue: Cue, pos: Vec2, self: boolean) => void) | null = null;
   /** Per player: last swing phase, time to next footstep, and whether dashing. */
-  private motion = new Map<number, { swing: number; step: number; dashing: boolean }>();
+  private motion = new Map<number, { swing: number; step: number; dashing: boolean; airborne: boolean }>();
   private lastObserved = -1;
   private dpr = 1;
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
@@ -543,7 +543,7 @@ export class Renderer {
     for (const player of world.players.values()) {
       let m = this.motion.get(player.id);
       if (!m) {
-        m = { swing: -1, step: 0, dashing: false };
+        m = { swing: -1, step: 0, dashing: false, airborne: false };
         this.motion.set(player.id, m);
       }
       const feet = { x: player.pos.x, y: player.pos.y + 7 };
@@ -565,11 +565,18 @@ export class Renderer {
       m.swing = swing;
 
       const dashing = player.dashTime > 0;
+      const airborne = player.vault !== undefined;
       if (dashing && !m.dashing) {
         this.effects.dust(feet, 7, 1.8);
-        this.onCue?.('dash', feet, self);
+        this.onCue?.(airborne ? 'leap' : 'dash', feet, self);
+      }
+      if (m.airborne && !airborne) {
+        this.effects.dust(feet, 10, 2.2);
+        if (self) this.effects.shake = Math.min(3, this.effects.shake + 1.2);
+        this.onCue?.('land', feet, self);
       }
       m.dashing = dashing;
+      m.airborne = airborne;
 
       const speed = Math.hypot(player.vel.x, player.vel.y);
       if (speed > 40 && player.downed <= 0) {
@@ -1064,7 +1071,7 @@ function toolFor(world: World, player: Player): Tool {
  * than finishing early and snapping back.
  */
 /** Sounds the renderer notices from motion rather than from sim events. */
-export type Cue = 'chop' | 'chip' | 'rustle' | 'dash';
+export type Cue = 'chop' | 'chip' | 'rustle' | 'dash' | 'leap' | 'land';
 
 /** How close the camera stands, as multiples of the size-based default. */
 const ZOOM_STEPS = [0.7, 0.85, 1, 1.2, 1.45];

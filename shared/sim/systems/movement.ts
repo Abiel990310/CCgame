@@ -1,6 +1,6 @@
 import { BUILDINGS } from '../../data/buildings';
 import { MACHINES } from '../../data/machines';
-import { DASH, MAP_SIZE, PLAYER, TILE } from '../constants';
+import { DASH, MAP_SIZE, PLAYER, TILE, VAULT } from '../constants';
 import { clamp, damp, length, normalize } from '../math';
 import { tileKey } from '../grid';
 import { perk } from '../perks';
@@ -90,6 +90,59 @@ export function resolveMachines(world: World, pos: Vec2, radius: number): void {
   }
 }
 
+/**
+ * Whether a body could stand at `pos` heading `dir`: the same tests the
+ * collision above makes, the ground under it and ahead of it, and no machine
+ * or wall overlapping it.
+ */
+function clearAt(world: World, pos: Vec2, dir: Vec2, radius: number): boolean {
+  if (pos.x < radius || pos.y < radius || pos.x > MAP_SIZE - radius || pos.y > MAP_SIZE - radius) return false;
+  const ground = (x: number, y: number): boolean => isWalkable(terrainAtIndex(world.terrain, Math.floor(x / TILE), Math.floor(y / TILE)));
+  if (!ground(pos.x, pos.y) || !ground(pos.x + dir.x * radius, pos.y + dir.y * radius)) return false;
+  const cx = Math.floor(pos.x / TILE);
+  const cy = Math.floor(pos.y / TILE);
+  for (let ty = cy - 1; ty <= cy + 1; ty++) {
+    for (let tx = cx - 1; tx <= cx + 1; tx++) {
+      const found = world.grid.get(tileKey(tx, ty));
+      if (!found || !('type' in found) || !MACHINES[found.type].solid) continue;
+      const mx = tx * TILE + TILE / 2;
+      const my = ty * TILE + TILE / 2;
+      const dx = pos.x - clamp(pos.x, mx - MACHINE_HALF, mx + MACHINE_HALF);
+      const dy = pos.y - clamp(pos.y, my - MACHINE_HALF, my + MACHINE_HALF);
+      if (dx * dx + dy * dy < radius * radius) return false;
+    }
+  }
+  for (const b of world.buildings) {
+    if (b.type !== 'wall') continue;
+    if (Math.hypot(pos.x - b.pos.x, pos.y - b.pos.y) < BUILDINGS[b.type].radius + radius) return false;
+  }
+  return true;
+}
+
+/**
+ * Where a dash from `from` would land if it leapt what is in its way, or null
+ * when its path is clear (a plain dash) or nothing on the far side is in reach.
+ */
+export function findVault(world: World, from: Vec2, dir: Vec2): Vec2 | null {
+  const STEP = 4;
+  const dash = DASH.speed * DASH.duration;
+  const at = (s: number): Vec2 => ({ x: from.x + dir.x * s, y: from.y + dir.y * s });
+  let blocked = -1;
+  for (let s = STEP; s <= dash; s += STEP) {
+    if (!clearAt(world, at(s), dir, PLAYER.radius)) {
+      blocked = s;
+      break;
+    }
+  }
+  if (blocked < 0) return null;
+  for (let s = blocked; s <= VAULT.reach; s += STEP) {
+    const p = at(s);
+    if (terrainAtIndex(world.terrain, Math.floor(p.x / TILE), Math.floor(p.y / TILE)) === 'deep') return null;
+    if (clearAt(world, p, dir, PLAYER.radius)) return p;
+  }
+  return null;
+}
+
 export function stepPlayerMovement(
   world: World,
   player: Player,
@@ -100,6 +153,25 @@ export function stepPlayerMovement(
   player.invuln = Math.max(0, player.invuln - dt);
   player.hitFlash = Math.max(0, player.hitFlash - dt);
 
+  if (player.vault) {
+    // In the air nothing collides: the landing was checked before leaving.
+    const v = player.vault;
+    v.t = Math.min(VAULT.duration, v.t + dt);
+    const k = v.t / VAULT.duration;
+    player.pos.x = v.from.x + (v.to.x - v.from.x) * k;
+    player.pos.y = v.from.y + (v.to.y - v.from.y) * k;
+    player.vel.x = (v.to.x - v.from.x) / VAULT.duration;
+    player.vel.y = (v.to.y - v.from.y) / VAULT.duration;
+    player.dashTime = VAULT.duration - v.t;
+    if (v.t >= VAULT.duration) {
+      player.vault = undefined;
+      player.dashTime = 0;
+      player.vel.x *= 0.3;
+      player.vel.y *= 0.3;
+    }
+    return;
+  }
+
   const dir = normalize(input.move);
   if (length(dir) > 0) player.facing = dir;
 
@@ -109,8 +181,16 @@ export function stepPlayerMovement(
     player.vel.y = player.facing.y * DASH.speed;
   } else {
     if (input.dash && player.dashCd <= 0) {
-      player.dashTime = DASH.duration;
       player.dashCd = DASH.cooldown * Math.pow(0.85, perk(player, 'recovery'));
+      const landing = findVault(world, player.pos, player.facing);
+      if (landing) {
+        player.vault = { from: { ...player.pos }, to: landing, t: 0 };
+        player.dashTime = VAULT.duration;
+        player.invuln = Math.max(player.invuln, VAULT.duration + 0.1);
+        world.events.push({ kind: 'vault', playerId: player.id, from: { ...player.pos }, to: { ...landing } });
+        return;
+      }
+      player.dashTime = DASH.duration;
       player.invuln = Math.max(player.invuln, DASH.duration + 0.1);
     }
     const daytime = world.phase === 'day' ? 1 + 0.12 * perk(player, 'pathfinder') : 1;

@@ -16,7 +16,7 @@ import {
   tint,
   tone,
 } from './paint';
-import { BITE, DASH, MELEE } from '@shared/sim/constants';
+import { BITE, DASH, MELEE, VAULT } from '@shared/sim/constants';
 import { rgba } from './palette';
 import { SWING_FRAMES, WALK_FRAMES, drawPixelDowned, drawPixelPlayer, drawPixelRoll } from './pixelplayer';
 import {
@@ -76,6 +76,9 @@ function viewOf(fx: number, fy: number): { view: View; flip: number } {
   return { view: fy < 0 ? 'up' : 'down', flip: 1 };
 }
 
+/** How high a vault carries the body at the top of its arc, in world units. */
+const VAULT_HEIGHT = 20;
+
 export function drawPlayer(
   ctx: CanvasRenderingContext2D,
   player: Player,
@@ -84,7 +87,12 @@ export function drawPlayer(
   tool: Tool = null,
 ): void {
   const { x, y } = player.pos;
-  const feet = y + 7;
+  const ground = y + 7;
+  // A leap rides a parabola over the shadow, which stays on the ground and
+  // shrinks as the body rises, so the height reads in a top-down view.
+  const leap = player.vault ? Math.min(1, player.vault.t / VAULT.duration) : -1;
+  const lift = leap >= 0 ? 4 * VAULT_HEIGHT * leap * (1 - leap) : 0;
+  const feet = ground - lift;
   const outfit = isSelf ? SELF : OTHER;
 
   if (player.downed > 0) {
@@ -101,9 +109,9 @@ export function drawPlayer(
   const working = tool !== null && player.gatherProgress > 0;
   const phase = time * (dashing ? 16 : 10.5) + player.id;
 
-  softShadow(ctx, x, feet, 10.5, 0.38);
+  softShadow(ctx, x, ground, 10.5 * (1 - lift / (VAULT_HEIGHT * 2.2)), 0.38 * (1 - lift / (VAULT_HEIGHT * 1.8)));
 
-  if (dashing) drawDashTrail(ctx, x, feet, player.vel.x, player.vel.y, outfit);
+  if (dashing && leap < 0) drawDashTrail(ctx, x, feet, player.vel.x, player.vel.y, outfit);
 
   ctx.save();
   if (player.invuln > 0 && !dashing && Math.floor(time * 14) % 2 === 0) ctx.globalAlpha *= 0.55;
@@ -136,8 +144,9 @@ export function drawPlayer(
   }
 
   if (pixelSprites() && dashing) {
-    // The dash is a forward roll, four quarter turns over its length.
-    const through = 1 - player.dashTime / DASH.duration;
+    // The dash is a forward roll, four quarter turns over its length; a leap
+    // is the same tuck turned once in the air.
+    const through = leap >= 0 ? leap : 1 - player.dashTime / DASH.duration;
     drawPixelRoll(ctx, x, feet, outfit, Math.min(3, Math.floor(through * 4)), player.facing.x < 0);
     ctx.restore();
     return;

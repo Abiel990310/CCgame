@@ -47,7 +47,9 @@ describe('machines are solid', () => {
   it('does not let a dash tunnel through a machine', () => {
     const b = bench();
     const t = at(6, 3);
-    put(b, 'chest', t.tx, t.ty, 0);
+    // A dash leaps a machine with ground beyond it (vault.test.ts); a block
+    // too deep to clear is where it has to stop against the face.
+    for (let dx = 6; dx < 12; dx++) put(b, 'chest', at(dx, 3).tx, t.ty, 0);
     standAt(b, 4, 3);
 
     walk(b, { x: 1, y: 0 }, 0.5, true);

@@ -128,6 +128,10 @@ created, and is saved with it.
 - One movement ability (dash) with its own cooldown. It is a forward roll:
   a bite or glob that lands mid-roll passes through, and the next swing
   within a second is a counter, hitting as hard as the combo's finisher.
+  A dash that runs into a machine, a wall or a shallow stream leaps it
+  instead, landing on the far side if there is ground within about four
+  tiles, so a factory never walls its builder in. Deep water is never
+  leapt, so the coast still bounds the island.
 - Spells, learned in the level-up draft and pressed with Q: a fireball that
   bursts, a frost nova that throws creatures back and slows them, and a
   mend. One is readied at a time; each has its own cooldown.

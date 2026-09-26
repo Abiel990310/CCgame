@@ -431,6 +431,20 @@ export const SOUNDS = {
     throttle: 0.1,
     layers: [NOISE(700, 2400, 0.8, 0.01, 0.16, 0.9)],
   },
+  // A leap over something: the whoosh rises as the body does...
+  leap: {
+    gain: 0.17,
+    vary: 0.08,
+    throttle: 0.1,
+    layers: [NOISE(500, 1900, 0.8, 0.02, 0.22, 0.9), TONE('sine', 240, 420, 0.18, 0.02, 0.2)],
+  },
+  // ...and it comes down on both feet with a soft thud and a scuff of grit.
+  land: {
+    gain: 0.2,
+    vary: 0.1,
+    throttle: 0.1,
+    layers: [TONE('sine', 130, 55, 0.7, 0.002, 0.12), NOISE(1400, 500, 0.4, 0.002, 0.08, 1.2)],
+  },
   collected: {
     gain: 0.13,
     vary: 0.1,
