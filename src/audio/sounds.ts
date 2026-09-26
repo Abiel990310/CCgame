@@ -407,6 +407,18 @@ export const SOUNDS = {
       TONE('triangle', 1047, 1047, 0.18, 0.03, 0.8, 0.24),
     ],
   },
+  // A counter after a dodge: a heavy swing that rings like a struck bell.
+  counter: {
+    gain: 0.3,
+    vary: 0.04,
+    throttle: 0.08,
+    layers: [
+      NOISE(500, 2600, 0.7, 0.005, 0.18, 1),
+      TONE('triangle', 880, 830, 0.45, 0.002, 0.45, 0.03),
+      TONE('triangle', 1320, 1250, 0.25, 0.002, 0.35, 0.03, 6),
+      TONE('sine', 120, 50, 0.5, 0.004, 0.2, 0.02),
+    ],
+  },
   thwack: {
     gain: 0.28,
     vary: 0.12,

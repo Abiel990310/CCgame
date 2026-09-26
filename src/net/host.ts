@@ -41,8 +41,9 @@ interface Guest {
   input: PlayerInput;
   /** A dash pressed between two ticks still happens, even if released first. */
   dash: boolean;
-  /** Likewise a spell: held through the next tick so the press is seen. */
+  /** Likewise a spell or a swing: held through the next tick so the press is seen. */
   cast: boolean;
+  attack: boolean;
   resync: boolean;
 }
 
@@ -178,6 +179,7 @@ export class CoopHost {
       input: STILL,
       dash: false,
       cast: false,
+      attack: false,
       resync: false,
       link: new Link(broker, src, {
         onOpen: () => {},
@@ -244,6 +246,7 @@ export class CoopHost {
         };
         if (input.dash) guest.dash = true;
         if (input.cast) guest.cast = true;
+        if (input.attack) guest.attack = true;
         break;
       }
       case 'cmd':
@@ -304,9 +307,21 @@ export class CoopHost {
     const inputs = new Map(own);
     for (const guest of this.guests.values()) {
       if (guest.playerId === null || !world.players.has(guest.playerId)) continue;
-      inputs.set(guest.playerId, guest.dash || guest.cast ? { ...guest.input, dash: guest.dash || guest.input.dash, cast: guest.cast || guest.input.cast } : guest.input);
+      const latched = guest.dash || guest.cast || guest.attack;
+      inputs.set(
+        guest.playerId,
+        latched
+          ? {
+              ...guest.input,
+              dash: guest.dash || guest.input.dash,
+              cast: guest.cast || guest.input.cast,
+              attack: guest.attack || guest.input.attack,
+            }
+          : guest.input,
+      );
       guest.dash = false;
       guest.cast = false;
+      guest.attack = false;
     }
     return inputs;
   }

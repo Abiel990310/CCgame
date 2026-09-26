@@ -219,6 +219,7 @@ export class Game {
       onToggleBag: () => this.toggleBag(),
       onDash: () => this.input.triggerDash(),
       onCast: () => this.input.triggerCast(),
+      onAttack: (down) => this.input.holdAttack(down),
       onSwapSpell: () => this.swapSpell(),
       onTogglePause: () => this.togglePause(),
       onQuitToMenu: () => this.quitToMenu(),
@@ -1486,11 +1487,11 @@ export class Game {
       } else if (event.kind === 'strike') {
         const self = event.playerId === this.selfId;
         const at = self ? {} : { pos: event.pos };
-        audio.play(event.combo === 2 ? 'swingHeavy' : 'swing', at);
+        audio.play(event.counter ? 'counter' : event.combo === 2 ? 'swingHeavy' : 'swing', at);
         if (event.hits > 0) {
           audio.play('thwack', at);
           // A connecting blow holds the frame a beat: the weight of the hit.
-          if (self) this.hitstop = Math.max(this.hitstop, event.combo === 2 ? 0.085 : 0.045);
+          if (self) this.hitstop = Math.max(this.hitstop, event.counter ? 0.12 : event.combo === 2 ? 0.085 : 0.045);
         }
       } else if (event.kind === 'levelUp') {
         const player = this.world.players.get(event.playerId);

@@ -899,8 +899,8 @@ detail behind the factory entries is in
       earns a counter (`tryDodge`). Spells too: Fireball, Frost Nova and
       Mend, learned at level-ups and cast with Q (Shift+Q swaps), rows in
       `shared/data/spells.ts`.*
-- [ ] Co-op: a guest's quick F tap between two host ticks can be lost; latch
-      presses on the host the way dash is.
+- [x] Co-op: a guest's quick F tap between two host ticks can be lost; latch
+      presses on the host the way dash is. *(2026-09-26: F and Q both latch.)*
 - [ ] More spells as rows: a chain of lightning, a gale that pushes a line,
       a thorn wall. Each is a `shape` the cast already knows or one more.
 - [ ] Spells on the character screen: pick which one Q readies there, and
@@ -912,10 +912,12 @@ detail behind the factory entries is in
       spit tool until creatures telegraph.
 - [ ] Melee in the level-up upgrades: reach, combo speed, a finisher that
       stuns, lifesteal on the blade.
-- [ ] A dodge counter could have its own heavier slash and sound, rather
-      than reusing the third combo hit's.
-- [ ] A touch Attack button beside Dash (touch players now attack by holding
-      the right side near a creature, which also gathers).
+- [x] A dodge counter could have its own heavier slash and sound, rather
+      than reusing the third combo hit's. *(2026-09-26: a wider gold arc,
+      sparks, "Counter", a bell-like ring and a longer hold.)*
+- [x] A touch Attack button beside Dash (touch players now attack by holding
+      the right side near a creature, which also gathers). *(2026-09-26:
+      shown on touch screens only; held, it winds up the slam.)*
 - [x] Creatures telegraph their attacks (2026-09-26): they rear back for
       a third of a second with a red ring and a mark overhead, and the bite
       misses if you step out, dash away or parry it (`BITE` in constants).

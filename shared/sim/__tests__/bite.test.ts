@@ -74,6 +74,7 @@ describe('a creature winds up before it bites', () => {
     expect(player.combo).toBe(MELEE.damage.length - 1);
     expect(before - brute.hp).toBeGreaterThanOrEqual(MELEE.damage[MELEE.damage.length - 1] * 0.99);
     expect(player.riposte).toBe(0);
+    expect(world.events.some((e) => e.kind === 'strike' && e.counter === true)).toBe(true);
   });
 
   it('does not count a bite taken standing still as a dodge', () => {

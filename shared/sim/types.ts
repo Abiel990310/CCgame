@@ -510,7 +510,7 @@ export type SimEvent =
   | { kind: 'phase'; phase: Phase; nightIndex: number }
   | { kind: 'playerHit'; playerId: number; amount: number }
   /** A melee swing starting, toward `dir`; `hits` is how many creatures it caught. */
-  | { kind: 'strike'; playerId: number; pos: Vec2; dir: Vec2; combo: number; hits: number }
+  | { kind: 'strike'; playerId: number; pos: Vec2; dir: Vec2; combo: number; hits: number; counter?: boolean }
   /** A spell went off; `radius` is how far a burst reaches, 0 for a bolt. */
   | { kind: 'cast'; playerId: number; spell: SpellId; pos: Vec2; dir: Vec2; radius: number; hits: number }
   /** A charged slam all around the player. */
