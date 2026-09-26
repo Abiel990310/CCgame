@@ -16,6 +16,16 @@ import {
 } from './paint';
 import { BITE, MELEE } from '@shared/sim/constants';
 import { SWING_FRAMES, WALK_FRAMES, drawPixelDowned, drawPixelPlayer } from './pixelplayer';
+import {
+  BRUTE_WALK,
+  CRAWLER_STEPS as PIXEL_CRAWLER_STEPS,
+  CRAWLER_TURNS as PIXEL_CRAWLER_TURNS,
+  SLIME_HOPS as PIXEL_SLIME_HOPS,
+  drawPixelBrute,
+  drawPixelCrawler,
+  drawPixelSlime,
+  type MobAct,
+} from './pixelmobs';
 import { drawBrood, drawBulwark, drawQueen, drawShellback, drawShield, drawSpitter, drawWarden } from './creatures';
 
 /**
@@ -672,7 +682,10 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   }
   setFlash(mob.hitFlash > 0 ? 1 : 0);
   ctx.save();
-  if (windup > 0) {
+  // Pixel creatures have their own rearing and flash frames; stretching a
+  // frame would smear its pixels.
+  const baked = pixelSprites() && PIXEL_MOBS.has(mob.type);
+  if (windup > 0 && !baked) {
     const feet = mob.pos.y + def.radius * 0.6;
     ctx.translate(mob.pos.x, feet);
     ctx.scale(1 - 0.08 * rear, 1 + 0.12 * rear);
@@ -680,7 +693,7 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   }
   // A hit squashes the body flat about its feet and lets it spring back, so a
   // shot is seen to land even in a crowd where the flash is lost.
-  if (mob.hitFlash > 0) {
+  if (mob.hitFlash > 0 && !baked) {
     const k = mob.hitFlash / 0.12;
     const feet = mob.pos.y + def.radius * 0.6;
     ctx.translate(mob.pos.x, feet);
@@ -736,6 +749,20 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   }
 }
 
+/** Creatures drawn as pixel sprites when the player is. */
+const PIXEL_MOBS = new Set<Mob['type']>(['slime', 'crawler', 'brute']);
+
+/**
+ * What a creature is doing, for the frames that show it: winding up a bite,
+ * or just landing one (a bite sets its cooldown to a second; a whiff, a
+ * parry's daze and a wall bite set other values, and do not lunge).
+ */
+function mobAct(mob: Mob, moving: boolean): MobAct {
+  if ((mob.windup ?? 0) > 0) return 'rear';
+  if (mob.attackCd > 0.82 && mob.attackCd <= 1) return 'lunge';
+  return moving ? 'move' : 'still';
+}
+
 /** A slim framed bar: the enemy's health, readable without shouting. */
 function healthBar(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, f: number): void {
   const h = 3.2;
@@ -783,6 +810,12 @@ function drawSlime(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void 
   const a = (look / SLIME_LOOKS) * Math.PI * 2;
   const eyes = { x: Math.cos(a), y: Math.sin(a) };
   const flash = paintFlash() > 0 ? 1 : 0;
+  if (mob.type === 'slime' && pixelSprites()) {
+    const hopStep = Math.floor(p * PIXEL_SLIME_HOPS) % PIXEL_SLIME_HOPS;
+    const pixelLook = (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * SLIME_LOOKS) + SLIME_LOOKS) % SLIME_LOOKS;
+    drawPixelSlime(ctx, 'slime', x, base, mobAct(mob, true), hopStep, pixelLook, flash > 0);
+    return;
+  }
   const box = { left: r * 1.3, right: r * 1.3, top: r * 1.9 + 8, bottom: r * 0.5 };
 
   if (mob.type !== 'mother') {
@@ -900,6 +933,12 @@ function drawCrawler(ctx: CanvasRenderingContext2D, mob: Mob, time: number): voi
   const moving = Math.hypot(mob.vel.x, mob.vel.y) > 5;
 
   softShadow(ctx, x, y + r * 0.35, r * 1.2, 0.36);
+  if (pixelSprites()) {
+    const pixelTurn = (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * PIXEL_CRAWLER_TURNS) + PIXEL_CRAWLER_TURNS) % PIXEL_CRAWLER_TURNS;
+    const stride = Math.floor(((((time * (moving ? 14 : 2) + mob.seed) % 1) + 1) % 1) * PIXEL_CRAWLER_STEPS);
+    drawPixelCrawler(ctx, x, y, mobAct(mob, moving), pixelTurn, stride, paintFlash() > 0);
+    return;
+  }
 
   const turn = (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * CRAWLER_TURNS) + CRAWLER_TURNS) % CRAWLER_TURNS;
   const gait = time * (moving ? 18 : 3) + mob.seed;
@@ -1097,6 +1136,12 @@ function drawBrute(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void 
   const flip = face.x < 0;
   const flashed = paintFlash() > 0;
   const feet = mob.pos.y + r * 0.45;
+  if (pixelSprites()) {
+    softShadow(ctx, mob.pos.x, feet, r * 1.35, 0.42);
+    const walkStep = moving ? Math.floor(turn * BRUTE_WALK) : Math.floor(time * 1.2 + mob.seed) % 2;
+    drawPixelBrute(ctx, mob.pos.x, feet, mobAct(mob, moving), walkStep, flip, flashed);
+    return;
+  }
   blitCached(
     ctx,
     `brute:${moving ? 1 : 0}:${step}:${flip ? 1 : 0}:${flashed ? 1 : 0}`,
