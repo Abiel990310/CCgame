@@ -48,6 +48,27 @@ export const SOUNDS = {
     throttle: 0.04,
     layers: [NOISE(1400, 600, 0.6, 0.002, 0.07, 1.4), TONE('triangle', 300, 170, 0.5, 0.002, 0.06)],
   },
+  // A turret is a gun, not a thrown thing: a dry crack over a low thump, and
+  // steel rounds a heavier one, so a line upgraded to steel is heard to be.
+  turretShot: {
+    gain: 0.15,
+    vary: 0.07,
+    throttle: 0.06,
+    layers: [
+      NOISE(3200, 1200, 0.7, 0.001, 0.05, 1.6, 0, 'highpass'),
+      TONE('square', 160, 60, 0.35, 0.001, 0.07),
+    ],
+  },
+  turretSteel: {
+    gain: 0.18,
+    vary: 0.06,
+    throttle: 0.07,
+    layers: [
+      NOISE(2400, 800, 0.75, 0.001, 0.07, 1.4, 0, 'highpass'),
+      TONE('square', 120, 45, 0.45, 0.001, 0.1),
+      TONE('sine', 1800, 900, 0.12, 0.001, 0.05),
+    ],
+  },
   shotBow: {
     gain: 0.18,
     vary: 0.06,

@@ -52,6 +52,17 @@ export const RECIPES: Recipe[] = [
     outputs: [{ id: 'rounds', count: 4 }],
   },
   {
+    id: 'steelRounds',
+    name: 'Steel Rounds',
+    machine: 'assembler',
+    time: 3,
+    inputs: [
+      { id: 'steelPlate', count: 1 },
+      { id: 'copperPlate', count: 1 },
+    ],
+    outputs: [{ id: 'steelRounds', count: 4 }],
+  },
+  {
     id: 'wire',
     name: 'Wire',
     machine: 'assembler',
