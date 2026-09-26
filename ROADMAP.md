@@ -983,8 +983,16 @@ detail behind the factory entries is in
       health, where its cracks and core glow are brightest.
 - [ ] 7. **Movement verbs.** Jump, roll, wall-jump, hook, air dash; ours is
       walk and one dash.
+      *2026-09-26: the dash is a forward roll with a counter, and
+      now a dash into a machine, a wall or a shallow stream leaps it in a
+      somersault, with a shrinking shadow and a landing thud. Wall-jumps
+      and air dashes are side-view verbs with nothing to push off in a
+      top-down island; a grapple to cross wide water is the next candidate.*
+- [ ] A grapple or rope to cross water wider than a leap, as a crafted tool.
 - [ ] 8. **Story framing.** Illustrated story cards and portraits; ours has
       none.
+      *2026-09-26: a new island opens on three illustrated pixel story cards,
+      and lighting the Skyward Beacon answers them. Still missing: portraits.*
 
 ### Ideas
 

@@ -43,6 +43,16 @@ export const DASH = {
   cooldown: 1.6,
 } as const;
 
+/**
+ * A dash that runs into a machine, a wall or a shallow stream leaps it
+ * instead of stopping dead, landing on the far side if there is ground
+ * within `reach`. Deep water never has a far side.
+ */
+export const VAULT = {
+  reach: 132,
+  duration: 0.34,
+} as const;
+
 export const CYCLE = {
   daySeconds: 180,
   nightSeconds: 60,
