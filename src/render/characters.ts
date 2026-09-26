@@ -24,7 +24,10 @@ import {
   drawPixelBrute,
   drawPixelCrawler,
   drawPixelSlime,
-  type MobAct,
+  drawPixelWisp,
+  WISP_LOOKS as PIXEL_WISP_LOOKS,
+  mobAct,
+  pixelSprites,
 } from './pixelmobs';
 import { drawBrood, drawBulwark, drawQueen, drawShellback, drawShield, drawSpitter, drawWarden } from './creatures';
 
@@ -192,25 +195,6 @@ export function drawPlayer(
   ctx.restore();
 }
 
-const SPRITES_KEY = 'ccgame.sprites';
-let spriteMode: boolean | null = null;
-
-/**
- * Pixel sprites unless `?sprites=vector` asks for the drawn figure, which is
- * kept for comparing the two; the choice is remembered like `?renderer=`.
- */
-function pixelSprites(): boolean {
-  if (spriteMode !== null) return spriteMode;
-  spriteMode = true;
-  try {
-    const asked = new URLSearchParams(location.search).get('sprites');
-    if (asked === 'vector' || asked === 'pixel') localStorage.setItem(SPRITES_KEY, asked);
-    spriteMode = localStorage.getItem(SPRITES_KEY) !== 'vector';
-  } catch {
-    // Storage can be off entirely; pixel sprites it is.
-  }
-  return spriteMode;
-}
 
 interface Pose {
   phase: number;
@@ -750,18 +734,8 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
 }
 
 /** Creatures drawn as pixel sprites when the player is. */
-const PIXEL_MOBS = new Set<Mob['type']>(['slime', 'crawler', 'brute']);
+const PIXEL_MOBS = new Set<Mob['type']>(['slime', 'crawler', 'brute', 'spitter', 'shellback', 'wisp']);
 
-/**
- * What a creature is doing, for the frames that show it: winding up a bite,
- * or just landing one (a bite sets its cooldown to a second; a whiff, a
- * parry's daze and a wall bite set other values, and do not lunge).
- */
-function mobAct(mob: Mob, moving: boolean): MobAct {
-  if ((mob.windup ?? 0) > 0) return 'rear';
-  if (mob.attackCd > 0.82 && mob.attackCd <= 1) return 'lunge';
-  return moving ? 'move' : 'still';
-}
 
 /** A slim framed bar: the enemy's health, readable without shouting. */
 function healthBar(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, f: number): void {
@@ -1082,8 +1056,28 @@ function drawWisp(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
   ctx.fillStyle = tail;
   ctx.fill();
 
-  // The body: a lantern of light, white at the heart. Baked per the way it
-  // looks and hit flash, since wisps come in swarms.
+  // The body: a lantern of light, white at the heart.
+  if (pixelSprites()) {
+    const pixelLook = (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * PIXEL_WISP_LOOKS) + PIXEL_WISP_LOOKS) % PIXEL_WISP_LOOKS;
+    drawPixelWisp(ctx, x, cy, mobAct(mob, true), pixelLook, paintFlash() > 0);
+  } else {
+    drawWispBody(ctx, x, cy, face);
+  }
+
+  // Motes circling it.
+  ctx.fillStyle = 'rgba(235, 228, 255, 0.9)';
+  for (let i = 0; i < 3; i++) {
+    const a = time * 2.4 + (i / 3) * Math.PI * 2 + mob.seed;
+    ctx.beginPath();
+    ctx.arc(x + Math.cos(a) * r * 1.35, cy + Math.sin(a) * r * 0.55, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** The drawn wisp's body, baked per the way it looks and hit flash, since wisps come in swarms. */
+function drawWispBody(ctx: CanvasRenderingContext2D, x: number, cy: number, face: { x: number; y: number }): void {
+  const def = MOBS.wisp;
+  const r = def.radius;
   const look = (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * WISP_LOOKS) + WISP_LOOKS) % WISP_LOOKS;
   blitCached(ctx, `wisp:${look}:${paintFlash() > 0 ? 1 : 0}`, x, cy, around(r * 0.85 + 2), (c) => {
     const a = (look / WISP_LOOKS) * Math.PI * 2;
@@ -1109,15 +1103,6 @@ function drawWisp(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
       c.fill();
     }
   });
-
-  // Motes circling it.
-  ctx.fillStyle = 'rgba(235, 228, 255, 0.9)';
-  for (let i = 0; i < 3; i++) {
-    const a = time * 2.4 + (i / 3) * Math.PI * 2 + mob.seed;
-    ctx.beginPath();
-    ctx.arc(x + Math.cos(a) * r * 1.35, cy + Math.sin(a) * r * 0.55, 1.1, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
 /**

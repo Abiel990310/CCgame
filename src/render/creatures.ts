@@ -1,5 +1,14 @@
 import { MOBS } from '@shared/data/mobs';
 import type { Mob } from '@shared/sim/types';
+import {
+  SHELLBACK_STEPS as PIXEL_SHELLBACK_STEPS,
+  SHELLBACK_TURNS as PIXEL_SHELLBACK_TURNS,
+  SPITTER_FILLS,
+  drawPixelShellback,
+  drawPixelSpitter,
+  mobAct,
+  pixelSprites,
+} from './pixelmobs';
 import { INK, blitCached, capsule, fillInk, litFill, paintFlash, rand, softShadow, tint, tone } from './paint';
 
 /**
@@ -39,6 +48,12 @@ export function drawSpitter(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
 
   softShadow(ctx, x, feet, r * 1.1, 0.36);
   const flip = face.x < 0;
+  if (pixelSprites()) {
+    const moving = Math.hypot(mob.vel.x, mob.vel.y) > 5;
+    const pixelFill = Math.round(charge * (SPITTER_FILLS - 1));
+    drawPixelSpitter(ctx, x, Math.round(feet - hop), mobAct(mob, moving), pixelFill, mob.seed % 4, flip, paintFlash() > 0);
+    return;
+  }
   const fill = Math.round(charge * (SPITTER_CHARGES - 1));
   const spots = mob.seed % SPITTER_SPOTS;
   const edge = r * 1.3 + 2;
@@ -125,6 +140,14 @@ export function drawShellback(ctx: CanvasRenderingContext2D, mob: Mob, time: num
   const gait = time * (moving ? 12 : 2) + mob.seed;
 
   softShadow(ctx, x, y + r * 0.4, r * 1.25, 0.4);
+  if (pixelSprites()) {
+    const pixelTurn =
+      (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * PIXEL_SHELLBACK_TURNS) + PIXEL_SHELLBACK_TURNS) %
+      PIXEL_SHELLBACK_TURNS;
+    const stride = Math.floor(((((time * (moving ? 10 : 1.5) + mob.seed) % 1) + 1) % 1) * PIXEL_SHELLBACK_STEPS);
+    drawPixelShellback(ctx, x, y - r * 0.25, mobAct(mob, moving), pixelTurn, stride, paintFlash() > 0);
+    return;
+  }
   const turn =
     (Math.round((Math.atan2(face.y, face.x) / (Math.PI * 2)) * SHELLBACK_TURNS) + SHELLBACK_TURNS) % SHELLBACK_TURNS;
   const step = Math.floor(((((gait / (Math.PI * 2)) % 1) + 1) % 1) * SHELLBACK_STEPS) % SHELLBACK_STEPS;
