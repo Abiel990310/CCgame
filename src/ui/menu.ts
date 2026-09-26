@@ -1,4 +1,5 @@
 import { audio } from '../audio';
+import { netLogButton } from './netlog';
 import { SoundPanel } from './sound';
 import { icon } from './icons';
 import {
@@ -134,6 +135,12 @@ export class MainMenu {
   /** Replace the line under the buttons, for progress the player is waiting on. */
   say(text: string): void {
     this.els.note.textContent = text;
+  }
+
+  /** Put a way to see the connection log under the note, after a join failed. */
+  offerNetLog(): void {
+    this.els.note.appendChild(document.createElement('br'));
+    this.els.note.appendChild(netLogButton());
   }
 
   get isOpen(): boolean {

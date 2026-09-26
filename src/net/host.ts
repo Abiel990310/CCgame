@@ -7,6 +7,7 @@ import { createPlayer, spawnPoint } from '@shared/sim/world';
 import { Broker, type RelayType, type Signaller } from './broker';
 import type { GuestBook } from './guests';
 import { Link } from './link';
+import { netlog, netlogBegin } from './netlog';
 import { RealtimeBroker, realtimeAvailable } from './realtime';
 import {
   BUILD,
@@ -102,9 +103,11 @@ export class CoopHost {
       host?.relay(broker, type, src, payload);
     const onFail = (reason: string): void => host?.events.onTrouble(reason);
 
+    netlogBegin('Hosting');
     let lastError: unknown = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       const code = makeCode();
+      netlog(`opening room ${code}`);
       const peer: Broker = new Broker(peerId(code), { onRelay: (...args) => onRelay(peer)(...args), onFail });
       const own: RealtimeBroker | null = realtimeAvailable()
         ? new RealtimeBroker(peerId(code), 'host', { onRelay: (...args) => onRelay(own!)(...args), onFail })
@@ -121,6 +124,7 @@ export class CoopHost {
         lastError = peerOpen.reason;
         continue;
       }
+      netlog(`room ${code}: online service ${ownOpen.status === 'fulfilled' ? 'open' : `failed (${reason(ownOpen)})`}, public relay ${peerOpen.status === 'fulfilled' ? 'open' : `failed (${reason(peerOpen)})`}`);
       const brokers: Signaller[] = [];
       if (own && ownOpen.status === 'fulfilled') brokers.push(own);
       else own?.close();
@@ -163,6 +167,7 @@ export class CoopHost {
   }
 
   private greet(broker: Signaller, src: string): Guest {
+    netlog(`a friend is connecting via the ${broker instanceof RealtimeBroker ? 'online service' : 'public relay'}`);
     const guest: Guest = {
       token: '',
       name: 'Friend',
@@ -191,6 +196,7 @@ export class CoopHost {
     switch (message.t) {
       case 'hello': {
         if (guest.token) return;
+        netlog(`hello from ${tidyName(message.name)} (build ${String(message.build)})`);
         if (message.build !== BUILD) {
           const guestNewer = olderBuild(BUILD, String(message.build));
           // A guest on the older build reloads itself and comes straight back;
@@ -244,6 +250,7 @@ export class CoopHost {
   }
 
   private refuse(guest: Guest, reason: string, build?: string): void {
+    netlog(`refused a friend: ${reason}`);
     this.send(guest, build ? { t: 'reject', reason, build } : { t: 'reject', reason });
     // Give the refusal a moment to arrive before the channel goes.
     window.setTimeout(() => guest.link.close(), 500);
@@ -386,4 +393,9 @@ function isInput(value: unknown): value is PlayerInput {
     typeof input.dash === 'boolean' &&
     typeof input.interact === 'boolean'
   );
+}
+
+function reason(result: PromiseSettledResult<unknown>): string {
+  if (result.status === 'fulfilled') return '';
+  return result.reason instanceof Error ? result.reason.message : String(result.reason);
 }

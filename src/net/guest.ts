@@ -4,6 +4,7 @@ import { step } from '@shared/sim/step';
 import type { PlayerInput, World } from '@shared/sim/types';
 import { Broker, type Signaller } from './broker';
 import { Link } from './link';
+import { netlog, netlogBegin } from './netlog';
 import { RealtimeBroker, realtimeAvailable } from './realtime';
 import { BUILD, olderBuild, peerId, type GuestMessage, type HostMessage, type TickMessage } from './protocol';
 
@@ -58,7 +59,10 @@ export class CoopGuest {
     name: string,
   ) {
     this.link = new Link(broker, peerId(code), {
-      onOpen: () => this.send({ t: 'hello', build: BUILD, token, name }),
+      onOpen: () => {
+        netlog('saying hello to the host');
+        this.send({ t: 'hello', build: BUILD, token, name });
+      },
       onMessage: (text) => {
         this.heard = true;
         this.receive(text);
@@ -74,6 +78,7 @@ export class CoopGuest {
    * apart. Only the host saying no, or every route failing, ends the attempt.
    */
   static async join(code: string, name: string, token: string): Promise<CoopGuest> {
+    netlogBegin(`Joining ${code}`);
     const tried: [string, Reach][] = [];
     const routes: ('own' | 'public')[] = realtimeAvailable() ? ['own', 'public'] : ['public'];
     for (const route of routes) {
@@ -82,6 +87,7 @@ export class CoopGuest {
       } catch (error) {
         if (error instanceof Refused) throw error;
         const reach = (error as { reach?: Reach }).reach ?? 'unreachable';
+        netlog(`${route === 'own' ? 'online service' : 'public relay'} route failed (${reach}): ${error instanceof Error ? error.message : String(error)}`);
         tried.push([route === 'own' ? 'online service' : 'public relay', reach]);
         // A code nobody holds anywhere is not worth a second route's wait.
         if (error instanceof Error && error.message === NO_ROOM && route === 'public') throw error;
@@ -91,6 +97,7 @@ export class CoopGuest {
   }
 
   private static async attempt(route: 'own' | 'public', code: string, name: string, token: string): Promise<CoopGuest> {
+    netlog(`trying the ${route === 'own' ? 'online service' : 'public relay'}`);
     let guest: CoopGuest | null = null;
     // The broker only matters until we are in; after that its trouble is not ours.
     const fail = (reason: string): void => {
@@ -164,6 +171,7 @@ export class CoopGuest {
     } catch {
       return;
     }
+    if (this.arrived && message.t !== 'tick') netlog(`host sent ${message.t}${message.t === 'reject' ? `: ${message.reason}` : ''}`);
     switch (message.t) {
       case 'reject':
         // Once only: if even a fresh load is still older (a stale cache in
@@ -211,6 +219,7 @@ export class CoopGuest {
       });
     }
     if (this.world.players.has(this.selfId)) {
+      netlog(`on the island (${this.link.relayed ? 'relayed' : 'direct'})`);
       const arrived = this.arrived;
       this.arrived = null;
       this.failed = null;

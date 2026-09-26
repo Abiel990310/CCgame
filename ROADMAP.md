@@ -228,6 +228,10 @@ detail behind the factory entries is in
 
 ### Bugs
 
+- [ ] Co-op: when a guest's direct channel fails mid-game it switches to the
+      relay and says hello again, so the host treats it as a new arrival
+      (a fresh snapshot, and on a gone host 30 s before the guest is told).
+
 - [x] Night 15 in headless Chromium with the GPU renderer showed no night
       darkness: the island was lit like day while the HUD read Night. The
       darkness curve ran each twilight twice, on both sides of the change of
@@ -355,8 +359,9 @@ detail behind the factory entries is in
       strict networks get a direct connection rather than the slower relay.
 - [x] Co-op: signal through the Supabase project as well as the PeerJS broker,
       so joining still works if the public broker is down. Done 2026-09-26.
-- [ ] Co-op: a "copy details" button on a failed join, so a friend can send
-      exactly which route got how far instead of a screenshot.
+- [x] Co-op: a connection log on a failed join, the host's co-op panel and a
+      dropped game, so a friend can send exactly which route got how far.
+      Done 2026-09-26.
 - [ ] Tell a player on an old tab that a new version is out, before a join
       finds out the hard way.
 

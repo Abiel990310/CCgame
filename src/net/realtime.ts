@@ -1,5 +1,6 @@
 import { cloudConfig } from '../account/config';
 import type { BrokerEvents, RelayType, Signaller } from './broker';
+import { netlog } from './netlog';
 
 /**
  * Signalling through the game's own Supabase project, as a second route beside
@@ -61,7 +62,7 @@ export class RealtimeBroker implements Signaller {
   private joined = new Map<string, string>();
   /** Topics wanted, including ones not joined yet, so a reconnect rejoins them. */
   private wanted = new Set<string>();
-  private replies = new Map<string, (ok: boolean) => void>();
+  private replies = new Map<string, (ok: boolean, detail?: string) => void>();
   private heartbeat = 0;
   private retryTimer = 0;
   private retries = 0;
@@ -92,8 +93,10 @@ export class RealtimeBroker implements Signaller {
       }
       this.socket = socket;
       let opened = false;
+      netlog(`${this.tag}: connecting to ${new URL(socketUrl()).host}`);
       socket.onopen = () => {
         opened = true;
+        netlog(`${this.tag}: connected`);
         this.retries = 0;
         window.clearInterval(this.heartbeat);
         this.heartbeat = window.setInterval(
@@ -103,7 +106,8 @@ export class RealtimeBroker implements Signaller {
         resolve();
       };
       socket.onmessage = (event) => this.receive(String(event.data));
-      socket.onclose = () => {
+      socket.onclose = (event) => {
+        if (!this.closed) netlog(`${this.tag}: socket closed (code ${event.code}${event.reason ? `, ${event.reason}` : ''})`);
         window.clearInterval(this.heartbeat);
         this.joined.clear();
         for (const reply of this.replies.values()) reply(false);
@@ -116,9 +120,12 @@ export class RealtimeBroker implements Signaller {
     });
   }
 
+  private readonly tag = 'online service';
+
   private retry(): void {
     if (this.closed) return;
     this.retries++;
+    netlog(`${this.tag}: reconnecting (try ${this.retries})`);
     if (this.retries === QUIET_RETRIES + 1) this.events.onFail('Lost the online service, still trying');
     const wait = RETRY_MS[Math.min(this.retries - 1, RETRY_MS.length - 1)];
     this.retryTimer = window.setTimeout(() => {
@@ -140,11 +147,13 @@ export class RealtimeBroker implements Signaller {
     const ref = this.nextRef();
     return new Promise((resolve, reject) => {
       const timer = window.setTimeout(() => {
+        netlog(`${this.tag}: join ${short(name)} got no reply`);
         this.replies.delete(ref);
         reject(new Error('The online service did not answer'));
       }, JOIN_TIMEOUT_MS);
-      this.replies.set(ref, (ok) => {
+      this.replies.set(ref, (ok, detail) => {
         window.clearTimeout(timer);
+        netlog(`${this.tag}: join ${short(name)} ${ok ? 'ok' : `refused${detail ? `: ${detail}` : ''}`}`);
         if (!ok) {
           reject(new Error('The online service turned the connection away'));
           return;
@@ -170,19 +179,24 @@ export class RealtimeBroker implements Signaller {
       return;
     }
     if (message.event === 'phx_reply' && message.ref && this.replies.has(message.ref)) {
-      const status = (message.payload as { status?: string } | null)?.status;
+      const body = message.payload as { status?: string; response?: unknown } | null;
       const reply = this.replies.get(message.ref)!;
       this.replies.delete(message.ref);
-      reply(status === 'ok');
+      reply(body?.status === 'ok', body?.status === 'ok' ? undefined : JSON.stringify(body?.response ?? body).slice(0, 200));
       return;
     }
     const topic = message.topic.replace(/^realtime:/, '');
     if (message.event === 'phx_error' || message.event === 'phx_close') {
       // The server dropped us from one topic; ask again unless we meant to leave.
+      netlog(`${this.tag}: ${message.event} on ${short(topic)} ${JSON.stringify(message.payload).slice(0, 160)}`);
       this.joined.delete(topic);
       if (!this.closed && this.wanted.has(topic)) {
         window.setTimeout(() => void this.join(topic).catch(() => undefined), 1000);
       }
+      return;
+    }
+    if (message.event === 'system') {
+      netlog(`${this.tag}: system ${JSON.stringify(message.payload).slice(0, 160)}`);
       return;
     }
     if (message.event !== 'broadcast') return;
@@ -191,12 +205,14 @@ export class RealtimeBroker implements Signaller {
     switch (envelope.t) {
       case 'KNOCK':
         if (this.role !== 'host') return;
+        if (!this.joined.has(envelope.src)) netlog(`${this.tag}: knock from ${short(envelope.src)}`);
         // Answer on the guest's topic once it is ours to write on.
         void this.join(envelope.src)
           .then(() => this.write(envelope.src, { t: 'HI', src: this.id, dst: envelope.src }))
           .catch(() => undefined);
         return;
       case 'HI':
+        if (this.knocking.has(envelope.src)) netlog(`${this.tag}: host answered the knock`);
         this.knocking.get(envelope.src)?.();
         return;
       case 'OFFER':
@@ -218,12 +234,16 @@ export class RealtimeBroker implements Signaller {
   async knock(host: string, wait: number): Promise<void> {
     await this.join(host);
     await new Promise<void>((resolve, reject) => {
+      let knocks = 0;
       const send = (): void => {
-        if (this.joined.has(host)) this.write(host, { t: 'KNOCK', src: this.id, dst: host });
+        if (!this.joined.has(host)) return;
+        knocks++;
+        this.write(host, { t: 'KNOCK', src: this.id, dst: host });
       };
       send();
       const every = window.setInterval(send, KNOCK_EVERY_MS);
       const give = window.setTimeout(() => {
+        netlog(`${this.tag}: no answer after ${knocks} knocks`);
         finish();
         reject(new Error('No answer from the host through the online service'));
       }, wait);
@@ -281,4 +301,9 @@ export class RealtimeBroker implements Signaller {
     this.socket?.close();
     this.socket = null;
   }
+}
+
+/** Ids are long and alike; their tail is enough to tell them apart in the log. */
+function short(id: string): string {
+  return id.length > 18 ? `…${id.slice(-8)}` : id;
 }
