@@ -82,6 +82,10 @@
         <button class="action attack" id="btn-attack" title="Attack (F) &middot; hold to slam">
           <i data-icon="sword"></i><small>Attack</small><kbd>F</kbd>
         </button>
+        <button class="action eat hidden" id="btn-eat" title="Eat (H): fish and berries heal you">
+          <span class="eat-art" id="eat-art"></span><small>Eat</small><kbd>H</kbd>
+          <b class="eat-count" id="eat-count"></b>
+        </button>
         <button class="action spell hidden" id="btn-spell" title="Cast (Q) &middot; swap (Shift+Q or right-click)">
           <span class="spell-glyph" id="spell-glyph"></span><small id="spell-name">Spell</small><kbd>Q</kbd>
           <div class="cd" id="spell-cd"></div>
@@ -277,6 +281,7 @@
             <span><kbd>Space</kbd> dash, or leap what is in the way</span>
             <span><kbd>Q</kbd> cast a spell, <kbd>shift</kbd>+<kbd>Q</kbd> swap</span>
             <span><kbd>E</kbd> / hold click to gather</span>
+            <span><kbd>H</kbd> eat fish or berries to heal</span>
             <span><kbd>F</kbd> / click near a creature to attack</span>
             <span>Hold <kbd>F</kbd> to slam, time <kbd>F</kbd> to a bite to parry</span>
             <span><kbd>B</kbd> build</span>

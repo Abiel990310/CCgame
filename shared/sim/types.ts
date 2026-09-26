@@ -25,6 +25,7 @@ export type ItemId =
   | 'ironPlate'
   | 'copperPlate'
   | 'steelPlate'
+  | 'grilledFish'
   // Assembled
   | 'gear'
   | 'wire'
@@ -534,6 +535,7 @@ export type SimEvent =
   | { kind: 'downed'; playerId: number }
   | { kind: 'built'; pos: Vec2; type: BuildingId }
   | { kind: 'crafted'; pos: Vec2; item: ItemId }
+  | { kind: 'ate'; playerId: number; pos: Vec2; item: ItemId; healed: number }
   | { kind: 'research'; tech: string; level: number; next: string | null }
   | { kind: 'goal'; playerId: number; goal: string; next: string | null }
   | { kind: 'oreChanged'; tx: number; ty: number }

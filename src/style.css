@@ -823,6 +823,27 @@ kbd {
   }
 }
 
+/* Eat wears the food it would eat next, with how much food the bag holds. */
+.action.eat .eat-art {
+  width: 26px;
+  height: 26px;
+  background: center / contain no-repeat;
+  image-rendering: pixelated;
+}
+
+.action.eat .eat-count {
+  position: absolute;
+  bottom: 3px;
+  left: 5px;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.action.eat.full {
+  opacity: 0.55;
+}
+
 /* ---------- Hotbar ---------- */
 
 /*
@@ -2469,10 +2490,21 @@ kbd {
 }
 
 /* Mid-width windows: the centred hotbar would run into the action buttons. */
-@media (max-width: 1120px) and (min-width: 641px) {
+/*
+ * Centred, the hotbar runs into the action buttons once Eat and a spell join
+ * them, so below a wide screen it moves to the left edge, and on a narrow one
+ * the buttons climb the right edge instead of running into it.
+ */
+@media (max-width: 1520px) and (min-width: 641px) {
   .hotbar {
     left: max(14px, env(safe-area-inset-left));
     transform: none;
+  }
+}
+
+@media (max-width: 1040px) and (min-width: 641px) and (min-height: 481px) {
+  .actions {
+    flex-direction: column-reverse;
   }
 }
 

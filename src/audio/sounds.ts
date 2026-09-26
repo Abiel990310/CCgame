@@ -428,6 +428,17 @@ export const SOUNDS = {
       TONE('triangle', 1047, 1047, 0.18, 0.03, 0.8, 0.24),
     ],
   },
+  // Two soft bites, then a small rising note: food going down, health coming back.
+  eat: {
+    gain: 0.22,
+    vary: 0.08,
+    throttle: 0.15,
+    layers: [
+      NOISE(700, 350, 0.7, 0.004, 0.07, 1.1),
+      NOISE(650, 320, 0.6, 0.004, 0.07, 1.1, 0.13),
+      TONE('sine', 440, 660, 0.3, 0.02, 0.28, 0.2),
+    ],
+  },
   // A counter after a dodge: a heavy swing that rings like a struck bell.
   counter: {
     gain: 0.3,
