@@ -129,6 +129,81 @@ export class PixelGrid {
     return out;
   }
 
+  /** Upside down: a beetle on its back. */
+  flipped(): PixelGrid {
+    const out = new PixelGrid(this.w, this.h);
+    for (let y = 0; y < this.h; y++) {
+      for (let x = 0; x < this.w; x++) out.px[(this.h - 1 - y) * this.w + x] = this.px[y * this.w + x];
+    }
+    return out;
+  }
+
+  /** Every colour but the outline moved `k` of the way toward `c`. */
+  tinted(c: Rgb, k: number): PixelGrid {
+    const out = new PixelGrid(this.w, this.h);
+    for (let i = 0; i < this.px.length; i++) {
+      const p = this.px[i];
+      if (!p) continue;
+      out.px[i] = p === OUTLINE ? p : [Math.round(p[0] + (c[0] - p[0]) * k), Math.round(p[1] + (c[1] - p[1]) * k), Math.round(p[2] + (c[2] - p[2]) * k)];
+    }
+    return out;
+  }
+
+  /** Every colour scaled toward black by `k` (1 leaves it, 0 is black). */
+  darkened(k: number): PixelGrid {
+    const out = new PixelGrid(this.w, this.h);
+    for (let i = 0; i < this.px.length; i++) {
+      const c = this.px[i];
+      if (c) out.px[i] = [Math.round(c[0] * k), Math.round(c[1] * k), Math.round(c[2] * k + 6 * (1 - k))];
+    }
+    return out;
+  }
+
+  /** Resampled by nearest pixel, `sx` across and `sy` down, about (cx, by). */
+  scaled(sx: number, sy: number, cx: number, by: number): PixelGrid {
+    const out = new PixelGrid(this.w, this.h);
+    for (let y = 0; y < this.h; y++) {
+      for (let x = 0; x < this.w; x++) {
+        const fx = Math.round(cx + (x - cx) / sx);
+        const fy = Math.round(by - (by - y) / sy);
+        const c = this.get(fx, fy);
+        if (c) out.px[y * this.w + x] = c;
+      }
+    }
+    return out;
+  }
+
+  /** Rows slid sideways in proportion to their height above `baseY`: a lean. */
+  sheared(baseY: number, k: number): PixelGrid {
+    const out = new PixelGrid(this.w, this.h);
+    for (let y = 0; y < this.h; y++) {
+      const shift = Math.round((baseY - y) * k);
+      for (let x = 0; x < this.w; x++) {
+        const c = this.get(x - shift, y);
+        if (c) out.px[y * this.w + x] = c;
+      }
+    }
+    return out;
+  }
+
+  /** The box round the filled pixels, or null when there are none. */
+  bounds(): { x0: number; y0: number; x1: number; y1: number } | null {
+    let x0 = this.w;
+    let y0 = this.h;
+    let x1 = -1;
+    let y1 = -1;
+    for (let y = 0; y < this.h; y++) {
+      for (let x = 0; x < this.w; x++) {
+        if (!this.px[y * this.w + x]) continue;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    return x1 < 0 ? null : { x0, y0, x1, y1 };
+  }
+
   mirrored(): PixelGrid {
     const out = new PixelGrid(this.w, this.h);
     for (let y = 0; y < this.h; y++) {

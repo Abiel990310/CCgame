@@ -1,5 +1,5 @@
 import { MOBS } from '@shared/data/mobs';
-import type { Mob } from '@shared/sim/types';
+import type { Mob, MobTypeId } from '@shared/sim/types';
 import { OUTLINE, PixelGrid, blitPixels, ramp, type Ramp, type Rgb } from './pixel';
 
 /**
@@ -47,7 +47,53 @@ export function pixelSprites(): boolean {
   return spriteMode;
 }
 
+/** A frame as the draw functions describe it: its cache key, anchor and how to make it. */
+interface Frame {
+  key: string;
+  x: number;
+  y: number;
+  ax: number;
+  ay: number;
+  make: () => PixelGrid;
+}
+
+let capturing = false;
+let captured: Frame | null = null;
+
+/**
+ * Every creature frame goes through here. Normally it is blitted; while a
+ * death is being built the frame is captured instead, so the dying pose is
+ * made from the very frame the creature stood in, whatever its kind.
+ */
+function blit(
+  ctx: CanvasRenderingContext2D,
+  key: string,
+  x: number,
+  y: number,
+  ax: number,
+  ay: number,
+  make: () => PixelGrid,
+): void {
+  if (capturing) {
+    captured = { key, x, y, ax, ay, make };
+    return;
+  }
+  blitPixels(ctx, key, x, y, ax, ay, 1, make);
+}
+
+function capture(draw: () => void): Frame | null {
+  capturing = true;
+  captured = null;
+  try {
+    draw();
+  } finally {
+    capturing = false;
+  }
+  return captured;
+}
+
 const FLASH: Rgb = [255, 246, 238];
+const BELLY: Rgb = [236, 214, 170];
 const BONE = ramp('#e8dcc0');
 const STONE = ramp('#5b5f6a');
 const EYE: Rgb = [26, 34, 30];
@@ -132,7 +178,7 @@ export function drawPixelSlime(
 ): void {
   const key = `pm|${type}|${act}|${act === 'move' || act === 'still' ? step : 0}|${look}|${flash ? 1 : 0}`;
   const grid = slimeGrid(MOBS[type].radius);
-  blitPixels(ctx, key, x, base, grid.ax, grid.ay, 1, () => {
+  blit(ctx, key, x, base, grid.ax, grid.ay, () => {
     const def = MOBS[type];
     const r = def.radius;
     const gel = ramp(def.color);
@@ -248,7 +294,7 @@ export function drawPixelCrawler(
   flash: boolean,
 ): void {
   const key = `pm|crawler|${act}|${turn}|${act === 'move' ? step : 0}|${flash ? 1 : 0}`;
-  blitPixels(ctx, key, x, y, CAX, CAY, 1, () => {
+  blit(ctx, key, x, y, CAX, CAY, () => {
     const def = MOBS.crawler;
     const r = def.radius;
     const shell = ramp(def.color);
@@ -338,7 +384,7 @@ export function drawPixelBrute(
 ): void {
   const frame = act === 'move' ? step % BRUTE_WALK : act === 'still' ? step % 2 : 0;
   const key = `pm|brute|${act}|${frame}|${flip ? 1 : 0}|${flash ? 1 : 0}`;
-  blitPixels(ctx, key, x, feet, BAX, BAY, 1, () => {
+  blit(ctx, key, x, feet, BAX, BAY, () => {
     const def = MOBS.brute;
     const hide = ramp(def.accent);
     const hideFar: Ramp = [hide[1], hide[2], [hide[2][0] * 0.7, hide[2][1] * 0.7, hide[2][2] * 0.75 + 4].map(Math.round) as unknown as Rgb];
@@ -466,7 +512,7 @@ export function drawPixelSpitter(
 ): void {
   const pose = act === 'rear' || act === 'lunge' ? act : 'still';
   const key = `pm|spitter|${pose}|${fill}|${spots}|${flip ? 1 : 0}|${flash ? 1 : 0}`;
-  blitPixels(ctx, key, x, feet, PAX, PAY, 1, () => {
+  blit(ctx, key, x, feet, PAX, PAY, () => {
     const def = MOBS.spitter;
     const r = def.radius;
     const skin = ramp(def.color);
@@ -571,7 +617,7 @@ export function drawPixelShellback(
   flash: boolean,
 ): void {
   const key = `pm|shellback|${act}|${turn}|${act === 'move' ? step : 0}|${flash ? 1 : 0}`;
-  blitPixels(ctx, key, x, y, HAX, HAY, 1, () => {
+  blit(ctx, key, x, y, HAX, HAY, () => {
     const def = MOBS.shellback;
     const r = def.radius;
     const plate = ramp(def.color);
@@ -643,7 +689,7 @@ export function drawPixelWisp(
 ): void {
   const pose = act === 'rear' || act === 'lunge' ? act : 'still';
   const key = `pm|wisp|${pose}|${look}|${flash ? 1 : 0}`;
-  blitPixels(ctx, key, x, cy, 12, 12, 1, () => {
+  blit(ctx, key, x, cy, 12, 12, () => {
     const def = MOBS.wisp;
     const r = def.radius * 0.82;
     const g = new Sprite(25, 25, 12, 12);
@@ -725,7 +771,7 @@ export function drawPixelWarden(
   const frame = act === 'move' ? step % BOSS_WALK : act === 'still' ? step % 2 : 0;
   const heat = Math.min(2, Math.floor(hurt * 3));
   const key = `pm|warden|${act}|${frame}|${heat}|${flip ? 1 : 0}|${flash ? 1 : 0}`;
-  blitPixels(ctx, key, x, feet, WAX, WAY, 1, () => {
+  blit(ctx, key, x, feet, WAX, WAY, () => {
     const def = MOBS.warden;
     const r = def.radius;
     const stone = ramp(def.color);
@@ -835,7 +881,7 @@ export function drawPixelBulwark(
   const frame = act === 'move' ? step % BOSS_WALK : 0;
   const dim = Math.min(2, Math.floor(hurt * 3));
   const key = `pm|bulwark|${act}|${frame}|${dim}|${flip ? 1 : 0}|${flash ? 1 : 0}`;
-  blitPixels(ctx, key, x, feet, UAX, UAY, 1, () => {
+  blit(ctx, key, x, feet, UAX, UAY, () => {
     const def = MOBS.bulwark;
     const r = def.radius;
     const shell = ramp(def.color);
@@ -934,7 +980,7 @@ export function drawPixelQueen(
   flash: boolean,
 ): void {
   const key = `pm|queen|${act === 'rear' || act === 'lunge' ? act : 'still'}|${swell}|${legs}|${flip ? 1 : 0}|${flash ? 1 : 0}`;
-  blitPixels(ctx, key, x, y, QAX, QAY, 1, () => {
+  blit(ctx, key, x, y, QAX, QAY, () => {
     const def = MOBS.queen;
     const r = def.radius;
     const body = ramp(def.color);
@@ -995,4 +1041,141 @@ export function drawPixelQueen(
     const out = finish(g, flash);
     return flip ? out.mirrored() : out;
   });
+}
+
+// ─── Deaths ─────────────────────────────────────────────────────────────────
+
+/** Seconds a creature's body stays after it dies, fading over the last part. */
+export const DEATH_TIME = 1.1;
+
+/** The frame a creature dies from: standing, facing the way it fell. */
+function standingFrame(type: MobTypeId, x: number, y: number, flip: boolean, legs = 0): Frame | null {
+  const r = MOBS[type].radius;
+  // Drawing is captured, never blitted, so no context is touched.
+  const ctx = null as unknown as CanvasRenderingContext2D;
+  const turn = flip ? 4 : 0;
+  return capture(() => {
+    switch (type) {
+      case 'slime':
+      case 'mother':
+        drawPixelSlime(ctx, type, x, y + r * 0.45, 'still', 0, turn, false);
+        break;
+      case 'crawler':
+        drawPixelCrawler(ctx, x, y, legs ? 'move' : 'still', turn, legs, false);
+        break;
+      case 'shellback':
+        drawPixelShellback(ctx, x, y - r * 0.25, legs ? 'move' : 'still', turn, legs, false);
+        break;
+      case 'brute':
+        drawPixelBrute(ctx, x, y + r * 0.45, 'still', 0, flip, false);
+        break;
+      case 'spitter':
+        drawPixelSpitter(ctx, x, y + r * 0.45, 'still', 0, 0, flip, false);
+        break;
+      case 'warden':
+        drawPixelWarden(ctx, x, y + r * 0.4, 'still', 0, 1, flip, false);
+        break;
+      case 'bulwark':
+        drawPixelBulwark(ctx, x, y + r * 0.45, 'still', 0, 1, flip, false);
+        break;
+      case 'queen':
+        drawPixelQueen(ctx, x, y + r * 0.35 - 12, 'still', 0, 0, flip, false);
+        break;
+      case 'wisp':
+        break;
+    }
+  });
+}
+
+/**
+ * A creature dying where it fell, `t` seconds after: slimes splat into a
+ * puddle, the beetles flip onto their backs and kick, and anything that stands
+ * topples over backward. Returns false once the body has gone; a wisp has no
+ * body and only bursts.
+ */
+export function drawPixelDeath(
+  ctx: CanvasRenderingContext2D,
+  type: MobTypeId,
+  x: number,
+  y: number,
+  t: number,
+  flip: boolean,
+): boolean {
+  if (t >= DEATH_TIME || type === 'wisp') return false;
+  const kind = type === 'slime' || type === 'mother' ? 'splat' : type === 'crawler' || type === 'shellback' ? 'flip' : 'topple';
+  const kick = kind === 'flip' && t > 0.3 ? (Math.floor(t / 0.11) % 2) + 1 : 0;
+  const base = standingFrame(type, x, y, flip, kick);
+  if (!base) return false;
+
+  let stage: number;
+  let make: () => PixelGrid;
+  let ax = base.ax;
+  let ay = base.ay;
+  if (kind === 'splat') {
+    stage = t < 0.07 ? 0 : t < 0.18 ? 1 : 2;
+    const [sx, sy, dark] = [
+      [1.25, 0.7, 1],
+      [1.55, 0.36, 0.95],
+      [1.7, 0.28, 0.8],
+    ][stage];
+    // Squashed about its anchor, so it spreads along the ground it sat on.
+    make = () => base.make().scaled(sx, sy, base.ax, base.ay).darkened(dark);
+  } else if (kind === 'flip') {
+    stage = t < 0.1 ? 0 : 1;
+    if (stage === 0) {
+      make = () => {
+        const g = base.make();
+        g.silhouette(FLASH);
+        return g;
+      };
+    } else {
+      // On its back, the pale underside up and its legs kicking.
+      make = () => base.make().flipped().tinted(BELLY, 0.4).darkened(0.8);
+    }
+  } else {
+    stage = t < 0.1 ? 0 : t < 0.22 ? 1 : 2;
+    const back = flip ? 1 : -1;
+    if (stage < 2) {
+      const k = stage === 0 ? 0.3 : 0.85;
+      make = () => base.make().sheared(base.ay, back * k).darkened(stage === 0 ? 1 : 0.85);
+    } else {
+      // On its back: turned a quarter the way it was falling.
+      make = () => {
+        let g = base.make();
+        if (flip) g = g.mirrored();
+        g = g.rotated();
+        if (flip) g = g.mirrored();
+        // Seen from above at an angle, a body lying down is foreshortened.
+        const b = g.bounds();
+        if (b) g = g.scaled(1, 0.62, (b.x0 + b.x1) / 2, b.y1);
+        return g.darkened(0.68);
+      };
+    }
+  }
+  const key = `${base.key}|death|${kind}|${stage}`;
+
+  if (kind === 'topple' && stage === 2) {
+    // The lying body is centred where it stood, resting on the ground line.
+    const probe = cachedBounds(key, make);
+    if (!probe) return false;
+    ax = (probe.x0 + probe.x1) / 2;
+    ay = probe.y1;
+  }
+  const fade = t > DEATH_TIME * 0.5 ? 1 - (t - DEATH_TIME * 0.5) / (DEATH_TIME * 0.5) : 1;
+  const alpha = ctx.globalAlpha;
+  ctx.globalAlpha = alpha * Math.max(0, fade);
+  blitPixels(ctx, key, base.x, base.y, ax, ay, 1, make);
+  ctx.globalAlpha = alpha;
+  return true;
+}
+
+const boundsCache = new Map<string, ReturnType<PixelGrid['bounds']>>();
+
+function cachedBounds(key: string, make: () => PixelGrid): ReturnType<PixelGrid['bounds']> {
+  let b = boundsCache.get(key);
+  if (b === undefined) {
+    b = make().bounds();
+    boundsCache.set(key, b);
+  }
+  return b;
 }
