@@ -11,6 +11,10 @@ interface Particle {
   maxLife: number;
   size: number;
   color: string;
+  /** Pulls the particle down the screen: chips arc and fall rather than drift. */
+  gravity?: number;
+  /** Swells as it fades, the way a puff of dust spreads out. */
+  grow?: number;
 }
 
 interface FloatingText {
@@ -92,6 +96,9 @@ export class Effects {
         case 'playerHit':
           this.shake = Math.min(10, this.shake + 4);
           break;
+        case 'levelUp':
+          // Placed by the game, which knows where that player is standing.
+          break;
         case 'built':
           this.burst(event.pos, 10, '#e8d8b0', 130);
           break;
@@ -101,6 +108,82 @@ export class Effects {
         default:
           break;
       }
+    }
+  }
+
+  /**
+   * A tool biting into a node: chips thrown up and out on the striker's side,
+   * arcing down under gravity. Wood splinters and a leaf or two off a tree,
+   * grit and a spark off stone, leaves off a bush.
+   */
+  chips(pos: Vec2, kind: string, fromX: number): void {
+    const side = Math.sign(fromX - pos.x) || 1;
+    const at = { x: pos.x + side * 7, y: pos.y - (kind === 'tree' ? 12 : 6) };
+    const palette =
+      kind === 'tree'
+        ? ['#d7a867', '#b07a42', '#8a5a2e', '#e8c98f']
+        : kind === 'rock'
+          ? ['#b9b6ad', '#8d8a82', '#d6d2c7', '#ffe6a0']
+          : ['#6fa14a', '#8cc05a', '#4f7f36'];
+    const count = kind === 'bush' ? 4 : 6;
+    for (let i = 0; i < count; i++) {
+      const life = 0.35 + Math.random() * 0.3;
+      this.particles.push({
+        pos: { ...at },
+        vel: { x: side * (40 + Math.random() * 90), y: -(70 + Math.random() * 110) },
+        life,
+        maxLife: life,
+        size: 1.2 + Math.random() * 1.6,
+        color: palette[i % palette.length],
+        gravity: 520,
+      });
+    }
+    if (kind === 'tree') {
+      // A leaf shaken loose from the crown, falling slowly.
+      const life = 0.9 + Math.random() * 0.4;
+      this.particles.push({
+        pos: { x: pos.x + (Math.random() - 0.5) * 30, y: pos.y - 48 - Math.random() * 20 },
+        vel: { x: (Math.random() - 0.5) * 30, y: 10 },
+        life,
+        maxLife: life,
+        size: 2,
+        color: '#7fae4e',
+        gravity: 30,
+      });
+    }
+  }
+
+  /** A soft puff of dust at someone's feet: a step, a dash, a landing. */
+  dust(pos: Vec2, count = 3, spread = 1): void {
+    for (let i = 0; i < count; i++) {
+      const life = 0.35 + Math.random() * 0.25;
+      this.particles.push({
+        pos: { x: pos.x + (Math.random() - 0.5) * 8 * spread, y: pos.y + (Math.random() - 0.5) * 3 },
+        vel: { x: (Math.random() - 0.5) * 40 * spread, y: -8 - Math.random() * 12 },
+        life,
+        maxLife: life,
+        size: 1.6 + Math.random() * 1.2,
+        color: 'rgba(222, 205, 170, 0.55)',
+        grow: 6,
+      });
+    }
+  }
+
+  /** A gold column and ring round whoever just levelled up. */
+  levelUp(pos: Vec2): void {
+    this.rings.push({ pos: { ...pos }, radius: 70, life: 0.7, maxLife: 0.7, color: '#ffd46a' });
+    this.rings.push({ pos: { ...pos }, radius: 40, life: 0.5, maxLife: 0.5, color: '#fff2c0' });
+    for (let i = 0; i < 26; i++) {
+      const life = 0.6 + Math.random() * 0.5;
+      this.particles.push({
+        pos: { x: pos.x + (Math.random() - 0.5) * 22, y: pos.y + 4 },
+        vel: { x: (Math.random() - 0.5) * 30, y: -(60 + Math.random() * 120) },
+        life,
+        maxLife: life,
+        size: 1.4 + Math.random() * 1.8,
+        color: i % 3 === 0 ? '#fff2c0' : '#ffd46a',
+        gravity: -40,
+      });
     }
   }
 
@@ -170,8 +253,12 @@ export class Effects {
       }
       p.pos.x += p.vel.x * dt;
       p.pos.y += p.vel.y * dt;
-      p.vel.x *= 1 - 3.5 * dt;
-      p.vel.y *= 1 - 3.5 * dt;
+      // Thrown things keep their momentum; puffs and sparks slow in the air.
+      const drag = p.gravity ? 1.2 : 3.5;
+      p.vel.x *= 1 - drag * dt;
+      p.vel.y *= 1 - drag * dt;
+      if (p.gravity) p.vel.y += p.gravity * dt;
+      if (p.grow) p.size += p.grow * dt;
     }
 
     for (let i = this.rings.length - 1; i >= 0; i--) {

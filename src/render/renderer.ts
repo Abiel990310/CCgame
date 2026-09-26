@@ -32,6 +32,8 @@ import {
 import { UI, rgba } from './palette';
 import { GroundCache } from './groundcache';
 import { Grade } from './grade';
+import { SWING_IMPACT, swingPhase } from './characters';
+import { strikeNode } from './nature';
 import type { GpuStage } from './gpu/stage';
 import { setItemScale } from './items';
 import { setPaintScale } from './paint';
@@ -84,6 +86,11 @@ export class Renderer {
   private ground = new GroundCache();
   private grade = new Grade();
   private zoomStep = loadZoomStep();
+  /** Told when a tool lands or a dash sets off, so the game can play it. */
+  onCue: ((cue: Cue, pos: Vec2, self: boolean) => void) | null = null;
+  /** Per player: last swing phase, time to next footstep, and whether dashing. */
+  private motion = new Map<number, { swing: number; step: number; dashing: boolean }>();
+  private lastObserved = -1;
   private dpr = 1;
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
   private visibleBelts: Belt[] = [];
@@ -309,6 +316,7 @@ export class Renderer {
     const originY = Math.round((height / 2 + shakeY) * this.dpr - this.camera.pos.y * scale);
 
     const view = this.camera.bounds();
+    this.observe(world, selfId, time);
     this.ground.draw(ctx, world, view, scale, originX, originY);
     ctx.setTransform(scale, 0, 0, scale, originX, originY);
     setItemScale(scale);
@@ -412,6 +420,65 @@ export class Renderer {
   }
 
   /** Take the ore changes the simulation reported; the ground cache repaints what they touch. */
+  /**
+   * Watch how each player is moving and turn it into small physical cues: a
+   * shudder and flying chips when a swing lands, dust at each step, a puff as
+   * a dash sets off. All of it is read from state the sim already has, so
+   * nothing here needs an event or touches the island.
+   */
+  private observe(world: World, selfId: number, time: number): void {
+    const dt = this.lastObserved < 0 ? 0 : time - this.lastObserved;
+    this.lastObserved = time;
+    // A jump back or a long gap is a load or a pause, not a stride.
+    if (dt < 0 || dt > 0.25) {
+      this.motion.clear();
+      return;
+    }
+    for (const player of world.players.values()) {
+      let m = this.motion.get(player.id);
+      if (!m) {
+        m = { swing: -1, step: 0, dashing: false };
+        this.motion.set(player.id, m);
+      }
+      const feet = { x: player.pos.x, y: player.pos.y + 7 };
+      const self = player.id === selfId;
+
+      const node =
+        player.gatherNodeId !== null && player.gatherProgress > 0 && toolFor(world, player) !== null
+          ? world.nodes.find((n) => n.id === player.gatherNodeId)
+          : undefined;
+      const swing = node ? swingPhase(player, time) : -1;
+      if (node && m.swing >= 0 && m.swing < SWING_IMPACT && swing >= SWING_IMPACT) {
+        strikeNode(node.id, time);
+        if (node.kind === 'tree' || node.kind === 'rock' || node.kind === 'bush') {
+          this.effects.chips(node.pos, node.kind, player.pos.x);
+        }
+        if (self) this.effects.shake = Math.min(3, this.effects.shake + 0.9);
+        this.onCue?.(node.kind === 'tree' ? 'chop' : node.kind === 'rock' ? 'chip' : 'rustle', node.pos, self);
+      }
+      m.swing = swing;
+
+      const dashing = player.dashTime > 0;
+      if (dashing && !m.dashing) {
+        this.effects.dust(feet, 7, 1.8);
+        this.onCue?.('dash', feet, self);
+      }
+      m.dashing = dashing;
+
+      const speed = Math.hypot(player.vel.x, player.vel.y);
+      if (speed > 40 && player.downed <= 0) {
+        m.step -= dt * (dashing ? 3 : 1) * (speed / 150);
+        if (m.step <= 0) {
+          m.step = 0.3;
+          this.effects.dust(feet, dashing ? 2 : 1, 0.7);
+        }
+      } else m.step = 0;
+    }
+    if (this.motion.size > world.players.size) {
+      for (const id of this.motion.keys()) if (!world.players.has(id)) this.motion.delete(id);
+    }
+  }
+
   noteEvents(events: SimEvent[]): void {
     for (const event of events) {
       if (event.kind === 'oreChanged') this.ground.oreChanged(event.tx, event.ty);
@@ -890,6 +957,9 @@ function toolFor(world: World, player: Player): Tool {
  * half on either side, so the dark keeps going the same way across it rather
  * than finishing early and snapping back.
  */
+/** Sounds the renderer notices from motion rather than from sim events. */
+export type Cue = 'chop' | 'chip' | 'rustle' | 'dash';
+
 /** How close the camera stands, as multiples of the size-based default. */
 const ZOOM_STEPS = [0.7, 0.85, 1, 1.2, 1.45];
 const DEFAULT_ZOOM_STEP = 2;

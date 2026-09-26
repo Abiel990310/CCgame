@@ -59,6 +59,7 @@ import type {
   Machine,
   Player,
   PlayerInput,
+  SimEvent,
   World,
 } from '@shared/sim/types';
 import { addPlayer, createWorld } from '@shared/sim/world';
@@ -122,6 +123,14 @@ export class Game {
   private ledger = new Ledger();
 
   private accumulator = 0;
+  /**
+   * Seconds the world holds still after a heavy moment: a kill, a hit taken.
+   * The freeze is what makes an impact read as weight rather than as a number
+   * going down. Solo only, since a host cannot stop the clock for its guests.
+   */
+  private hitstop = 0;
+  /** When the last kill froze the frame, so a crowd dying is not a stutter. */
+  private lastKillStop = -1;
   private backgroundTicker: Ticker;
   /** When the last animation frame ran, to tell when the browser stopped sending them. */
   private lastPaint = 0;
@@ -165,6 +174,7 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, private callbacks: GameCallbacks) {
     this.renderer = new Renderer(canvas);
+    this.renderer.onCue = (cue, pos, self) => audio.play(cue, self ? {} : { pos });
     this.input = new InputManager(canvas);
     const graphics = document.getElementById('pause-graphics');
     if (graphics) this.graphics = new GraphicsPanel(graphics, this.renderer);
@@ -1139,12 +1149,15 @@ export class Game {
       : this.hud.isBuildMode
         ? { ...raw, interact: false }
         : raw;
+    const held = this.hitstop > 0 && !this.host && !this.guest;
+    this.hitstop = Math.max(0, this.hitstop - elapsed);
+    const stepped = held ? 0 : elapsed;
     const simStart = performance.now();
     if (this.guest) this.simulateGuest(this.guest, elapsed, playerInput);
-    else if (!paused || this.host) this.simulate(elapsed, playerInput, 8);
+    else if (!paused || this.host) this.simulate(stepped, playerInput, 8);
     const simTime = performance.now() - simStart;
 
-    this.renderer.effects.update(elapsed);
+    this.renderer.effects.update(stepped);
     // Everything from here to `restore` sees positions blended between the
     // last two ticks, the camera included: following the raw position would
     // put the tick rate straight back into the scroll.
@@ -1381,7 +1394,29 @@ export class Game {
     this.renderer.effects.consume(events);
     this.renderer.noteEvents(this.world.events);
     audio.consume(events);
+    this.feelEvents(events);
     this.world.events.length = 0;
+  }
+
+  /** The weight of a moment: frame holds, a red edge when hurt, a burst on a level. */
+  private feelEvents(events: SimEvent[]): void {
+    const now = performance.now();
+    for (const event of events) {
+      if (event.kind === 'playerHit' && event.playerId === this.selfId) {
+        this.hitstop = Math.max(this.hitstop, 0.07);
+        this.hud.hurt(event.amount / Math.max(1, this.self.maxHp));
+      } else if (event.kind === 'mobDied') {
+        const big = MOBS[event.type].bossEvery !== undefined;
+        if (big) this.hitstop = Math.max(this.hitstop, 0.16);
+        else if (now - this.lastKillStop > 250) {
+          this.hitstop = Math.max(this.hitstop, 0.04);
+          this.lastKillStop = now;
+        }
+      } else if (event.kind === 'levelUp') {
+        const player = this.world.players.get(event.playerId);
+        if (player) this.renderer.effects.levelUp(player.pos);
+      }
+    }
   }
 
   private followCamera(elapsed: number): void {

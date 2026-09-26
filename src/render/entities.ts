@@ -94,7 +94,10 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile): vo
 }
 
 export function drawPickup(ctx: CanvasRenderingContext2D, pickup: Pickup, time: number): void {
-  const bob = Math.sin(time * 4 + pickup.id) * 2;
+  // Thrown clear of what dropped it: an arc up and a bounce down while it
+  // settles, so a drop is seen to leave the tree rather than appear beside it.
+  const hop = pickup.settle > 0 && pickup.settle < 0.45 ? Math.sin((pickup.settle / 0.45) * Math.PI) * 14 : 0;
+  const bob = Math.sin(time * 4 + pickup.id) * 2 - hop;
   softShadow(ctx, pickup.pos.x, pickup.pos.y + 4, 5, 0.3);
   // An XP orb is not an item and has no row in the table: a small cut gem.
   if (!pickup.item) {

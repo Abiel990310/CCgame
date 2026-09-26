@@ -309,6 +309,31 @@ export const SOUNDS = {
     throttle: 0.04,
     layers: [TONE('triangle', 340, 180, 0.6, 0.002, 0.11), NOISE(1000, 400, 0.4, 0.001, 0.08, 1.2)],
   },
+  // One per swing that lands, before anything drops: the work itself is heard.
+  chop: {
+    gain: 0.22,
+    vary: 0.1,
+    throttle: 0.05,
+    layers: [TONE('sine', 210, 120, 0.7, 0.001, 0.09), NOISE(1400, 600, 0.55, 0.001, 0.06, 1.6)],
+  },
+  chip: {
+    gain: 0.18,
+    vary: 0.12,
+    throttle: 0.05,
+    layers: [TONE('triangle', 1800, 1500, 0.35, 0.001, 0.05), NOISE(3200, 1800, 0.6, 0.001, 0.05, 2.5)],
+  },
+  rustle: {
+    gain: 0.14,
+    vary: 0.15,
+    throttle: 0.05,
+    layers: [NOISE(2600, 1200, 0.7, 0.01, 0.14, 0.8)],
+  },
+  dash: {
+    gain: 0.16,
+    vary: 0.08,
+    throttle: 0.1,
+    layers: [NOISE(700, 2400, 0.8, 0.01, 0.16, 0.9)],
+  },
   collected: {
     gain: 0.13,
     vary: 0.1,
