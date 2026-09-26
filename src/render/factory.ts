@@ -1,14 +1,15 @@
 import { drawBeacon } from './beacon';
 import { ITEMS } from '@shared/data/items';
 import type { MachineDef } from '@shared/data/machines';
-import { BELT_SPEED, INSERTER_SWING, MACHINES, TRAP_TIME } from '@shared/data/machines';
+import { BELT_SPEED, INSERTER_SWING, MACHINES, TRAP_TIME, TURRET } from '@shared/data/machines';
+import { MOBS } from '@shared/data/mobs';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TECH_BY_ID } from '@shared/data/techs';
 import { TILE } from '@shared/sim/constants';
 import { filterOf } from '@shared/sim/factory';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
-import type { Belt, Direction, Machine, MachineId } from '@shared/sim/types';
+import type { Belt, Direction, Machine, MachineId, Mob } from '@shared/sim/types';
 import { drawItemSprite } from './items';
 import { around, blitCached } from './paint';
 import { UI, rgba, shift } from './palette';
@@ -161,6 +162,14 @@ export function drawMachine(
   }
   if (def.family === 'tunnel') {
     drawTunnel(ctx, machine, def, time, x, y, cached);
+    return;
+  }
+  if (def.family === 'turret') {
+    if (cached && bodyScale > 0) blitBody(ctx, def, machine.dir, x, y);
+    else drawBody(ctx, def, machine.dir, x, y);
+    drawTurretHead(ctx, machine, time, x, y);
+    drawStatusLight(ctx, machine, def, time, x, y);
+    drawAmmo(ctx, machine, def, x, y);
     return;
   }
 
@@ -392,6 +401,73 @@ function drawBody(ctx: CanvasRenderingContext2D, def: MachineDef, dir: Direction
   drawMachineDeck(ctx, def, x, y);
   drawOutputNub(ctx, def, dir, x, y);
   drawTierPips(ctx, def, x, y);
+}
+
+let turretMobs: readonly Mob[] = [];
+
+/** The renderer hands over the creatures once a frame, so a turret's barrel can follow what it is shooting. */
+export function setTurretMobs(mobs: readonly Mob[]): void {
+  turretMobs = mobs;
+}
+
+/**
+ * The barrel tracks the nearest creature in reach, the one the sim is firing
+ * at; with nothing to shoot it sweeps slowly, which reads as watching. A flash
+ * at the muzzle marks the moment after a shot.
+ */
+function drawTurretHead(ctx: CanvasRenderingContext2D, machine: Machine, time: number, x: number, y: number): void {
+  const hx = x;
+  const hy = y - TILE * 0.2;
+  let angle = time * 0.5 + machine.id;
+  let best = Infinity;
+  for (const mob of turretMobs) {
+    if (mob.hp <= 0) continue;
+    const d = Math.hypot(mob.pos.x - hx, mob.pos.y - hy);
+    if (d <= TURRET.range + MOBS[mob.type].radius && d < best) {
+      best = d;
+      angle = Math.atan2(mob.pos.y - hy, mob.pos.x - hx);
+    }
+  }
+
+  blitCached(ctx, 'turret:base', hx, hy, around(TILE * 0.3), (c) => {
+    c.fillStyle = '#2a3038';
+    c.beginPath();
+    c.arc(0, 0, TILE * 0.24, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#48525e';
+    c.beginPath();
+    c.arc(0, -1, TILE * 0.18, 0, Math.PI * 2);
+    c.fill();
+  });
+
+  const length = TILE * 0.44;
+  ctx.save();
+  ctx.translate(hx, hy - 1);
+  ctx.rotate(angle);
+  ctx.fillStyle = '#1c2128';
+  ctx.fillRect(0, -2.5, length, 5);
+  ctx.fillStyle = '#6a7684';
+  ctx.fillRect(0, -2.5, length, 1.5);
+  ctx.fillStyle = '#d8b070';
+  ctx.fillRect(length - 3, -2.5, 3, 5);
+  // Fired within the last few frames: progress is the time until the next shot.
+  if (machine.progress > 1 / TURRET.rate - 0.07) {
+    ctx.fillStyle = 'rgba(255, 220, 140, 0.9)';
+    ctx.beginPath();
+    ctx.arc(length + 3, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** Rounds left, as a bar along the front, so a turret running dry is seen before it goes quiet. */
+function drawAmmo(ctx: CanvasRenderingContext2D, machine: Machine, def: MachineDef, x: number, y: number): void {
+  const rounds = machine.input.reduce((n, s) => n + (s?.count ?? 0), 0);
+  const f = Math.round(Math.min(rounds / def.slotSize, 1) * METER_STEPS);
+  const half = TILE * 0.36;
+  blitCached(ctx, `ammo:${f}`, x, y + TILE * 0.47, { left: half, right: half, top: 0, bottom: 3 }, (c) =>
+    meter(c, 0, 0, TILE * 0.72, 3, f / METER_STEPS, '#d8b070'),
+  );
 }
 
 let bodyScale = 0;

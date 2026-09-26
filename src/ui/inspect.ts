@@ -1,9 +1,9 @@
 import { BUILDINGS } from '@shared/data/buildings';
 import { ITEMS, RESOURCES } from '@shared/data/items';
-import { MACHINES, TUNNEL_REACH } from '@shared/data/machines';
+import { MACHINES, TUNNEL_REACH, TURRET } from '@shared/data/machines';
 import { MOBS } from '@shared/data/mobs';
 import { RECIPE_BY_ID } from '@shared/data/recipes';
-import { MAP_TILES } from '@shared/sim/constants';
+import { MAP_TILES, TILE } from '@shared/sim/constants';
 import { beltAt, machineAt, tunnelEntranceOf, tunnelExitOf } from '@shared/sim/factory';
 import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
@@ -303,6 +303,19 @@ function describeMachine(world: World, machine: Machine): Card {
   const def = MACHINES[machine.type];
   if (def.family === 'pole' || def.generates) return describePower(world, machine);
   if (def.family === 'beacon') return describeBeacon(machine);
+  if (def.family === 'turret') {
+    const rounds = machine.input.reduce((n, s) => n + (s ? s.count : 0), 0);
+    return {
+      title: def.name,
+      icon: pieceIconVar(`machine:${machine.type}`),
+      status: rounds > 0 ? { text: 'Armed', tone: 'good' } : { text: 'Out of rounds', tone: 'bad' },
+      rows: [
+        ['Rounds', `${rounds} of ${def.slotSize}`],
+        ['Range', `${Math.round(TURRET.range / TILE)} tiles`],
+      ],
+      hint: 'Click to open',
+    };
+  }
   const rows: Array<[string, string]> = [];
   const recipe = machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   if (def.family === 'miner' && machine.ore) rows.push(['Mining', ITEMS[machine.ore].name]);

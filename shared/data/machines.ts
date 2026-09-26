@@ -726,6 +726,32 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     fuelSlots: 0,
     solid: true,
   },
+  turret: {
+    id: 'turret',
+    crafted: true,
+    family: 'turret',
+    tier: 1,
+    name: 'Gun Turret',
+    description:
+      'Fires Iron Rounds at any creature that comes in range, day or night. Feed it by belt or inserter and the factory starts guarding itself.',
+    cost: [
+      { id: 'ironPlate', count: 20 },
+      { id: 'gear', count: 10 },
+      { id: 'circuit', count: 5 },
+    ],
+    color: '#5c6470',
+    accent: '#d8b070',
+    inputSlots: 1,
+    outputSlots: 0,
+    slotSize: 100,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+    fuelSlots: 0,
+    solid: true,
+  },
   pole: {
     id: 'pole',
     family: 'pole',
@@ -780,6 +806,7 @@ export const MACHINE_ORDER: MachineId[] = [
   'solar',
   'pole',
   'beacon',
+  'turret',
 ];
 
 export const BELT_COST: ItemStack[] = [
@@ -792,6 +819,19 @@ export const BELT_COST: ItemStack[] = [
  * own drop table, so a trap is a rod that nobody has to hold.
  */
 export const TRAP_TIME = 6;
+
+/**
+ * A gun turret, per round: what it hits for before research, how often and how
+ * far it shoots, and how fast the round flies. A round is one plate of each
+ * metal for four shots, so a line of turrets is a steady draw on the smelters
+ * rather than a one-off build.
+ */
+export const TURRET = {
+  damage: 9,
+  rate: 2,
+  range: 260,
+  speed: 560,
+} as const;
 
 /** Tiles per second an item travels along a belt. */
 export const BELT_SPEED = 1.6;

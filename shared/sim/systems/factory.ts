@@ -29,6 +29,7 @@ import {
 } from '../factory';
 import { tileCenter } from '../grid';
 import { rollDrop } from './gathering';
+import { TURRET_AMMO, stepTurret } from './turret';
 import { minerSource, oreAt, takeOre } from '../ore';
 import { powerFactor, powerNetOf } from '../power';
 import { nextFloat } from '../progression';
@@ -99,6 +100,7 @@ export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
   }
   if (def.inputSlots === 0) return false;
   if (def.family === 'beacon') return insertIntoBeacon(machine, item, def.slotSize);
+  if (def.family === 'turret') return item === TURRET_AMMO && addToSlots(machine.input, item, 1, def.slotSize) === 1;
 
   // An inserter's input slot is its hand, not a hopper: it fills that itself
   // from the tile behind it. Refusing here is also what stops two inserters
@@ -284,6 +286,9 @@ export function stepMachines(world: World, dt: number): void {
         break;
       case 'beacon':
         stepBeacon(world, machine, dt);
+        break;
+      case 'turret':
+        stepTurret(world, machine, dt, bonus);
         break;
       default:
         stepCrafter(world, machine, mdt, bonus);

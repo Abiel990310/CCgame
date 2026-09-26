@@ -359,6 +359,7 @@ const PRODUCED_SOUND = {
   solar: null,
   pole: null,
   beacon: null,
+  turret: null,
 } as const satisfies Record<MachineFamily, SoundId | null>;
 
 export type { SoundId };

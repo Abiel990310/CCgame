@@ -147,6 +147,20 @@ export const TECHS: TechDef[] = [
     xp: 12,
   },
   {
+    id: 'fortification',
+    name: 'Fortification',
+    description: 'Gun turrets and the rounds they fire. Feed one from a belt and it keeps shooting while you work.',
+    inputs: [
+      { id: 'researchPack', count: 1 },
+      { id: 'logicPack', count: 1 },
+    ],
+    cycles: 30,
+    time: 6,
+    requires: ['weaponsmithing'],
+    unlocks: ['turret'],
+    xp: 12,
+  },
+  {
     id: 'electricity',
     name: 'Electricity',
     description:

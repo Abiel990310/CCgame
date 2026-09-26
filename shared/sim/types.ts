@@ -37,6 +37,7 @@ export type ItemId =
   | 'processor'
   | 'frame'
   | 'lens'
+  | 'rounds'
   // Consumed by labs
   | 'researchPack'
   | 'logicPack'
@@ -82,7 +83,8 @@ export type CraftedMachineId =
   | 'tunnel'
   | 'generator'
   | 'solar'
-  | 'beacon';
+  | 'beacon'
+  | 'turret';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -332,7 +334,8 @@ export type MachineFamily =
   | 'generator'
   | 'solar'
   | 'pole'
-  | 'beacon';
+  | 'beacon'
+  | 'turret';
 
 export type MachineId =
   | MachineFamily
