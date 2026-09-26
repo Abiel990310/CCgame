@@ -712,8 +712,9 @@ detail behind the factory entries is in
       interrupted the factory every few minutes. Level-ups now queue on a
       glowing badge on the level ring, opened with U or a tap; only the open
       draft pauses the island.
-- [ ] Level-ups queued for a long time pile up unspent. A small reminder when
-      three or more are waiting, or at dawn, would stop them being forgotten.
+- [x] Level-ups queued for a long time piled up unspent. At three waiting the
+      ring pulses harder and a toast says so once, the prompt counts them
+      ("Pick 4 upgrades"), and the dawn toast mentions any still waiting.
 - [ ] The lab's body is nearly the assembler's blue-grey; the lit dome is what
       tells them apart. Fine beside each other, worth a second look in a dense
       base.

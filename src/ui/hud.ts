@@ -64,6 +64,9 @@ export interface HudCallbacks {
  * reports intent back through callbacks, so it can be swapped or removed
  * without the sim noticing.
  */
+/** How many unspent level-ups make the ring ask louder, and the game remind you. */
+export const PILING = 3;
+
 export class Hud {
   private els = {
     topbar: $('topbar'),
@@ -73,6 +76,7 @@ export class Hud {
     phaseFill: $('phase-fill'),
     level: $('level'),
     levelRing: $('level-ring'),
+    levelupPrompt: $('levelup-prompt'),
     vitals: document.querySelector<HTMLElement>('.vitals')!,
     levelupLater: $<HTMLButtonElement>('levelup-later'),
     hpFill: $('hp-fill'),
@@ -119,6 +123,7 @@ export class Hud {
   private draftOpen = false;
   /** Signature of the last rendered offer set, to avoid rebuilding every frame. */
   private offerKey = '';
+  private promptText = 'Pick an upgrade';
   private pouchKey = '';
   private hotbarKey = '';
   private detailKey = '';
@@ -612,6 +617,13 @@ export class Hud {
     if (!waiting) this.draftOpen = false;
     this.els.vitals.classList.toggle('ready', waiting && !this.draftOpen);
     this.els.levelRing.dataset.pending = player.pendingUpgrades > 1 ? `+${player.pendingUpgrades}` : '+1';
+    // A pile of unspent picks is power left on the table, so it asks louder.
+    this.els.vitals.classList.toggle('piling', waiting && player.pendingUpgrades >= PILING);
+    const prompt = player.pendingUpgrades > 1 ? `Pick ${player.pendingUpgrades} upgrades` : 'Pick an upgrade';
+    if (this.promptText !== prompt) {
+      this.promptText = prompt;
+      this.els.levelupPrompt.innerHTML = `${prompt} <kbd>U</kbd>`;
+    }
     const showing = waiting && this.draftOpen;
     this.els.levelup.classList.toggle('hidden', !showing);
     if (!showing) {

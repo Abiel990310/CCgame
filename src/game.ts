@@ -76,7 +76,7 @@ import { GuestBook } from './net/guests';
 import { CoopHost } from './net/host';
 import { Ticker } from './net/ticker';
 import { CoopPanel, playerName } from './ui/coop';
-import { Hud } from './ui/hud';
+import { Hud, PILING } from './ui/hud';
 import { Inspector } from './ui/inspect';
 import { PerfMeter } from './ui/perfmeter';
 import { WorkbenchScreen } from './ui/workbench';
@@ -1341,6 +1341,12 @@ export class Game {
         this.hud.toast(`Level ${event.level}! ${how} to pick an upgrade`, 'good');
         continue;
       }
+      // Once, when the queue first grows into a pile, rather than on every level.
+      if (event.kind === 'levelUp' && event.playerId === this.selfId && this.self.pendingUpgrades === PILING) {
+        const how = this.input.isTouch ? 'tap your level' : 'press U';
+        this.hud.toast(`${PILING} upgrades waiting: ${how} to spend them`, 'good');
+        continue;
+      }
       if (event.kind !== 'goal' || event.playerId !== this.selfId) continue;
       const done = GOAL_BY_ID.get(event.goal);
       const next = event.next ? GOAL_BY_ID.get(event.next) : null;
@@ -1371,7 +1377,15 @@ export class Game {
       this.hud.toast(`Night ${this.world.nightIndex} — get to camp`, 'warn');
       this.hud.setBuildMode(false);
     } else {
-      this.hud.toast('Dawn. The island is yours again.', 'good');
+      // Dawn is when a player looks up from the fight, so it is when unspent picks are mentioned.
+      const waiting = this.self.pendingUpgrades;
+      const how = this.input.isTouch ? 'tap your level' : 'press U';
+      this.hud.toast(
+        waiting > 0
+          ? `Dawn. ${waiting === 1 ? 'An upgrade is' : `${waiting} upgrades are`} waiting: ${how}.`
+          : 'Dawn. The island is yours again.',
+        'good',
+      );
       this.persist();
     }
   }
