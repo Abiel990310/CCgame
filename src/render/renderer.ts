@@ -403,7 +403,11 @@ export class Renderer {
     };
 
     for (const machine of this.visibleMachines) add(tileCenter(machine.tx, machine.ty).y, Layer.Machine, machine);
-    for (const node of world.nodes) {
+    // Indexed, not for-of: this runs over every node on the island each
+    // frame, and in a function this size the iterator was not optimised away.
+    const nodes = world.nodes;
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
       if (visible(node.pos, 60)) add(node.pos.y, Layer.Node, node);
     }
     for (const building of world.buildings) {
@@ -424,7 +428,8 @@ export class Renderer {
     order.length = count;
     for (let i = 0; i < count; i++) order[i] = i;
     order.sort(this.byDepth);
-    for (const i of order) {
+    for (let n = 0; n < count; n++) {
+      const i = order[n];
       const ref = refs[i];
       switch (kinds[i]) {
         case Layer.Machine:
