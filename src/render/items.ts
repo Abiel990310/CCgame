@@ -537,6 +537,49 @@ function basket(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, 
   ctx.fill();
 }
 
+/** A three-pronged iron hook on a coil of rope. */
+function hook(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  const { lit, line } = tones(color);
+  ctx.lineCap = 'round';
+  // The rope, coiled at the bottom left and running up to the shank.
+  ctx.beginPath();
+  ctx.ellipse(x - s * 0.35, y + s * 0.5, s * 0.48, s * 0.28, 0, 0, Math.PI * 2);
+  ctx.moveTo(x - s * 0.05, y + s * 0.3);
+  ctx.quadraticCurveTo(x + s * 0.2, y + s * 0.05, x + s * 0.2, y - s * 0.2);
+  ctx.strokeStyle = '#6b4e2e';
+  ctx.lineWidth = Math.max(1.1, s * 0.2);
+  ctx.stroke();
+  ctx.strokeStyle = '#c9a36a';
+  ctx.lineWidth = Math.max(0.7, s * 0.11);
+  ctx.stroke();
+  // Shank and prongs.
+  const prongs = (): void => {
+    ctx.beginPath();
+    ctx.moveTo(x + s * 0.2, y - s * 0.2);
+    ctx.lineTo(x + s * 0.2, y - s * 0.95);
+    ctx.moveTo(x + s * 0.2, y - s * 0.3);
+    ctx.quadraticCurveTo(x - s * 0.35, y - s * 0.35, x - s * 0.3, y - s * 0.8);
+    ctx.moveTo(x + s * 0.2, y - s * 0.3);
+    ctx.quadraticCurveTo(x + s * 0.8, y - s * 0.35, x + s * 0.75, y - s * 0.8);
+  };
+  prongs();
+  ctx.strokeStyle = line;
+  ctx.lineWidth = Math.max(1.3, s * 0.26);
+  ctx.stroke();
+  prongs();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(0.8, s * 0.15);
+  ctx.stroke();
+  if (s >= 5) {
+    ctx.beginPath();
+    ctx.moveTo(x + s * 0.16, y - s * 0.9);
+    ctx.lineTo(x + s * 0.16, y - s * 0.45);
+    ctx.strokeStyle = lit;
+    ctx.lineWidth = Math.max(0.5, s * 0.06);
+    ctx.stroke();
+  }
+}
+
 /** A bag worn on the back: a rounded body, a buckled flap and a strap loop. */
 function pack(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
   const { lit, shade, line } = tones(color);
@@ -591,6 +634,7 @@ const SHAPES: Record<ItemShape, ShapeFn> = {
   pick,
   rod,
   basket,
+  hook,
   pack,
   crate,
   chunk,

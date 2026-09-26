@@ -28,6 +28,7 @@ export type ItemShape =
   | 'pick'
   | 'rod'
   | 'basket'
+  | 'hook'
   | 'pack'
   | 'crate';
 
@@ -49,6 +50,12 @@ export interface ItemDef {
    * a chest, and the bag would shrink out from under what it held.
    */
   bag?: number;
+  /**
+   * Carried, a dash that runs into water or a machine may leap this far
+   * rather than the bare-handed reach, and across deep water too: a hook
+   * thrown to the far bank pulls its owner over.
+   */
+  leap?: number;
 }
 
 /** Every crafted machine is also an item, drawn as a crate in the machine's colour. */
@@ -134,6 +141,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   steelPick: tool('steelPick', 'Steel Pickaxe', '#7e9bc4', 'pick', 3.2),
   fishingRod: tool('fishingRod', 'Fishing Rod', '#b9854e', 'rod', 1.8),
   forageBasket: tool('forageBasket', 'Forage Basket', '#c9a36a', 'hand', 1.6),
+  grapple: { id: 'grapple', name: 'Grappling Hook', color: '#9aa6b4', stack: 1, shape: 'hook', leap: 320 },
   satchel: { id: 'satchel', name: 'Woven Satchel', color: '#b89660', stack: 1, shape: 'pack', bag: 1 },
   ironPack: { id: 'ironPack', name: 'Iron-Frame Pack', color: '#8a7768', stack: 1, shape: 'pack', bag: 2 },
   steelPack: { id: 'steelPack', name: 'Steel Rucksack', color: '#5f7488', stack: 1, shape: 'pack', bag: 3 },
