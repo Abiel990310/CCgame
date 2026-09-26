@@ -767,6 +767,10 @@ export class Game {
         this.hud.pickOffer(Number(action.slice(6)) - 1);
         continue;
       }
+      if (action.startsWith('hotbar') && this.hud.isInventoryOpen && !this.hud.inspecting) {
+        this.hud.pickSheetTab(Number(action.slice(6)) - 1);
+        continue;
+      }
       // A quick slot picks what to place, so it also turns build mode on; the
       // keys stay dead behind an open screen, like every other build key.
       if (action.startsWith('hotbar') && !blocked) {

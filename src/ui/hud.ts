@@ -183,6 +183,10 @@ export class Hud {
       onPasteSettings: (machineId) => this.callbacks.onPasteSettings(machineId),
       onSort: (area) => this.callbacks.onSort(area),
       onGather: (ref) => this.callbacks.onGather(ref),
+      onOpenDraft: () => {
+        this.callbacks.onCloseInventory();
+        this.openDraft();
+      },
       onClose: () => this.callbacks.onCloseInventory(),
     });
 
@@ -249,6 +253,11 @@ export class Hud {
     if (this.els.buildbar.classList.contains('folded') !== fold) {
       this.els.buildbar.classList.toggle('folded', fold);
     }
+  }
+
+  /** Switch the character sheet's page, when it is the sheet that is open. */
+  pickSheetTab(index: number): void {
+    this.inventory.pickTabAt(index);
   }
 
   get isInventoryOpen(): boolean {

@@ -23,7 +23,7 @@ import type { ItemId, Machine, MachineFamily, Player, Slot, World } from '@share
 import { itemIconVar } from '../render/items';
 import { pieceIconVar } from '../render/pieces';
 import { icon } from './icons';
-import { buildKey, buildSummary } from './upgradecard';
+import { SHEET_TABS, gearPage, sheetKey, skillsPage, statsPage, type SheetTab } from './character';
 
 export interface InventoryCallbacks {
   /** A slot was clicked: pick up, put down, split, or send across. */
@@ -33,6 +33,8 @@ export interface InventoryCallbacks {
   onSort: (area: SlotArea) => void;
   /** Double-click: pull every loose stack of this item into this slot. */
   onGather: (ref: SlotRef) => void;
+  /** The Skills page's button: spend a waiting level-up. */
+  onOpenDraft: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
   /** Reorder the island's research queue. Research belongs to the world. */
   onQueueResearch: (techId: string, op: QueueOp) => void;
@@ -92,9 +94,10 @@ export class InventoryScreen {
     research: HTMLElement;
     bagGrid: HTMLElement;
     bagNote: HTMLElement;
-    build: HTMLElement;
-    buildNote: HTMLElement;
-    buildList: HTMLElement;
+    tabs: HTMLElement;
+    bag: HTMLElement;
+    page: HTMLElement;
+    hint: HTMLElement;
     close: HTMLButtonElement;
     carried: HTMLElement;
   };
@@ -108,7 +111,12 @@ export class InventoryScreen {
   /** Signature of what is drawn, so the DOM is only touched when it changes. */
   private painted = '';
   private recipeKey = '';
-  private buildKey = '';
+  private pageKey = '';
+  /**
+   * The character sheet's page. Kept across closing, so Tab reopens where the
+   * player left it, the way a game's menu remembers its last tab.
+   */
+  private tab: SheetTab = 'bag';
   /**
    * While on, a click on a chest slot sets its filter instead of moving items.
    * A mode rather than a modifier, so it is discoverable and works by touch.
@@ -148,9 +156,10 @@ export class InventoryScreen {
       research: must('inv-research'),
       bagGrid: must('inv-bag-grid'),
       bagNote: must('inv-bag-note'),
-      build: must('inv-build'),
-      buildNote: must('inv-build-note'),
-      buildList: must('inv-build-list'),
+      tabs: must('inv-tabs'),
+      bag: must('inv-bag'),
+      page: must('inv-page'),
+      hint: must('inv-hint'),
       close: must<HTMLButtonElement>('inv-close'),
       carried: must('inv-carried'),
     };
@@ -163,6 +172,7 @@ export class InventoryScreen {
       { area: 'bag', el: this.els.bagGrid, cells: [] },
     ];
     this.buildGrid('bag', INVENTORY_SLOTS);
+    this.buildTabs();
 
     this.els.close.addEventListener('click', () => this.callbacks.onClose());
     this.els.takeAll.addEventListener('click', () => {
@@ -219,7 +229,7 @@ export class InventoryScreen {
     this.machine = machine;
     this.painted = '';
     this.recipeKey = '';
-    this.buildKey = '';
+    this.pageKey = '';
     this.pressRef = null;
     this.root.classList.remove('hidden');
     this.layout(machine);
@@ -258,17 +268,20 @@ export class InventoryScreen {
   /** Rebuild the parts that only change when a different container is opened. */
   private layout(machine: Machine | null): void {
     if (!machine) {
-      this.els.eyebrow.textContent = 'Carrying';
-      this.els.title.textContent = 'Your bag';
       this.els.icon.classList.add('hidden');
       this.els.blurb.classList.add('hidden');
       this.els.container.classList.add('hidden');
       this.els.research.classList.add('hidden');
+      // Left over from the last machine otherwise: the bag has no settings to copy.
+      this.els.settings.classList.add('hidden');
       this.els.recipes.innerHTML = '';
-      this.els.build.classList.remove('hidden');
+      this.els.tabs.classList.remove('hidden');
+      this.showTab(this.tab);
       return;
     }
-    this.els.build.classList.add('hidden');
+    // A machine's screen is the machine beside the bag, never a character page.
+    this.els.tabs.classList.add('hidden');
+    this.showSheet(true);
 
     const def = MACHINES[machine.type];
     const lab = def.family === 'lab';
@@ -400,16 +413,68 @@ export class InventoryScreen {
     }
     if (machine && MACHINES[machine.type].family === 'lab') this.updateResearchNote(world);
     if (machine && MACHINES[machine.type].family === 'beacon') this.updateBeacon(machine);
-    if (!machine) this.updateBuild(player);
+    if (!machine) this.updatePage(world, player);
     this.updatePanel(world, machine);
   }
 
-  private updateBuild(player: Player): void {
-    const key = buildKey(player) + player.level;
-    if (key === this.buildKey) return;
-    this.buildKey = key;
-    this.els.buildNote.textContent = `Level ${player.level}`;
-    this.els.buildList.innerHTML = buildSummary(player);
+  private buildTabs(): void {
+    this.els.tabs.innerHTML = SHEET_TABS.map(
+      (t, i) =>
+        `<button class="tab" data-tab="${t.id}" title="${t.label} (${i + 1})">${icon(t.icon)}<span>${t.label}</span></button>`,
+    ).join('');
+    this.els.tabs.addEventListener('click', (e) => {
+      const button = (e.target as HTMLElement).closest<HTMLElement>('[data-tab]');
+      if (button) this.pickTab(button.dataset.tab as SheetTab);
+    });
+    this.els.page.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('[data-sheet="draft"]')) this.callbacks.onOpenDraft();
+    });
+  }
+
+  /** The number keys switch pages while the sheet is up, as they pick cards in the draft. */
+  pickTabAt(index: number): void {
+    const tab = SHEET_TABS[index];
+    if (tab && this.open && !this.machine) this.pickTab(tab.id);
+  }
+
+  private pickTab(tab: SheetTab): void {
+    if (tab === this.tab) return;
+    audio.play('click');
+    this.showTab(tab);
+  }
+
+  private showTab(tab: SheetTab): void {
+    // Hold the sheet at the bag's height, so moving between pages does not
+    // make it jump; a longer page scrolls inside it.
+    if (this.tab === 'bag' && tab !== 'bag' && this.els.bag.offsetHeight > 0) {
+      this.els.page.style.minHeight = `${this.els.bag.offsetHeight}px`;
+    }
+    this.tab = tab;
+    this.pageKey = '';
+    for (const button of this.els.tabs.querySelectorAll<HTMLElement>('[data-tab]')) {
+      button.classList.toggle('on', button.dataset.tab === tab);
+    }
+    const def = SHEET_TABS.find((t) => t.id === tab)!;
+    this.els.eyebrow.textContent = tab === 'bag' ? 'Carrying' : 'Character';
+    this.els.title.textContent = tab === 'bag' ? 'Your bag' : def.label;
+    this.showSheet(tab === 'bag');
+  }
+
+  /** The bag and its hint, or a character page in their place. */
+  private showSheet(bag: boolean): void {
+    this.els.bag.classList.toggle('hidden', !bag);
+    this.els.hint.classList.toggle('hidden', !bag);
+    this.els.page.classList.toggle('hidden', bag);
+  }
+
+  private updatePage(world: World, player: Player): void {
+    const key = sheetKey(this.tab, world, player);
+    if (key === this.pageKey) return;
+    this.pageKey = key;
+    if (this.tab === 'bag') this.els.page.innerHTML = '';
+    else if (this.tab === 'gear') this.els.page.innerHTML = gearPage(world, player);
+    else if (this.tab === 'stats') this.els.page.innerHTML = statsPage(world, player);
+    else this.els.page.innerHTML = skillsPage(player);
   }
 
   private signature(player: Player, machine: Machine | null): string {

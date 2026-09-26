@@ -908,8 +908,16 @@ detail behind the factory entries is in
       a lip, and titles use a book face (`src/ui/pixelui.css`). Still
       missing: one tabbed character screen, pixel icons, portraits.*
 - [ ] Hotbar and action-bar icons redrawn as pixel icons to match the frames.
-- [ ] One tabbed character screen (bag, build, upgrades, map) instead of
-      separate modals.
+- [x] One tabbed character screen (bag, build, upgrades, map) instead of
+      separate modals. *2026-09-26: Tab opens Bag, Gear, Stats and Skills
+      (`src/ui/character.ts`); keys 1 to 4 switch, and it reopens on the last
+      page. Gear shows each weapon's live damage, rate and reach, the blade,
+      the best tool of each kind and the sewn bag; Stats every stat plus the
+      island's research; Skills the level-ups taken, with a button for any
+      waiting.*
+- [ ] The island map as a fifth page of the character screen, so M and Tab
+      are one screen.
+- [ ] Hover a weapon on the Gear page to see what its next level adds.
 - [ ] 5. **Character screen and gear.** Weapons, charms and spells to equip
       and swap; our bag holds materials and the build is a row of chips.
 - [ ] 6. **Bosses as events.** Intro cutscene, name card, phase change; our
