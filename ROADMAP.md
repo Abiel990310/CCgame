@@ -99,6 +99,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Co-op transport | WebRTC data channels, signalled through the public PeerJS broker | No server to run or pay for, on static hosting. The page talks to the broker only when someone hosts or joins, and speaks its protocol directly so there is still no runtime dependency. Friends' characters are saved on the host's side, beside the island. |
 | Accounts | Supabase (Auth plus Postgres), called with plain `fetch`; every call is a function in `docs/cloud/schema.sql`, and the tables grant the browser nothing | The site is static, so accounts need a hosted backend; Supabase's free plan covers sign-in and a database with no server to run. Hand-writing the dozen calls keeps the page free of a second runtime dependency, and putting every rule in SQL functions keeps the security in one file. A cloud island is the local slot bundled as-is, so the save format needs no second migration path, and a per-world lease keeps two devices from overwriting each other. |
 | Renderer | PixiJS (WebGL) by default, Canvas as the fallback, both drawing the same art through a Canvas-shaped adapter | Abiel chose it on 2026-09-25 as the engine web games use, so the game can grow on it. The first runtime dependency, loaded only when the GPU renderer is on. The art stays written once against the Canvas API, so the two renderers cannot drift apart while Pixi is proven. |
+| Co-op signalling | The game's own Supabase project (Realtime Broadcast) first, the public PeerJS broker second; either can also relay the game when no direct channel opens | 2026-09-26: joins failed on Abiel's Mac with the host never answering through the public broker, which nobody here can fix or see into. The host now listens on both, and a guest tries its own project first. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -352,8 +353,10 @@ detail behind the factory entries is in
 
 - [ ] Co-op: a TURN server (Cloudflare or Metered free tier) so friends on
       strict networks get a direct connection rather than the slower relay.
-- [ ] Co-op: signal through the Supabase project as well as the PeerJS broker,
-      so joining still works if the public broker is down.
+- [x] Co-op: signal through the Supabase project as well as the PeerJS broker,
+      so joining still works if the public broker is down. Done 2026-09-26.
+- [ ] Co-op: a "copy details" button on a failed join, so a friend can send
+      exactly which route got how far instead of a screenshot.
 - [ ] Tell a player on an old tab that a new version is out, before a join
       finds out the hard way.
 
@@ -979,6 +982,11 @@ detail behind the factory entries is in
 - [ ] Underground belts by touch: the pairing preview was driven with a mouse
       only, and a finger has no hover to show the exit's dashed link first.
 
+- [ ] Joining through the real Supabase Realtime service. Signalling and the
+      relay through the project were driven against a local stand-in for
+      Realtime Broadcast (`docs/cloud/gateway.mjs`), not the real one, which
+      the sandbox cannot reach. If "Allow public access" is off in the
+      project's Realtime settings, joins quietly fall back to the broker.
 - [ ] Joining through the relay on two real networks. When a direct connection
       does not open within 6 seconds, the game now carries the session through
       the PeerJS broker instead. That was driven locally with WebRTC blocked on

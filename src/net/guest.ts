@@ -2,11 +2,20 @@ import { applyOrder, type Command } from '@shared/sim/commands';
 import { checksum, decode, encode, restoreSnapshot } from '@shared/sim/snapshot';
 import { step } from '@shared/sim/step';
 import type { PlayerInput, World } from '@shared/sim/types';
-import { Broker } from './broker';
+import { Broker, type Signaller } from './broker';
 import { Link } from './link';
+import { RealtimeBroker, realtimeAvailable } from './realtime';
 import { BUILD, olderBuild, peerId, type GuestMessage, type HostMessage, type TickMessage } from './protocol';
 
 const JOIN_TIMEOUT_MS = 20_000;
+/** How long the host gets to answer a knock on the game's own service before the public broker is tried. */
+const KNOCK_WAIT_MS = 6_000;
+
+/** The host answered and said no, so another route would only hear the same. */
+class Refused extends Error {}
+
+/** How far one route got, for the message when every route fails. */
+type Reach = 'unreachable' | 'no-answer' | 'dropped';
 /** Resend an unchanged input this often, so a lost-and-found host still hears it. */
 const INPUT_REFRESH_MS = 250;
 
@@ -37,40 +46,93 @@ export class CoopGuest {
   private lastInputAt = 0;
   onEnd: GuestEvents['onEnd'] = () => {};
 
+  /** Which service carried the signalling, for diagnosing a friend's trouble. */
+  route: 'own' | 'public' = 'public';
+  /** Whether the host was ever heard from on this attempt. */
+  private heard = false;
+
   private constructor(
-    private broker: Broker,
+    private broker: Signaller,
     private code: string,
     token: string,
     name: string,
   ) {
     this.link = new Link(broker, peerId(code), {
       onOpen: () => this.send({ t: 'hello', build: BUILD, token, name }),
-      onMessage: (text) => this.receive(text),
-      onClose: () =>
-        this.end(
-          this.arrived
-            ? 'Could not connect to the host. Their network or yours may not allow a direct connection.'
-            : 'Lost the connection to the host.',
-        ),
+      onMessage: (text) => {
+        this.heard = true;
+        this.receive(text);
+      },
+      onClose: () => this.end(this.arrived ? 'The connection to the host closed while joining.' : 'Lost the connection to the host.'),
     });
   }
 
-  /** Connect to a room and wait until our character is standing on the island. */
+  /**
+   * Connect to a room and wait until our character is standing on the island.
+   * Tries the game's own online service first, when this build has one, then
+   * the public broker, so one service having a bad day does not keep friends
+   * apart. Only the host saying no, or every route failing, ends the attempt.
+   */
   static async join(code: string, name: string, token: string): Promise<CoopGuest> {
+    const tried: [string, Reach][] = [];
+    const routes: ('own' | 'public')[] = realtimeAvailable() ? ['own', 'public'] : ['public'];
+    for (const route of routes) {
+      try {
+        return await CoopGuest.attempt(route, code, name, token);
+      } catch (error) {
+        if (error instanceof Refused) throw error;
+        const reach = (error as { reach?: Reach }).reach ?? 'unreachable';
+        tried.push([route === 'own' ? 'online service' : 'public relay', reach]);
+        // A code nobody holds anywhere is not worth a second route's wait.
+        if (error instanceof Error && error.message === NO_ROOM && route === 'public') throw error;
+      }
+    }
+    throw new Error(explain(tried));
+  }
+
+  private static async attempt(route: 'own' | 'public', code: string, name: string, token: string): Promise<CoopGuest> {
     let guest: CoopGuest | null = null;
     // The broker only matters until we are in; after that its trouble is not ours.
     const fail = (reason: string): void => {
       if (guest?.joining) guest.end(reason);
     };
     // A broker id of our own, unguessable, so nobody else can answer as us.
+    // A fresh one per route, so a host that half-heard the first try is not confused.
     const self = `${peerId(code)}-${crypto.getRandomValues(new Uint32Array(2)).join('')}`;
-    const broker = new Broker(self, {
-      onRelay: (type, _src, payload) => guest?.link.signal(type, payload),
+    const events = {
+      onRelay: (type: string, _src: string, payload: unknown) => guest?.link.signal(type, payload),
       onFail: fail,
-      onExpire: () => fail('No game is open with that code'),
-    });
-    await broker.open();
+      onExpire: () => fail(NO_ROOM),
+    };
+    let broker: Signaller;
+    if (route === 'own') {
+      const own = new RealtimeBroker(self, 'guest', events);
+      try {
+        await own.open();
+      } catch (error) {
+        own.close();
+        throw reached(error, 'unreachable');
+      }
+      try {
+        await own.knock(peerId(code), KNOCK_WAIT_MS);
+      } catch (error) {
+        own.close();
+        throw reached(error, 'no-answer');
+      }
+      broker = own;
+    } else {
+      const peer = new Broker(self, events);
+      try {
+        await peer.open();
+      } catch (error) {
+        throw reached(error, 'unreachable');
+      }
+      broker = peer;
+    }
     guest = new CoopGuest(broker, code, token, name);
+    guest.route = route;
+    // The knock was answered, so the host is there even before it says a word.
+    if (route === 'own') guest.heard = true;
     const joined = guest;
 
     await new Promise<void>((resolve, reject) => {
@@ -84,7 +146,7 @@ export class CoopGuest {
       };
       joined.failed = (error) => {
         window.clearTimeout(timer);
-        reject(error);
+        reject(error instanceof Refused ? error : reached(error, joined.heard ? 'dropped' : 'no-answer'));
       };
       joined.link.call().catch(() => joined.end('Could not start a connection.'));
     });
@@ -109,14 +171,14 @@ export class CoopGuest {
         if (message.build && olderBuild(BUILD, message.build) && !new URLSearchParams(location.search).has('fresh')) {
           // This page is the out-of-date one: fetch the host's version and come
           // straight back to the same island.
-          this.end(message.reason);
+          this.end(message.reason, true);
           reloadInto(this.code);
           return;
         }
-        this.end(message.reason);
+        this.end(message.reason, true);
         return;
       case 'bye':
-        this.end(message.reason);
+        this.end(message.reason, true);
         return;
       case 'snapshot': {
         const world = restoreSnapshot(message.snap);
@@ -219,12 +281,13 @@ export class CoopGuest {
     this.broker.close();
   }
 
-  private end(reason: string): void {
+  /** `final` when it was the host who said so, which no other route would change. */
+  private end(reason: string, final = false): void {
     if (this.ended) return;
     this.ended = true;
     this.link.close();
     this.broker.close();
-    if (this.failed) this.failed(new Error(reason));
+    if (this.failed) this.failed(final ? new Refused(reason) : new Error(reason));
     else this.onEnd(reason);
   }
 }
@@ -238,3 +301,28 @@ function reloadInto(code: string): void {
   url.searchParams.set('fresh', Date.now().toString(36));
   location.replace(url.toString());
 }
+
+const NO_ROOM = 'No game is open with that code';
+
+function reached(error: unknown, reach: Reach): Error {
+  const wrapped = error instanceof Error ? error : new Error(String(error));
+  return Object.assign(wrapped, { reach });
+}
+
+/** One message for every route failing, worded by the furthest any of them got. */
+function explain(tried: [string, Reach][]): string {
+  const detail = tried.map(([route, reach]) => `${route}: ${REACH_TEXT[reach]}`).join('; ');
+  if (tried.some(([, reach]) => reach === 'dropped')) {
+    return `Found the host, but the connection kept dropping before you got in. Try again in a moment. (${detail})`;
+  }
+  if (tried.every(([, reach]) => reach === 'unreachable')) {
+    return `Could not reach the game's online services from this network. Check your connection and try again. (${detail})`;
+  }
+  return `The host's game did not answer. Check that it is still open, then try again. (${detail})`;
+}
+
+const REACH_TEXT: Record<Reach, string> = {
+  unreachable: 'could not connect',
+  'no-answer': 'host did not answer',
+  dropped: 'connection dropped',
+};

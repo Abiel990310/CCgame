@@ -59,6 +59,10 @@ it is paused.
   menu under *Friends' islands* with a **Join** button. The join is ordinary
   co-op underneath, and the friend's character is kept on the island under
   their account rather than their browser, so it follows them between devices.
+- Dropping in is signalled through the project's Realtime Broadcast, on
+  public channels, before the public PeerJS broker is tried. Nothing is
+  stored and no table is touched, but Realtime → Settings → "Allow public
+  access" must stay on, or every join falls back to the public broker.
 - Players who never sign in are untouched: islands stay on their device only.
 
 ## Testing against a local server
@@ -78,7 +82,8 @@ gateway on port 54321:
    `GOTRUE_MAILER_AUTOCONFIRM=true` and `API_EXTERNAL_URL`.
 3. Apply `schema.sql`, then run PostgREST on 3000 against `authenticator`
    with `db-anon-role = "anon"` and the same JWT secret.
-4. `node docs/cloud/gateway.mjs`, and make an anon key: an HS256 JWT of
+4. `node docs/cloud/gateway.mjs` (it also stands in for Realtime Broadcast,
+   which is all the game uses of Realtime), and make an anon key: an HS256 JWT of
    `{"role":"anon"}` signed with the secret.
 5. Schema tests: `CCGAME_CLOUD_URL=http://127.0.0.1:54321 CCGAME_CLOUD_KEY=<anon key> npx vitest run src/__tests__/cloud-live.test.ts`.
 6. The game: build with `VITE_CLOUD_URL` and `VITE_CLOUD_KEY` set the same

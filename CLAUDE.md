@@ -111,7 +111,8 @@ on purpose and should stay true as tiers are added.
   that renderer is on. The page makes zero external network requests. Do not
   add a font CDN, an analytics snippet, or a UI library without asking.
   Keeping this true is a feature. The exceptions are co-op, which reaches a
-  WebRTC signalling broker only once someone chooses to host or join, and
+  WebRTC signalling broker (and, in a build with accounts, the Supabase
+  project's Realtime) only once someone chooses to host or join, and
   accounts, which reach the Supabase project in `src/account/config.ts` only
   once someone signs in (see `docs/cloud/README.md`). **This is why every
   sound is synthesised** rather than sampled: a sound pack would be the first
