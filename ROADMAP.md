@@ -828,8 +828,15 @@ detail behind the factory entries is in
 - [ ] Paste one machine at a time is still a click per arm. Shift-dragging across
       a row to paste onto each machine the pointer crosses would make a bank one
       gesture.
-- [ ] A chest slot kept for coal shows a dark ghost on a dark slot and is hard to
+- [x] A chest slot kept for coal shows a dark ghost on a dark slot and is hard to
       read. The ghost wants an outline or a lighter backdrop for dark items.
+      *(2026-09-26: ghosts are brightened as well as faded, and pixel items
+      carry their own outline.)*
+- [x] Empty machine slots show faintly what the machine waits for
+      (2026-09-26): the chosen recipe's missing ingredients in the input,
+      its product in the output, and coal in an empty fuel slot.
+- [x] Opening a chest after an assembler showed the assembler's recipe list
+      under the chest (2026-09-26).
 - [ ] A splitter's sides cannot be filtered before it is placed, so every one
       is placed, opened and then set. A filter carried on the build selection
       would make a row of sorters one pass instead of two.

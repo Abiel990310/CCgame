@@ -1655,9 +1655,12 @@ kbd {
   border-color: rgba(232, 182, 76, 0.6);
 }
 
-.islot.reserved .item {
-  opacity: 0.3;
-  filter: grayscale(0.6);
+/* An empty machine slot showing what it waits for. Brightened as well as
+   faded, so coal and other dark items still read on a dark slot. */
+.islot.reserved .item,
+.islot.hinted .item {
+  opacity: 0.35;
+  filter: grayscale(0.5) brightness(1.6);
 }
 
 .slots.filtering .islot {
