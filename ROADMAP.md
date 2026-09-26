@@ -649,6 +649,9 @@ detail behind the factory entries is in
       (800 to 460 ms), and the big copy is gone. The ground looks the same,
       with slightly softer beach edges. Headless on GPU the menu came up in 4
       to 6 s instead of 12, its longest freeze 2 s instead of 8.
+      Then open sea stopped searching for land it could not reach: a running
+      count of land tiles answers for a whole neighbourhood, and the field
+      build fell from about 445 to 330 ms with a bit-identical result.
 - [x] Crawlers and slimes are baked like the brute: crawlers per heading (16)
       and stride phase (12), slimes per hop phase (12) and the way they look
       (8), both per hit flash. 76 of them around the camp went from 41 to 78
