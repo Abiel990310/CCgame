@@ -3,6 +3,7 @@ import { MOBS } from '@shared/data/mobs';
 import type { ItemId, MobTypeId, SimEvent, SpellId, Vec2 } from '@shared/sim/types';
 import { drawItemSprite } from './items';
 import { INK } from './paint';
+import { drawPixelText, pixelFontCovers, pixelTextWidth } from './pixelfont';
 import { DEATH_TIME, pixelSprites } from './pixelmobs';
 
 interface Particle {
@@ -511,9 +512,18 @@ export class Effects {
       ctx.lineWidth = 3;
       ctx.strokeStyle = INK;
 
+      const pixel = pixelSprites();
       if (t.item) {
         const name = ITEMS[t.item].name;
         const label = `${t.text} ${name}`;
+        if (pixel && pixelFontCovers(label)) {
+          const texel = Math.max(1, Math.round(t.size * 0.16));
+          const w = pixelTextWidth(label) * texel;
+          const ix = t.pos.x - w / 2 - 7;
+          drawItemSprite(ctx, ix, t.pos.y, 5.5, t.item);
+          drawPixelText(ctx, label, ix + 8 + w / 2, t.pos.y, texel, t.color);
+          continue;
+        }
         const w = ctx.measureText(label).width;
         const ix = t.pos.x - w / 2 - 7;
         drawItemSprite(ctx, ix, t.pos.y, 5.5, t.item);
@@ -522,6 +532,11 @@ export class Effects {
         ctx.fillStyle = t.color;
         ctx.fillText(label, ix + 8, t.pos.y);
         ctx.textAlign = 'center';
+        continue;
+      }
+      if (pixel && pixelFontCovers(t.text)) {
+        // Whole font pixels only, so the pop steps up a size rather than blurring.
+        drawPixelText(ctx, t.text, t.pos.x, t.pos.y, Math.max(1, Math.round(t.size * pop * 0.16)), t.color);
         continue;
       }
       ctx.strokeText(t.text, t.pos.x, t.pos.y);

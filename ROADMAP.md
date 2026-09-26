@@ -938,8 +938,10 @@ detail behind the factory entries is in
       and shellbacks flip onto their backs and kick, and everything that
       stands topples over backward, then fades (`drawPixelDeath`).
 - [x] Downed player pose as a pixel frame (2026-09-26), plus a hit recoil and an idle blink.
-- [ ] Floating damage numbers and name tags are drawn at the pixel grid and
+- [x] Floating damage numbers and name tags are drawn at the pixel grid and
       look soft; a small bitmap digit font would keep them crisp.
+      *(2026-09-26: damage, loot and combat words use a 5×5 outlined pixel
+      font, `src/render/pixelfont.ts`. Name tags still use the system font.)*
 - [ ] Needs testing: the pixel look on a real phone and a 4K screen, and
       whether the default pixel scale shows enough of the factory.
 - [ ] 4. **Menus look like a game.** Framed pixel panels, a serif face,
