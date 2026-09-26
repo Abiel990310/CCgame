@@ -11,6 +11,7 @@ import {
   isAvailable,
   isFinished,
   techLevel,
+  type QueueOp,
 } from '@shared/sim/research';
 import { countIn, totalIn } from '@shared/sim/slots';
 import { BEACON_BOOST, BEACON_STAGES, BEACON_WARD_TILES } from '@shared/data/beacon';
@@ -33,8 +34,8 @@ export interface InventoryCallbacks {
   /** Double-click: pull every loose stack of this item into this slot. */
   onGather: (ref: SlotRef) => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
-  /** Point every lab on the island at a tech. Research belongs to the world. */
-  onSetResearch: (techId: string) => void;
+  /** Reorder the island's research queue. Research belongs to the world. */
+  onQueueResearch: (techId: string, op: QueueOp) => void;
   /** Restrict an inserter to one item, or clear it with null. */
   onSetFilter: (machineId: number, item: ItemId | null) => void;
   /** Lift this machine's settings, or put the copied ones on it. */
@@ -600,15 +601,19 @@ export class InventoryScreen {
    * reason to build another assembler.
    */
   private paintTechs(world: World): void {
+    this.paintQueue(world);
+    const queue = world.research.queue;
     for (const tech of TECHS) {
       const level = techLevel(world, tech.id);
       const open = isAvailable(world, tech);
       const done = isFinished(world, tech);
       const current = world.research.current === tech.id;
+      const place = queue.indexOf(tech.id);
 
       const button = document.createElement('button');
-      button.className = `offer${current ? ' on' : ''}`;
-      button.disabled = !open || done;
+      button.className = `offer${current ? ' on' : place >= 0 ? ' queued' : ''}`;
+      // A locked tech can still be queued: its prerequisites go in ahead of it.
+      button.disabled = done;
 
       const cost = tech.inputs
         .map(
@@ -616,11 +621,16 @@ export class InventoryScreen {
             `<span class="stack" title="${ITEMS[i.id].name}"><i class="ic" style="background-image:${itemIconVar(i.id)}"></i>${i.count}</span>`,
         )
         .join('');
+      const progress = `${cyclesDone(world, tech.id)} / ${cyclesNeeded(world, tech)} cycles`;
       const state = done
         ? 'Done'
-        : !open
-          ? `Needs ${tech.requires.map((id) => TECH_BY_ID.get(id)?.name ?? id).join(', ')}`
-          : `${cyclesDone(world, tech.id)} / ${cyclesNeeded(world, tech)} cycles`;
+        : current
+          ? `Researching · ${progress}`
+          : place >= 0
+            ? `Queued ${place + 1}${ordinal(place + 1)} · click to drop`
+            : !open
+              ? `Needs ${tech.requires.map((id) => TECH_BY_ID.get(id)?.name ?? id).join(', ')}`
+              : progress;
       const name = tech.repeatable && level > 0 ? `${tech.name} ${level + 1}` : tech.name;
       const unlocks = tech.unlocks?.length
         ? `<span class="tech-unlocks">Unlocks ${tech.unlocks.map((id) => MACHINES[id].name).join(', ')}</span>`
@@ -632,10 +642,64 @@ export class InventoryScreen {
         `<span class="recipe-flow">${cost}<em>${tech.time}s · ${state}</em></span>`;
       button.addEventListener('click', () => {
         audio.play('click');
-        this.callbacks.onSetResearch(tech.id);
+        this.callbacks.onQueueResearch(tech.id, current || place >= 0 ? 'remove' : 'add');
       });
       this.els.recipes.appendChild(button);
     }
+  }
+
+  /**
+   * The order the labs will work in, above the tree. Each row can move up a
+   * place or be dropped; the front row is what every lab is on right now.
+   */
+  private paintQueue(world: World): void {
+    const research = world.research;
+    const ids = [...(research.current ? [research.current] : []), ...research.queue];
+
+    const box = document.createElement('div');
+    box.className = 'research-queue';
+    const head = document.createElement('p');
+    head.className = 'filter-head';
+    head.textContent = ids.length ? 'Research queue' : 'Research queue is empty';
+    box.appendChild(head);
+    if (!ids.length) {
+      const hint = document.createElement('p');
+      hint.className = 'queue-hint';
+      hint.textContent = 'Click techs below to line them up. Anything locked brings its prerequisites with it.';
+      box.appendChild(hint);
+    }
+
+    ids.forEach((id, index) => {
+      const tech = TECH_BY_ID.get(id);
+      if (!tech) return;
+      const row = document.createElement('div');
+      row.className = `queue-row${index === 0 && research.current ? ' on' : ''}`;
+      const level = techLevel(world, id);
+      const name = tech.repeatable && level > 0 ? `${tech.name} ${level + 1}` : tech.name;
+      const done = cyclesDone(world, id);
+      const needed = cyclesNeeded(world, tech);
+      row.innerHTML =
+        `<span class="queue-num">${index + 1}</span><b>${name}</b>` +
+        `<span class="queue-cycles">${done} / ${needed}</span>`;
+
+      const control = (label: string, title: string, op: QueueOp, enabled: boolean): void => {
+        const b = document.createElement('button');
+        b.className = 'mini-btn';
+        b.textContent = label;
+        b.title = title;
+        b.disabled = !enabled;
+        b.addEventListener('click', () => {
+          audio.play('click');
+          this.callbacks.onQueueResearch(id, op);
+        });
+        row.appendChild(b);
+      };
+      const ahead = index > 0 ? ids[index - 1] : null;
+      control('▲', 'Research this sooner', 'up', ahead !== null && !tech.requires.includes(ahead));
+      control('✕', 'Take it off the queue', 'remove', true);
+      box.appendChild(row);
+    });
+    this.els.recipes.appendChild(box);
   }
 
   /**
@@ -712,7 +776,12 @@ export class InventoryScreen {
 function researchKey(world: World): string {
   const current = world.research.current;
   const levels = TECHS.map((t) => techLevel(world, t.id)).join(',');
-  return `${current}:${levels}:${current ? cyclesDone(world, current) : 0}`;
+  return `${current}:${world.research.queue.join(',')}:${levels}:${current ? cyclesDone(world, current) : 0}`;
+}
+
+function ordinal(n: number): string {
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+  return n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th';
 }
 
 function refAt(target: EventTarget | null): SlotRef | null {

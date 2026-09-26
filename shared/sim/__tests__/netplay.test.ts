@@ -85,6 +85,11 @@ describe('co-op replay', () => {
         [friend.id, wander(rng)],
       ]);
       if (t === 61) pending.push({ p: player.id, c: { k: 'craft', id: 'satchel' } });
+      if (t === 120) {
+        pending.push({ p: friend.id, c: { k: 'queue', tech: 'roboticArms', op: 'add' } });
+        pending.push({ p: player.id, c: { k: 'queue', tech: 'angling', op: 'add' } });
+        pending.push({ p: player.id, c: { k: 'queue', tech: 'angling', op: 'up' } });
+      }
       if (t === 400) {
         pending.push({ p: friend.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty + 1, dir: 1 } });
         pending.push({ p: player.id, c: { k: 'remove', tx: ore.tx + 2, ty: ore.ty } });
@@ -105,6 +110,7 @@ describe('co-op replay', () => {
     expect(host.nightIndex).toBeGreaterThan(0);
     expect(host.players.size).toBe(2);
     expect(player.bag).toBe(1);
+    expect(guest.research.queue).toEqual(['beltLogistics', 'angling', 'roboticArms']);
     expect(guest.players.get(player.id)!.inventory).toHaveLength(player.inventory.length);
     expect(encode(takeSnapshot(guest))).toBe(encode(takeSnapshot(host)));
   });

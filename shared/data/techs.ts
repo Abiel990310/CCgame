@@ -20,7 +20,12 @@ export type TechEffectKind =
   /** Work each item of fuel pays for, in burners and engines alike. */
   | 'fuel'
   /** Output of every generator. */
-  | 'power';
+  | 'power'
+  /**
+   * Ore a miner brings up per ore a tile loses. Speed empties a patch sooner;
+   * this is the one kind that makes a finite patch last longer.
+   */
+  | 'yield';
 
 export interface TechDef {
   id: string;
@@ -103,6 +108,18 @@ export const TECHS: TechDef[] = [
     requires: ['automation'],
     effect: { kind: 'gather', amount: 0.25 },
     xp: 6,
+  },
+  {
+    id: 'prospecting',
+    name: 'Prospecting',
+    description:
+      'Miners learn to follow the seam. Every tile gives up a fifth more ore before it runs dry.',
+    inputs: [{ id: 'researchPack', count: 2 }],
+    cycles: 40,
+    time: 5,
+    requires: ['automation'],
+    effect: { kind: 'yield', amount: 0.2 },
+    xp: 8,
   },
   {
     id: 'fireboxDesign',
@@ -230,6 +247,38 @@ export const TECHS: TechDef[] = [
     time: 8,
     requires: ['roboticArms', 'labAutomation'],
     effect: { kind: 'mining', amount: 0.15 },
+    xp: 25,
+    repeatable: true,
+  },
+  {
+    id: 'flotation',
+    name: 'Flotation Cells',
+    description:
+      'Crushed tailings washed for what the drills left behind. Every tile yields a quarter more ore again.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'engineeringPack', count: 1 },
+    ],
+    cycles: 50,
+    time: 8,
+    requires: ['prospecting', 'electricity'],
+    effect: { kind: 'yield', amount: 0.25 },
+    xp: 18,
+  },
+  {
+    id: 'miningProductivity',
+    name: 'Mining Productivity',
+    description:
+      'Never finishes. Each level gets a tenth more ore out of every tile, so every patch lasts longer.',
+    inputs: [
+      { id: 'researchPack', count: 1 },
+      { id: 'logicPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+    ],
+    cycles: 80,
+    time: 8,
+    requires: ['prospecting', 'labAutomation'],
+    effect: { kind: 'yield', amount: 0.1 },
     xp: 25,
     repeatable: true,
   },

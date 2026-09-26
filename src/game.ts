@@ -175,8 +175,8 @@ export class Game {
       onSetRecipe: (machineId, recipeId) => {
         if (this.act({ k: 'recipe', machine: machineId, recipe: recipeId })) this.requestSave();
       },
-      onSetResearch: (techId) => {
-        if (this.act({ k: 'research', tech: techId })) this.requestSave();
+      onQueueResearch: (techId, op) => {
+        if (this.act({ k: 'queue', tech: techId, op })) this.requestSave();
       },
       onSetFilter: (machineId, item) => {
         if (this.act({ k: 'filter', machine: machineId, item })) this.requestSave();

@@ -31,6 +31,7 @@ import { tileCenter } from '../grid';
 import { rollDrop } from './gathering';
 import { minerSource, oreAt, takeOre } from '../ore';
 import { powerFactor, powerNetOf } from '../power';
+import { nextFloat } from '../progression';
 import { activeTech, finishCycle, researchBonuses, type ResearchBonuses } from '../research';
 import { addToSlots, countIn, roomFor, slotCap, takeFromSlots } from '../slots';
 import type { Belt, ItemId, ItemStack, Machine, Slot, World } from '../types';
@@ -329,7 +330,11 @@ function stepMiner(world: World, machine: Machine, dt: number, bonus: ResearchBo
   if (machine.progress < MINE_TIME) return;
 
   machine.progress -= MINE_TIME;
-  if (!takeOre(world, source.tx, source.ty)) return;
+  // Yield research spares the tile a share of what the miner brings up, so a
+  // patch gives `yield` times its ore in all. Drawn from the world's stream so
+  // every copy of the island spares the same ones.
+  const spared = bonus.yield > 1 && nextFloat(world) < 1 - 1 / bonus.yield;
+  if (!spared && !takeOre(world, source.tx, source.ty)) return;
   addToSlots(machine.output, ore, 1, def.slotSize);
   announce(world, machine, ore);
   // Said once, on the ore that emptied it: from here on a stalled miner looks

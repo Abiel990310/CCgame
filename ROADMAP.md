@@ -709,13 +709,18 @@ detail behind the factory entries is in
 - [ ] The lab's body is nearly the assembler's blue-grey; the lit dome is what
       tells them apart. Fine beside each other, worth a second look in a dense
       base.
-- [ ] Now that ore runs out, research could raise **ore per tile**, not only how
-      fast a drill works. Every tech today is speed, which empties a patch
-      sooner; a productivity tech would make each patch last longer instead,
-      and would be the natural second infinite research.
-- [ ] Research auto-advances to the first available tech when one finishes, so a
-      lab never idles. A visible queue the player orders themselves would be
-      better than a guess.
+- [x] Now that ore runs out, research could raise **ore per tile**, not only how
+      fast a drill works. Done: Prospecting (+20%), Flotation Cells (+25%) and
+      the repeatable Mining Productivity (+10% a level) raise ore per tile.
+- [x] Research auto-advances to the first available tech when one finishes, so a
+      lab never idles. Done: the lab screen has a queue the player orders; the
+      old guess only fills in when the queue runs empty.
+- [ ] A miner's "ore left within reach" counts tile ore, not what yield
+      research will actually bring up from it; it could show both.
+- [ ] A repeatable tech can only sit in the research queue once. Queueing
+      "Mining Productivity ×3" would let a player plan several levels ahead.
+- [ ] The research queue lives in the lab screen only. The HUD research bar
+      could open it, since that bar is where players look for research.
 - [ ] The world sizes every item the same: 5.2 for a belt or an inserter hand,
       6 for a ground drop. A wood log and a circuit board are not the same size
       in life, and `ItemDef` could carry a scale the way it carries a colour.

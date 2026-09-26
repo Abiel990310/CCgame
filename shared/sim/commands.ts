@@ -29,7 +29,7 @@ import {
   type MachineSettings,
 } from './factory';
 import { chooseUpgrade } from './progression';
-import { setResearch } from './research';
+import { isQueueOp, orderResearch, setResearch, type QueueOp } from './research';
 import { decode, encode } from './snapshot';
 import type { BuildingId, Direction, ItemId, MachineId, Player, World } from './types';
 
@@ -52,6 +52,7 @@ export type Command =
   | { k: 'removeBuilding'; x: number; y: number }
   | { k: 'recipe'; machine: number; recipe: string }
   | { k: 'research'; tech: string | null }
+  | { k: 'queue'; tech: string; op: QueueOp }
   | { k: 'filter'; machine: number; item: ItemId | null }
   | { k: 'paste'; machine: number; settings: MachineSettings }
   | { k: 'click'; machine: number | null; ref: SlotRef; button: ClickButton }
@@ -126,6 +127,8 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
       return isId(c.machine) && RECIPE_BY_ID.has(c.recipe) && setRecipe(world, c.machine, c.recipe);
     case 'research':
       return (c.tech === null || TECH_BY_ID.has(c.tech)) && setResearch(world, c.tech);
+    case 'queue':
+      return typeof c.tech === 'string' && isQueueOp(c.op) && orderResearch(world, c.tech, c.op);
     case 'filter':
       return isId(c.machine) && isItemOrNull(c.item) && setFilter(world, c.machine, c.item);
     case 'paste':

@@ -380,6 +380,8 @@ export interface Machine {
 export interface Research {
   /** The tech labs are working on, or null when nothing is queued. */
   current: string | null;
+  /** What the labs take next, front first, in the order the player chose. */
+  queue: string[];
   /** Cycles banked toward each tech. Kept per tech, so switching loses nothing. */
   progress: Record<string, number>;
   /** Times each tech has been completed. A repeatable tech counts up. */
