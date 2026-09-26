@@ -91,13 +91,22 @@ export function drawPlayer(
   const { view, flip } = viewOf(player.facing.x, player.facing.y);
   ctx.translate(x, feet);
   if (flip < 0) ctx.scale(-1, 1);
+  // The whole body gives a little as the tool bites, then springs back: the
+  // strike is felt in the character, not only in what it hits.
+  if (working) {
+    const since = swingPhase(player, time) - SWING_IMPACT;
+    if (since >= 0 && since < 0.12) {
+      const k = 1 - since / 0.12;
+      ctx.scale(1 + 0.07 * k, 1 - 0.06 * k);
+    }
+  }
 
   const pose: Pose = {
     phase,
     moving,
     bob: moving ? -Math.abs(Math.cos(phase)) * 1.4 : Math.sin(time * 2.1 + player.id) * 0.35,
     lean: dashing ? 0.22 : moving && view === 'side' ? 0.08 : 0,
-    work: working ? (time * 2.4 + player.id * 0.37) % 1 : -1,
+    work: working ? swingPhase(player, time) : -1,
     tool: working ? tool : null,
     time,
   };
@@ -121,19 +130,37 @@ interface Pose {
   time: number;
 }
 
+/** Swings a second while working; the strike lands at `SWING_IMPACT` of each. */
+const SWING_RATE = 2.4;
+/** Where in a swing the tool meets the tree, as a fraction of the swing. */
+export const SWING_IMPACT = 0.78;
+
+/** How far through its current swing a working player is, 0..1. */
+export function swingPhase(player: Player, time: number): number {
+  return (time * SWING_RATE + player.id * 0.37) % 1;
+}
+
 /**
- * A chop: a slow wind-up over the shoulder and a fast strike. Returned as the
- * arm's angle from hanging straight down, forward positive.
+ * A chop in three beats, the way an animator would time it: a wind-up over
+ * the shoulder, a held beat at the top so the strike is anticipated, a fast
+ * strike that follows through past rest, and a short recovery. Returned as
+ * the arm's angle from hanging straight down, forward positive.
  */
 function swingAngle(t: number): number {
   const rest = 0.5;
   const top = 3.35;
-  if (t < 0.62) {
-    const k = t / 0.62;
+  const through = 0.15;
+  if (t < 0.5) {
+    const k = t / 0.5;
     return rest + (top - rest) * (1 - (1 - k) * (1 - k));
   }
-  const k = (t - 0.62) / 0.38;
-  return top - (top - rest) * k * k;
+  if (t < 0.62) return top + 0.12 * Math.sin(((t - 0.5) / 0.12) * Math.PI * 0.5);
+  if (t < SWING_IMPACT) {
+    const k = (t - 0.62) / (SWING_IMPACT - 0.62);
+    return top + 0.12 - (top + 0.12 - through) * k * k;
+  }
+  const k = (t - SWING_IMPACT) / (1 - SWING_IMPACT);
+  return through + (rest - through) * (1 - (1 - k) * (1 - k));
 }
 
 // ─── Side view ──────────────────────────────────────────────────────────────
@@ -546,6 +573,15 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   const def = MOBS[mob.type];
   setFlash(mob.hitFlash > 0 ? 1 : 0);
   ctx.save();
+  // A hit squashes the body flat about its feet and lets it spring back, so a
+  // shot is seen to land even in a crowd where the flash is lost.
+  if (mob.hitFlash > 0) {
+    const k = mob.hitFlash / 0.12;
+    const feet = mob.pos.y + def.radius * 0.6;
+    ctx.translate(mob.pos.x, feet);
+    ctx.scale(1 + 0.16 * k, 1 - 0.14 * k);
+    ctx.translate(-mob.pos.x, -feet);
+  }
   switch (mob.type) {
     case 'slime':
     case 'mother':

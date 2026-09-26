@@ -478,6 +478,26 @@ export class Hud {
   }
 
   private bannerEl: HTMLElement | null = null;
+  private hurtEl: HTMLElement | null = null;
+
+  /**
+   * Red closes in from the screen's edge when you take a hit, harder the more
+   * of your health it cost, so damage is felt before the bar is read.
+   */
+  hurt(share: number): void {
+    let el = this.hurtEl;
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'hurt-edge';
+      this.els.toasts.before(el);
+      this.hurtEl = el;
+    }
+    el.style.setProperty('--hurt', Math.min(1, 0.45 + share * 3).toFixed(2));
+    el.classList.remove('on');
+    // Reading layout restarts the animation when hits land back to back.
+    void el.offsetWidth;
+    el.classList.add('on');
+  }
 
   /**
    * A title card across the upper middle of the screen for the moments that

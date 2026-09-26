@@ -1021,6 +1021,18 @@ detail behind the factory entries is in
 - [ ] Parallax sea and sky beyond the coast, so the island's edge has depth.
 - [ ] Pinch to zoom on phones; zoom is wheel and keys only so far.
 
+- [x] **Game feel pass.** Swings wind up, hold, strike and follow through;
+      trees and rocks shudder and throw chips with a thunk on every hit; dash
+      puffs dust with a whoosh; footsteps kick dust; kills and hits freeze the
+      frame for a beat (solo only); mobs squash when shot; the screen edge
+      flashes red when hurt; level-ups burst gold; drops arc out; bag slots
+      are bevelled wells and a stack bumps when it grows.
+- [ ] Knockback that shows: mobs slide back a step when hit (sim change).
+- [ ] Hotbar and palette slots in the same well style as the bag.
+- [ ] Item tooltips in the bag with what the item is for and where it comes from.
+- [ ] Hitstop for co-op: a host-side freeze all guests replay.
+- [ ] Drop arcs are stepped at the 30 Hz tick; interpolate `settle` too.
+
 ### Needs testing
 
 - [ ] Underground belts by touch: the pairing preview was driven with a mouse

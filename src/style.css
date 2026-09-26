@@ -1474,36 +1474,95 @@ kbd {
 .islot {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 11px;
-  background: var(--well);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+  border-radius: 10px;
+  /* A recessed well: dark rim, a lip of light along the bottom edge, and a
+     shadow cast into it from the top, so a slot reads as a place to put
+     something rather than a flat tile. */
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, rgba(255, 255, 255, 0.025), transparent 70%),
+    linear-gradient(180deg, rgba(4, 6, 10, 0.62), rgba(10, 13, 19, 0.5));
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  box-shadow:
+    inset 0 3px 6px rgba(0, 0, 0, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 0 rgba(255, 255, 255, 0.05);
   display: grid;
   place-items: center;
   cursor: pointer;
   touch-action: none;
-  transition: border-color 0.12s ease, background 0.12s ease;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
 }
 
 .islot:hover {
   border-color: var(--gold-line);
-  background: rgba(240, 185, 74, 0.1);
+  background: radial-gradient(ellipse 70% 60% at 50% 45%, rgba(240, 185, 74, 0.2), rgba(240, 185, 74, 0.05) 75%),
+    rgba(10, 13, 19, 0.6);
 }
 
+.islot:hover .item {
+  transform: translateY(-2px) scale(1.08);
+}
+
+/* A filled slot holds its item up to the light: a warm glow behind it and a
+   bevel that catches the top edge. */
 .islot.filled {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: radial-gradient(ellipse 60% 55% at 50% 45%, rgba(255, 226, 170, 0.14), transparent 72%),
+    linear-gradient(180deg, rgba(58, 64, 78, 0.9), rgba(30, 34, 44, 0.92));
+  border-color: rgba(0, 0, 0, 0.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* A stack that just grew or arrived jumps once, so a pickup is seen to land. */
+.islot.bump .item {
+  animation: slot-bump 0.32s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.islot.bump b {
+  animation: slot-count 0.5s ease-out;
+}
+
+@keyframes slot-bump {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes slot-count {
+  0% {
+    color: var(--gold);
+    transform: scale(1.35);
+  }
+  100% {
+    color: var(--ink);
+    transform: scale(1);
+  }
 }
 
 .islot b {
   position: absolute;
   right: 4px;
   bottom: 2px;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 900;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 3px rgba(0, 0, 0, 0.8);
+  transform-origin: 100% 100%;
+  /* An outline all round rather than a drop shadow, so the count stays legible
+     over any item's colours, the way a game's stack counts are drawn. */
+  text-shadow:
+    1px 1px 0 #0b0e14,
+    -1px 1px 0 #0b0e14,
+    1px -1px 0 #0b0e14,
+    -1px -1px 0 #0b0e14,
+    0 2px 3px rgba(0, 0, 0, 0.8);
   pointer-events: none;
 }
 
@@ -1520,6 +1579,7 @@ kbd {
   background: none center / contain no-repeat;
   pointer-events: none;
   filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.3)) drop-shadow(0 2px 2px rgba(0, 0, 0, 0.35));
+  transition: transform 0.12s ease;
 }
 
 /* The stack riding the pointer while it is being moved. */
@@ -3292,5 +3352,29 @@ kbd {
 @media (max-width: 640px) {
   .banner {
     top: calc(max(14px, env(safe-area-inset-top)) + 250px);
+  }
+}
+
+/* ---------- Taking a hit ---------- */
+
+.hurt-edge {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  background: radial-gradient(ellipse 80% 75% at 50% 50%, transparent 55%, rgba(200, 20, 30, 0.75) 100%);
+}
+
+.hurt-edge.on {
+  animation: hurt 0.45s ease-out both;
+}
+
+@keyframes hurt {
+  from {
+    opacity: var(--hurt, 0.6);
+  }
+  to {
+    opacity: 0;
   }
 }

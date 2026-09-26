@@ -796,6 +796,20 @@ function refAt(target: EventTarget | null): SlotRef | null {
  * shows that item faintly, so a chest's layout reads before anything arrives.
  */
 function paintSlot(cell: HTMLElement, slot: Slot, filter: ItemId | null = null): void {
+  // Painted every frame the screen is open, so only a change touches the DOM;
+  // that also lets a stack that just grew play its bump rather than restart it.
+  const key = `${slot ? `${slot.id}:${slot.count}` : '-'}|${filter ?? ''}`;
+  const before = cell.dataset.paint;
+  if (before === key) return;
+  cell.dataset.paint = key;
+  const [was, wasCount] = (before ?? '').split('|')[0].split(':');
+  const grew = slot !== null && was === slot.id && slot.count > Number(wasCount);
+  const arrived = slot !== null && before !== undefined && was !== slot.id;
+  if (grew || arrived) {
+    cell.classList.remove('bump');
+    void cell.offsetWidth;
+    cell.classList.add('bump');
+  }
   cell.classList.toggle('kept', filter !== null);
   cell.classList.toggle('reserved', filter !== null && !slot);
   const kept = filter ? ` Kept for ${ITEMS[filter].name}.` : '';
@@ -819,6 +833,7 @@ function paintSlot(cell: HTMLElement, slot: Slot, filter: ItemId | null = null):
 }
 
 function paintSide(cell: HTMLElement, item: ItemId | null): void {
+  delete cell.dataset.paint;
   if (!item) {
     cell.className = 'islot any';
     cell.textContent = 'Any';

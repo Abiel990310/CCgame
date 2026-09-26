@@ -17,8 +17,33 @@ function variantOf(node: ResourceNode): number {
   return Math.floor(rand(node.seed, 17) * VARIANTS);
 }
 
+/** When each node was last struck by a tool, in render time. Cosmetic only. */
+const struck = new Map<number, number>();
+
+/** A tool just bit into this node: it shudders for a moment. */
+export function strikeNode(id: number, time: number): void {
+  struck.set(id, time);
+  if (struck.size > 64) {
+    for (const [key, at] of struck) if (time - at > 1) struck.delete(key);
+  }
+}
+
+/**
+ * How far a struck node is thrown sideways right now: a hard first kick that
+ * rings down over a third of a second, the way a trunk takes an axe.
+ */
+function shudder(id: number, time: number): number {
+  const at = struck.get(id);
+  if (at === undefined) return 0;
+  const t = time - at;
+  if (t < 0 || t > 0.35) return 0;
+  return Math.sin(t * 55) * 2.6 * (1 - t / 0.35) ** 2;
+}
+
 export function drawNature(ctx: CanvasRenderingContext2D, node: ResourceNode, time: number): void {
-  const { x, y } = node.pos;
+  const { y } = node.pos;
+  const jolt = shudder(node.id, time);
+  const x = node.pos.x + (node.kind === 'tree' ? jolt * 0.35 : jolt);
   const v = variantOf(node);
 
   if (node.charges <= 0) {
@@ -32,7 +57,8 @@ export function drawNature(ctx: CanvasRenderingContext2D, node: ResourceNode, ti
     case 'tree': {
       const pine = v >= 4;
       blitCached(ctx, `trunk:${v}`, x, y, { left: 30, right: 34, top: 36, bottom: 12 }, (c) => drawTrunk(c, v, pine));
-      const sway = Math.sin(time * 0.9 + node.seed) * 1.1;
+      // The crown swings further than the trunk, which is rooted.
+      const sway = Math.sin(time * 0.9 + node.seed) * 1.1 + jolt * 1.4;
       blitCached(ctx, `crown:${v}`, x + sway, y, { left: 31, right: 31, top: 80, bottom: 4 }, (c) =>
         pine ? drawPineCrown(c, v) : drawBroadleafCrown(c, v),
       );
@@ -55,7 +81,7 @@ export function drawNature(ctx: CanvasRenderingContext2D, node: ResourceNode, ti
   }
 
   if (node.charges < node.maxCharges) {
-    harvestBar(ctx, x, y + 11, 26, node.charges / node.maxCharges);
+    harvestBar(ctx, node.pos.x, y + 11, 26, node.charges / node.maxCharges);
   }
 }
 
