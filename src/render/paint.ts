@@ -22,7 +22,17 @@ export function paintScale(): number {
   return deviceScale;
 }
 
-const sprites = new Map<string, { canvas: HTMLCanvasElement; used: number }>();
+interface Sprite {
+  canvas: HTMLCanvasElement;
+  used: number;
+}
+/**
+ * By name, then by scale. Joining the two into one string key built a new
+ * string on every blit, and with a forest on screen that was a large share of
+ * the garbage each frame.
+ */
+const sprites = new Map<string, Map<number, Sprite>>();
+let spriteCount = 0;
 /** Counts blits, so each sprite knows how recently it was drawn. */
 let blits = 0;
 /** Sprites kept at most; past it the least recently drawn tenth goes. */
@@ -58,8 +68,12 @@ export function blitCached(
   const m = ctx.getTransform();
   const plain = m.b === 0 && m.c === 0 && m.a === m.d && m.a > 0;
   const k = plain ? Math.round(m.a * 64) / 64 : Math.max(0.5, Math.ceil(deviceScale * 4) / 4);
-  const id = `${key}@${k}`;
-  let entry = sprites.get(id);
+  let scales = sprites.get(key);
+  if (!scales) {
+    scales = new Map();
+    sprites.set(key, scales);
+  }
+  let entry = scales.get(k);
   if (entry) {
     // Stamped rather than moved to the back of the map: reordering a map on
     // every blit cost more than the blit on a CPU canvas, and belts are blitted
@@ -80,12 +94,13 @@ export function blitCached(
     bake.setTransform(k, 0, 0, k, box.left * k, box.top * k);
     draw(bake);
     entry = { canvas, used: ++blits };
-    sprites.set(id, entry);
+    scales.set(k, entry);
+    spriteCount++;
     // Zooming through many scales would otherwise keep every one of them.
     // What goes is what has not been drawn lately, not what was baked first:
     // creature frames come and go by the hundred, and must not push the
     // forest out.
-    if (sprites.size > SPRITE_CAP) dropStale();
+    if (spriteCount > SPRITE_CAP) dropStale();
   }
   const sprite = entry.canvas;
   if (!plain) {
@@ -98,9 +113,18 @@ export function blitCached(
 }
 
 function dropStale(): void {
-  const stamps = [...sprites.values()].map((e) => e.used).sort((a, b) => a - b);
+  const stamps: number[] = [];
+  for (const scales of sprites.values()) for (const e of scales.values()) stamps.push(e.used);
+  stamps.sort((a, b) => a - b);
   const cutoff = stamps[Math.floor(SPRITE_CAP / 10)];
-  for (const [id, e] of sprites) if (e.used <= cutoff) sprites.delete(id);
+  for (const [key, scales] of sprites) {
+    for (const [k, e] of scales) {
+      if (e.used > cutoff) continue;
+      scales.delete(k);
+      spriteCount--;
+    }
+    if (scales.size === 0) sprites.delete(key);
+  }
 }
 
 let shadowSprite: HTMLCanvasElement | null = null;

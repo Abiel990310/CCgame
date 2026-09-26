@@ -40,6 +40,35 @@ function shudder(id: number, time: number): number {
   return Math.sin(t * 55) * 2.6 * (1 - t / 0.35) ** 2;
 }
 
+/**
+ * Sprite names, boxes and bake callbacks, made once per variant. Building a
+ * name string, a box and a closure for every tree on screen every frame was
+ * most of the garbage a frame made.
+ */
+const byVariant = <T>(make: (v: number) => T): T[] => Array.from({ length: VARIANTS }, (_, v) => make(v));
+const isPine = (v: number): boolean => v >= 4;
+const TRUNK_BOX = { left: 30, right: 34, top: 36, bottom: 12 };
+const CROWN_BOX = { left: 31, right: 31, top: 80, bottom: 4 };
+const ROCK_BOX = { left: 24, right: 26, top: 30, bottom: 10 };
+const BUSH_BOX = { left: 20, right: 22, top: 24, bottom: 8 };
+const STUMP_BOX = { left: 18, right: 18, top: 18, bottom: 8 };
+const TRUNK = byVariant((v) => ({ key: `trunk:${v}`, bake: (c: CanvasRenderingContext2D) => drawTrunk(c, v, isPine(v)) }));
+const CROWN = byVariant((v) => ({
+  key: `crown:${v}`,
+  bake: (c: CanvasRenderingContext2D) => (isPine(v) ? drawPineCrown(c, v) : drawBroadleafCrown(c, v)),
+}));
+const ROCK = byVariant((v) => ({ key: `rock:${v}`, bake: (c: CanvasRenderingContext2D) => drawBoulder(c, v) }));
+const BUSH = byVariant((v) => ({ key: `bush:${v}`, bake: (c: CanvasRenderingContext2D) => drawBush(c, v) }));
+const stumps = new Map<string, { key: string; bake: (c: CanvasRenderingContext2D) => void }[]>();
+function stumpOf(kind: ResourceNode['kind'], v: number): { key: string; bake: (c: CanvasRenderingContext2D) => void } {
+  let row = stumps.get(kind);
+  if (!row) {
+    row = byVariant((w) => ({ key: `stump:${kind}:${w}`, bake: (c: CanvasRenderingContext2D) => drawStump(c, kind, w) }));
+    stumps.set(kind, row);
+  }
+  return row[v];
+}
+
 export function drawNature(ctx: CanvasRenderingContext2D, node: ResourceNode, time: number): void {
   const { y } = node.pos;
   const jolt = shudder(node.id, time);
@@ -47,29 +76,25 @@ export function drawNature(ctx: CanvasRenderingContext2D, node: ResourceNode, ti
   const v = variantOf(node);
 
   if (node.charges <= 0) {
-    blitCached(ctx, `stump:${node.kind}:${v}`, x, y, { left: 18, right: 18, top: 18, bottom: 8 }, (c) =>
-      drawStump(c, node.kind, v),
-    );
+    const stump = stumpOf(node.kind, v);
+    blitCached(ctx, stump.key, x, y, STUMP_BOX, stump.bake);
     return;
   }
 
   switch (node.kind) {
     case 'tree': {
-      const pine = v >= 4;
-      blitCached(ctx, `trunk:${v}`, x, y, { left: 30, right: 34, top: 36, bottom: 12 }, (c) => drawTrunk(c, v, pine));
+      blitCached(ctx, TRUNK[v].key, x, y, TRUNK_BOX, TRUNK[v].bake);
       // The crown swings further than the trunk, which is rooted.
       const sway = Math.sin(time * 0.9 + node.seed) * 1.1 + jolt * 1.4;
-      blitCached(ctx, `crown:${v}`, x + sway, y, { left: 31, right: 31, top: 80, bottom: 4 }, (c) =>
-        pine ? drawPineCrown(c, v) : drawBroadleafCrown(c, v),
-      );
+      blitCached(ctx, CROWN[v].key, x + sway, y, CROWN_BOX, CROWN[v].bake);
       break;
     }
     case 'rock':
-      blitCached(ctx, `rock:${v}`, x, y, { left: 24, right: 26, top: 30, bottom: 10 }, (c) => drawBoulder(c, v));
+      blitCached(ctx, ROCK[v].key, x, y, ROCK_BOX, ROCK[v].bake);
       break;
     case 'bush': {
       const sway = Math.sin(time * 1.1 + node.seed) * 0.5;
-      blitCached(ctx, `bush:${v}`, x + sway, y, { left: 20, right: 22, top: 24, bottom: 8 }, (c) => drawBush(c, v));
+      blitCached(ctx, BUSH[v].key, x + sway, y, BUSH_BOX, BUSH[v].bake);
       break;
     }
     case 'fish':

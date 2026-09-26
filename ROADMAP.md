@@ -850,10 +850,17 @@ detail behind the factory entries is in
       frame to feed the depth sort. It now fills parallel arrays kept across
       frames and sorts indices; garbage per frame on a fresh island at
       1280×800 fell from 190 to 81 KB, with the same draw order.
-- [ ] Find the other ~80 KB of garbage the renderer makes each frame (a
-      heap sampling profile over a few hundred frames would name it); fewer
-      collections means fewer small stutters.
-
+- [x] The other garbage came from trees, rocks and bushes: every one on screen
+      built two name strings, box literals and bake closures each frame, the
+      sprite cache joined name and scale into a new string per blit, and a
+      for-of over every node on the island was not optimised away. Hoisted
+      per variant, keyed by name then scale, and indexed: a camp scene went
+      from 68 to 19 KB of garbage a frame, and a night with 20 creatures from
+      112 to 50 KB (the rest is spread thin across creature painters).
+- [ ] On the GPU renderer, the first seconds after a big factory comes into
+      view were ~100 ms frames headless, nearly all in vertex buffer uploads
+      (`bufferSubData`) inside software WebGL; steady state is ~5 ms. Needs a
+      look with the F3 meter on real graphics before anything is done.
 - [x] **Mood through the day.** A colour grade: gold after dawn, amber to rose
       at dusk, cold blue at night, a vignette always. Nights are darker (0.84
       shade, was 0.74), so the fire's pool is the brightest thing on screen.
