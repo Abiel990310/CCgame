@@ -477,6 +477,34 @@ export class Hud {
     }, 1900);
   }
 
+  private bannerEl: HTMLElement | null = null;
+
+  /**
+   * A title card across the upper middle of the screen for the moments that
+   * deserve one: arriving on an island, nightfall, dawn. A toast is for news;
+   * this is for the turn of the day, so it is large, set in a book face, and
+   * gone before it gets in the way.
+   */
+  banner(title: string, subtitle: string, tone: 'day' | 'night' = 'day'): void {
+    this.bannerEl?.remove();
+    const el = document.createElement('div');
+    el.className = `banner ${tone}`;
+    el.setAttribute('role', 'status');
+    const h = document.createElement('div');
+    h.className = 'banner-title';
+    h.textContent = title;
+    const p = document.createElement('div');
+    p.className = 'banner-sub';
+    p.textContent = subtitle;
+    el.append(h, p);
+    this.els.toasts.before(el);
+    this.bannerEl = el;
+    el.addEventListener('animationend', () => {
+      el.remove();
+      if (this.bannerEl === el) this.bannerEl = null;
+    });
+  }
+
   update(world: World, player: Player): void {
     this.updatePhase(world);
     this.updateVitals(player);

@@ -103,6 +103,9 @@ export interface GameCallbacks {
   onSetAccess?: (access: WorldAccess) => Promise<void>;
 }
 
+/** How long the camera takes to settle onto the player on a new island. */
+const ARRIVAL_MS = 2600;
+
 export class Game {
   private world: World;
   private selfId = 0;
@@ -135,6 +138,11 @@ export class Game {
   private showcasing = false;
   private showcaseFocus = { x: 0, y: 0 };
   private lastPhase: World['phase'] = 'day';
+  /**
+   * Arriving on a new island, the camera starts out over the land and settles
+   * onto the player, so the first thing seen is the place rather than a HUD.
+   */
+  private arrival: { from: { x: number; y: number }; start: number } | null = null;
   /** Facing applied to the next belt or machine placed. */
   private buildDir: Direction = 0;
   /**
@@ -277,22 +285,25 @@ export class Game {
       this.world = loaded;
       const first = this.world.players.values().next().value as Player | undefined;
       this.selfId = first?.id ?? addPlayer(this.world, 'You').id;
-      this.hud.toast(
-        notes.regenerated
-          ? `${slot.name} — the land has been regrown; what you built is where you left it`
-          : `${slot.name} — night ${this.world.nightIndex} survived`,
-        notes.regenerated ? 'warn' : 'good',
+      if (notes.regenerated) {
+        this.hud.toast(`${slot.name} — the land has been regrown; what you built is where you left it`, 'warn');
+      }
+      const nights = this.world.nightIndex;
+      this.hud.banner(
+        slot.name,
+        nights === 0 ? 'Welcome back' : `${nights === 1 ? 'One night' : `${nights} nights`} survived`,
       );
     } else {
       this.world = createWorld(Date.now() & 0xffff, peaceful);
       this.selfId = addPlayer(this.world, 'You').id;
-      this.hud.toast(
-        peaceful ? `${slot.name}. A peaceful island — build freely.` : `${slot.name}. Go gather.`,
-        'good',
-      );
+      this.hud.banner(slot.name, peaceful ? 'A peaceful island. Build freely.' : 'Day one. Go gather.');
     }
 
     this.begin();
+    if (!loaded) {
+      const at = this.self.pos;
+      this.arrival = { from: { x: at.x - 260, y: at.y - 380 }, start: performance.now() };
+    }
   }
 
   /** Everything entering an island shares, however it was reached. */
@@ -304,6 +315,7 @@ export class Game {
     this.hud.setBuildMode(false);
     this.hud.closeInventory();
     this.lastPhase = this.world.phase;
+    this.arrival = null;
     this.renderer.camera.pos = { ...this.self.pos };
     this.lastFrame = performance.now();
 
@@ -748,6 +760,9 @@ export class Game {
       }
 
       if (action === 'mute') this.toggleMute();
+      if ((action === 'zoomIn' || action === 'zoomOut') && !blocked) {
+        this.renderer.zoomBy(action === 'zoomIn' ? 1 : -1);
+      }
       if (action === 'map' && !this.hud.isPauseOpen && !this.hud.isDraftOpen) this.toggleMap();
       if (action === 'ledger' && !this.hud.isPauseOpen && !this.hud.isDraftOpen) this.toggleMap('ledger');
       if (action === 'build' && !blocked) this.toggleBuild();
@@ -1136,7 +1151,7 @@ export class Game {
     const alpha = Math.min(this.accumulator / TICK_DT, 1);
     this.interpolator.apply(this.world, alpha);
     try {
-      this.renderer.camera.follow(this.self.pos, elapsed);
+      this.followCamera(elapsed);
       // The ear rides the camera, not the player: what you can see is what you
       // should be able to hear.
       audio.listenFrom(this.renderer.camera.pos, this.renderer.camera.width / this.renderer.camera.zoom);
@@ -1369,23 +1384,47 @@ export class Game {
     this.world.events.length = 0;
   }
 
+  private followCamera(elapsed: number): void {
+    const camera = this.renderer.camera;
+    const arrival = this.arrival;
+    if (!arrival) {
+      camera.follow(this.self.pos, elapsed);
+      return;
+    }
+    const t = (performance.now() - arrival.start) / ARRIVAL_MS;
+    if (t >= 1) {
+      this.arrival = null;
+      camera.follow(this.self.pos, elapsed);
+      return;
+    }
+    // Eased at both ends, so it drifts off, travels, and settles.
+    const e = t * t * (3 - 2 * t);
+    const to = this.self.pos;
+    camera.pos = { x: arrival.from.x + (to.x - arrival.from.x) * e, y: arrival.from.y + (to.y - arrival.from.y) * e };
+    // Following its own position changes nothing but keeps the view on the island.
+    camera.follow(camera.pos, 0);
+  }
+
   private announcePhase(): void {
     if (this.world.phase === this.lastPhase) return;
     this.lastPhase = this.world.phase;
 
+    const n = this.world.nightIndex;
     if (this.world.phase === 'night') {
-      this.hud.toast(`Night ${this.world.nightIndex} — get to camp`, 'warn');
+      this.hud.banner(
+        `Night ${n}`,
+        this.world.peaceful ? 'A quiet night. The fire keeps you company.' : 'Get to camp. They are coming.',
+        'night',
+      );
       this.hud.setBuildMode(false);
     } else {
+      this.hud.banner(`Day ${n + 1}`, `${n === 1 ? 'The first night' : `Night ${n}`} survived`);
       // Dawn is when a player looks up from the fight, so it is when unspent picks are mentioned.
       const waiting = this.self.pendingUpgrades;
       const how = this.input.isTouch ? 'tap your level' : 'press U';
-      this.hud.toast(
-        waiting > 0
-          ? `Dawn. ${waiting === 1 ? 'An upgrade is' : `${waiting} upgrades are`} waiting: ${how}.`
-          : 'Dawn. The island is yours again.',
-        'good',
-      );
+      if (waiting > 0) {
+        this.hud.toast(`${waiting === 1 ? 'An upgrade is' : `${waiting} upgrades are`} waiting: ${how}.`, 'good');
+      }
       this.persist();
     }
   }

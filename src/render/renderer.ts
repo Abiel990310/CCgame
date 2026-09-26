@@ -31,6 +31,7 @@ import {
 } from './entities';
 import { UI, rgba } from './palette';
 import { GroundCache } from './groundcache';
+import { Grade } from './grade';
 import type { GpuStage } from './gpu/stage';
 import { setItemScale } from './items';
 import { setPaintScale } from './paint';
@@ -81,6 +82,8 @@ export class Renderer {
   private frameGap = 0;
   private lastFrame = 0;
   private ground = new GroundCache();
+  private grade = new Grade();
+  private zoomStep = loadZoomStep();
   private dpr = 1;
   /** Factory pieces on screen, gathered once a frame and reused across passes. */
   private visibleBelts: Belt[] = [];
@@ -132,7 +135,7 @@ export class Renderer {
         });
       }
       lights.style.mixBlendMode = 'plus-lighter';
-      canvas.after(dark, lights, eyes.canvas, tags.canvas);
+      canvas.after(dark, lights, ...this.grade.elements, eyes.canvas, tags.canvas);
       this.night = {
         dark,
         darkCtx: dark.getContext('2d'),
@@ -143,6 +146,9 @@ export class Renderer {
         showing: false,
       };
     }
+
+    // Graded under the eyes and name tags, which have to stay readable.
+    if (!this.night) canvas.after(...this.grade.elements);
 
     const choice = rendererChoice();
     // A browser that only offers WebGL in software would run Pixi far slower
@@ -171,6 +177,25 @@ export class Renderer {
       this.resize();
     }
     return this.backend;
+  }
+
+  /**
+   * Step the camera in or out. Zoom moves in a few fixed steps rather than
+   * smoothly because the ground and every baked sprite are cached at the exact
+   * scale they are shown at; a smooth zoom would rebake them every frame.
+   * Returns false at either end.
+   */
+  zoomBy(dir: 1 | -1): boolean {
+    const next = clamp(this.zoomStep + dir, 0, ZOOM_STEPS.length - 1);
+    if (next === this.zoomStep) return false;
+    this.zoomStep = next;
+    try {
+      localStorage.setItem(ZOOM_KEY, String(next));
+    } catch {
+      // A private window forgets the choice; the zoom still changes.
+    }
+    this.resize();
+    return true;
   }
 
   private starting: Promise<void> | null = null;
@@ -239,8 +264,9 @@ export class Renderer {
       this.night.eyes.resize(pw, ph);
       this.night.tags.resize(pw, ph);
     }
-    // Zoom with viewport so a phone shows a sensible slice of the island.
-    this.camera.zoom = clamp(Math.min(w, h) / 560, 1.15, 2.4);
+    // Zoom with viewport so a phone shows a sensible slice of the island, then
+    // by the player's own choice of how close to stand.
+    this.camera.zoom = clamp(Math.min(w, h) / 500, 1.15, 2.6) * ZOOM_STEPS[this.zoomStep];
   }
 
   /**
@@ -360,6 +386,7 @@ export class Renderer {
 
     // Names and eyes stay visible after dark, so they go over the night.
     const darkness = nightDarkness(world);
+    this.grade.update(world, darkness);
     const night = this.night;
     const names = world.players.size > 1;
     const tags = night ? night.tags.begin(names) : ctx;
@@ -695,7 +722,7 @@ export class Renderer {
     dc.setTransform(1, 0, 0, 1, 0, 0);
     dc.globalCompositeOperation = 'source-over';
     dc.clearRect(0, 0, lw, lh);
-    dc.fillStyle = `rgba(12, 18, 38, ${(darkness * 0.74).toFixed(3)})`;
+    dc.fillStyle = `rgba(8, 12, 30, ${(darkness * 0.84).toFixed(3)})`;
     dc.fillRect(0, 0, lw, lh);
     dc.setTransform(1 / LIGHT_DOWNSCALE, 0, 0, 1 / LIGHT_DOWNSCALE, 0, 0);
     dc.globalCompositeOperation = 'destination-out';
@@ -863,6 +890,23 @@ function toolFor(world: World, player: Player): Tool {
  * half on either side, so the dark keeps going the same way across it rather
  * than finishing early and snapping back.
  */
+/** How close the camera stands, as multiples of the size-based default. */
+const ZOOM_STEPS = [0.7, 0.85, 1, 1.2, 1.45];
+const DEFAULT_ZOOM_STEP = 2;
+const ZOOM_KEY = 'ccgame.zoom';
+
+function loadZoomStep(): number {
+  try {
+    const stored = Number(localStorage.getItem(ZOOM_KEY));
+    if (localStorage.getItem(ZOOM_KEY) !== null && Number.isInteger(stored)) {
+      return clamp(stored, 0, ZOOM_STEPS.length - 1);
+    }
+  } catch {
+    // Storage can be off entirely; the default view is fine.
+  }
+  return DEFAULT_ZOOM_STEP;
+}
+
 export function nightDarkness(world: World): number {
   const { twilightSeconds } = CYCLE;
   const half = (t: number): number => 0.5 * Math.min(Math.max(t / twilightSeconds, 0), 1);

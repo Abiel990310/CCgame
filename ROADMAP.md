@@ -100,6 +100,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Accounts | Supabase (Auth plus Postgres), called with plain `fetch`; every call is a function in `docs/cloud/schema.sql`, and the tables grant the browser nothing | The site is static, so accounts need a hosted backend; Supabase's free plan covers sign-in and a database with no server to run. Hand-writing the dozen calls keeps the page free of a second runtime dependency, and putting every rule in SQL functions keeps the security in one file. A cloud island is the local slot bundled as-is, so the save format needs no second migration path, and a per-world lease keeps two devices from overwriting each other. |
 | Renderer | PixiJS (WebGL) by default, Canvas as the fallback, both drawing the same art through a Canvas-shaped adapter | Abiel chose it on 2026-09-25 as the engine web games use, so the game can grow on it. The first runtime dependency, loaded only when the GPU renderer is on. The art stays written once against the Canvas API, so the two renderers cannot drift apart while Pixi is proven. |
 | Co-op signalling | The game's own Supabase project (Realtime Broadcast) first, the public PeerJS broker second; either can also relay the game when no direct channel opens | 2026-09-26: joins failed on Abiel's Mac with the host never answering through the public broker, which nobody here can fix or see into. The host now listens on both, and a guest tries its own project first. |
+| Colour grade | Three DOM layers the compositor blends over the stage (grey at `saturation`, a tint at `soft-light`, a vignette), in `src/render/grade.ts`; only the vignette without a graphics card | 2026-09-26, from comparing with Cinderhollow: every screen shared one flat palette, so noon, dusk and a raid looked alike. Grading the frame gives the day a mood without repainting any art, and costs the same under Canvas and Pixi. In software each blended layer cost about 10 fps at night, so a browser drawing WebGL on the CPU gets the vignette alone; `?grade=full` or `?grade=lite` overrides the guess. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -847,6 +848,16 @@ detail behind the factory entries is in
 - [ ] The render loop allocates an object and a closure per visible entity each
       frame to feed the depth sort. Pooling them would cut the GC churn.
 
+- [x] **Mood through the day.** A colour grade: gold after dawn, amber to rose
+      at dusk, cold blue at night, a vignette always. Nights are darker (0.84
+      shade, was 0.74), so the fire's pool is the brightest thing on screen.
+- [x] **Title cards.** The island's name on arrival, and "Night N" / "Day N"
+      at the turn of the day, set large in a book face instead of toasts.
+- [x] **Arrival.** On a new island the camera starts over the land and settles
+      onto the player over 2.6 s.
+- [x] **Zoom.** Scroll or +/− steps the camera through five fixed zooms,
+      remembered; the default stands about 12% closer than before.
+
 ### Ideas
 
 - [ ] Underground belts carry items across instantly; a transit delay equal to
@@ -992,6 +1003,23 @@ detail behind the factory entries is in
       run straight at the player; it matters for creatures crossing, not charging.
 - [ ] Let the player pick a weapon's targeting rule, or offer a rule change as
       a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
+
+- [ ] Hand-authored sprite sheets for the player and creatures, with real
+      anticipation, strike and recovery frames. Cinderhollow's player has 549
+      frames over 30 moves; ours has a few poses. The biggest gap left, and it
+      means deciding whether art stays procedural or ships baked PNG sheets.
+- [ ] Hitstop: freeze a few frames on a melee hit and longer on a kill or a
+      boss stagger, so hits land instead of passing through.
+- [ ] A painted title screen with a logo lockup, in place of the menu that
+      reads like a web form.
+- [ ] Two or three illustrated story cards before a new island's first day,
+      saying why you are here.
+- [ ] A display face for titles and headings, bundled from the same site.
+      Needs Abiel's OK: it would be the page's first fetched asset.
+- [ ] A boss entrance: name card and a beat of camera for the Stone Warden.
+- [ ] Grade by biome: colder in snow, warmer on sand, greener in the marsh.
+- [ ] Parallax sea and sky beyond the coast, so the island's edge has depth.
+- [ ] Pinch to zoom on phones; zoom is wheel and keys only so far.
 
 ### Needs testing
 
@@ -1153,3 +1181,6 @@ detail behind the factory entries is in
 - [ ] Whether a stack inserter's four-item hand is too strong. At about sixteen
       items a second it outruns a belt (6.4), so out of a chest the belt sets
       the pace; into a machine it is four times a fast arm for Mk3 parts.
+- [ ] The full colour grade on a real graphics card. It was only measured in
+      software, where it cost about 20 fps at night and so is switched to the
+      vignette alone there; on a GPU it should cost nothing.
