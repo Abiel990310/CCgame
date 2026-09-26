@@ -3378,3 +3378,8 @@ kbd {
     opacity: 0;
   }
 }
+
+.graphics-buttons {
+  display: flex;
+  gap: 6px;
+}

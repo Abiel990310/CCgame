@@ -32,7 +32,10 @@ export class GraphicsPanel {
     this.toggle = document.createElement('button');
     this.toggle.className = 'mini-btn';
     this.toggle.addEventListener('click', () => void this.flip());
-    head.appendChild(this.toggle);
+    const buttons = document.createElement('div');
+    buttons.className = 'graphics-buttons';
+    buttons.appendChild(this.toggle);
+    head.appendChild(buttons);
 
     this.lookToggle = document.createElement('button');
     this.lookToggle.className = 'mini-btn';
@@ -40,7 +43,7 @@ export class GraphicsPanel {
       this.source.setLook(this.source.look === 'pixel' ? 'smooth' : 'pixel');
       this.refresh();
     });
-    head.appendChild(this.lookToggle);
+    buttons.appendChild(this.lookToggle);
 
     this.status = document.createElement('div');
     this.status.className = 'graphics-status';
