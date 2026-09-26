@@ -86,6 +86,7 @@ export class Renderer {
   private ground = new GroundCache();
   private grade = new Grade();
   private zoomStep = loadZoomStep();
+  private lookMode: Look = lookChoice();
   /** Told when a tool lands or a dash sets off, so the game can play it. */
   onCue: ((cue: Cue, pos: Vec2, self: boolean) => void) | null = null;
   /** Per player: last swing phase, time to next footstep, and whether dashing. */
@@ -193,7 +194,9 @@ export class Renderer {
    * Returns false at either end.
    */
   zoomBy(dir: 1 | -1): boolean {
-    const next = clamp(this.zoomStep + dir, 0, ZOOM_STEPS.length - 1);
+    let next = clamp(this.zoomStep + dir, 0, ZOOM_STEPS.length - 1);
+    // Pixel scales bottom out at one device pixel; steps below that look the same.
+    if (this.lookMode === 'pixel' && dir < 0 && this.pixelScale(this.zoomStep) === 1) next = this.zoomStep;
     if (next === this.zoomStep) return false;
     this.zoomStep = next;
     try {
@@ -253,12 +256,50 @@ export class Renderer {
     return this.gpu ? this.gpu.ctx.root.children.length : 0;
   }
 
-  resize(): void {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  /** How the scene is drawn: whole chunky pixels, or smooth at the screen's resolution. */
+  get look(): Look {
+    return this.lookMode;
+  }
+
+  setLook(look: Look): void {
+    this.lookMode = look;
+    try {
+      localStorage.setItem(LOOK_KEY, look);
+    } catch {
+      // A private window forgets the choice; the look still changes.
+    }
+    this.resize();
+  }
+
+  /** Device pixels per world unit in the pixel look, at a zoom step. */
+  private pixelScale(step: number): number {
     const w = this.canvas.clientWidth;
     const h = this.canvas.clientHeight;
-    const pw = Math.round(w * dpr);
-    const ph = Math.round(h * dpr);
+    const base = clamp(Math.min(w, h) / 500, 1.15, 2.6) * (window.devicePixelRatio || 1);
+    // Leaning a little toward the closer scale, so a phone does not shrink the player.
+    return Math.max(1, Math.round(base * 1.1) + step - DEFAULT_ZOOM_STEP);
+  }
+
+  resize(): void {
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    // The pixel look draws the scene at one canvas pixel per world unit and
+    // lets the browser blow each one up to a whole number of device pixels.
+    // Every sprite, tree and belt then shares one pixel grid, which is what
+    // makes a scene read as pixel art rather than as a mix of styles, and it
+    // is a fraction of the pixels to fill.
+    const pixel = this.lookMode === 'pixel';
+    const scale = pixel ? this.pixelScale(this.zoomStep) : 1;
+    const dpr = pixel ? (window.devicePixelRatio || 1) / scale : Math.min(window.devicePixelRatio || 1, 2);
+    const pw = Math.ceil(w * dpr);
+    const ph = Math.ceil(h * dpr);
+    const rendering = pixel ? 'pixelated' : '';
+    this.canvas.style.imageRendering = rendering;
+    if (this.gpu) this.gpu.canvas.style.imageRendering = rendering;
+    if (this.night) {
+      this.night.eyes.canvas.style.imageRendering = rendering;
+      this.night.tags.canvas.style.imageRendering = rendering;
+    }
     // Under Pixi the stage canvas only takes input, so it keeps no pixels.
     this.canvas.width = this.gpu ? 1 : pw;
     this.canvas.height = this.gpu ? 1 : ph;
@@ -273,7 +314,7 @@ export class Renderer {
     }
     // Zoom with viewport so a phone shows a sensible slice of the island, then
     // by the player's own choice of how close to stand.
-    this.camera.zoom = clamp(Math.min(w, h) / 500, 1.15, 2.6) * ZOOM_STEPS[this.zoomStep];
+    this.camera.zoom = pixel ? 1 / dpr : clamp(Math.min(w, h) / 500, 1.15, 2.6) * ZOOM_STEPS[this.zoomStep];
   }
 
   /**
@@ -964,6 +1005,20 @@ export type Cue = 'chop' | 'chip' | 'rustle' | 'dash';
 const ZOOM_STEPS = [0.7, 0.85, 1, 1.2, 1.45];
 const DEFAULT_ZOOM_STEP = 2;
 const ZOOM_KEY = 'ccgame.zoom';
+
+export type Look = 'pixel' | 'smooth';
+const LOOK_KEY = 'ccgame.look';
+
+/** `?look=pixel` or `?look=smooth` overrides the stored choice, like `?renderer=`. */
+function lookChoice(): Look {
+  try {
+    const asked = new URLSearchParams(location.search).get('look');
+    if (asked === 'pixel' || asked === 'smooth') localStorage.setItem(LOOK_KEY, asked);
+    return localStorage.getItem(LOOK_KEY) === 'smooth' ? 'smooth' : 'pixel';
+  } catch {
+    return 'pixel';
+  }
+}
 
 function loadZoomStep(): number {
   try {

@@ -14,6 +14,7 @@ import {
   tint,
   tone,
 } from './paint';
+import { SWING_FRAMES, WALK_FRAMES, drawPixelPlayer } from './pixelplayer';
 import { drawBrood, drawBulwark, drawQueen, drawShellback, drawShield, drawSpitter, drawWarden } from './creatures';
 
 /**
@@ -86,6 +87,34 @@ export function drawPlayer(
 
   ctx.save();
   if (player.invuln > 0 && !dashing && Math.floor(time * 14) % 2 === 0) ctx.globalAlpha *= 0.55;
+
+  if (pixelSprites()) {
+    // A tool is swung side-on whichever way the player faces, so it reads.
+    const facing = viewOf(player.facing.x, player.facing.y);
+    const view = working ? 'side' : facing.view;
+    const flip = working ? player.facing.x < 0 : facing.flip < 0;
+    const turn = ((phase / (Math.PI * 2)) % 1 + 1) % 1;
+    drawPixelPlayer(
+      ctx,
+      x,
+      feet,
+      outfit,
+      {
+        view,
+        flip,
+        walk: moving || dashing ? Math.floor(turn * WALK_FRAMES) : -1,
+        idle: Math.floor(time * 1.6 + player.id * 0.3) % 2,
+        swing: working ? Math.floor(swingPhase(player, time) * SWING_FRAMES) : -1,
+        tool: working ? tool : null,
+        dash: dashing,
+        flash: player.hitFlash > 0,
+      },
+      swingAngle,
+    );
+    ctx.restore();
+    return;
+  }
+
   setFlash(player.hitFlash > 0 ? 1 : 0);
 
   const { view, flip } = viewOf(player.facing.x, player.facing.y);
@@ -116,6 +145,26 @@ export function drawPlayer(
 
   setFlash(0);
   ctx.restore();
+}
+
+const SPRITES_KEY = 'ccgame.sprites';
+let spriteMode: boolean | null = null;
+
+/**
+ * Pixel sprites unless `?sprites=vector` asks for the drawn figure, which is
+ * kept for comparing the two; the choice is remembered like `?renderer=`.
+ */
+function pixelSprites(): boolean {
+  if (spriteMode !== null) return spriteMode;
+  spriteMode = true;
+  try {
+    const asked = new URLSearchParams(location.search).get('sprites');
+    if (asked === 'vector' || asked === 'pixel') localStorage.setItem(SPRITES_KEY, asked);
+    spriteMode = localStorage.getItem(SPRITES_KEY) !== 'vector';
+  } catch {
+    // Storage can be off entirely; pixel sprites it is.
+  }
+  return spriteMode;
 }
 
 interface Pose {
