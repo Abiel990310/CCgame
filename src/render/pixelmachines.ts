@@ -313,7 +313,7 @@ const stretched = new Map<string, HTMLCanvasElement>();
  * anywhere else (the smooth look's zoom, a baked palette icon) it is
  * stretched without smoothing, so a block still fills exactly its tile.
  */
-function blitGrid(
+export function blitGrid(
   ctx: CanvasRenderingContext2D,
   key: string,
   x: number,
