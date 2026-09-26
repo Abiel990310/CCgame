@@ -120,6 +120,15 @@ export class PixelGrid {
     for (let i = 0; i < this.px.length; i++) if (this.px[i]) this.px[i] = c;
   }
 
+  /** Turned a quarter anticlockwise: x becomes y, the top becomes the left. */
+  rotated(): PixelGrid {
+    const out = new PixelGrid(this.h, this.w);
+    for (let y = 0; y < this.h; y++) {
+      for (let x = 0; x < this.w; x++) out.px[(this.w - 1 - x) * this.h + y] = this.px[y * this.w + x];
+    }
+    return out;
+  }
+
   mirrored(): PixelGrid {
     const out = new PixelGrid(this.w, this.h);
     for (let y = 0; y < this.h; y++) {

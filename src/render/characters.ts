@@ -15,7 +15,7 @@ import {
   tone,
 } from './paint';
 import { MELEE } from '@shared/sim/constants';
-import { SWING_FRAMES, WALK_FRAMES, drawPixelPlayer } from './pixelplayer';
+import { SWING_FRAMES, WALK_FRAMES, drawPixelDowned, drawPixelPlayer } from './pixelplayer';
 import { drawBrood, drawBulwark, drawQueen, drawShellback, drawShield, drawSpitter, drawWarden } from './creatures';
 
 /**
@@ -72,7 +72,10 @@ export function drawPlayer(
   const outfit = isSelf ? SELF : OTHER;
 
   if (player.downed > 0) {
-    drawDowned(ctx, x, feet, outfit, time);
+    if (pixelSprites()) {
+      softShadow(ctx, x, feet - 2, 16, 0.3);
+      drawPixelDowned(ctx, x, feet, outfit, Math.floor(time * 1.2) % 2);
+    } else drawDowned(ctx, x, feet, outfit, time);
     return;
   }
 
@@ -136,7 +139,10 @@ export function drawPlayer(
               : -1,
         tool: striking || winding ? 'blade' : working ? tool : null,
         dash: dashing,
-        flash: player.hitFlash > 0,
+        // A white flash for the first beat of a hit, then the recoil shows.
+        flash: player.hitFlash > 0.1,
+        recoil: player.hitFlash > 0 && player.hitFlash <= 0.1,
+        blink: !moving && ((time * 0.35 + player.id * 0.27) % 1) < 0.035,
       },
       swingAngle,
     );

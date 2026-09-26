@@ -896,7 +896,7 @@ detail behind the factory entries is in
       web UI and icons are still smooth; that is gap 4.*
 - [ ] Pixel creatures: slimes, crawlers, brutes and bosses as generated
       sprites like the player, so they step between poses too.
-- [ ] Downed player pose as a pixel frame (it still uses the drawn figure).
+- [x] Downed player pose as a pixel frame (2026-09-26), plus a hit recoil and an idle blink.
 - [ ] Floating damage numbers and name tags are drawn at the pixel grid and
       look soft; a small bitmap digit font would keep them crisp.
 - [ ] Needs testing: the pixel look on a real phone and a 4K screen, and
