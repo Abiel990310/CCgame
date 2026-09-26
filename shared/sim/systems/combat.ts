@@ -161,12 +161,12 @@ export function stepWeapons(world: World, player: Player, dt: number): void {
       const target = targets[i] ?? targets[0];
       const spare = i - targets.length;
       const offset = spare < 0 ? 0 : (spare % 2 === 0 ? 1 : -1) * Math.ceil((spare + 1) / 2) * FAN_SPREAD;
-      const base = normalize({ x: target.pos.x - player.pos.x, y: target.pos.y - player.pos.y });
+      const speed = def.speed * speedUp;
+      const base = leadAim(player.pos, target, speed);
       const cos = Math.cos(offset);
       const sin = Math.sin(offset);
       // Only rolled for a player who can crit, so everyone else's RNG stream is untouched.
       const hit = crit > 0 && nextFloat(world) < crit ? damage * critHit : damage;
-      const speed = def.speed * speedUp;
       world.projectiles.push({
         id: world.nextId++,
         pos: { ...player.pos },
@@ -184,6 +184,39 @@ export function stepWeapons(world: World, player: Player, dt: number): void {
       });
     }
   }
+}
+
+/** The longest a shot is led, in seconds: past this a creature will have turned anyway. */
+const MAX_LEAD = 1.2;
+
+/**
+ * Which way to fire so a shot at `speed` meets the target, assuming it keeps
+ * its current velocity: the smallest positive t with |d + v·t| = speed·t.
+ * Aiming where a crawler is rather than where it will be sends shots behind
+ * anything crossing, and keeps their damage reserved against it until they
+ * expire. Falls back to aiming straight at it when no meeting point exists.
+ */
+export function leadAim(from: Vec2, target: Mob, speed: number): Vec2 {
+  const dx = target.pos.x - from.x;
+  const dy = target.pos.y - from.y;
+  const { x: vx, y: vy } = target.vel;
+  const a = vx * vx + vy * vy - speed * speed;
+  const b = 2 * (dx * vx + dy * vy);
+  const c = dx * dx + dy * dy;
+  let t = 0;
+  if (Math.abs(a) < 1e-6) t = b < 0 ? -c / b : 0;
+  else {
+    const disc = b * b - 4 * a * c;
+    if (disc >= 0) {
+      const root = Math.sqrt(disc);
+      const t1 = (-b - root) / (2 * a);
+      const t2 = (-b + root) / (2 * a);
+      t = Math.min(t1 > 0 ? t1 : Infinity, t2 > 0 ? t2 : Infinity);
+      if (!Number.isFinite(t)) t = 0;
+    }
+  }
+  t = Math.min(t, MAX_LEAD);
+  return normalize({ x: dx + vx * t, y: dy + vy * t });
 }
 
 export function stepProjectiles(world: World, dt: number): void {

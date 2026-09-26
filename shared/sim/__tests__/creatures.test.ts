@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MOBS, MOB_ORDER } from '../../data/mobs';
 import { CYCLE } from '../constants';
 import { stepCycle } from '../systems/cycle';
-import { damageMob, stepProjectiles, stepWeapons } from '../systems/combat';
+import { damageMob, leadAim, stepProjectiles, stepWeapons } from '../systems/combat';
 import { spawnMob, stepMobs } from '../systems/mobs';
 import type { MobTypeId, Player, WeaponId, World } from '../types';
 import { addPlayer, createWorld } from '../world';
@@ -209,6 +209,47 @@ describe('the crystal bulwark', () => {
     damageMob(world, bulwark, 1e6, player.id);
     run(world, 2 / 30);
     expect('shield' in covered).toBe(false);
+  });
+});
+
+describe('leading the target', () => {
+  it('aims where a steady creature will be when the shot gets there', () => {
+    const { world, player } = arena();
+    const mob = near(world, player, 'crawler', 200, -60);
+    mob.vel = { x: 0, y: 70 };
+    const speed = 400;
+    const dir = leadAim(player.pos, mob, speed);
+    // Solve for when the shot's line reaches the creature's path, then check both are there together.
+    const t = (mob.pos.x - player.pos.x) / (dir.x * speed);
+    const shot = { x: player.pos.x + dir.x * speed * t, y: player.pos.y + dir.y * speed * t };
+    const then = { x: mob.pos.x + mob.vel.x * t, y: mob.pos.y + mob.vel.y * t };
+    expect(Math.hypot(shot.x - then.x, shot.y - then.y)).toBeLessThan(0.5);
+  });
+
+  it('hits a crawler running across in front of the sling', () => {
+    const { world, player } = arena();
+    player.stats.damage = 100;
+    const mob = near(world, player, 'crawler', 190, -80);
+    const cross = { x: 0, y: MOBS.crawler.speed };
+    mob.vel = { ...cross };
+    fire(world, player, 'sling');
+    // Moved by hand at a steady pace: this is about the aim, not the chase.
+    for (let t = 0; t < 1.5 && mob.hp > 0; t += 1 / 60) {
+      mob.pos.x += cross.x / 60;
+      mob.pos.y += cross.y / 60;
+      mob.vel = { ...cross };
+      stepProjectiles(world, 1 / 60);
+    }
+    expect(mob.hp).toBeLessThanOrEqual(0);
+  });
+
+  it('aims straight at something standing still', () => {
+    const { world, player } = arena();
+    const mob = near(world, player, 'brute', 120, 0);
+    mob.vel = { x: 0, y: 0 };
+    const dir = leadAim(player.pos, mob, 400);
+    expect(dir.x).toBeCloseTo(1, 6);
+    expect(dir.y).toBeCloseTo(0, 6);
   });
 });
 

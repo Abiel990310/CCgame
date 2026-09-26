@@ -971,9 +971,12 @@ detail behind the factory entries is in
       between facets; growing the triangle about its centroid by 6% instead
       draws the same picture for a third of the cost.
 
-- [ ] Weapons aim at where a mob is, not where it will be, so fast mobs
-      (crawlers, wisps) dodge shots and keep their in-flight damage reserved
-      until those shots expire. Leading the target would fix both.
+- [x] Weapons lead their target: each shot is aimed where the creature will be
+      when it lands, from its current velocity, capped at 1.2 seconds ahead.
+      A crawler running across the sling's path used to be missed and is now
+      hit. Measured over 70-second night-9 fights (standing still and circling),
+      hits and kills barely moved (738 against 745 hits), because raids mostly
+      run straight at the player; it matters for creatures crossing, not charging.
 - [ ] Let the player pick a weapon's targeting rule, or offer a rule change as
       a level-up upgrade (a "Hunter's eye" that turns the sling to toughest).
 
