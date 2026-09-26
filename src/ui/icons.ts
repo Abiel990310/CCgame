@@ -46,12 +46,16 @@ const PATHS = {
   cloud: '<path d="M7 18.5h10.5a4 4 0 00.6-7.95A6 6 0 006.4 9.1 4.7 4.7 0 007 18.5z"/>',
   user: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20c1-3.8 4-5.8 7.5-5.8s6.5 2 7.5 5.8"/>',
   sprout: '<path d="M12 20v-8"/><path d="M12 12c0-4 2.5-6.5 7-6.5 0 4.5-2.5 6.5-7 6.5z"/><path d="M12 14.5c0-3-2-5-5.5-5 0 3.4 2 5 5.5 5z"/>',
+  spell: '<path d="M12 2.5l1.8 6.2 6.2 1.8-6.2 1.8L12 18.5l-1.8-6.2-6.2-1.8 6.2-1.8z"/><path d="M18.5 16l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7z"/>',
+  flame: '<path d="M12 21.5c-4 0-6.5-2.7-6.5-6.3 0-3.6 2.6-5.6 3.6-8.7 1.4 1.6 1.7 3 1.6 4.4 1.9-1.6 3-4.4 2.5-8.4 3.8 2.6 6.3 6.7 6.3 11.4 0 4.3-3 7.6-7.5 7.6z"/>',
+  snow: '<path d="M12 2.5v19M3.8 7.25l16.4 9.5M3.8 16.75l16.4-9.5"/><path d="M9.5 3.8L12 6.3l2.5-2.5M9.5 20.2l2.5-2.5 2.5 2.5M3.9 10.6l3.4-.9-.9-3.4M20.1 13.4l-3.4.9.9 3.4M6.4 17.7l.9-3.4-3.4-.9M17.6 6.3l-.9 3.4 3.4.9"/>',
+  cross: '<path d="M9.5 3.5h5v6h6v5h-6v6h-5v-6h-6v-5h6z"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;
 
 /** Fill-drawn icons; everything else is a 2px round-capped stroke. */
-const FILLED = new Set<IconName>(['heart', 'star', 'play', 'bolt']);
+const FILLED = new Set<IconName>(['heart', 'star', 'play', 'bolt', 'spell', 'flame', 'cross']);
 
 /**
  * Both drawings of the icon in one SVG: the line icon for the smooth look and

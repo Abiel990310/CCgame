@@ -2,7 +2,7 @@ import { BEACON_WARD_PACE } from '../../data/beacon';
 import { BUILDINGS } from '../../data/buildings';
 import { RESOURCES } from '../../data/items';
 import { MOBS, MOB_ORDER } from '../../data/mobs';
-import { BITE, CAMP, MAP_SIZE, PLAYER, TILE, WAVES } from '../constants';
+import { BITE, BOSS_RAGE, CAMP, MAP_SIZE, PLAYER, TILE, WAVES } from '../constants';
 import { beaconWards } from '../beacon';
 import { damp, distance, normalize } from '../math';
 import { nextFloat } from '../progression';
@@ -95,12 +95,14 @@ export function stepMobs(world: World, dt: number): void {
 
     const def = MOBS[mob.type];
     shelter(mob, bearers);
-    mob.attackCd = Math.max(0, mob.attackCd - dt);
+    // An enraged boss does everything on a quicker clock.
+    const tempo = mob.enraged ? BOSS_RAGE.tempo : 1;
+    mob.attackCd = Math.max(0, mob.attackCd - dt * tempo);
     mob.hitFlash = Math.max(0, mob.hitFlash - dt);
 
     const target = findTarget(world, mob);
     const dir = normalize({ x: target.pos.x - mob.pos.x, y: target.pos.y - mob.pos.y });
-    let speed = def.speed;
+    let speed = def.speed * (mob.enraged ? BOSS_RAGE.speed : 1);
     if (mob.chill && mob.chill > 0) {
       mob.chill = Math.max(0, mob.chill - dt);
       speed *= CHILLED;
@@ -108,10 +110,10 @@ export function stepMobs(world: World, dt: number): void {
     if (wards.some((w) => distance(w.pos, mob.pos) < w.radius)) speed *= BEACON_WARD_PACE;
     let pace = 1;
     if (def.spit && target.player) {
-      pace = spit(world, mob, target.pos, dt);
+      pace = spit(world, mob, target.pos, dt * tempo);
       mob.look = Math.atan2(target.pos.y - mob.pos.y, target.pos.x - mob.pos.x);
     } else mob.look = undefined;
-    if (def.summons) summon(world, mob, dt);
+    if (def.summons) summon(world, mob, dt * tempo);
     if (mob.windup) pace *= BITE.pace;
 
     mob.vel.x = damp(mob.vel.x, dir.x * speed * pace, 8, dt);

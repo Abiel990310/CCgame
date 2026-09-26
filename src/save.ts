@@ -345,6 +345,17 @@ let pristineSeed: number | null = null;
 let pristineGen = 0;
 let pristineNodes = new Map<number, PristineNode>();
 
+/**
+ * A world just made from its seed is exactly what the seed grows, so the
+ * first save can diff against it instead of growing the island a second time.
+ * On a big island that regeneration was a visible hitch a few seconds in, when
+ * the first autosave landed: about 45 ms on a desktop, several times that on
+ * a phone.
+ */
+export function rememberNewIsland(world: World): void {
+  rememberPristine(world.seed, world.worldgen, world.nodes);
+}
+
 function rememberPristine(seed: number, worldgen: number, nodes: ResourceNode[]): void {
   pristineSeed = seed;
   pristineGen = worldgen;

@@ -119,6 +119,17 @@ export const SOUNDS = {
       NOISE(1400, 2600, 0.3, 0.05, 0.4, 3),
     ],
   },
+  // A boss turning: the entrance's growl, pitched up and torn with noise.
+  bossRage: {
+    gain: 0.42,
+    vary: 0.03,
+    throttle: 0.5,
+    layers: [
+      TONE('sawtooth', 70, 150, 0.45, 0.04, 0.9, 0, 9),
+      TONE('square', 110, 60, 0.2, 0.02, 0.7, 0.05),
+      NOISE(900, 200, 0.6, 0.02, 0.8, 0.7, 0, 'lowpass'),
+    ],
+  },
   boss: {
     gain: 0.4,
     vary: 0,
@@ -362,6 +373,39 @@ export const SOUNDS = {
     vary: 0.06,
     throttle: 0.08,
     layers: [TONE('sine', 620, 1480, 0.55, 0.004, 0.16), NOISE(5200, 3000, 0.35, 0.003, 0.09, 1.2)],
+  },
+  // ---- Spells: brighter and longer than a swing, so a pressed spell is heard as one ----
+  castFireball: {
+    gain: 0.28,
+    vary: 0.06,
+    throttle: 0.08,
+    layers: [
+      NOISE(600, 2400, 0.8, 0.01, 0.32, 0.9),
+      TONE('sawtooth', 180, 90, 0.18, 0.005, 0.28),
+      TONE('triangle', 520, 880, 0.2, 0.01, 0.2),
+    ],
+  },
+  castFrostNova: {
+    gain: 0.3,
+    vary: 0.05,
+    throttle: 0.1,
+    layers: [
+      TONE('triangle', 1760, 1320, 0.35, 0.001, 0.6),
+      TONE('triangle', 2637, 1980, 0.22, 0.001, 0.5, 0.03, 9),
+      NOISE(5200, 1400, 0.6, 0.002, 0.4, 1.4),
+      TONE('sine', 130, 55, 0.5, 0.003, 0.3),
+    ],
+  },
+  castMend: {
+    gain: 0.26,
+    vary: 0.03,
+    throttle: 0.2,
+    layers: [
+      TONE('sine', 523, 523, 0.45, 0.02, 0.5),
+      TONE('sine', 659, 659, 0.38, 0.02, 0.5, 0.08),
+      TONE('sine', 784, 784, 0.34, 0.02, 0.7, 0.16),
+      TONE('triangle', 1047, 1047, 0.18, 0.03, 0.8, 0.24),
+    ],
   },
   thwack: {
     gain: 0.28,

@@ -1,4 +1,6 @@
 import { MOBS } from '@shared/data/mobs';
+import { SPELLS } from '@shared/data/spells';
+import { CAST_POSE } from '@shared/sim/systems/spells';
 import type { Mob, Player } from '@shared/sim/types';
 import {
   INK,
@@ -15,6 +17,7 @@ import {
   tone,
 } from './paint';
 import { BITE, DASH, MELEE } from '@shared/sim/constants';
+import { rgba } from './palette';
 import { SWING_FRAMES, WALK_FRAMES, drawPixelDowned, drawPixelPlayer, drawPixelRoll } from './pixelplayer';
 import {
   BRUTE_WALK,
@@ -144,8 +147,9 @@ export function drawPlayer(
     // A tool or blade is swung side-on whichever way the player faces, so it reads.
     const striking = (player.strike ?? 0) > 0;
     const winding = charge > 0.12 && !striking;
+    const casting = (player.casting ?? 0) > 0 && !striking && !winding;
     const facing = viewOf(player.facing.x, player.facing.y);
-    const sideOn = working || striking || winding;
+    const sideOn = working || striking || winding || casting;
     const view = sideOn ? 'side' : facing.view;
     const flip = sideOn ? player.facing.x < 0 : facing.flip < 0;
     // The blade enters at the top of the chop and follows through; the second
@@ -167,7 +171,9 @@ export function drawPlayer(
           ? Math.min(SWING_FRAMES - 1, Math.floor(cut * SWING_FRAMES))
           : winding
             ? 8 + (Math.floor(time * 12) % 2)
-            : working
+            : casting
+              ? CAST_FRAME
+              : working
               ? Math.floor(swingPhase(player, time) * SWING_FRAMES)
               : -1,
         tool: striking || winding ? 'blade' : working ? tool : null,
@@ -179,6 +185,7 @@ export function drawPlayer(
       },
       swingAngle,
     );
+    if (casting && player.spell) drawCastGlow(ctx, x, feet, player.facing.x < 0 ? -1 : 1, player.casting ?? 0, SPELLS[player.spell].color);
     ctx.restore();
     return;
   }
@@ -684,6 +691,8 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
     ctx.stroke();
     ctx.restore();
   }
+  if ((mob.chill ?? 0) > 0) drawFrost(ctx, mob, time, true);
+  if (mob.enraged) drawRage(ctx, mob, time);
   setFlash(mob.hitFlash > 0 ? 1 : 0);
   ctx.save();
   // Pixel creatures have their own rearing and flash frames; stretching a
@@ -737,6 +746,7 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   ctx.restore();
   setFlash(0);
   if (mob.shield !== undefined) drawShield(ctx, mob, time);
+  if ((mob.chill ?? 0) > 0) drawFrost(ctx, mob, time, false);
 
   const tall = mob.type === 'brute' ? 2.9 : mob.type === 'wisp' ? 3 : mob.type === 'warden' ? 3.2 : mob.type === 'queen' ? 3.4 : mob.type === 'bulwark' ? 3.3 : 2.1;
   if (mob.hp < mob.maxHp) healthBar(ctx, mob.pos.x, mob.pos.y - def.radius * tall, def.radius * 2.2, mob.hp / mob.maxHp);
@@ -751,6 +761,101 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
     ctx.fillRect(mob.pos.x - 1.5, top, 3, 6);
     ctx.fillRect(mob.pos.x - 1.5, top + 7.5, 3, 2.5);
   }
+}
+
+/**
+ * A chilled creature stands on a patch of frost with ice glinting on it, so
+ * a slow is seen rather than only felt. It thaws out as the chill runs down.
+ */
+function drawFrost(ctx: CanvasRenderingContext2D, mob: Mob, time: number, ground: boolean): void {
+  const r = MOBS[mob.type].radius;
+  const fade = Math.min(1, (mob.chill ?? 0) / 0.5);
+  const feet = mob.pos.y + r * 0.6;
+  ctx.save();
+  if (!ground) {
+    glints(ctx, mob, r, fade, time);
+    ctx.restore();
+    return;
+  }
+  ctx.globalAlpha = 0.5 * fade;
+  ctx.fillStyle = '#d8f4ff';
+  ctx.beginPath();
+  ctx.ellipse(mob.pos.x, feet, r * 1.15, r * 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 0.9 * fade;
+  ctx.strokeStyle = '#9fe3ff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** A few glints of ice over the body, each twinkling on its own beat. */
+function glints(ctx: CanvasRenderingContext2D, mob: Mob, r: number, fade: number, time: number): void {
+  ctx.globalAlpha = fade;
+  for (let i = 0; i < 4; i++) {
+    const a = mob.seed * 7 + i * 1.9;
+    const x = mob.pos.x + Math.cos(a) * r * 0.8;
+    const y = mob.pos.y - r * 0.4 + Math.sin(a * 1.3) * r * 0.7;
+    const s = 2.2 * (0.5 + 0.5 * Math.sin(time * 5 + i * 2.3));
+    ctx.fillStyle = i % 2 === 0 ? '#ffffff' : '#bfefff';
+    ctx.beginPath();
+    ctx.moveTo(x, y - s * 1.6);
+    ctx.lineTo(x + s * 0.6, y);
+    ctx.lineTo(x, y + s * 1.6);
+    ctx.lineTo(x - s * 0.6, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/**
+ * An enraged boss burns: a red heat pulsing on the ground under it and
+ * embers rising off it, so its turn is seen for the rest of the fight.
+ */
+function drawRage(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
+  const r = MOBS[mob.type].radius;
+  const feet = mob.pos.y + r * 0.6;
+  const pulse = 0.5 + 0.5 * Math.sin(time * 6 + mob.seed);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const reach = r * (1.7 + 0.25 * pulse);
+  const g = ctx.createRadialGradient(mob.pos.x, feet, 0, mob.pos.x, feet, reach);
+  g.addColorStop(0, `rgba(255, 50, 25, ${0.55 + 0.25 * pulse})`);
+  g.addColorStop(0.6, `rgba(220, 30, 20, ${0.25 + 0.15 * pulse})`);
+  g.addColorStop(1, 'rgba(200, 20, 10, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(mob.pos.x, feet, reach, reach * 0.55, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Embers on a loop of their own, each rising and fading.
+  for (let i = 0; i < 10; i++) {
+    const t = (time * 0.7 + i / 10 + mob.seed * 0.01) % 1;
+    const x = mob.pos.x + Math.sin(i * 2.4 + mob.seed) * r * 1.1;
+    const y = feet - t * r * 2.6;
+    ctx.fillStyle = `rgba(255, ${110 + i * 12}, 50, ${0.9 * (1 - t)})`;
+    ctx.fillRect(Math.round(x), Math.round(y), 3, 3);
+  }
+  ctx.restore();
+}
+
+/** The swing frame whose arm reaches forward and a little up: the hand a spell leaves from. */
+const CAST_FRAME = 2;
+
+/** Light gathered in the casting hand, flaring as the spell leaves it. */
+function drawCastGlow(ctx: CanvasRenderingContext2D, x: number, feet: number, dir: number, left: number, color: string): void {
+  const k = left / CAST_POSE;
+  const hx = x + dir * 11;
+  const hy = feet - 23;
+  const r = 5 + 9 * k;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(hx, hy, 0, hx, hy, r);
+  g.addColorStop(0, rgba('#ffffff', 0.9 * k));
+  g.addColorStop(0.35, rgba(color, 0.7 * k));
+  g.addColorStop(1, rgba(color, 0));
+  ctx.fillStyle = g;
+  ctx.fillRect(hx - r, hy - r, r * 2, r * 2);
+  ctx.restore();
 }
 
 /** Creatures drawn as pixel sprites when the player is. */

@@ -857,6 +857,14 @@ detail behind the factory entries is in
       per variant, keyed by name then scale, and indexed: a camp scene went
       from 68 to 19 KB of garbage a frame, and a night with 20 creatures from
       112 to 50 KB (the rest is spread thin across creature painters).
+- [x] A new island's first autosave grew the whole island again from its
+      seed, just to learn which trees had been cut: a one-off hitch a few
+      seconds into a player's first island, about 45 ms on a desktop and 190
+      ms on a phone (emulated, 4x slower CPU). A new island now hands its own
+      untouched scenery to the save, as a loaded one already did.
+      Re-profiled after the pixel creatures, death animations and 12-frame
+      run, on desktop and emulated phone: camp, running, a 40-creature night
+      and 40 deaths all within noise of the morning's build.
 - [ ] On the GPU renderer, the first seconds after a big factory comes into
       view were ~100 ms frames headless, nearly all in vertex buffer uploads
       (`bufferSubData`) inside software WebGL; steady state is ~5 ms. Needs a
@@ -888,9 +896,17 @@ detail behind the factory entries is in
       for a slam, and a swing timed to a bite or spit parries it
       (`tryParry`). Creatures now rear back before a bite, so it can be
       read and dodged. The dash is a roll now, and a blow dodged mid-roll
-      earns a counter (`tryDodge`). Still missing: spells.*
+      earns a counter (`tryDodge`). Spells too: Fireball, Frost Nova and
+      Mend, learned at level-ups and cast with Q (Shift+Q swaps), rows in
+      `shared/data/spells.ts`.*
 - [ ] Co-op: a guest's quick F tap between two host ticks can be lost; latch
       presses on the host the way dash is.
+- [ ] More spells as rows: a chain of lightning, a gale that pushes a line,
+      a thorn wall. Each is a `shape` the cast already knows or one more.
+- [ ] Spells on the character screen: pick which one Q readies there, and
+      show each one's cooldown and power at its level.
+- [ ] Chilled creatures now show frost; the Frost weapon and Frostbite never
+      had a look of their own before, check they read in a big fight.
 - [ ] Parry is hard to land on small creatures because the swing's own
       knockback throws them out of reach first; it is mostly a boss and
       spit tool until creatures telegraph.
@@ -950,6 +966,16 @@ detail behind the factory entries is in
       and swap; our bag holds materials and the build is a row of chips.
 - [ ] 6. **Bosses as events.** Intro cutscene, name card, phase change; our
       Stone Warden walks in with a toast.
+      *2026-09-26: a boss already arrived with its name as a title card and
+      the camera leaning toward it (PR #102). Now a boss nearby has a
+      health bar with its name (a pale trail shows each chunk taken), and
+      at half health it turns: a roar with shock rings and a frame hold,
+      then it burns red and moves and attacks half again as fast
+      (`BOSS_RAGE`). Still missing: a proper intro cutscene.*
+- [ ] A boss's second phase could add a move, not only speed: the warden
+      slamming the ground, the queen calling twice as many.
+- [ ] The Stone Warden reads pale and washed out below a third of its
+      health, where its cracks and core glow are brightest.
 - [ ] 7. **Movement verbs.** Jump, roll, wall-jump, hook, air dash; ours is
       walk and one dash.
 - [ ] 8. **Story framing.** Illustrated story cards and portraits; ours has
@@ -1123,8 +1149,13 @@ detail behind the factory entries is in
       firing) in `src/ui/story.ts`; the world holds still behind them, Esc or
       Skip passes them, and the day's title card and camera sweep follow the
       last one. A peaceful island gets quiet nights in the second card.*
-- [ ] A closing story card when the Skyward Beacon's last stage is built, so
+- [x] A closing story card when the Skyward Beacon's last stage is built, so
       the opening's promise ("someone up there will see you") pays off.
+      *Two cards: a light in the sky answers the beam, then a ship holds over
+      the island at dawn and the card says what a fed beacon still does. Only
+      the island's first lit beacon shows them (`litBeacons`).*
+- [ ] Make the ending more than cards: a ship that actually arrives over the
+      lit beacon in the world, and a new tier or island it opens up.
 - [ ] A soft page-turn sound for the story cards, and a Prologue button on
       the menu to read them again.
 - [ ] A display face for titles and headings, bundled from the same site.

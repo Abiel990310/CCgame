@@ -1,6 +1,7 @@
 import { MOBS } from '../../data/mobs';
+import { SPELLS } from '../../data/spells';
 import { WEAPONS, weaponDamage, weaponRate, type WeaponDef } from '../../data/weapons';
-import { CAMP, COMBAT, MELEE, PLAYER } from '../constants';
+import { BOSS_RAGE, CAMP, COMBAT, MELEE, PLAYER } from '../constants';
 import { masteryId, perk } from '../perks';
 import { distance, distanceSq, normalize } from '../math';
 import { grantXp, nextFloat } from '../progression';
@@ -83,7 +84,7 @@ function pickTarget(
   return best;
 }
 
-function nearestMob(world: World, player: Player, range: number): Mob | null {
+export function nearestMob(world: World, player: Player, range: number): Mob | null {
   let best: Mob | null = null;
   let bestDist = range * range;
   for (const mob of world.mobs) {
@@ -98,7 +99,7 @@ function nearestMob(world: World, player: Player, range: number): Mob | null {
 }
 
 /** Damage perks that depend on when and where the player is fighting. */
-function situational(world: World, player: Player): number {
+export function situational(world: World, player: Player): number {
   let f = 1;
   if (world.phase === 'night') f *= 1 + 0.15 * perk(player, 'nightOwl');
   const guard = perk(player, 'campGuard');
@@ -374,7 +375,7 @@ export function stepProjectiles(world: World, dt: number): void {
     } else if (p.weapon === 'spit') {
       consumed = spitHits(world, p);
     } else {
-      const def = WEAPONS[p.weapon];
+      const def: Pick<WeaponDef, 'splash' | 'chill'> = p.weapon === 'fireball' ? { splash: SPELLS.fireball.radius } : WEAPONS[p.weapon];
       for (const mob of world.mobs) {
         if (mob.hp <= 0 || p.struck?.includes(mob.id)) continue;
         if (distance(mob.pos, p.pos) > MOBS[mob.type].radius + 4) continue;
@@ -442,6 +443,10 @@ export function damageMob(world: World, mob: Mob, amount: number, sourceId: numb
 
   const killer = world.players.get(sourceId);
   if (mob.hp > 0 && killer && !def.bossEvery && perk(killer, 'executioner') && mob.hp < mob.maxHp * 0.08) mob.hp = 0;
+  if (mob.hp > 0 && def.bossEvery && !mob.enraged && mob.hp <= mob.maxHp * BOSS_RAGE.at) {
+    mob.enraged = true;
+    world.events.push({ kind: 'bossRage', pos: { ...mob.pos }, type: mob.type });
+  }
   if (mob.hp > 0) return;
 
   world.events.push({ kind: 'mobDied', pos: { ...mob.pos }, type: mob.type });

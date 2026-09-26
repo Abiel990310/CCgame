@@ -41,6 +41,8 @@ interface Guest {
   input: PlayerInput;
   /** A dash pressed between two ticks still happens, even if released first. */
   dash: boolean;
+  /** Likewise a spell: held through the next tick so the press is seen. */
+  cast: boolean;
   resync: boolean;
 }
 
@@ -175,6 +177,7 @@ export class CoopHost {
       ready: false,
       input: STILL,
       dash: false,
+      cast: false,
       resync: false,
       link: new Link(broker, src, {
         onOpen: () => {},
@@ -237,8 +240,10 @@ export class CoopHost {
           dash: input.dash,
           interact: input.interact,
           attack: input.attack === true,
+          cast: input.cast === true,
         };
         if (input.dash) guest.dash = true;
+        if (input.cast) guest.cast = true;
         break;
       }
       case 'cmd':
@@ -299,8 +304,9 @@ export class CoopHost {
     const inputs = new Map(own);
     for (const guest of this.guests.values()) {
       if (guest.playerId === null || !world.players.has(guest.playerId)) continue;
-      inputs.set(guest.playerId, guest.dash ? { ...guest.input, dash: true } : guest.input);
+      inputs.set(guest.playerId, guest.dash || guest.cast ? { ...guest.input, dash: guest.dash || guest.input.dash, cast: guest.cast || guest.input.cast } : guest.input);
       guest.dash = false;
+      guest.cast = false;
     }
     return inputs;
   }

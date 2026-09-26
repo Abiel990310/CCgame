@@ -5,6 +5,7 @@ import { BELT_COST, MACHINES, placementCost } from '@shared/data/machines';
 import { ITEMS, RESOURCES } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
 import { BEACON_STAGES } from '@shared/data/beacon';
+import { litBeacons } from '@shared/sim/beacon';
 import { CAMP, TICK_DT } from '@shared/sim/constants';
 import {
   buildingAt,
@@ -61,14 +62,17 @@ import type {
   Player,
   PlayerInput,
   SimEvent,
+  SpellId,
   World,
 } from '@shared/sim/types';
 import { addPlayer, createWorld } from '@shared/sim/world';
+import { knownSpells } from '@shared/sim/systems/spells';
 import { audio } from './audio';
+import type { SoundId } from './audio/sounds';
 import { InputManager } from './input';
 import { Renderer, type GhostPreview, type RemovalPreview } from './render/renderer';
 import { Interpolator } from './render/interpolate';
-import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from './save';
+import { forgetSlot, loadWorld, rememberNewIsland, saveWorld, type LoadNotes } from './save';
 import { touchSlot, type SaveSlot } from './saves';
 import { SlotLock, type EvictReason } from './tablock';
 import type { CloudSession } from './account/sync';
@@ -85,6 +89,8 @@ import { WorkbenchScreen } from './ui/workbench';
 import { StoryCards } from './ui/story';
 
 /** A finger has no hover and no E key, so its prompts say so. */
+const CAST_SOUND: Record<SpellId, SoundId> = { fireball: 'castFireball', frostNova: 'castFrostNova', mend: 'castMend' };
+
 const COARSE = matchMedia('(pointer: coarse)');
 
 const SAVE_INTERVAL = 8;
@@ -212,6 +218,8 @@ export class Game {
       },
       onToggleBag: () => this.toggleBag(),
       onDash: () => this.input.triggerDash(),
+      onCast: () => this.input.triggerCast(),
+      onSwapSpell: () => this.swapSpell(),
       onTogglePause: () => this.togglePause(),
       onQuitToMenu: () => this.quitToMenu(),
       onSlotAction: (ref, button, quick) => this.moveItems(ref, button, quick),
@@ -317,6 +325,7 @@ export class Game {
       );
     } else {
       this.world = createWorld(Date.now() & 0xffff, peaceful);
+      rememberNewIsland(this.world);
       this.selfId = addPlayer(this.world, 'You').id;
     }
 
@@ -325,7 +334,7 @@ export class Game {
       // The day starts once the story is read, so the title card and the
       // camera's sweep in are what the last card turns into.
       const world = this.world;
-      void this.story.play(peaceful).then(() => {
+      void this.story.play('opening', peaceful).then(() => {
         if (this.world !== world) return;
         this.hud.banner(slot.name, peaceful ? 'A peaceful island. Build freely.' : 'Day one. Go gather.');
         const at = this.self.pos;
@@ -816,6 +825,7 @@ export class Game {
       if (action === 'copy' && !blocked) this.copyFrom(this.machineUnderCursor());
       if (action === 'paste' && !blocked) this.pasteOnto(this.machineUnderCursor());
       if (action === 'upgrade' && !blocked) this.hud.openDraft();
+      if (action === 'swapSpell') this.swapSpell();
       if (action === 'cancel') {
         // Esc backs out of whatever is open, and opens the menu when nothing is.
         if (this.worldMap.isOpen) this.worldMap.setOpen(false);
@@ -1309,6 +1319,15 @@ export class Game {
    * owes it to every guest; a guest asks the host, and sees it happen when the
    * host's next tick comes back. The result is only meaningful off a guest.
    */
+  /** Readies the next learned spell for Q, round the list. */
+  private swapSpell(): void {
+    const known = knownSpells(this.self);
+    if (known.length < 2) return;
+    const at = this.self.spell ? known.indexOf(this.self.spell) : -1;
+    const next = known[(at + 1) % known.length];
+    if (this.act({ k: 'spell', id: next })) audio.play('click');
+  }
+
   private act(command: Command): boolean {
     const order = { p: this.selfId, c: command };
     if (this.guest) {
@@ -1381,6 +1400,9 @@ export class Game {
           'good',
         );
         this.requestSave();
+        // The ending belongs to the first beacon an island lights; a second
+        // one is more boost, not the story again.
+        if (event.lit && litBeacons(this.world) === 1) void this.story.play('ending', this.world.peaceful);
         continue;
       }
       if (event.kind === 'guardsWoke') {
@@ -1454,6 +1476,13 @@ export class Game {
         const self = event.playerId === this.selfId;
         audio.play('dodge', self ? {} : { pos: event.pos });
         if (self) this.hitstop = Math.max(this.hitstop, 0.07);
+      } else if (event.kind === 'bossRage') {
+        // The longest hold there is: the fight has turned.
+        this.hitstop = Math.max(this.hitstop, 0.22);
+      } else if (event.kind === 'cast') {
+        const self = event.playerId === this.selfId;
+        audio.play(CAST_SOUND[event.spell], self ? {} : { pos: event.pos });
+        if (self && event.hits > 0) this.hitstop = Math.max(this.hitstop, 0.06);
       } else if (event.kind === 'strike') {
         const self = event.playerId === this.selfId;
         const at = self ? {} : { pos: event.pos };

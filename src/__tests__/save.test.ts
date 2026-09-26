@@ -7,7 +7,7 @@ import { TERRAIN_ORDER } from '@shared/sim/terrain';
 import { isUnlocked, setResearch } from '@shared/sim/research';
 import { WORLDGEN, addPlayer, createWorld } from '@shared/sim/world';
 import type { ItemId, World } from '@shared/sim/types';
-import { forgetSlot, loadWorld, saveWorld, type LoadNotes } from '../save';
+import { forgetSlot, loadWorld, rememberNewIsland, saveWorld, type LoadNotes } from '../save';
 import { FACTORY_SUFFIX, SCENERY_SUFFIX, slotKey } from '../saves';
 
 /** Counts writes as well as holding them, since skipping one is the point. */
@@ -104,6 +104,25 @@ describe('saving an island', () => {
     expect(reloaded?.regrow).toBeCloseTo(12.5, 2);
     // Everything else came back untouched.
     expect(back?.nodes.length).toBe(world.nodes.length);
+  });
+
+  it('diffs a new island against itself exactly as against a regrown one', () => {
+    const scenery = (): string | undefined => store.get(slotKey(SLOT) + SCENERY_SUFFIX);
+    const world = createWorld(7171, false);
+    // Remembered before anything is worked, the way a new game does it.
+    rememberNewIsland(world);
+    addPlayer(world, 'You');
+    world.nodes[5].charges -= 1;
+    world.nodes = world.nodes.filter((n) => n.id !== world.nodes[9].id);
+    saveWorld(world, SLOT);
+    const fromMemory = scenery();
+    expect(fromMemory).toContain(String(world.nodes[5].id));
+
+    // Another island in between makes the next save grow this one again.
+    rememberNewIsland(createWorld(9191, false));
+    forgetSlot(SLOT);
+    saveWorld(world, SLOT);
+    expect(scenery()).toBe(fromMemory);
   });
 
   it("keeps a splitter's sides, which nothing else on the grid has", () => {

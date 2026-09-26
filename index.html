@@ -51,6 +51,16 @@
         <div class="phase-track"><div class="phase-fill" id="phase-fill"></div></div>
       </header>
 
+      <!-- A boss nearby: its name and health, under the day, or over the hotbar on a narrow screen -->
+      <div class="boss-bar panel hidden" id="boss-bar">
+        <div class="boss-name" id="boss-name"></div>
+        <div class="boss-track">
+          <div class="boss-trail" id="boss-trail"></div>
+          <div class="boss-fill" id="boss-fill"></div>
+          <div class="boss-turn"></div>
+        </div>
+      </div>
+
       <!-- Top right: carried resources at a glance -->
       <div class="corner-right" id="corner-right">
         <section class="pouch panel hidden" id="pouch"></section>
@@ -66,6 +76,10 @@
         </button>
         <button class="action" id="btn-map" title="Map (M)">
           <i data-icon="map"></i><small>Map</small><kbd>M</kbd>
+        </button>
+        <button class="action spell hidden" id="btn-spell" title="Cast (Q) &middot; swap (Shift+Q or right-click)">
+          <span class="spell-glyph" id="spell-glyph"></span><small id="spell-name">Spell</small><kbd>Q</kbd>
+          <div class="cd" id="spell-cd"></div>
         </button>
         <button class="action dash" id="btn-dash" title="Dash (Space)">
           <i data-icon="dash"></i><small>Dash</small><kbd>Space</kbd>
@@ -256,6 +270,7 @@
           <div class="keys">
             <span><kbd>WASD</kbd> move</span>
             <span><kbd>Space</kbd> dash</span>
+            <span><kbd>Q</kbd> cast a spell, <kbd>shift</kbd>+<kbd>Q</kbd> swap</span>
             <span><kbd>E</kbd> / hold click to gather</span>
             <span><kbd>F</kbd> / click near a creature to attack</span>
             <span>Hold <kbd>F</kbd> to slam, time <kbd>F</kbd> to a bite to parry</span>
