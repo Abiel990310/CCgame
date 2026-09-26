@@ -870,14 +870,17 @@ detail behind the factory entries is in
       sheet with 549 hand-timed frames over 30+ moves; ours is a procedural
       figure with a few poses. Seen every second of play. *2026-09-26: the
       player is now a pixel sprite (8-step walk in 3 views, 16-step chop,
-      dash, hit flash) generated in `src/render/pixelplayer.ts`. Creatures,
-      a run cycle with more frames, and a death pose are still to do.*
+      dash, hit flash) generated in `src/render/pixelplayer.ts`. Slimes,
+      crawlers and brutes followed (`src/render/pixelmobs.ts`), each with a
+      rear-back and a bite frame. The other creatures, a run cycle with more
+      frames, and creature death frames are still to do.*
 - [ ] 2. **The player does not fight.** His combat is pressed buttons (light,
       heavy, roll, parry, spells); ours auto-fires. "Action" is mostly this.
       *2026-09-26: a pressed three-hit melee combo with knockback, slash
       arcs, swing sounds and hit-stop (`stepStrike` in combat.ts). Hold F
       for a slam, and a swing timed to a bite or spit parries it
-      (`tryParry`). Still missing: enemies with attacks you read and dodge.*
+      (`tryParry`). Creatures now rear back before a bite, so it can be
+      read and dodged. Still missing: a roll with i-frames, and spells.*
 - [ ] Co-op: a guest's quick F tap between two host ticks can be lost; latch
       presses on the host the way dash is.
 - [ ] Parry is hard to land on small creatures because the swing's own
@@ -895,8 +898,12 @@ detail behind the factory entries is in
       palette; ours mixes smooth vector art, web UI and pixel-free icons.
       *2026-09-26: the scene is drawn on one pixel grid (the pixel look). The
       web UI and icons are still smooth; that is gap 4.*
-- [ ] Pixel creatures: slimes, crawlers, brutes and bosses as generated
-      sprites like the player, so they step between poses too.
+- [x] Pixel creatures (2026-09-26): slimes, crawlers and brutes are generated
+      sprites like the player, with a wind-up and a bite frame each.
+- [ ] Pixel spitters, wisps, shellbacks, the mother and the three bosses;
+      they are still drawn, and read softer beside the pixel raiders.
+- [ ] Creature death frames: a slime that bursts, a crawler on its back,
+      a brute that topples, instead of the shared puff.
 - [x] Downed player pose as a pixel frame (2026-09-26), plus a hit recoil and an idle blink.
 - [ ] Floating damage numbers and name tags are drawn at the pixel grid and
       look soft; a small bitmap digit font would keep them crisp.
