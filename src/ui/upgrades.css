@@ -20,6 +20,9 @@
 .upgrade.k-weapon {
   --k: 255, 159, 67;
 }
+.upgrade.k-spell {
+  --k: 94, 214, 226;
+}
 .upgrade.k-mastery {
   --k: 190, 146, 255;
 }

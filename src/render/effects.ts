@@ -1,6 +1,6 @@
 import { ITEMS } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
-import type { ItemId, MobTypeId, SimEvent, Vec2 } from '@shared/sim/types';
+import type { ItemId, MobTypeId, SimEvent, SpellId, Vec2 } from '@shared/sim/types';
 import { drawItemSprite } from './items';
 import { INK } from './paint';
 import { DEATH_TIME, pixelSprites } from './pixelmobs';
@@ -44,6 +44,8 @@ export class Effects {
   private texts: FloatingText[] = [];
   /** Expanding shock rings, one per burst. */
   private rings: Array<{ pos: Vec2; radius: number; life: number; maxLife: number; color: string }> = [];
+  /** Columns of light rising off a player: a heal, seen from across the screen. */
+  private pillars: Array<{ pos: Vec2; life: number; maxLife: number; color: string }> = [];
   /** Melee swings: a bright crescent that sweeps across the arc and fades. */
   private slashes: Array<{ pos: Vec2; angle: number; life: number; maxLife: number; heavy: boolean; flip: boolean }> = [];
   /**
@@ -123,6 +125,10 @@ export class Effects {
         case 'dodge':
           this.rings.push({ pos: { ...event.pos }, radius: 22, life: 0.25, maxLife: 0.25, color: '#bfe8ff' });
           this.text(event.pos, 'Dodge', '#bfe8ff', 13);
+          break;
+        case 'cast':
+          this.cast(event.spell, event.pos, event.dir, event.radius);
+          if (event.hits > 0) this.shake = Math.min(9, this.shake + 3);
           break;
         case 'strike': {
           const heavy = event.combo === 2;
@@ -239,6 +245,72 @@ export class Effects {
     }
   }
 
+  /** The look of each spell going off; a fireball's burst is the sim's own `blast`. */
+  private cast(spell: SpellId, pos: Vec2, dir: Vec2, radius: number): void {
+    const chest = { x: pos.x, y: pos.y - 12 };
+    switch (spell) {
+      case 'fireball': {
+        const at = { x: chest.x + dir.x * 14, y: chest.y + dir.y * 14 };
+        this.rings.push({ pos: at, radius: 16, life: 0.18, maxLife: 0.18, color: '#ffc070' });
+        this.spray(at, dir, 10, ['#ffd36a', '#ff8a3d', '#ff5a2a'], 160);
+        break;
+      }
+      case 'frostNova':
+        this.rings.push({ pos: { ...pos }, radius, life: 0.42, maxLife: 0.42, color: '#bfefff' });
+        this.rings.push({ pos: { ...pos }, radius: radius * 0.7, life: 0.32, maxLife: 0.32, color: '#ffffff' });
+        // Shards flung out to the edge of the ring, so its reach is seen.
+        for (let i = 0; i < 26; i++) {
+          const a = (i / 26) * Math.PI * 2 + Math.random() * 0.2;
+          const life = 0.35 + Math.random() * 0.2;
+          const mag = (radius / life) * (0.8 + Math.random() * 0.3);
+          this.particles.push({
+            pos: { ...pos },
+            vel: { x: Math.cos(a) * mag, y: Math.sin(a) * mag * 0.75 },
+            life,
+            maxLife: life,
+            size: 1.8 + Math.random() * 1.8,
+            color: i % 3 === 0 ? '#ffffff' : '#9fe3ff',
+          });
+        }
+        break;
+      case 'mend':
+        this.rings.push({ pos: { ...pos }, radius: 34, life: 0.55, maxLife: 0.55, color: '#8ef0a8' });
+        this.pillars.push({ pos: { ...pos }, life: 0.75, maxLife: 0.75, color: '142, 240, 168' });
+        // Motes rising around the body, like the regen of a potion.
+        for (let i = 0; i < 24; i++) {
+          const life = 0.6 + Math.random() * 0.5;
+          this.particles.push({
+            pos: { x: pos.x + (Math.random() - 0.5) * 26, y: pos.y - Math.random() * 20 },
+            vel: { x: (Math.random() - 0.5) * 12, y: -40 - Math.random() * 40 },
+            life,
+            maxLife: life,
+            size: 2 + Math.random() * 2,
+            color: i % 3 === 0 ? '#ffffff' : i % 2 === 0 ? '#c8ffd4' : '#8ef0a8',
+          });
+        }
+        this.text(pos, 'Mend', '#8ef0a8', 14);
+        break;
+    }
+  }
+
+  /** Sparks thrown mostly one way, fanning around `dir`. */
+  private spray(pos: Vec2, dir: Vec2, count: number, colors: string[], speed: number): void {
+    const base = Math.atan2(dir.y, dir.x);
+    for (let i = 0; i < count; i++) {
+      const a = base + (Math.random() - 0.5) * 1.3;
+      const mag = speed * (0.4 + Math.random() * 0.6);
+      const life = 0.2 + Math.random() * 0.25;
+      this.particles.push({
+        pos: { ...pos },
+        vel: { x: Math.cos(a) * mag, y: Math.sin(a) * mag },
+        life,
+        maxLife: life,
+        size: 1.4 + Math.random() * 2,
+        color: colors[i % colors.length],
+      });
+    }
+  }
+
   text(pos: Vec2, text: string, color: string, size: number): void {
     if (!text) return;
     this.texts.push({
@@ -305,6 +377,11 @@ export class Effects {
     for (let i = this.slashes.length - 1; i >= 0; i--) {
       this.slashes[i].life -= dt;
       if (this.slashes[i].life <= 0) this.slashes.splice(i, 1);
+    }
+
+    for (let i = this.pillars.length - 1; i >= 0; i--) {
+      this.pillars[i].life -= dt;
+      if (this.pillars[i].life <= 0) this.pillars.splice(i, 1);
     }
 
     for (let i = this.rings.length - 1; i >= 0; i--) {
@@ -378,6 +455,24 @@ export class Effects {
     }
 
     for (const s of this.slashes) this.drawSlash(ctx, s);
+
+    for (const p of this.pillars) {
+      // Rises out of the ground and fades from the bottom up.
+      const f = 1 - p.life / p.maxLife;
+      const h = 34 + 46 * Math.sqrt(f);
+      const w = 18 * (1 - f * 0.4);
+      const g = ctx.createLinearGradient(0, p.pos.y + 4, 0, p.pos.y - h);
+      g.addColorStop(0, `rgba(${p.color}, ${0.9 * (1 - f)})`);
+      g.addColorStop(0.5, `rgba(${p.color}, ${0.45 * (1 - f)})`);
+      g.addColorStop(1, `rgba(${p.color}, 0)`);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(p.pos.x, p.pos.y - h / 2 + 4, w, h / 2 + 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     for (const p of this.particles) {
       ctx.globalAlpha = Math.max(0, p.life / p.maxLife);

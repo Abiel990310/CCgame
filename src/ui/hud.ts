@@ -1,16 +1,18 @@
 import { ITEMS } from '@shared/data/items';
+import { SPELLS, spellCooldown, spellPerk } from '@shared/data/spells';
+import { perk } from '@shared/sim/perks';
 import { CYCLE } from '@shared/sim/constants';
 import { activeTech, cyclesDone, cyclesNeeded, type QueueOp } from '@shared/sim/research';
 import { countItem, hasAll } from '@shared/sim/inventory';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
-import type { ItemId, ItemStack, Machine, MachineFamily, Player, World } from '@shared/sim/types';
+import type { ItemId, ItemStack, Machine, MachineFamily, Player, SpellId, World } from '@shared/sim/types';
 import { audio } from '../audio';
 import { itemIconVar } from '../render/items';
 import { pieceIconVar } from '../render/pieces';
 import { icon } from './icons';
 import { InventoryScreen } from './inventory';
 import { SoundPanel } from './sound';
-import { upgradeCard } from './upgradecard';
+import { SPELL_ICON, upgradeCard } from './upgradecard';
 import {
   GROUPS,
   TABS,
@@ -45,6 +47,8 @@ export interface HudCallbacks {
   onSelect: (selection: BuildSelection) => void;
   onToggleBag: () => void;
   onDash: () => void;
+  onCast: () => void;
+  onSwapSpell: () => void;
   onTogglePause: () => void;
   onQuitToMenu: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
@@ -99,6 +103,10 @@ export class Hud {
     btnBuild: $<HTMLButtonElement>('btn-build'),
     btnBag: $<HTMLButtonElement>('btn-bag'),
     btnDash: $<HTMLButtonElement>('btn-dash'),
+    btnSpell: $<HTMLButtonElement>('btn-spell'),
+    spellGlyph: $('spell-glyph'),
+    spellName: $('spell-name'),
+    spellCd: $('spell-cd'),
     btnMenu: $<HTMLButtonElement>('btn-menu'),
     dashCd: $('dash-cd'),
     levelup: $('levelup'),
@@ -166,6 +174,7 @@ export class Hud {
     });
     this.els.btnBag.addEventListener('click', () => this.callbacks.onToggleBag());
     this.els.btnDash.addEventListener('click', () => this.callbacks.onDash());
+    this.bindSpellButton();
     this.els.btnMenu.addEventListener('click', () => this.callbacks.onTogglePause());
     this.els.pauseResume.addEventListener('click', () => this.callbacks.onTogglePause());
     this.els.pauseQuit.addEventListener('click', () => this.callbacks.onQuitToMenu());
@@ -539,6 +548,7 @@ export class Hud {
     this.updateVitals(player);
     this.updatePouch(player);
     this.updateDash(player);
+    this.updateSpell(player);
     this.updateOffers(player);
     this.updateHotbar(player);
     this.updateResearch(world);
@@ -640,6 +650,64 @@ export class Hud {
       this.els.pouch.appendChild(chip);
     }
     this.pouchCounts = totals;
+  }
+
+  /**
+   * The spell button casts on a tap. Swapping is a right-click, or a long
+   * press on a touch screen, so the one button covers both without a second
+   * control that only matters once two spells are known.
+   */
+  private bindSpellButton(): void {
+    const button = this.els.btnSpell;
+    let held: number | null = null;
+    let swapped = false;
+    button.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      swapped = false;
+      held = window.setTimeout(() => {
+        held = null;
+        swapped = true;
+        this.callbacks.onSwapSpell();
+      }, 450);
+    });
+    const release = (): void => {
+      if (held !== null) window.clearTimeout(held);
+      held = null;
+    };
+    button.addEventListener('pointerup', release);
+    button.addEventListener('pointerleave', release);
+    button.addEventListener('click', () => {
+      if (swapped) return;
+      this.callbacks.onCast();
+    });
+    button.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      this.callbacks.onSwapSpell();
+    });
+  }
+
+  private shownSpell: SpellId | null = null;
+
+  private updateSpell(player: Player): void {
+    const id = player.spell ?? null;
+    const level = id ? perk(player, spellPerk(id)) : 0;
+    this.els.btnSpell.classList.toggle('hidden', level <= 0);
+    if (!id || level <= 0) return;
+    if (id !== this.shownSpell) {
+      this.shownSpell = id;
+      const def = SPELLS[id];
+      this.els.spellGlyph.innerHTML = icon(SPELL_ICON[id]);
+      this.els.btnSpell.style.setProperty('--spell', def.color);
+      this.els.spellName.textContent = def.name.split(' ').pop() ?? def.name;
+      // A new spell readied is worth a glance: the button pops once.
+      this.els.btnSpell.classList.remove('swapped');
+      void this.els.btnSpell.offsetWidth;
+      this.els.btnSpell.classList.add('swapped');
+    }
+    const left = player.spellCd?.[id] ?? 0;
+    const fraction = left > 0 ? Math.min(1, left / spellCooldown(id, level)) : 0;
+    this.els.spellCd.style.transform = `scaleY(${fraction})`;
+    this.els.btnSpell.classList.toggle('ready', fraction === 0);
   }
 
   private updateDash(player: Player): void {

@@ -1,9 +1,10 @@
 import { addPerk, masteryId, perk } from '../sim/perks';
 import type { Player, UpgradeOffer, WeaponId } from '../sim/types';
+import { SPELL_IDS, SPELL_MAX_LEVEL, SPELLS, spellPerk } from './spells';
 import { WEAPONS } from './weapons';
 
 /** What an upgrade is for, which is how the level-up screen colours and groups it. */
-export type UpgradeKind = 'weapon' | 'mastery' | 'attack' | 'survival' | 'gathering' | 'growth';
+export type UpgradeKind = 'weapon' | 'mastery' | 'spell' | 'attack' | 'survival' | 'gathering' | 'growth';
 
 export interface UpgradeDef {
   id: string;
@@ -92,6 +93,20 @@ function masteries(): UpgradeDef[] {
   );
 }
 
+/**
+ * Spells are perks whose count is their level, so the level-up screen draws
+ * their pips like any other. The first one learned is readied for Q.
+ */
+function spells(): UpgradeDef[] {
+  return SPELL_IDS.map((id) =>
+    perkUpgrade(spellPerk(id), SPELLS[id].name, 'spell', SPELLS[id].description, SPELL_MAX_LEVEL, {
+      apply: (p) => {
+        p.spell ??= id;
+      },
+    }),
+  );
+}
+
 /** Perks: what a level buys once the plain stat boosts stop being interesting. */
 const PERKS: UpgradeDef[] = [
   // Aim and weapons.
@@ -137,6 +152,7 @@ const PERKS: UpgradeDef[] = [
 export const UPGRADES: UpgradeDef[] = [
   ...weaponUpgrades(),
   ...masteries(),
+  ...spells(),
   ...PERKS,
   statUpgrade('dmg', 'Sharpened', 'attack', '+15% damage.', (p) => {
     p.stats.damage *= 1.15;

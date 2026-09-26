@@ -36,9 +36,55 @@ function drawSpit(ctx: CanvasRenderingContext2D, p: Projectile): void {
   ctx.restore();
 }
 
+/**
+ * A cast fireball: bigger and hotter than anything a weapon throws, with a
+ * flickering tail, so a pressed spell reads apart from the automatic fire.
+ */
+function drawFireball(ctx: CanvasRenderingContext2D, p: Projectile): void {
+  const angle = Math.atan2(p.vel.y, p.vel.x);
+  const t = p.life * 40;
+  ctx.save();
+  ctx.translate(p.pos.x, p.pos.y);
+  ctx.globalCompositeOperation = 'lighter';
+  const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 26);
+  glow.addColorStop(0, 'rgba(255, 170, 70, 0.55)');
+  glow.addColorStop(1, 'rgba(255, 90, 30, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(-26, -26, 52, 52);
+  ctx.rotate(angle);
+  // The tail: blobs shrinking and reddening behind the head, each flickering.
+  for (let i = 5; i >= 1; i--) {
+    const k = i / 5;
+    const r = 6.5 * (1 - k * 0.7) + Math.sin(t + i * 2.1) * 0.8;
+    const wob = Math.sin(t * 0.7 + i * 1.7) * 2.2 * k;
+    ctx.fillStyle = `rgba(255, ${Math.round(200 - 140 * k)}, ${Math.round(80 - 60 * k)}, ${0.75 - 0.5 * k})`;
+    ctx.beginPath();
+    ctx.arc(-i * 4.2, wob, Math.max(1, r), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#ff7a2a';
+  ctx.beginPath();
+  ctx.arc(0, 0, 6.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ffd36a';
+  ctx.beginPath();
+  ctx.arc(0.8, -0.4, 4.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff6d8';
+  ctx.beginPath();
+  ctx.arc(1.4, -0.8, 2.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile): void {
   if (p.weapon === 'spit') {
     drawSpit(ctx, p);
+    return;
+  }
+  if (p.weapon === 'fireball') {
+    drawFireball(ctx, p);
     return;
   }
   const def = WEAPONS[p.weapon];
