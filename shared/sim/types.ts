@@ -143,6 +143,8 @@ export interface Mob {
   post?: Vec2;
   /** Which way it looks, in radians, when that is not the way it moves: something backing off still faces what it shoots at. */
   look?: number;
+  /** Seconds left rearing back before a bite lands; absent or 0 when not about to bite. */
+  windup?: number;
 }
 
 export type MobTypeId =

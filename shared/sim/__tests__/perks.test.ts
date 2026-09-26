@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { UPGRADES, WEAPON_MAX_LEVEL } from '../../data/upgrades';
-import { PLAYER } from '../constants';
+import { BITE, PLAYER } from '../constants';
 import { addPerk, masteryId, perk } from '../perks';
 import { chooseUpgrade, rollOffers } from '../progression';
 import { damageMob, damagePlayer, stepProjectiles, stepWeapons } from '../systems/combat';
@@ -108,7 +108,8 @@ describe('perks in play', () => {
     addPerk(player, 'bramble');
     player.hp = player.maxHp = 1000;
     const brute = spawnMob(world, 'brute', { x: player.pos.x + 5, y: player.pos.y });
-    stepMobs(world, 1 / 30);
+    // It rears back first, then bites.
+    for (let t = 0; t <= BITE.windup + 2 / 30; t += 1 / 30) stepMobs(world, 1 / 30);
     expect(brute.hp).toBe(brute.maxHp - 8);
   });
 
