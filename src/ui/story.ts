@@ -238,7 +238,102 @@ const paintBeacon: Paint = (g, t) => {
   for (let x = 0; x < W; x++) if (hash(x, 30) > 0.7) rect(g, x, ground + 1, 1, 1, '#1c232c');
 };
 
-const CARDS: Card[] = [
+/** Ending card one: the beam reaches the stars, and a light up there answers and turns toward it. */
+const paintAnswer: Paint = (g, t) => {
+  sky(g, ['#05070f', '#090c1a', '#0e1428', '#141c36'], 78);
+  stars(g, t, 76, 60);
+  // The island far below, the beam climbing out of it.
+  rect(g, 0, 78, W, H - 78, '#0e1a26');
+  for (let y = 80; y < H; y += 3) rect(g, 0, y, W, 1, '#13253a');
+  island(g, 80, 80, 30, 6, '#10151c', '#0c1016');
+  for (let y = 0; y < 76; y++) {
+    const w = y > 60 ? 2 : 1;
+    rect(g, 80 - w, y, w * 2, 1, (y + Math.floor(t * 30)) % 14 < 2 ? '#fff6d8' : '#e8c46a');
+  }
+  disc(g, 80, 74, 5, 'rgba(240, 210, 122, 0.3)');
+
+  // A light high up blinks twice, then drifts down toward the beam and grows.
+  const cycle = 7;
+  const c = t % cycle;
+  const blink = c < 1.6 ? Math.floor(c / 0.4) % 2 === 0 : true;
+  const fall = Math.max(0, (c - 1.6) / (cycle - 1.6));
+  const sx = 124 - fall * 34;
+  const sy = 10 + fall * 20;
+  if (blink) {
+    const r = Math.round(1 + fall * 4);
+    rect(g, sx - r - 2, sy, r * 2 + 5, 1, '#3a5a7a');
+    rect(g, sx, sy - r - 2, 1, r * 2 + 5, '#3a5a7a');
+    rect(g, sx - r, sy, r * 2 + 1, 1, '#bfe8ff');
+    rect(g, sx, sy - r, 1, r * 2 + 1, '#bfe8ff');
+    rect(g, sx - 1, sy - 1, 3, 3, '#ffffff');
+  }
+};
+
+/** Ending card two: dawn, the factory working, and the ship holding over the island in the beacon's light. */
+const paintFound: Paint = (g, t) => {
+  const ground = 70;
+  sky(g, ['#2a2a50', '#4a3a60', '#7a4c62', '#b8685e', '#e8a060'], ground);
+  stars(g, t, 18, 12);
+  for (let y = 0; y < ground; y++) rect(g, 79, y, 2, 1, 'rgba(255, 238, 190, 0.5)');
+
+  // The ship: a hull with running lights and a soft cone under it.
+  const bob = Math.round(Math.sin(t * 1.4) * 1.5);
+  const hx = 64;
+  const hy = 16 + bob;
+  for (let i = 0; i < 26; i++) {
+    const spread = Math.round(i * 0.55);
+    rect(g, hx + 16 - spread, hy + 8 + i, 1 + spread * 2, 1, `rgba(190, 230, 255, ${0.16 - i * 0.005})`);
+  }
+  rect(g, hx + 4, hy + 2, 24, 6, '#3c4658');
+  rect(g, hx, hy + 5, 32, 3, '#4e5a70');
+  rect(g, hx + 10, hy, 12, 3, '#5a667e');
+  rect(g, hx + 13, hy + 1, 6, 1, '#bfe8ff');
+  const on = Math.floor(t * 2) % 2 === 0;
+  rect(g, hx - 1, hy + 6, 2, 1, on ? '#ff5a4a' : '#6a2a2a');
+  rect(g, hx + 31, hy + 6, 2, 1, on ? '#7fd89a' : '#2a5a3a');
+
+  rect(g, 0, ground, W, H - ground, '#243226');
+  for (let i = 0; i < 70; i++) {
+    const x = Math.floor(hash(i, 40) * W);
+    const y = ground + 1 + Math.floor(hash(i, 41) * (H - ground - 2));
+    rect(g, x, y, 1, 2, hash(i, 42) > 0.5 ? '#314a32' : '#1a2a1e');
+  }
+  // The beacon and the factory in morning light.
+  rect(g, 76, 52, 8, ground - 52, '#4a4f5c');
+  rect(g, 74, 50, 12, 3, '#626a7e');
+  rect(g, 78, 47, 4, 3, '#ffe9a8');
+  const blocks: [number, number, number][] = [
+    [8, 58, 20],
+    [30, 62, 16],
+    [50, 56, 14],
+    [100, 60, 18],
+    [122, 56, 14],
+    [140, 60, 16],
+  ];
+  blocks.forEach(([x, y, w]) => {
+    rect(g, x, y, w, ground - y, '#3a3440');
+    rect(g, x, y, w, 1, '#5a4e58');
+    rect(g, x + w - 3, y, 3, ground - y, '#2e2a34');
+  });
+  for (let i = 0; i < 5; i++) {
+    const rise = (t * 5 + i * 6) % 30;
+    rect(g, 130 + rise * 0.3, 52 - rise, 2, 2, rise < 18 ? '#8a7a80' : '#6a5e68');
+  }
+  // Two birds wheel over the scene.
+  for (let i = 0; i < 2; i++) {
+    const bx = (t * (8 + i * 3) + i * 60) % (W + 20) - 10;
+    const by = 36 + i * 8 + Math.round(Math.sin(t * 2 + i) * 2);
+    const flap = Math.floor(t * 6 + i) % 2 === 0;
+    rect(g, bx - 2, by - (flap ? 1 : 0), 2, 1, '#1c1c28');
+    rect(g, bx, by, 1, 1, '#1c1c28');
+    rect(g, bx + 1, by - (flap ? 1 : 0), 2, 1, '#1c1c28');
+  }
+};
+
+/** Which run of cards to show: the arrival on a new island, or lighting the Skyward Beacon. */
+export type StoryDeck = 'opening' | 'ending';
+
+const OPENING: Card[] = [
   {
     title: 'The drop went wide',
     body: () =>
@@ -261,9 +356,30 @@ const CARDS: Card[] = [
   },
 ];
 
+const ENDING: Card[] = [
+  {
+    title: 'Something answered',
+    body: () =>
+      'The beam reached further than the radio ever did. High above the clouds, a light blinked twice and turned toward the island.',
+    paint: paintAnswer,
+  },
+  {
+    title: 'Found',
+    body: () =>
+      'They know where you are now. Keep the beacon fed with processors and it burns on, and every machine on the island works faster in its light. There is always more to build.',
+    paint: paintFound,
+  },
+];
+
+const DECKS: Record<StoryDeck, { cards: Card[]; last: string }> = {
+  opening: { cards: OPENING, last: 'Begin' },
+  ending: { cards: ENDING, last: 'Keep building' },
+};
+
 /**
  * The cards shown once before a new island's first day, saying why you are
- * here and what the long game is. The world holds still behind them.
+ * here and what the long game is, and the pair that answers it once the
+ * Skyward Beacon is lit. The world holds still behind them.
  */
 export class StoryCards {
   private root: HTMLElement;
@@ -274,6 +390,7 @@ export class StoryCards {
   private dots: HTMLElement;
   private next: HTMLButtonElement;
   private index = 0;
+  private deck: StoryDeck = 'opening';
   private peaceful = false;
   private started = 0;
   private lastPaint = 0;
@@ -290,7 +407,7 @@ export class StoryCards {
         <p class="story-body"></p>
         <div class="story-foot">
           <button type="button" class="ghost-btn story-skip">Skip</button>
-          <div class="story-dots">${CARDS.map(() => '<i></i>').join('')}</div>
+          <div class="story-dots"></div>
           <button type="button" class="primary-btn story-next"></button>
         </div>
       </div>`;
@@ -319,11 +436,17 @@ export class StoryCards {
     return this.done !== null;
   }
 
-  /** Show the cards from the first; resolves once the last is turned or they are skipped. */
-  play(peaceful: boolean): Promise<void> {
+  private get cards(): Card[] {
+    return DECKS[this.deck].cards;
+  }
+
+  /** Show a deck from its first card; resolves once the last is turned or they are skipped. */
+  play(deck: StoryDeck, peaceful: boolean): Promise<void> {
     this.close();
+    this.deck = deck;
     this.peaceful = peaceful;
     this.index = 0;
+    this.dots.innerHTML = this.cards.map(() => '<i></i>').join('');
     this.root.hidden = false;
     this.show();
     this.started = performance.now();
@@ -343,7 +466,7 @@ export class StoryCards {
 
   private advance(): void {
     if (!this.isOpen) return;
-    if (this.index >= CARDS.length - 1) {
+    if (this.index >= this.cards.length - 1) {
       this.close();
       return;
     }
@@ -352,10 +475,10 @@ export class StoryCards {
   }
 
   private show(): void {
-    const card = CARDS[this.index];
+    const card = this.cards[this.index];
     this.titleEl.textContent = card.title;
     this.bodyEl.textContent = card.body(this.peaceful);
-    this.next.textContent = this.index === CARDS.length - 1 ? 'Begin' : 'Next';
+    this.next.textContent = this.index === this.cards.length - 1 ? DECKS[this.deck].last : 'Next';
     this.dots.querySelectorAll('i').forEach((dot, i) => dot.classList.toggle('on', i === this.index));
     // Replaying the entrance on each page makes the turn read as a turn.
     const inner = this.root.querySelector<HTMLElement>('.story-card')!;
@@ -391,6 +514,6 @@ export class StoryCards {
     this.lastPaint = now;
     const t = Math.floor((now - this.started) / FRAME_MS) * (FRAME_MS / 1000);
     this.g.clearRect(0, 0, W, H);
-    CARDS[this.index].paint(this.g, t, this.peaceful);
+    this.cards[this.index].paint(this.g, t, this.peaceful);
   }
 }

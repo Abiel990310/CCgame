@@ -1117,8 +1117,13 @@ detail behind the factory entries is in
       firing) in `src/ui/story.ts`; the world holds still behind them, Esc or
       Skip passes them, and the day's title card and camera sweep follow the
       last one. A peaceful island gets quiet nights in the second card.*
-- [ ] A closing story card when the Skyward Beacon's last stage is built, so
+- [x] A closing story card when the Skyward Beacon's last stage is built, so
       the opening's promise ("someone up there will see you") pays off.
+      *Two cards: a light in the sky answers the beam, then a ship holds over
+      the island at dawn and the card says what a fed beacon still does. Only
+      the island's first lit beacon shows them (`litBeacons`).*
+- [ ] Make the ending more than cards: a ship that actually arrives over the
+      lit beacon in the world, and a new tier or island it opens up.
 - [ ] A soft page-turn sound for the story cards, and a Prologue button on
       the menu to read them again.
 - [ ] A display face for titles and headings, bundled from the same site.
