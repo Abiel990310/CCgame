@@ -1025,8 +1025,9 @@ detail behind the factory entries is in
       a lit and a shaded side and real colours (`src/ui/pixelicons.ts`),
       shown at 16 or 32 pixels in the pixel look; the smooth look keeps the
       line icons. The hotbar already showed each piece's own art.*
-- [ ] The top-right pouch shows items as soft round swatches; pixel item
+- [x] The top-right pouch shows items as soft round swatches; pixel item
       sprites like the icons' would match the rest of the HUD.
+      *(2026-09-26: done with the pixel item sprites.)*
 - [x] One tabbed character screen (bag, build, upgrades, map) instead of
       separate modals. *2026-09-26: Tab opens Bag, Gear, Stats and Skills
       (`src/ui/character.ts`); keys 1 to 4 switch, and it reopens on the last
@@ -1092,7 +1093,13 @@ detail behind the factory entries is in
 - [ ] The test bench fills the bag nearly full, so a test that refunds items
       can find no room; give the bench a bigger bag or fewer stacks.
 
-- [ ] A corner minimap on the HUD, drawn from the same image as the island map.
+- [x] A corner minimap on the HUD, drawn from the same image as the island map.
+      *(2026-09-27: 40 tiles round the player under the pouch, with the
+      factory, camp, friends and creatures marked; a click opens the full map
+      (`src/ui/minimap.ts`). Hidden below 900px wide, where the pouch is a
+      strip across the top.)*
+- [ ] The minimap on a phone or tablet: it is hidden there for want of room;
+      a small toggle beside the pouch strip could bring it back.
 - [ ] Index scenery nodes by tile bucket. The mainland has 6–9k nodes and
       gathering, collision and mobs still scan the whole list.
 - [ ] The coal swatch on the island map is nearly invisible against the dark
