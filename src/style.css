@@ -1047,6 +1047,7 @@ kbd {
   flex-direction: column;
   gap: 5px;
   min-width: 0;
+  container-type: inline-size;
 }
 
 .pal-group h3 {
@@ -1119,7 +1120,7 @@ kbd {
 .build-option {
   position: relative;
   display: grid;
-  grid-template-columns: 40px 1fr;
+  grid-template-columns: 40px minmax(0, 1fr);
   grid-template-rows: auto auto;
   align-items: center;
   column-gap: 7px;
@@ -1189,6 +1190,29 @@ kbd {
 
 .build-option.poor b {
   color: var(--ink-dim);
+}
+
+/*
+ * Seven groups share a 1280px screen at about 130px a card, which leaves the
+ * text column 70px: narrower than "Underground" or the Lab's "Workbench" note.
+ * A smaller piece and name buy back the room rather than breaking the word.
+ */
+@container (max-width: 140px) {
+  .build-option {
+    grid-template-columns: 34px minmax(0, 1fr);
+    column-gap: 5px;
+    padding-right: 5px;
+  }
+  .build-option .piece {
+    width: 34px;
+    height: 34px;
+  }
+  .build-option b {
+    font-size: 11px;
+  }
+  .build-option .cost.crafted span {
+    gap: 3px;
+  }
 }
 
 /* The tier rides on the icon's corner, where it reads before the name does. */

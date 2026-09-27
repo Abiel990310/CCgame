@@ -286,8 +286,10 @@ detail behind the factory entries is in
       the palette edge; it scrolls sideways, but nothing says so. A row with
       more cards now fades at its edge and shows an arrow that steps one card
       along, and swipes snap to a card. Checked at 320, 390 and 800x360.
-- [ ] The Lab's "Workbench" note in the desktop build palette runs 5px past
-      its card's right edge at 1280px.
+- [x] The Lab's "Workbench" note in the desktop build palette runs 5px past
+      its card's right edge at 1280px. The Underground Belt's name ran 11px
+      over too. Cards narrower than 140px now use a smaller piece and name;
+      measured clean at 390, 1024, 1280 and 1440px.
 - [x] The overlapping HUD panels are still showing after the UI revamp. The
       co-op code chip sat on the resource pouch at every screen size, and on
       a 320px phone the phase panel wrapped into it. The top-right corner is
@@ -582,8 +584,8 @@ detail behind the factory entries is in
 - [ ] On a phone the bag grid is 6 wide, so 32 and 40 slots leave a short last
       row. Either the bag rows go to 6 on a narrow screen or the grid picks
       its width from the slot count.
-- [ ] A goal for the first satchel, so the first-hour chain points at it
-      once the bag starts to fill.
+- [x] A goal for the first satchel, so the first-hour chain points at it
+      once the bag starts to fill. It comes after copper plates, before gears.
 - [x] A frame-time overlay behind a debug flag, so performance regressions show
       up while playing rather than only under a profiler. F3 (or `?perf=1`,
       which sticks) shows fps, the 95th-percentile and worst frame over two

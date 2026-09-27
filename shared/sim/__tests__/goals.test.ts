@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { CRAFT_BY_ID } from '../../data/crafting';
 import { GOALS } from '../../data/goals';
-import { catchUpGoals } from '../goals';
+import { applyOrder } from '../commands';
+import { catchUpGoals, restoreGoal } from '../goals';
 import { beltAt, placeBelt, turnAt } from '../factory';
 import { addItem, removeItem } from '../inventory';
 import type { World } from '../types';
@@ -80,6 +82,42 @@ describe('goals', () => {
     catchUpGoals(b.world, b.player);
     expect(GOALS[b.player.goal].id).toBe('belt');
     expect(goalEvents(b.world)).toEqual([]);
+  });
+});
+
+describe('the first satchel', () => {
+  const satchel = GOALS.findIndex((g) => g.id === 'satchel');
+
+  it('comes once the bag has ore and plates in it, before the first gears', () => {
+    expect(satchel).toBeGreaterThan(GOALS.findIndex((g) => g.id === 'copperPlate'));
+    expect(satchel).toBeLessThan(GOALS.findIndex((g) => g.id === 'gear'));
+  });
+
+  it('is met by sewing one on at the workbench', () => {
+    const world = createWorld(7, true);
+    const player = addPlayer(world, 'new');
+    player.goal = satchel;
+    world.buildings.push({ id: world.nextId++, type: 'workbench', pos: { x: player.pos.x + 40, y: player.pos.y }, level: 1 });
+    advance(world, 1.1);
+    expect(player.goal).toBe(satchel);
+
+    for (const c of CRAFT_BY_ID.get('satchel')!.cost) addItem(player, c.id, c.count);
+    expect(applyOrder(world, { p: player.id, c: { k: 'craft', id: 'satchel' } })).toBe(true);
+    const seen: string[] = [];
+    for (let i = 0; i < 40; i++) {
+      advance(world, 1 / 30);
+      seen.push(...goalEvents(world));
+    }
+    expect(seen).toEqual(['satchel']);
+    expect(GOALS[player.goal].id).toBe('gear');
+  });
+
+  it('does not move an island saved before the row off the goal it was on', () => {
+    const world = createWorld(7, true);
+    const player = addPlayer(world, 'old');
+    // Old saves kept a place in the chain; 8 was Make gears.
+    restoreGoal(world, player, 8);
+    expect(GOALS[player.goal].id).toBe('gear');
   });
 });
 
