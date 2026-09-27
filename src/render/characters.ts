@@ -54,7 +54,7 @@ interface Outfit {
   cap: string;
 }
 
-const SELF: Outfit = { jacket: '#3e6db0', scarf: '#e8a93a', cap: '#2b3442' };
+export const SELF: Outfit = { jacket: '#3e6db0', scarf: '#e8a93a', cap: '#2b3442' };
 const OTHER: Outfit = { jacket: '#b8643a', scarf: '#d8d2c0', cap: '#3a2f2a' };
 
 const SKIN = '#e6bd95';

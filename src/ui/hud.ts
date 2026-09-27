@@ -14,6 +14,7 @@ import { pieceIconVar } from '../render/pieces';
 import { icon } from './icons';
 import { InventoryScreen } from './inventory';
 import { SoundPanel } from './sound';
+import { Portrait } from './portrait';
 import { SPELL_ICON, upgradeCard } from './upgradecard';
 import {
   GROUPS,
@@ -88,6 +89,7 @@ export class Hud {
     phaseFill: $('phase-fill'),
     level: $('level'),
     levelRing: $('level-ring'),
+    portrait: $<HTMLCanvasElement>('portrait'),
     levelupPrompt: $('levelup-prompt'),
     vitals: document.querySelector<HTMLElement>('.vitals')!,
     levelupLater: $<HTMLButtonElement>('levelup-later'),
@@ -157,6 +159,7 @@ export class Hud {
   private pouchCounts = new Map<string, number>();
   /** What each quick slot places. A client preference, saved on every change. */
   private hotbar: HotbarBinding[] = loadHotbar();
+  private portrait = new Portrait(this.els.portrait);
 
   constructor(private callbacks: HudCallbacks) {
     this.sound = new SoundPanel(this.els.sound);
@@ -647,6 +650,7 @@ export class Hud {
   }
 
   private updateVitals(player: Player): void {
+    this.portrait.update(player, performance.now());
     this.els.level.textContent = String(player.level);
     this.els.levelRing.style.setProperty('--p', String(Math.min(1, player.xp / player.xpToNext)));
     const hp = Math.max(0, Math.round(player.hp));
