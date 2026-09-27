@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { TURRET, TURRET_AMMO } from '../../data/machines';
+import { TICK_DT } from '../constants';
 import { clickSlot } from '../containers';
 import { tileCenter } from '../grid';
 import { countIn } from '../slots';
 import { spawnMob } from '../systems/mobs';
+import { turretWrecked } from '../systems/turret';
 import { insertIntoMachine } from '../systems/factory';
 import type { Machine } from '../types';
 import { advance, at, bench, fill, put, type Bench } from './bench';
@@ -105,5 +107,66 @@ describe('gun turret', () => {
     while (insertIntoMachine(m, 'rounds')) taken++;
     expect(taken).toBe(100);
     expect(insertIntoMachine(m, 'steelRounds')).toBe(true);
+  });
+
+  it('is chewed by a creature beside it until wrecked, then holds its fire', () => {
+    const b = bench();
+    const m = turret(b);
+    b.world.phase = 'night';
+    b.world.phaseTime = 1000;
+    mobBeside(b, m, 40);
+    let bites = 0;
+    let wrecked = false;
+    // A tick at a time: the event buffer only holds the last tick's.
+    for (let i = 0; i < 40 / TICK_DT && !turretWrecked(m); i++) {
+      advance(b.world, TICK_DT);
+      for (const e of b.world.events) {
+        if (e.kind !== 'turretHit') continue;
+        bites++;
+        wrecked ||= e.wrecked;
+      }
+    }
+    expect(turretWrecked(m)).toBe(true);
+    expect(wrecked).toBe(true);
+    // A single brute takes about a dozen bites, not one.
+    expect(bites).toBeGreaterThanOrEqual(Math.floor(TURRET.armour / 14));
+
+    fill(m.input, 'rounds', 20);
+    advance(b.world, 1);
+    expect(countIn(m.input, 'rounds')).toBe(20);
+    expect(m.stalled).toBe(true);
+  });
+
+  it('draws a raider passing close, and is patched at dawn', () => {
+    const b = bench();
+    const m = turret(b);
+    b.world.phase = 'night';
+    b.world.phaseTime = 1000;
+    const c = tileCenter(m.tx, m.ty);
+    // South of the gun, where the camp and the player are nowhere near.
+    const mob = mobBeside(b, m, 0);
+    mob.pos = { x: c.x, y: c.y + TURRET.aggro - 10 };
+    const before = mob.pos.y;
+    advance(b.world, 1);
+    expect(mob.pos.y).toBeLessThan(before);
+    advance(b.world, 10);
+    expect(m.wear ?? 0).toBeGreaterThan(0);
+
+    b.world.phaseTime = 0.01;
+    advance(b.world, 0.1);
+    expect(b.world.phase).toBe('day');
+    expect(m.wear).toBeUndefined();
+  });
+
+  it('is left alone by a creature too far off to notice it', () => {
+    const b = bench();
+    const m = turret(b);
+    b.world.phase = 'night';
+    b.world.phaseTime = 1000;
+    const c = tileCenter(m.tx, m.ty);
+    const mob = mobBeside(b, m, 0);
+    mob.pos = { x: c.x, y: c.y + TURRET.aggro * 3 };
+    advance(b.world, 3);
+    expect(m.wear).toBeUndefined();
   });
 });

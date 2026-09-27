@@ -15,6 +15,7 @@ import { beaconStage } from '@shared/sim/beacon';
 import { countIn } from '@shared/sim/slots';
 import { nearWorkbench } from '@shared/sim/crafting';
 import { findNearestNode } from '@shared/sim/systems/gathering';
+import { turretWrecked } from '@shared/sim/systems/turret';
 import type { Machine, OreKind, Player, ToolKind, Vec2, World } from '@shared/sim/types';
 import type { Camera } from '../render/camera';
 import { isBlocked, outOfFuel } from '../render/factory';
@@ -311,10 +312,17 @@ function describeMachine(world: World, machine: Machine): Card {
     if (steel > 0) rows.push(['Steel Rounds', `${steel}, firing`]);
     rows.push(['Iron Rounds', steel > 0 ? `${iron}` : `${iron} of ${def.slotSize}`]);
     rows.push(['Range', `${Math.round(TURRET.range / TILE)} tiles`]);
+    const wear = machine.wear ?? 0;
+    if (wear > 0) rows.push(['Armour', `${Math.max(0, TURRET.armour - wear)} of ${TURRET.armour}`]);
+    const wrecked = turretWrecked(machine);
     return {
       title: def.name,
       icon: pieceIconVar(`machine:${machine.type}`),
-      status: iron + steel > 0 ? { text: 'Armed', tone: 'good' } : { text: 'Out of rounds', tone: 'bad' },
+      status: wrecked
+        ? { text: 'Wrecked, patched at dawn', tone: 'bad' }
+        : iron + steel > 0
+          ? { text: 'Armed', tone: 'good' }
+          : { text: 'Out of rounds', tone: 'bad' },
       rows,
       hint: 'Click to open',
     };

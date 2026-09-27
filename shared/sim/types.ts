@@ -417,6 +417,12 @@ export interface Machine {
    * for power, so its network cannot mistake it for an idle one.
    */
   unpowered?: boolean;
+  /**
+   * Turrets only: the damage creatures have done to it. At `TURRET.armour` it
+   * is wrecked and silent until the camp patches it at dawn. Absent when
+   * unhurt, so saves stay small.
+   */
+  wear?: number;
   /** Burners only: the fuel grid, sized by the machine's `fuelSlots`. */
   fuel?: Slot[];
   /**
@@ -518,6 +524,8 @@ export type SimEvent =
   | { kind: 'hit'; pos: Vec2; amount: number }
   | { kind: 'shot'; pos: Vec2; weapon: WeaponId }
   | { kind: 'turretShot'; pos: Vec2; ammo: TurretAmmo }
+  /** A creature bit a turret; `wrecked` when that bite finished it. */
+  | { kind: 'turretHit'; pos: Vec2; wrecked: boolean }
   | { kind: 'collected'; pos: Vec2; item: ItemId | null; count: number; playerId: number }
   | { kind: 'produced'; pos: Vec2; machine: MachineId; item: ItemId; count: number }
   | { kind: 'placed'; pos: Vec2; what: MachineId | 'belt' }
