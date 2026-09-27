@@ -1066,7 +1066,12 @@ detail behind the factory entries is in
 - [ ] 8. **Story framing.** Illustrated story cards and portraits; ours has
       none.
       *2026-09-26: a new island opens on three illustrated pixel story cards,
-      and lighting the Skyward Beacon answers them. Still missing: portraits.*
+      and lighting the Skyward Beacon answers them. The vitals ring now holds
+      a live pixel portrait of your character (it blinks, flinches when hit,
+      pulses red below 30% health and greys out when downed), with the level
+      on a badge. The story has no speaking characters to give portraits to;
+      a radio voice with a face on the ending cards is the next candidate.*
+- [ ] A face for the voice that answers the beacon, shown on the ending cards.
 
 ### Ideas
 
