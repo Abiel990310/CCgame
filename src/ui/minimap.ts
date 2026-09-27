@@ -19,6 +19,12 @@ export class Minimap {
   private canvas: HTMLCanvasElement;
   private timer = 0;
   private pending = 0;
+  /**
+   * The map's width, told by the browser when it changes; 0 while the corner
+   * hides it. Reading layout every frame, after the HUD has changed the page,
+   * made the browser lay out the whole interface again each frame to answer.
+   */
+  private width = 0;
 
   constructor(
     parent: HTMLElement,
@@ -33,11 +39,14 @@ export class Minimap {
     this.root.appendChild(this.canvas);
     this.root.addEventListener('click', onOpen);
     parent.appendChild(this.root);
+    new ResizeObserver((entries) => {
+      for (const entry of entries) this.width = entry.contentRect.width;
+    }).observe(this.canvas);
   }
 
   update(world: World, selfId: number, dt: number): void {
     // The full map is up, or the corner is too narrow for one (see CSS).
-    const shown = !this.map.isOpen && this.root.offsetParent !== null;
+    const shown = !this.map.isOpen && this.width > 0;
     this.root.classList.remove('hidden');
     this.pending += dt;
     this.timer -= dt;
@@ -49,7 +58,7 @@ export class Minimap {
     if (!layers || !self) return;
 
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const size = Math.round(this.canvas.clientWidth * dpr);
+    const size = Math.round(this.width * dpr);
     if (size <= 0) return;
     if (this.canvas.width !== size) {
       this.canvas.width = size;
