@@ -14,6 +14,7 @@ import {
   type QueueOp,
 } from '@shared/sim/research';
 import { countIn, totalIn } from '@shared/sim/slots';
+import { moduleEffects } from '@shared/sim/modules';
 import { BEACON_BOOST, BEACON_STAGES, BEACON_WARD_TILES } from '@shared/data/beacon';
 import { beaconLit, beaconStage } from '@shared/sim/beacon';
 import { audio } from '../audio';
@@ -78,6 +79,9 @@ export class InventoryScreen {
     fuelBlock: HTMLElement;
     fuelGrid: HTMLElement;
     fuelNote: HTMLElement;
+    modulesBlock: HTMLElement;
+    modulesGrid: HTMLElement;
+    modulesNote: HTMLElement;
     outputBlock: HTMLElement;
     outputGrid: HTMLElement;
     progress: HTMLElement;
@@ -140,6 +144,9 @@ export class InventoryScreen {
       fuelBlock: must('inv-fuel'),
       fuelGrid: must('inv-fuel-grid'),
       fuelNote: must('inv-fuel-note'),
+      modulesBlock: must('inv-modules'),
+      modulesGrid: must('inv-modules-grid'),
+      modulesNote: must('inv-modules-note'),
       outputBlock: must('inv-output'),
       outputGrid: must('inv-output-grid'),
       progress: must('inv-progress'),
@@ -168,6 +175,7 @@ export class InventoryScreen {
       { area: 'input', el: this.els.inputGrid, cells: [] },
       { area: 'filter', el: this.els.filterGrid, cells: [] },
       { area: 'fuel', el: this.els.fuelGrid, cells: [] },
+      { area: 'modules', el: this.els.modulesGrid, cells: [] },
       { area: 'output', el: this.els.outputGrid, cells: [] },
       { area: 'bag', el: this.els.bagGrid, cells: [] },
     ];
@@ -338,9 +346,11 @@ export class InventoryScreen {
     this.els.settings.classList.toggle('hidden', !hasSettings(machine));
     this.paintPaste();
     this.els.fuelBlock.classList.toggle('hidden', def.fuelSlots === 0);
+    this.els.modulesBlock.classList.toggle('hidden', !def.moduleSlots);
 
     this.buildGrid('input', def.inputSlots);
     this.buildGrid('fuel', def.fuelSlots);
+    this.buildGrid('modules', def.moduleSlots ?? 0);
     this.buildGrid('output', def.outputSlots);
     if (def.family === 'splitter') this.buildSides();
   }
@@ -484,7 +494,7 @@ export class InventoryScreen {
       list.map((s) => (s ? `${s.id}x${s.count}` : '-')).join(',');
     const cursor = player.cursor ? `${player.cursor.id}x${player.cursor.count}` : '-';
     const held = machine
-      ? `${slots(machine.input)}|${slots(machine.output)}|${slots(machine.fuel ?? [])}|${machine.recipe ?? ''}`
+      ? `${slots(machine.input)}|${slots(machine.output)}|${slots(machine.fuel ?? [])}|${slots(machine.modules ?? [])}|${machine.recipe ?? ''}`
       : '';
     const sides = machine?.filters?.join(',') ?? '';
     return `${slots(player.inventory)}|${held}|${cursor}|${sides}|${this.filtering}`;
@@ -504,6 +514,10 @@ export class InventoryScreen {
       this.paintGrid('input', machine.input, filters, filters ? undefined : wants(machine.input, recipe?.inputs.map((i) => i.id)), 'Takes');
       this.paintGrid('output', machine.output, undefined, wants(machine.output, recipe?.outputs.map((i) => i.id)), 'Makes');
       if (machine.fuel) this.paintGrid('fuel', machine.fuel, undefined, wants(machine.fuel, FUEL_ITEMS), 'Burns');
+      if (machine.modules) {
+        this.paintGrid('modules', machine.modules);
+        this.paintModulesNote(machine);
+      }
       if (MACHINES[machine.type].family === 'splitter') this.paintSides(machine);
       const stored =
         totalIn(machine.input) + totalIn(machine.output) + totalIn(machine.fuel ?? []);
@@ -576,6 +590,17 @@ export class InventoryScreen {
           : 'Fuelled';
     if (this.els.fuelNote.textContent !== text) this.els.fuelNote.textContent = text;
     this.els.fuelNote.classList.toggle('warn', heat <= 0);
+  }
+
+  /** What the fitted modules add up to, or what the slots are for when empty. */
+  private paintModulesNote(machine: Machine): void {
+    const fx = moduleEffects(machine);
+    const pct = (share: number): string => `${share > 0 ? '+' : '−'}${Math.round(Math.abs(share) * 100)}%`;
+    const parts: string[] = [];
+    if (Math.abs(fx.speed - 1) > 1e-6) parts.push(`${pct(fx.speed - 1)} speed`);
+    if (fx.output > 0) parts.push(`${pct(fx.output)} output`);
+    if (MACHINES[machine.type].power && Math.abs(fx.power - 1) > 1e-6) parts.push(`${pct(fx.power - 1)} power`);
+    this.els.modulesNote.textContent = parts.length > 0 ? parts.join(' · ') : 'Speed, output or efficiency';
   }
 
   private craftDuration(machine: Machine, speed: number): number {

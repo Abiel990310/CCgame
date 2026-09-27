@@ -9,6 +9,7 @@ import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
 import { powerNetOf } from '@shared/sim/power';
+import { powerDraw } from '@shared/sim/modules';
 import { BEACON_BOOST, BEACON_FUEL_CAP, BEACON_STAGES, BEACON_WARD_TILES } from '@shared/data/beacon';
 import { beaconStage } from '@shared/sim/beacon';
 import { countIn } from '@shared/sim/slots';
@@ -345,7 +346,11 @@ function describeMachine(world: World, machine: Machine): Card {
   const net = def.power ? powerNetOf(world, machine) : null;
   if (def.power) {
     const pace = net ? Math.round(net.satisfaction * 100) : 0;
-    rows.push(['Power', `${def.power} kW${net && pace < 100 ? `, ${pace}% speed` : ''}`]);
+    rows.push(['Power', `${Math.round(powerDraw(machine))} kW${net && pace < 100 ? `, ${pace}% speed` : ''}`]);
+  }
+  if (def.moduleSlots) {
+    const fitted = (machine.modules ?? []).filter((s) => s !== null).length;
+    rows.push(['Modules', `${fitted} / ${def.moduleSlots}`]);
   }
   const held = [...machine.input, ...machine.output].reduce((n, s) => n + (s ? s.count : 0), 0);
   if (def.storage || held > 0) rows.push(['Holding', `${held} ${held === 1 ? 'item' : 'items'}`]);

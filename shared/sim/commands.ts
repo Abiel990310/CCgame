@@ -170,7 +170,7 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
   }
 }
 
-const AREAS: readonly SlotArea[] = ['bag', 'input', 'output', 'filter', 'fuel'];
+const AREAS: readonly SlotArea[] = ['bag', 'input', 'output', 'filter', 'fuel', 'modules'];
 
 function isInt(n: unknown): n is number {
   return typeof n === 'number' && Number.isInteger(n);
@@ -222,7 +222,9 @@ function isSlot(world: World, player: Player, machineId: unknown, ref: unknown):
         ? machine.output.length
         : area === 'fuel'
           ? (machine.fuel?.length ?? 0)
-          : Math.max(machine.filters?.length ?? 0, machine.input.length);
+          : area === 'modules'
+            ? (machine.modules?.length ?? 0)
+            : Math.max(machine.filters?.length ?? 0, machine.input.length);
   return index < size;
 }
 

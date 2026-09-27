@@ -169,6 +169,7 @@ export function checksum(world: World): number {
     mix(m.id);
     mix(m.progress);
     for (const slot of m.output) mix(slot ? slot.count : -1);
+    for (const slot of m.modules ?? []) mix(slot ? 1 : 0);
   }
   for (const b of world.belts) {
     mix(b.items.length);

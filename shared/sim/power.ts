@@ -1,5 +1,6 @@
 import { FUEL_VALUE, GENERATOR_FUEL_SHARE, MACHINES } from '../data/machines';
 import { tileKey } from './grid';
+import { powerDraw } from './modules';
 import { researchBonuses } from './research';
 import { takeFromSlots } from './slots';
 import type { Machine, World } from './types';
@@ -168,7 +169,7 @@ export function stepPower(world: World, dt: number): void {
   for (const net of nets) {
     net.demand = 0;
     for (const m of net.consumers) {
-      if (!m.stalled || m.unpowered) net.demand += MACHINES[m.type].power ?? 0;
+      if (!m.stalled || m.unpowered) net.demand += powerDraw(m);
     }
 
     net.supply = 0;

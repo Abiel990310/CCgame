@@ -520,8 +520,13 @@ detail behind the factory entries is in
       recipe, its contents and its facing. Built: any higher tier of the same
       family can go over a lower one (Mk1 straight to Mk3 too), the old machine
       is refunded as removing it would be, and the ghost takes the old facing.
-- [ ] **Modules** — a slotted item for +speed, +output or −power in a tier-3
-      machine. A sink that never saturates.
+- [x] **Modules** — a slotted item for +speed, +output or −power in a tier-3
+      machine. A sink that never saturates. *Built 2026-09-27: Speed (+50%
+      speed, +70% power), Output (+10% free crafts, −15% speed, +40% power) and
+      Efficiency (−40% power) modules, made in an assembler from processors.
+      Every Mk3 miner, furnace and assembler has two module slots, fitted by
+      hand (shift-click from the bag); an output module on a miner brings up
+      ore the patch does not lose. Speed and power floor at 20%.*
 - [ ] **Belt tiers Mk2 and Mk3** (3.2 and 6.4 tiles/s), pending the open
       question on whether belts get tiers at all.
 - [x] **Underground belts** — a placed pair passing items beneath up to 6
@@ -598,6 +603,8 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [ ] Recipe cards in the machine screen show the machine's base craft time,
+      ignoring research and modules; show the real time a craft takes there.
 - [x] **Nights keep getting harder.** A scripted player showed nights 6 to 9
       costing less health than night 5, and night 20 barely scratched: the
       wave budget grew in a straight line while player power compounds. The
@@ -1264,6 +1271,13 @@ detail behind the factory entries is in
 - [ ] Item tooltips in the bag with what the item is for and where it comes from.
 - [ ] Hitstop for co-op: a host-side freeze all guests replay.
 - [ ] Drop arcs are stepped at the 30 Hz tick; interpolate `settle` too.
+- [ ] Module tiers (Mk2, Mk3 modules) with bigger effects, so modules keep
+      soaking up processors after every machine is full.
+- [ ] Module slots on labs and the stack inserter, and a tier-3 lab to hold them.
+- [ ] Show fitted modules on the machine out in the world (a coloured pip per
+      slot), so a player can see which furnaces are fitted without opening them.
+- [ ] Let inserters feed modules into empty module slots, for fitting a whole
+      bank of machines from a chest.
 
 - [ ] Footsteps on factory floor: a hollow metal clank when crossing belts and
       machines, and a splash when wading the shallows, so the base sounds built.
@@ -1272,6 +1286,9 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Module balance over a long island: whether output modules on miners are
+      worth their processors, and whether speed modules overload a typical
+      steam network too easily.
 - [ ] Footsteps and the menu muffle by ear on real speakers. The sandbox checked
       them with an analyser on the output (each ground plays its own step; the
       bag cuts a grass step's highs by about 35 dB), never by listening.
