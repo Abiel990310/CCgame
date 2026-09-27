@@ -20,8 +20,18 @@ export interface MobDef {
   spit?: { range: number; interval: number; speed: number; damage: number };
   /** Bursts into smaller mobs when it dies. */
   splits?: { into: MobTypeId; count: number };
-  /** Calls a few of these in around itself every `interval` seconds while it lives. */
-  summons?: { into: MobTypeId; count: number; interval: number };
+  /**
+   * Calls a few of these in around itself every `interval` seconds while it
+   * lives; `rageCount` of them at a time once it is enraged.
+   */
+  summons?: { into: MobTypeId; count: number; interval: number; rageCount?: number };
+  /**
+   * A boss's second-phase move: once enraged it stops, rears up for `windup`
+   * seconds over a ring on the ground, then slams, hurting and throwing back
+   * everyone inside `radius`. A dash out of the ring, or through the blow,
+   * escapes it.
+   */
+  quake?: { radius: number; damage: number; interval: number; windup: number; knock: number };
   /**
    * Never bought from a night's budget: one walks in at the start of every
    * night that is a multiple of this, once it has reached `minNight`.
@@ -150,6 +160,7 @@ export const MOBS: Record<MobTypeId, MobDef> = {
     accent: '#e0a040',
     armor: 3,
     bossEvery: 5,
+    quake: { radius: 120, damage: 22, interval: 5, windup: 1.4, knock: 420 },
     epithet: 'The hill has got up and is walking',
     loot: { orbs: 16, essence: 0.6 },
   },
@@ -170,7 +181,7 @@ export const MOBS: Record<MobTypeId, MobDef> = {
     accent: '#f0c850',
     armor: 1,
     spit: { range: 290, interval: 2.4, speed: 250, damage: 12 },
-    summons: { into: 'crawler', count: 3, interval: 9 },
+    summons: { into: 'crawler', count: 3, interval: 9, rageCount: 6 },
     bossEvery: 5,
     bossPhase: 3,
     epithet: 'Mother of the swarm',

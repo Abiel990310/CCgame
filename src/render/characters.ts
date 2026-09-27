@@ -737,6 +737,8 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   }
   if ((mob.chill ?? 0) > 0) drawFrost(ctx, mob, time, true);
   if (mob.enraged) drawRage(ctx, mob, time);
+  const quaking = (mob.quake ?? 0) > 0 && def.quake !== undefined;
+  if (quaking) drawQuakeWarning(ctx, mob, time);
   setFlash(mob.hitFlash > 0 ? 1 : 0);
   ctx.save();
   // Pixel creatures have their own rearing and flash frames; stretching a
@@ -756,6 +758,13 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
     ctx.translate(mob.pos.x, feet);
     ctx.scale(1 + 0.16 * k, 1 - 0.14 * k);
     ctx.translate(-mob.pos.x, -feet);
+  }
+  // Rearing up for the quake: the whole body rises off the ground, then
+  // trembles on the last beat before it comes down.
+  if (quaking) {
+    const k = 1 - (mob.quake ?? 0) / def.quake!.windup;
+    const shiver = k > 0.75 ? Math.round(Math.sin(time * 70) * 1.5) : 0;
+    ctx.translate(shiver, -Math.round(10 * Math.min(1, k * 1.4)));
   }
   switch (mob.type) {
     case 'slime':
@@ -856,6 +865,33 @@ function glints(ctx: CanvasRenderingContext2D, mob: Mob, r: number, fade: number
  * An enraged boss burns: a red heat pulsing on the ground under it and
  * embers rising off it, so its turn is seen for the rest of the fight.
  */
+/**
+ * Where an enraged boss's quake will land: the full ring marked on the ground
+ * from the start, and a red disc filling it from the middle out, so how long
+ * is left to get clear reads at a glance.
+ */
+function drawQuakeWarning(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
+  const def = MOBS[mob.type];
+  const q = def.quake!;
+  const k = 1 - (mob.quake ?? 0) / q.windup;
+  const feet = mob.pos.y + def.radius * 0.6;
+  const blink = 0.75 + 0.25 * Math.sin(time * (10 + 20 * k));
+  ctx.save();
+  ctx.fillStyle = `rgba(230, 40, 30, ${0.12 + 0.22 * k})`;
+  ctx.beginPath();
+  ctx.ellipse(mob.pos.x, feet, q.radius * k, q.radius * k * 0.55, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = blink;
+  ctx.strokeStyle = '#ff4a3a';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([10, 7]);
+  ctx.lineDashOffset = -time * 40;
+  ctx.beginPath();
+  ctx.ellipse(mob.pos.x, feet, q.radius, q.radius * 0.55, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawRage(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
   const r = MOBS[mob.type].radius;
   const feet = mob.pos.y + r * 0.6;

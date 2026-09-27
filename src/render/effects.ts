@@ -114,6 +114,18 @@ export class Effects {
           this.text({ x: event.pos.x, y: event.pos.y - MOBS[event.type].radius * 2.4 }, 'Enraged!', '#ff8a5a', 18);
           this.shake = Math.min(14, this.shake + 10);
           break;
+        case 'quake': {
+          // The slam lands: a hard shockwave the size of the warning ring,
+          // a second close behind it, and the ground thrown up all round.
+          this.rings.push({ pos: { ...event.pos }, radius: event.radius, life: 0.45, maxLife: 0.45, color: '#ffb070' });
+          this.rings.push({ pos: { ...event.pos }, radius: event.radius * 0.6, life: 0.3, maxLife: 0.3, color: '#fff0d0' });
+          for (let i = 0; i < 10; i++) {
+            const a = (i / 10) * Math.PI * 2;
+            this.dust({ x: event.pos.x + Math.cos(a) * event.radius * 0.7, y: event.pos.y + Math.sin(a) * event.radius * 0.4 }, 3, 2.6);
+          }
+          this.shake = Math.min(16, this.shake + 11);
+          break;
+        }
         case 'gathered':
           this.burst(event.pos, 6, '#f0e2c0', 110);
           break;

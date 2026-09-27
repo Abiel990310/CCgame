@@ -1065,8 +1065,15 @@ detail behind the factory entries is in
       at half health it turns: a roar with shock rings and a frame hold,
       then it burns red and moves and attacks half again as fast
       (`BOSS_RAGE`). Done 2026-09-26: a boss now arrives with an entrance, letterbox bars, the camera panning out to it, its title card and a roar, then back (Esc skips).*
-- [ ] A boss's second phase could add a move, not only speed: the warden
+- [x] A boss's second phase could add a move, not only speed: the warden
       slamming the ground, the queen calling twice as many.
+      *(2026-09-27: an enraged Stone Warden stops, rears up over a dashed
+      red ring that fills as the slam nears, then quakes: 22 damage and a
+      hard throw for anyone still inside, a dash through it dodges. An
+      enraged Swarm Queen calls six at a time instead of three. Both are
+      rows in `shared/data/mobs.ts` (`quake`, `rageCount`).)*
+- [ ] The Crystal Bulwark has no second-phase move yet; its ward could
+      pulse outward and shove players back once it is enraged.
 - [ ] The Stone Warden reads pale and washed out below a third of its
       health, where its cracks and core glow are brightest.
 - [ ] 7. **Movement verbs.** Jump, roll, wall-jump, hook, air dash; ours is
