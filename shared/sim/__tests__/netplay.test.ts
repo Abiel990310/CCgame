@@ -79,6 +79,8 @@ describe('co-op replay', () => {
     addPerk(player, spellPerk('fireball'));
     addPerk(player, spellPerk('frostNova'));
     player.spell = 'fireball';
+    // Modules to fit into a tier 3 furnace built mid-run.
+    addItem(player, 'speedModule', 2);
     const snap = decode<Snapshot>(encode(takeSnapshot(host)));
     const guest = restoreSnapshot(snap);
     expect(checksum(guest)).toBe(checksum(host));
@@ -105,6 +107,12 @@ describe('co-op replay', () => {
         // exit, which a guest has to decide the same way.
         pending.push({ p: player.id, c: { k: 'machine', what: 'tunnel', tx: ore.tx, ty: ore.ty + 3, dir: 0 } });
         pending.push({ p: player.id, c: { k: 'machine', what: 'tunnel', tx: ore.tx + 4, ty: ore.ty + 3, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'furnaceMk3', tx: ore.tx + 6, ty: ore.ty, dir: 0 } });
+      }
+      if (t === 401) {
+        const mk3 = host.machines.find((m) => m.type === 'furnaceMk3')!;
+        const index = player.inventory.findIndex((s) => s?.id === 'speedModule');
+        pending.push({ p: player.id, c: { k: 'quick', machine: mk3.id, ref: { area: 'bag', index } } });
       }
       const tick = hostTick(host, pending, inputs);
       pending = [];
@@ -115,6 +123,10 @@ describe('co-op replay', () => {
     }
 
     expect(host.machines.filter((m) => m.type === 'tunnelExit')).toHaveLength(1);
+    expect(guest.machines.find((m) => m.type === 'furnaceMk3')!.modules).toEqual([
+      { id: 'speedModule', count: 1 },
+      { id: 'speedModule', count: 1 },
+    ]);
     expect(host.nightIndex).toBeGreaterThan(0);
     expect(host.players.size).toBe(2);
     expect(player.bag).toBe(1);

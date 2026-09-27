@@ -168,6 +168,41 @@ export const RECIPES: Recipe[] = [
     outputs: [{ id: 'lens', count: 1 }],
   },
   {
+    id: 'speedModule',
+    name: 'Speed Module',
+    machine: 'assembler',
+    time: 20,
+    inputs: [
+      { id: 'processor', count: 1 },
+      { id: 'motor', count: 2 },
+    ],
+    outputs: [{ id: 'speedModule', count: 1 }],
+  },
+  {
+    id: 'efficiencyModule',
+    name: 'Efficiency Module',
+    machine: 'assembler',
+    time: 20,
+    inputs: [
+      { id: 'processor', count: 1 },
+      { id: 'battery', count: 3 },
+    ],
+    outputs: [{ id: 'efficiencyModule', count: 1 }],
+  },
+  {
+    // The lens puts essence in it: free output is the island's gift, not the
+    // factory's, the same as the beacon's light.
+    id: 'outputModule',
+    name: 'Output Module',
+    machine: 'assembler',
+    time: 30,
+    inputs: [
+      { id: 'processor', count: 2 },
+      { id: 'lens', count: 1 },
+    ],
+    outputs: [{ id: 'outputModule', count: 1 }],
+  },
+  {
     id: 'researchPack',
     name: 'Research Pack',
     machine: 'assembler',

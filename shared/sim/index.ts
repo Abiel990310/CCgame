@@ -18,3 +18,4 @@ export * from './factory';
 export * from './goals';
 export * from './explore';
 export * from './power';
+export * from './modules';

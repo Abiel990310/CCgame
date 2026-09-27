@@ -9,6 +9,7 @@ import { clearBuriedNodes } from '@shared/sim/nodes';
 import { bagSlots } from '@shared/sim/inventory';
 import { BAG_MAX } from '@shared/data/items';
 import { asStack, normalizeSlots } from '@shared/sim/slots';
+import { normalizeModules } from '@shared/sim/modules';
 import type {
   Belt,
   Building,
@@ -119,6 +120,12 @@ type PackedMachine = [
   /**
    * A burner's fuel grid and the heat left in it. Only a burner has them, and
    * any other row stops before this point, so older islands read as unfuelled.
+   */
+  PackedSlot[]?,
+  number?,
+  /**
+   * A tier 3 machine's module grid and the free craft it has banked. Rows
+   * packed before modules existed stop earlier, and read as empty slots.
    */
   PackedSlot[]?,
   number?,
@@ -481,6 +488,10 @@ function packMachine(machine: Machine): PackedMachine {
     packed[13] = packSlots(machine.fuel);
     packed[14] = round(machine.heat ?? 0, 3);
   }
+  if (machine.modules) {
+    packed[15] = packSlots(machine.modules);
+    packed[16] = round(machine.bonus ?? 0, 4);
+  }
   return packed;
 }
 
@@ -512,6 +523,10 @@ function unpackMachine(packed: PackedMachine): Machine {
   if (packed[13]) {
     machine.fuel = unpackSlots(packed[13]);
     machine.heat = packed[14] ?? 0;
+  }
+  if (packed[15]) {
+    machine.modules = unpackSlots(packed[15]);
+    machine.bonus = packed[16] ?? 0;
   }
   return machine;
 }
@@ -578,6 +593,16 @@ function loadMachine(machine: Machine): Machine {
   } else {
     delete loaded.fuel;
     delete loaded.heat;
+  }
+  // Module slots come from the table too, so an island built before modules
+  // finds its tier 3 machines with empty slots waiting.
+  if (def.moduleSlots) {
+    loaded.modules = normalizeModules(machine.modules ?? [], def.moduleSlots);
+    const bonus = machine.bonus;
+    loaded.bonus = typeof bonus === 'number' && bonus > 0 && bonus < 1 ? bonus : 0;
+  } else {
+    delete loaded.modules;
+    delete loaded.bonus;
   }
   return loaded;
 }

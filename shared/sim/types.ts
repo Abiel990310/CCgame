@@ -44,6 +44,10 @@ export type ItemId =
   | 'powerPack'
   | 'resonancePack'
   | 'engineeringPack'
+  // Fitted into a tier 3 machine's module slots
+  | 'speedModule'
+  | 'outputModule'
+  | 'efficiencyModule'
   // Crafted at the workbench
   | ToolItemId
   | CraftedMachineId;
@@ -409,6 +413,17 @@ export interface Machine {
   unpowered?: boolean;
   /** Burners only: the fuel grid, sized by the machine's `fuelSlots`. */
   fuel?: Slot[];
+  /**
+   * Tier 3 only: the module grid, sized by the machine's `moduleSlots`, one
+   * module to a slot.
+   */
+  modules?: Slot[];
+  /**
+   * Output modules only: the share of a free craft banked so far. A craft
+   * worth 1.2 pays its extra fifth into this, and a whole one comes out once
+   * it passes 1, so the bonus is exact rather than a roll.
+   */
+  bonus?: number;
   /**
    * Burners only: seconds of recipe work left from the fuel already burned.
    * Kept apart from the grid so a craft paid for by one coal does not need a

@@ -200,3 +200,33 @@ describe('saving an underground belt', () => {
     expect(loaded[1].output[0]).toEqual({ id: 'ironPlate', count: 3 });
   });
 });
+
+describe('saving a tier 3 machine with modules in it', () => {
+  it('brings the modules and the banked output back', () => {
+    const world = createWorld(7, true);
+    const mk3 = machine('assemblerMk3', 30, 30);
+    mk3.modules = [{ id: 'outputModule', count: 1 }, null];
+    mk3.bonus = 0.3;
+    world.machines.push(mk3, machine('assemblerMk2', 31, 30));
+
+    expect(saveWorld(world, 'a')).toBe(true);
+    const [fitted, plain] = loadWorld('a')!.machines;
+    expect(fitted.modules).toEqual([{ id: 'outputModule', count: 1 }, null]);
+    expect(fitted.bonus).toBeCloseTo(0.3);
+    expect(plain.modules).toBeUndefined();
+  });
+
+  it('gives a tier 3 machine saved before modules existed empty slots', () => {
+    const world = createWorld(7, true);
+    world.machines.push(machine('furnaceMk3', 30, 30));
+    saveWorld(world, 'b');
+
+    const factory = JSON.parse(store.get(slotKey('b') + FACTORY_SUFFIX)!);
+    factory.machines[0] = factory.machines[0].slice(0, 11);
+    store.set(slotKey('b') + FACTORY_SUFFIX, JSON.stringify(factory));
+
+    const loaded = loadWorld('b')!.machines[0];
+    expect(loaded.modules).toEqual([null, null]);
+    expect(loaded.bonus).toBe(0);
+  });
+});

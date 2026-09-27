@@ -31,6 +31,7 @@ import { tileCenter } from '../grid';
 import { rollDrop } from './gathering';
 import { TURRET_AMMO, stepTurret } from './turret';
 import { minerSource, oreAt, takeOre } from '../ore';
+import { bankBonus, moduleEffects } from '../modules';
 import { powerFactor, powerNetOf } from '../power';
 import { nextFloat } from '../progression';
 import { activeTech, finishCycle, researchBonuses, type ResearchBonuses } from '../research';
@@ -330,8 +331,9 @@ function stepMiner(world: World, machine: Machine, dt: number, bonus: ResearchBo
     return;
   }
 
+  const modules = moduleEffects(machine);
   machine.stalled = false;
-  machine.progress += dt * def.speed * bonus.mining;
+  machine.progress += dt * def.speed * bonus.mining * modules.speed;
   if (machine.progress < MINE_TIME) return;
 
   machine.progress -= MINE_TIME;
@@ -342,6 +344,15 @@ function stepMiner(world: World, machine: Machine, dt: number, bonus: ResearchBo
   if (!spared && !takeOre(world, source.tx, source.ty)) return;
   addToSlots(machine.output, ore, 1, def.slotSize);
   announce(world, machine, ore);
+  // An output module's ore is brought up without the tile giving any, so it
+  // stretches a finite patch the way yield research does, only surer.
+  const free = bankBonus(machine, modules.output);
+  if (free > 0 && roomFor(machine.output, ore, def.slotSize) >= free) {
+    addToSlots(machine.output, ore, free, def.slotSize);
+    announce(world, machine, ore, free);
+  } else if (free > 0) {
+    machine.bonus = (machine.bonus ?? 0) + free;
+  }
   // Said once, on the ore that emptied it: from here on a stalled miner looks
   // the same as one whose belt has backed up, and the player needs to know
   // this one will not start again.
@@ -707,7 +718,8 @@ function stepCrafter(
   }
 
   machine.stalled = false;
-  const step = dt * bonus.crafting;
+  const modules = moduleEffects(machine);
+  const step = dt * bonus.crafting * modules.speed;
   machine.progress += step;
   // Heat is spent in recipe seconds, so the same craft costs the same fuel in
   // every tier. It may dip below zero by one tick's worth, which the next
@@ -716,9 +728,18 @@ function stepCrafter(
   if (machine.progress < duration) return;
 
   machine.progress = 0;
+  // A free craft with no room to land in stays banked for the next one, so a
+  // backed-up line neither loses it nor stalls on it.
+  let crafts = 1;
+  const free = bankBonus(machine, modules.output);
+  if (free > 0) {
+    const fits = recipe.outputs.every((out) => roomFor(machine.output, out.id, def.slotSize) >= out.count * (1 + free));
+    if (fits) crafts += free;
+    else machine.bonus = (machine.bonus ?? 0) + free;
+  }
   for (const out of recipe.outputs) {
-    addToSlots(machine.output, out.id, out.count, def.slotSize);
-    announce(world, machine, out.id, out.count);
+    addToSlots(machine.output, out.id, out.count * crafts, def.slotSize);
+    announce(world, machine, out.id, out.count * crafts);
   }
 }
 

@@ -1,4 +1,5 @@
 import { MACHINES, isFuel } from '../data/machines';
+import { isModule } from '../data/modules';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { isResearchPack } from '../data/techs';
 import { hasSlotFilters, isSplitter, setSideFilter, setSlotFilter, splitterAccepts } from './factory';
@@ -28,7 +29,7 @@ import type { ItemId, Machine, Player, Slot, World } from './types';
  * point it at that item, click it empty-handed to open it up again. A chest's
  * slots take the same gesture with `filter` naming the slot by its index.
  */
-export type SlotArea = 'bag' | 'input' | 'output' | 'filter' | 'fuel';
+export type SlotArea = 'bag' | 'input' | 'output' | 'filter' | 'fuel' | 'modules';
 
 export interface SlotRef {
   area: SlotArea;
@@ -46,12 +47,14 @@ function slotsFor(player: Player, machine: Machine | null, area: SlotArea): Slot
   if (area === 'bag') return player.inventory;
   if (!machine || area === 'filter') return null;
   if (area === 'fuel') return machine.fuel ?? null;
+  if (area === 'modules') return machine.modules ?? null;
   return area === 'input' ? machine.input : machine.output;
 }
 
 /** The per-slot ceiling in one area. Machines hold less per slot than a bag. */
 function capIn(machine: Machine | null, area: SlotArea, id: ItemId): number {
   if (area === 'bag' || !machine) return slotCap(id);
+  if (area === 'modules') return 1;
   // A beacon slot holds a stage's worth and no more, so a stack handed in
   // whole leaves the rest in hand rather than clogging the next stage.
   if (area === 'input' && MACHINES[machine.type].family === 'beacon') {
@@ -84,6 +87,7 @@ export function accepts(
   if (area === 'output') return false;
   if (area === 'filter') return isSplitter(machine) || hasSlotFilters(machine);
   if (area === 'fuel') return !!machine.fuel && isFuel(id);
+  if (area === 'modules') return !!machine.modules && isModule(id);
 
   const def = MACHINES[machine.type];
   if (def.inputSlots === 0) return false;
@@ -247,13 +251,15 @@ export function quickMove(
     // cannot hold goes on to the recipe, as it would off a belt.
     const size = MACHINES[machine.type].slotSize;
     let moved = 0;
-    for (const area of ['fuel', 'input'] as const) {
+    // A module goes into a module slot, one to each, and never into a recipe.
+    for (const area of ['modules', 'fuel', 'input'] as const) {
       const target = slotsFor(player, machine, area);
       if (!target || !accepts(machine, area, slot.id)) continue;
-      const wants = area === 'fuel' ? Infinity
+      const wants = area === 'fuel' || area === 'modules' ? Infinity
         : MACHINES[machine.type].family === 'beacon' ? beaconWants(machine, slot.id)
         : handLoadRoom(machine, slot.id);
-      moved += addToSlots(target, slot.id, Math.min(wants, slot.count - moved), size, filtersIn(machine, area));
+      const cap = area === 'modules' ? 1 : size;
+      moved += addToSlots(target, slot.id, Math.min(wants, slot.count - moved), cap, filtersIn(machine, area));
     }
     if (moved === 0) return false;
     takeOut(slots, ref.index, moved);
@@ -294,6 +300,7 @@ export function takeAll(world: World, player: Player, machineId: number): number
 /** The per-slot ceiling the whole of one area obeys. */
 function maxIn(machine: Machine | null, area: SlotArea): number {
   if (area === 'bag' || !machine) return Infinity;
+  if (area === 'modules') return 1;
   return MACHINES[machine.type].slotSize;
 }
 

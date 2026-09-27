@@ -92,6 +92,7 @@ engine is deliberately small and generic; the content is data.
 | A workbench tool | `shared/data/crafting.ts`, plus its row (with `tool`) in `shared/data/items.ts` |
 | A machine made at the workbench | `crafted: true` on its row, and its id in `CraftedMachineId` |
 | Which tech unlocks a machine | `unlocks` on its row in `shared/data/techs.ts` |
+| A machine module | `shared/data/modules.ts`, plus its item row and recipe; `moduleSlots` on a machine row gives it slots |
 | A level-up upgrade | `shared/data/upgrades.ts` |
 | A camp building | `shared/data/buildings.ts` |
 | A sound | `src/audio/sounds.ts` |

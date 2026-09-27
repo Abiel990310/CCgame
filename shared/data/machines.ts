@@ -48,6 +48,12 @@ export interface MachineDef {
    */
   fuelSlots: number;
   /**
+   * Slots for modules, one each; absent on every machine but tier 3. A module
+   * is never used up, so what makes it a steady sink is that every new tier 3
+   * machine wants its slots filled.
+   */
+  moduleSlots?: number;
+  /**
    * Power drawn while working, in kW; absent on anything that runs without
    * it. An electric machine slows with its network's supply and stops without one.
    */
@@ -240,6 +246,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 0,
+    moduleSlots: 2,
     power: 90,
     solid: true,
   },
@@ -290,6 +297,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 0,
+    moduleSlots: 2,
     power: 180,
     solid: true,
   },
@@ -341,6 +349,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     reach: 0,
     storage: false,
     fuelSlots: 0,
+    moduleSlots: 2,
     power: 150,
     solid: true,
   },

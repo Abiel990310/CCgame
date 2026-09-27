@@ -3,6 +3,7 @@ import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { buildingOnTile } from './building';
 import { giveOrDrop, payAll, hasAll } from './inventory';
 import { makeSlots, normalizeSlots } from './slots';
+import { normalizeModules } from './modules';
 import { inBounds, opposite, rotate, step1, stepN, tileCenter, tileKey, turnLeft } from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
@@ -144,6 +145,7 @@ export function placeMachine(
     machine.fuel = makeSlots(def.fuelSlots);
     machine.heat = 0;
   }
+  if (def.moduleSlots) machine.modules = makeSlots(def.moduleSlots);
 
   world.machines.push(machine);
   world.grid.set(tileKey(tx, ty), machine);
@@ -205,6 +207,8 @@ function upgradeMachine(
     delete machine.fuel;
     delete machine.heat;
   }
+  // A Mk2 upgraded to Mk3 opens its module slots empty.
+  if (def.moduleSlots) machine.modules = normalizeModules(machine.modules ?? [], def.moduleSlots);
   machine.stalled = false;
 
   world.events.push({ kind: 'placed', pos: tileCenter(machine.tx, machine.ty), what: type });
@@ -250,7 +254,7 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
 
   drop(world.machines, entity);
   refund(world, player, placementCost(entity.type));
-  for (const stack of [...entity.input, ...entity.output, ...(entity.fuel ?? [])]) {
+  for (const stack of [...entity.input, ...entity.output, ...(entity.fuel ?? []), ...(entity.modules ?? [])]) {
     if (stack) giveOrDrop(world, player, stack.id, stack.count);
   }
   return true;

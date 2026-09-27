@@ -100,6 +100,15 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   processor: { id: 'processor', name: 'Processor', color: '#3fb0a0', stack: 999, shape: 'chip' },
   frame: { id: 'frame', name: 'Steel Frame', color: '#6c7a92', stack: 999, shape: 'ingot' },
   lens: { id: 'lens', name: 'Resonant Lens', color: '#bfe8ff', stack: 999, shape: 'orb' },
+  speedModule: { id: 'speedModule', name: 'Speed Module', color: '#4f8fe0', stack: 50, shape: 'chip' },
+  outputModule: { id: 'outputModule', name: 'Output Module', color: '#e8a93c', stack: 50, shape: 'chip' },
+  efficiencyModule: {
+    id: 'efficiencyModule',
+    name: 'Efficiency Module',
+    color: '#8fdc5a',
+    stack: 50,
+    shape: 'chip',
+  },
   rounds: { id: 'rounds', name: 'Iron Rounds', color: '#d8b070', stack: 999, shape: 'nugget' },
 
   researchPack: {
