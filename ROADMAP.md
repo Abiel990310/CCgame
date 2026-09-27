@@ -544,8 +544,16 @@ detail behind the factory entries is in
       arms or by hand, shows a rounds bar, and its barrel tracks its target.*
 - [x] Turrets want a sound of their own; they borrow the sling's shot now.
       *A dry crack over a low thump, and a heavier one for steel.*
-- [ ] Creatures should go for turrets and machines near camp, so a turret
-      line needs walls and repairs rather than only ammo.
+- [x] **Creatures go for turrets** — a raider that passes within about three
+      tiles of a working turret turns on it, and one beside it chews its
+      armour (160, a dozen brute bites) down to wrecked: slumped and smoking,
+      silent until the camp patches every gun at dawn. An armour bar shows
+      once it is hurt, and the bites and the wreck each have a sound.
+      *Shipped 2026-09-27.*
+- [ ] Mend a wrecked turret by hand mid-night for a few iron plates, so a
+      player can hold a breaking line rather than wait for dawn.
+- [ ] Raiders still ignore every other machine. Furnaces and belts near camp
+      could take bites too, once walls are cheap enough to ring a factory.
 - [x] Turret tiers: a steel turret, and Steel Rounds that pierce, as rows.
       *Steel Rounds (a steel and a copper plate make four) hit for 20 against
       iron's 9 and pass through the first creature. A turret keeps a slot for

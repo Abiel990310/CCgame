@@ -23,6 +23,9 @@ export function stepCycle(world: World, dt: number): void {
     // Dawn clears the field: no leftovers chasing you through a chill phase.
     // A landmark's keepers are not raiders and stay at their post.
     world.mobs = world.mobs.filter((m) => m.post);
+    // The camp patches its guns overnight's damage by morning, so a wrecked
+    // turret costs a night's cover, never the turret.
+    for (const machine of world.machines) delete machine.wear;
   }
 
   world.events.push({ kind: 'phase', phase: world.phase, nightIndex: world.nightIndex });
