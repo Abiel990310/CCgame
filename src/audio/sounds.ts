@@ -74,6 +74,27 @@ export const SOUNDS = {
       TONE('sine', 1800, 900, 0.12, 0.001, 0.05),
     ],
   },
+  // Claws on plate: a turret being bitten should be heard over the gunfire,
+  // and the one that finishes it lands as a heavy metal crunch.
+  turretHit: {
+    gain: 0.16,
+    vary: 0.1,
+    throttle: 0.12,
+    layers: [
+      TONE('square', 420, 380, 0.3, 0.001, 0.08, 0, 14),
+      NOISE(1800, 1100, 0.5, 0.001, 0.1, 2.4),
+    ],
+  },
+  turretWrecked: {
+    gain: 0.24,
+    vary: 0.05,
+    throttle: 0.3,
+    layers: [
+      NOISE(900, 180, 0.8, 0.002, 0.45, 0.9, 0, 'lowpass'),
+      TONE('sawtooth', 180, 40, 0.45, 0.002, 0.4, 0, 20),
+      TONE('square', 640, 300, 0.2, 0.001, 0.12, 0.05),
+    ],
+  },
   shotBow: {
     gain: 0.18,
     vary: 0.06,

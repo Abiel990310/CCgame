@@ -840,6 +840,17 @@ export const TURRET = {
   rate: 2,
   range: 260,
   speed: 560,
+  /**
+   * Bites a turret takes before it is wrecked. A brute's 14 a bite takes a
+   * dozen, so one creature at an unguarded gun is a loss and a wall in front
+   * of it is the answer.
+   */
+  armour: 160,
+  /**
+   * A raider that passes this close to a working turret turns on it instead
+   * of the player, so the guns draw the fight the way a wall line would.
+   */
+  aggro: 110,
 } as const;
 
 /**

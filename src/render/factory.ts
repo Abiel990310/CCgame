@@ -9,6 +9,7 @@ import { TILE } from '@shared/sim/constants';
 import { filterOf } from '@shared/sim/factory';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
+import { turretWrecked } from '@shared/sim/systems/turret';
 import type { Belt, Direction, Machine, MachineId, Mob } from '@shared/sim/types';
 import { drawItemSprite } from './items';
 import { around, blitCached } from './paint';
@@ -193,9 +194,14 @@ export function drawMachine(
   if (def.family === 'turret') {
     if (cached && bodyScale > 0) blitBody(ctx, def, machine.dir, x, y);
     else drawBody(ctx, def, machine.dir, x, y);
+    if (turretWrecked(machine)) {
+      drawWreckedTurret(ctx, machine, time, x, y);
+      return;
+    }
     drawTurretHead(ctx, machine, time, x, y);
     drawStatusLight(ctx, machine, def, time, x, y);
     drawAmmo(ctx, machine, def, x, y);
+    drawArmour(ctx, machine, x, y);
     return;
   }
 
@@ -515,6 +521,46 @@ function drawTurretHead(ctx: CanvasRenderingContext2D, machine: Machine, time: n
     ctx.fill();
   }
   ctx.restore();
+}
+
+/**
+ * A wrecked turret: the barrel slumped to the ground and a thread of smoke,
+ * so a silent gun reads as broken rather than as one waiting for rounds.
+ */
+function drawWreckedTurret(ctx: CanvasRenderingContext2D, machine: Machine, time: number, x: number, y: number): void {
+  const hx = x;
+  const hy = y - TILE * 0.2;
+  const slump = Math.PI * 0.62 + (machine.id % 3) * 0.2;
+  ctx.fillStyle = '#1a1d22';
+  ctx.beginPath();
+  ctx.arc(hx, hy, TILE * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.save();
+  ctx.translate(hx, hy);
+  ctx.rotate(slump);
+  ctx.fillStyle = '#23272e';
+  ctx.fillRect(0, -2.5, TILE * 0.4, 5);
+  ctx.restore();
+  // Three puffs rising and fading on a loop, offset by id so a row of wrecks
+  // does not smoke in step.
+  for (let i = 0; i < 3; i++) {
+    const t = (time * 0.45 + i / 3 + machine.id * 0.37) % 1;
+    ctx.fillStyle = rgba('#5a5f66', 0.45 * (1 - t));
+    ctx.beginPath();
+    ctx.arc(hx + Math.sin(t * 5 + i) * 3, hy - 4 - t * TILE * 0.7, 2.5 + t * 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** Armour left, over the gun, shown only once something has bitten it. */
+function drawArmour(ctx: CanvasRenderingContext2D, machine: Machine, x: number, y: number): void {
+  const wear = machine.wear ?? 0;
+  if (wear <= 0) return;
+  const f = Math.round((1 - wear / TURRET.armour) * METER_STEPS);
+  const half = TILE * 0.36;
+  blitCached(ctx, `armour:${f}`, x, y - TILE * 0.62, { left: half, right: half, top: 0, bottom: 3 }, (c) =>
+    meter(c, 0, 0, TILE * 0.72, 3, f / METER_STEPS, UI.danger),
+  );
 }
 
 /** Rounds left, as a bar along the front, so a turret running dry is seen before it goes quiet. */

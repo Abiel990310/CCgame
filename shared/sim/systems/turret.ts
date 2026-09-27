@@ -17,6 +17,11 @@ export function loadedAmmo(machine: Machine): TurretAmmo | null {
   return TURRET_AMMO_ORDER.find((id) => countIn(machine.input, id) > 0) ?? null;
 }
 
+/** True once creatures have chewed through its armour: it does not fire until dawn. */
+export function turretWrecked(machine: Machine): boolean {
+  return (machine.wear ?? 0) >= TURRET.armour;
+}
+
 /** The closest living creature a turret at `at` can reach, or null. */
 export function turretTarget(world: World, machine: Machine): Mob | null {
   const at = tileCenter(machine.tx, machine.ty);
@@ -41,6 +46,10 @@ export function turretTarget(world: World, machine: Machine): Mob | null {
  */
 export function stepTurret(world: World, machine: Machine, dt: number, bonus: ResearchBonuses): void {
   machine.progress = Math.max(0, machine.progress - dt);
+  if (turretWrecked(machine)) {
+    machine.stalled = true;
+    return;
+  }
   const ammo = loadedAmmo(machine);
   // Stalled means out of rounds, which is the one thing a player can fix.
   machine.stalled = !ammo;

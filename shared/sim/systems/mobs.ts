@@ -1,9 +1,11 @@
 import { BEACON_WARD_PACE } from '../../data/beacon';
 import { BUILDINGS } from '../../data/buildings';
 import { RESOURCES } from '../../data/items';
+import { MACHINES, TURRET } from '../../data/machines';
 import { MOBS, MOB_ORDER } from '../../data/mobs';
 import { BITE, BOSS_RAGE, CAMP, MAP_SIZE, PLAYER, TILE, WAVES } from '../constants';
 import { beaconWards } from '../beacon';
+import { tileCenter } from '../grid';
 import { damp, distance, normalize } from '../math';
 import { nextFloat } from '../progression';
 import { isWalkable, terrainAtIndex } from '../terrain';
@@ -11,6 +13,7 @@ import type { Mob, MobTypeId, Player, Vec2, World } from '../types';
 import { perk } from '../perks';
 import { damageMob, damagePlayer, tryDodge, tryParry } from './combat';
 import { resolveMachines } from './movement';
+import { turretWrecked } from './turret';
 
 /** Mobs head for the nearest standing player, or the camp when nobody is up. */
 /** How far from its post a keeper will chase a player before turning back. */
@@ -28,7 +31,20 @@ function findTarget(world: World, mob: Mob): { pos: Vec2; player: boolean } {
       best = player.pos;
     }
   }
-  return { pos: best, player: bestDist < Infinity };
+  let player = bestDist < Infinity;
+  // A keeper minds its post; only raiders turn on the camp's guns.
+  if (mob.post) return { pos: best, player };
+  for (const machine of world.machines) {
+    if (MACHINES[machine.type].family !== 'turret' || turretWrecked(machine)) continue;
+    const at = tileCenter(machine.tx, machine.ty);
+    const d = distance(at, mob.pos);
+    if (d <= TURRET.aggro && d < bestDist) {
+      bestDist = d;
+      best = at;
+      player = false;
+    }
+  }
+  return { pos: best, player };
 }
 
 /** How close a player comes before a landmark's keepers wake. */
@@ -261,6 +277,17 @@ function attackNearby(world: World, mob: Mob, radius: number, damage: number, dt
     building.level -= 1;
     mob.attackCd = 1.4;
     if (building.level <= 0) world.buildings.splice(i, 1);
+    return;
+  }
+
+  // Then the guns: a turret with nothing in front of it gets chewed quiet.
+  for (const machine of world.machines) {
+    if (MACHINES[machine.type].family !== 'turret' || turretWrecked(machine)) continue;
+    const at = tileCenter(machine.tx, machine.ty);
+    if (distance(at, mob.pos) > radius + TILE * 0.75) continue;
+    machine.wear = Math.min(TURRET.armour, (machine.wear ?? 0) + damage);
+    mob.attackCd = 1.4;
+    world.events.push({ kind: 'turretHit', pos: at, wrecked: turretWrecked(machine) });
     return;
   }
 }
