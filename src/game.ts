@@ -47,6 +47,7 @@ import { setResearch } from '@shared/sim/research';
 import { GOAL_BY_ID } from '@shared/data/goals';
 import { GraphicsPanel } from './ui/graphics';
 import { GoalTracker } from './ui/goals';
+import { Minimap } from './ui/minimap';
 import { WorldMap, type MapTab } from './ui/worldmap';
 import { Ledger, loadLedger, saveLedger } from './ledger';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
@@ -132,6 +133,7 @@ export class Game {
   private perf: PerfMeter;
   private goals: GoalTracker;
   private worldMap: WorldMap;
+  private minimap: Minimap;
   private story: StoryCards;
   /** What the factory makes a minute; the island's own, or a blank one off a guest. */
   private ledger = new Ledger();
@@ -237,6 +239,7 @@ export class Game {
 
     this.goals = new GoalTracker(document.getElementById('ui')!);
     this.worldMap = new WorldMap(document.getElementById('ui')!, () => this.worldMap.setOpen(false));
+    this.minimap = new Minimap(document.getElementById('corner-right')!, this.worldMap, () => this.toggleMap());
     this.story = new StoryCards(document.getElementById('ui')!);
     document.getElementById('btn-map')!.addEventListener('click', () => this.toggleMap());
     this.coop = new CoopPanel({
@@ -1259,6 +1262,7 @@ export class Game {
     this.goals.update(this.world, this.self, elapsed, this.input.isTouch);
     this.ledger.advance(this.world.time);
     this.worldMap.update(this.world, this.selfId, elapsed, this.ledger);
+    this.minimap.update(this.world, this.selfId, elapsed);
     this.hud.updateStick(this.input.stickState);
     this.hud.foldPalette(this.hud.isBuildMode && this.input.hovering);
     // A raid can shove the player off the bench; the screen goes with them.

@@ -132,6 +132,7 @@ export class WorldMap {
   private soft = document.createElement('canvas');
   /** How many tiles were known at the last repaint; the fog is only redone when it grows. */
   private knownCount = -1;
+  private layersRefresh = 0;
 
   constructor(parent: HTMLElement, private onClose: () => void) {
     this.root = document.createElement('div');
@@ -249,6 +250,21 @@ export class WorldMap {
       this.share.innerHTML = `${Math.round(exploredShare(world) * 100)}% explored${landmarkTally(world)}`;
     }
     this.paintMarks(world, selfId);
+  }
+
+  /**
+   * The painted island for the corner map: the ghost of unexplored ground
+   * under the explored land, both `pixelsPerTile` a tile. The land is
+   * repainted now and then as the explored area grows, as it is here.
+   */
+  layers(world: World, dt: number): { fog: HTMLCanvasElement; land: HTMLCanvasElement; pixelsPerTile: number } | null {
+    this.layersRefresh -= dt;
+    if (!this.seenBase || this.layersRefresh <= 0) {
+      this.paintLand(world);
+      this.layersRefresh = 0.5;
+    }
+    if (!this.seenBase) return null;
+    return { fog: this.fogCanvas, land: this.canvas, pixelsPerTile: this.canvas.width / MAP_TILES };
   }
 
   /**
