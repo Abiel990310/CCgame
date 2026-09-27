@@ -199,6 +199,16 @@ export const GOALS: GoalDef[] = [
     xp: 45,
   },
   {
+    id: 'turret',
+    title: 'Arm the camp',
+    hint: 'Research Fortification, craft a Gun Turret at the workbench and load it with Iron Rounds from an assembler.',
+    have: (w) => (w.machines.some((m) => MACHINES[m.type].family === 'turret' && m.input.some((s) => s !== null)) ? 1 : 0),
+    need: 1,
+    xp: 50,
+    // Nothing comes at night on a peaceful island, so there is nothing to arm against.
+    skip: (w) => w.peaceful,
+  },
+  {
     id: 'electricity',
     title: 'Research Electricity',
     hint: 'Pick Electricity in the research list and feed your labs research and logic packs.',
