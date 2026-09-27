@@ -32,6 +32,14 @@ const RELAY_SILENCE_MS = 12_000;
  * service; ten bundles a second costs a little latency and stays well inside it.
  */
 const RELAY_BATCH_MS = 100;
+/** How long a game in progress waits on a stalled direct channel before it moves to the relay. */
+const STALL_MS = 3_000;
+/**
+ * How long the answering side keeps a dropped direct link for the caller to
+ * move it to the relay, rather than treating the friend as gone and, when
+ * the relay starts, as someone new.
+ */
+const RESUME_GRACE_MS = STALL_MS + 12_000;
 
 /**
  * Tests and diagnosis: `?relay=1` skips the direct channel, so the relay path
@@ -100,9 +108,17 @@ export class Link {
       pc.onconnectionstatechange = () => {
         const state = pc.connectionState;
         netlog(`direct: ${state}`);
-        // A direct attempt that fails is not the end: the relay may still carry us.
-        if (state === 'failed' && !this.relayed && this.caller) this.startRelay();
-        else if ((state === 'failed' || state === 'closed') && !this.relayed) this.close();
+        if (this.relayed) return;
+        if (state === 'failed') this.lostDirect();
+        else if (state === 'closed') this.close();
+        else if (state === 'disconnected' && this.caller && this.wasOpen) {
+          // Browsers take a further ten seconds or so to call this failed;
+          // a game in progress should not freeze that long before the relay.
+          window.clearTimeout(this.stallTimer);
+          this.stallTimer = window.setTimeout(() => {
+            if (!this.relayed && pc.connectionState !== 'connected') this.lostDirect();
+          }, STALL_MS);
+        }
       };
       pc.ondatachannel = (event) => this.attach(event.channel);
       this.pc = pc;
@@ -119,6 +135,33 @@ export class Link {
   }
 
   private candidates = new Set<string>();
+
+  /** True once the link has been open, so a later switch to the relay continues it. */
+  private wasOpen = false;
+  private stallTimer = 0;
+  private graceTimer = 0;
+
+  /**
+   * The direct channel is gone. The caller carries on through the relay; the
+   * other end holds on for the caller to do so if the link had been open,
+   * and otherwise gives up, as there is nothing yet to keep.
+   */
+  private lostDirect(): void {
+    if (this.relayed || this.closed) return;
+    if (this.caller) {
+      this.startRelay();
+      return;
+    }
+    if (!this.wasOpen) {
+      this.close();
+      return;
+    }
+    if (this.graceTimer) return;
+    netlog('direct: lost, waiting for the other side to switch to the relay');
+    this.graceTimer = window.setTimeout(() => {
+      if (!this.relayed) this.close();
+    }, RESUME_GRACE_MS);
+  }
 
   /** Set on the joining side, which is the one that decides to fall back. */
   private caller = false;
@@ -157,6 +200,8 @@ export class Link {
   private becomeRelayed(): void {
     if (!this.relayOpen) netlog('relay: game messages now go through the signalling service');
     this.relayed = true;
+    window.clearTimeout(this.graceTimer);
+    window.clearTimeout(this.stallTimer);
     // Whatever direct attempt is still going would only race the relay.
     this.channel?.close();
     this.channel = null;
@@ -171,6 +216,9 @@ export class Link {
       this.close();
     }, 1000);
     window.clearTimeout(this.timer);
+    // A link that was already open carries straight on; only a new one says hello.
+    if (this.wasOpen) return;
+    this.wasOpen = true;
     this.events.onOpen();
   }
 
@@ -242,10 +290,11 @@ export class Link {
       netlog('direct: data channel open');
       window.clearTimeout(this.timer);
       window.clearTimeout(this.fallbackTimer);
+      this.wasOpen = true;
       this.events.onOpen();
     };
     channel.onclose = () => {
-      if (!this.relayed) this.close();
+      if (!this.relayed && this.channel === channel) this.lostDirect();
     };
     channel.onmessage = (event) => this.deliver(String(event.data));
   }
@@ -316,6 +365,8 @@ export class Link {
     window.clearTimeout(this.timer);
     window.clearTimeout(this.fallbackTimer);
     window.clearInterval(this.watchdog);
+    window.clearTimeout(this.stallTimer);
+    window.clearTimeout(this.graceTimer);
     // Tell a relayed partner at once rather than leaving it to notice the silence.
     if (this.relayed) this.broker.relay('LEAVE', this.remote, {});
     this.broker.forget?.(this.remote);

@@ -230,9 +230,10 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] Co-op: when a guest's direct channel fails mid-game it switches to the
-      relay and says hello again, so the host treats it as a new arrival
-      (a fresh snapshot, and on a gone host 30 s before the guest is told).
+- [x] Co-op: when a guest's direct channel fails mid-game it switches to the
+      relay and says hello again, so the host treats it as a new arrival.
+      Fixed 2026-09-27: the link carries on through the relay as the same
+      friend, and a stalled channel moves after 3 s instead of about 17 s.
 
 - [x] Night 15 in headless Chromium with the GPU renderer showed no night
       darkness: the island was lit like day while the HUD read Night. The
@@ -544,11 +545,12 @@ detail behind the factory entries is in
       *Steel Rounds (a steel and a copper plate make four) hit for 20 against
       iron's 9 and pass through the first creature. A turret keeps a slot for
       each and fires steel first; no second turret was needed.*
-- [ ] A goal in the chain for the first turret fed by a belt. Blocked on the
-      next item: goals are saved as an index, so a row inserted mid-chain
-      would re-pay everyone past it for a goal they already met.
-- [ ] Save a player's goal as the id of the next goal rather than its index,
-      so the chain can grow in the middle without shifting old islands.
+- [x] **Arm the camp** — a goal for the first loaded turret, between logic
+      packs and electricity; peaceful islands skip it. *Shipped 2026-09-27.*
+- [x] **Goals saved by id** — a save stores the id of the goal a player is
+      on, so the chain can grow in the middle. Old saves' indexes map through
+      a frozen copy of the chain they were written against.
+      *Shipped 2026-09-27.*
 - [x] **Production ledger** — items per minute per item, with a graph and a
       personal best. A Production tab beside the island map (L on desktop):
       ten minutes of island time per item, the busiest first, and the best
@@ -582,11 +584,6 @@ detail behind the factory entries is in
       its width from the slot count.
 - [x] A goal for the first satchel, so the first-hour chain points at it
       once the bag starts to fill. It comes after copper plates, before gears.
-      Goal progress is saved as an index, so older islands (save version 7 and
-      below) step over the new row on load and keep the goal they were on.
-- [ ] Goal progress is saved as an index into the goal table, so each row
-      added mid-chain needs an entry in `GOAL_ROWS_ADDED` and a save version.
-      Saving the goal's id instead would make new rows free.
 - [x] A frame-time overlay behind a debug flag, so performance regressions show
       up while playing rather than only under a profiler. F3 (or `?perf=1`,
       which sticks) shows fps, the 95th-percentile and worst frame over two

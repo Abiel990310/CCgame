@@ -1,4 +1,4 @@
-import { GOAL_ROWS_ADDED, GOALS } from '../data/goals';
+import { GOALS } from '../data/goals';
 import { grantXp } from './progression';
 import type { Player, World } from './types';
 
@@ -43,20 +43,39 @@ export function catchUpGoals(world: World, player: Player): void {
 }
 
 /**
- * Carry a goal index saved by an older version across the rows added since,
- * so a player keeps the goal they were on rather than being sent back one.
+ * The chain as it stood while saves still kept a goal as its place in the
+ * list. Frozen: an island saved then is read against this order, whatever
+ * rows have been added to the chain since.
  */
-export function shiftGoalsForAddedRows(player: Player, version: number): void {
-  const added = [...GOAL_ROWS_ADDED].sort((a, b) => a.since - b.since);
-  for (const row of added) {
-    if (row.since <= version) continue;
-    // Where the row sat when it went in: rows added after it are not in the
-    // saved index yet.
-    let at = GOALS.findIndex((g) => g.id === row.id);
-    if (at < 0) continue;
-    for (const later of added) {
-      if (later.since > row.since && GOALS.findIndex((g) => g.id === later.id) < at) at -= 1;
-    }
-    if (player.goal >= at) player.goal += 1;
-  }
+const LEGACY_ORDER = [
+  'wood', 'stone', 'miner', 'belt', 'furnace', 'ironPlate', 'store', 'copperPlate', 'gear', 'researchPack',
+  'lab', 'research', 'circuit', 'tier2', 'steel', 'logicPack', 'electricity', 'engine', 'powered',
+  'engineeringPack', 'processor', 'beacon', 'beaconLit',
+];
+
+/** Marks the whole chain done, in a save. */
+const CHAIN_DONE = 'done';
+
+/**
+ * What a save keeps of a player's place in the chain: the id of the goal they
+ * are on, so a row added mid-chain later neither skips anyone past it nor
+ * pays them again for goals they already met.
+ */
+export function goalMarker(player: Player): string {
+  return GOALS[player.goal]?.id ?? CHAIN_DONE;
+}
+
+/**
+ * Put a loaded player back on their goal: by id, or for an island saved
+ * before ids by its old place in the chain. Anything unreadable starts them at
+ * the first goal they have not met, silently.
+ */
+export function restoreGoal(world: World, player: Player, marker: unknown): void {
+  const id =
+    typeof marker === 'string' ? marker
+    : typeof marker === 'number' && Number.isInteger(marker) && marker >= 0 ? (LEGACY_ORDER[marker] ?? CHAIN_DONE)
+    : null;
+  const at = id === CHAIN_DONE ? GOALS.length : id ? GOALS.findIndex((g) => g.id === id) : -1;
+  if (at < 0) catchUpGoals(world, player);
+  else player.goal = at;
 }

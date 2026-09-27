@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CRAFT_BY_ID } from '../../data/crafting';
 import { GOALS } from '../../data/goals';
 import { applyOrder } from '../commands';
-import { catchUpGoals, shiftGoalsForAddedRows } from '../goals';
+import { catchUpGoals, restoreGoal } from '../goals';
 import { beltAt, placeBelt, turnAt } from '../factory';
 import { addItem, removeItem } from '../inventory';
 import type { World } from '../types';
@@ -112,23 +112,12 @@ describe('the first satchel', () => {
     expect(GOALS[player.goal].id).toBe('gear');
   });
 
-  it('keeps an older island on the goal it was on, whichever side of the new row that is', () => {
+  it('does not move an island saved before the row off the goal it was on', () => {
     const world = createWorld(7, true);
-    const before = addPlayer(world, 'before');
-    const after = addPlayer(world, 'after');
-    // Indices as a version 7 save wrote them, one row shorter.
-    before.goal = satchel - 1;
-    after.goal = satchel;
-    shiftGoalsForAddedRows(before, 7);
-    shiftGoalsForAddedRows(after, 7);
-    expect(GOALS[before.goal].id).toBe('copperPlate');
-    expect(GOALS[after.goal].id).toBe('gear');
-
-    // A save that already has the row is left alone.
-    const current = addPlayer(world, 'current');
-    current.goal = satchel;
-    shiftGoalsForAddedRows(current, 8);
-    expect(current.goal).toBe(satchel);
+    const player = addPlayer(world, 'old');
+    // Old saves kept a place in the chain; 8 was Make gears.
+    restoreGoal(world, player, 8);
+    expect(GOALS[player.goal].id).toBe('gear');
   });
 });
 

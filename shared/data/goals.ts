@@ -133,8 +133,7 @@ export const GOALS: GoalDef[] = [
   },
   {
     // Placed where ore, plates and the first parts have begun to crowd 24
-    // slots. Inserted after goals shipped, so older saves shift their index
-    // past it on load (see GOAL_ROWS_ADDED).
+    // slots.
     id: 'satchel',
     title: 'Sew on a satchel',
     hint: 'Your bag is filling up. Craft a Woven Satchel at a Workbench (Camp tab) for another row. Trees drop fibre.',
@@ -210,6 +209,16 @@ export const GOALS: GoalDef[] = [
     xp: 45,
   },
   {
+    id: 'turret',
+    title: 'Arm the camp',
+    hint: 'Research Fortification, craft a Gun Turret at the workbench and load it with Iron Rounds from an assembler.',
+    have: (w) => (w.machines.some((m) => MACHINES[m.type].family === 'turret' && m.input.some((s) => s !== null)) ? 1 : 0),
+    need: 1,
+    xp: 50,
+    // Nothing comes at night on a peaceful island, so there is nothing to arm against.
+    skip: (w) => w.peaceful,
+  },
+  {
     id: 'electricity',
     title: 'Research Electricity',
     hint: 'Pick Electricity in the research list and feed your labs research and logic packs.',
@@ -268,11 +277,3 @@ export const GOALS: GoalDef[] = [
 ];
 
 export const GOAL_BY_ID = new Map(GOALS.map((g) => [g.id, g]));
-
-/**
- * Goal progress is saved as an index into `GOALS`, so a row inserted into the
- * middle of the chain would move every older island's player one goal back.
- * Each insertion is listed with the save version that first carried it, and
- * loading an older island steps a player already past that point over it.
- */
-export const GOAL_ROWS_ADDED: Array<{ id: string; since: number }> = [{ id: 'satchel', since: 8 }];

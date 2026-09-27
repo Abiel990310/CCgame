@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { GOALS } from '@shared/data/goals';
 import { addItem } from '@shared/sim/inventory';
 import { WORLDGEN, WORLDGEN_TILES, addPlayer, createWorld } from '@shared/sim/world';
 import { MAP_TILES } from '@shared/sim/constants';
@@ -68,21 +67,5 @@ describe('islands from every worldgen', () => {
     const back = loadWorld(SLOT, notes)!;
     expect(notes.regenerated).toBe(false);
     expect(back.nodes.some((n) => n.id === felled.id)).toBe(false);
-  });
-});
-
-describe('goal progress across versions', () => {
-  it('moves an older island past a goal row added since, so it keeps its goal', () => {
-    const world = createWorld(4242, true);
-    const player = addPlayer(world, 'You');
-    const gear = GOALS.findIndex((g) => g.id === 'gear');
-    // Version 7 had no satchel row, so gears sat one index earlier.
-    player.goal = gear - 1;
-    saveWorld(world, SLOT);
-    const header = JSON.parse(store.get(slotKey(SLOT))!);
-    store.set(slotKey(SLOT), JSON.stringify({ ...header, version: 7 }));
-
-    const back = loadWorld(SLOT)!;
-    expect(GOALS[[...back.players.values()][0].goal].id).toBe('gear');
   });
 });
