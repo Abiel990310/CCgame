@@ -232,6 +232,7 @@ export class Game {
       onCopySettings: (machineId) => this.copyFrom(machineById(this.world, machineId)),
       onPasteSettings: (machineId) => this.pasteOnto(machineById(this.world, machineId)),
       onTakeAll: (machineId) => this.takeEverything(machineId),
+      onMend: (machineId) => this.mend(machineId),
       onSort: (area) => this.sortGrid(area),
       onGather: (ref) => this.gatherInto(ref),
       onCloseInventory: () => this.closeInventory(),
@@ -757,6 +758,11 @@ export class Game {
 
   private takeEverything(machineId: number): void {
     if (!this.act({ k: 'takeAll', machine: machineId })) this.hud.toast('No room in your bag', 'warn');
+  }
+
+  private mend(machineId: number): void {
+    if (this.act({ k: 'mend', machine: machineId })) this.requestSave();
+    else this.hud.toast('Not enough Iron Plates', 'warn');
   }
 
   private chooseUpgrade(id: string): void {

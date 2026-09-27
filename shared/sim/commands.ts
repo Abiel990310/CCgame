@@ -34,6 +34,7 @@ import { chooseUpgrade } from './progression';
 import { isQueueOp, orderResearch, setResearch, type QueueOp } from './research';
 import { decode, encode } from './snapshot';
 import { readySpell } from './systems/spells';
+import { mendTurret } from './systems/turret';
 import type { BuildingId, Direction, ItemId, MachineId, Player, SpellId, World } from './types';
 
 /**
@@ -63,6 +64,8 @@ export type Command =
   | { k: 'sort'; machine: number | null; area: SlotArea }
   | { k: 'gather'; machine: number | null; ref: SlotRef }
   | { k: 'takeAll'; machine: number }
+  /** Patch a bitten turret whole with iron plates from the bag. */
+  | { k: 'mend'; machine: number }
   | { k: 'stow' }
   | { k: 'upgrade'; id: string }
   | { k: 'craft'; id: string }
@@ -154,6 +157,8 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
       return isSlot(world, player, c.machine, c.ref) && gatherStacks(world, player, c.machine, c.ref);
     case 'takeAll':
       return isId(c.machine) && takeAll(world, player, c.machine) > 0;
+    case 'mend':
+      return isId(c.machine) && mendTurret(world, player, c.machine);
     case 'stow':
       stowCursor(world, player);
       return true;

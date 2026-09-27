@@ -67,6 +67,7 @@ export interface HudCallbacks {
   onCopySettings: (machineId: number) => void;
   onPasteSettings: (machineId: number) => void;
   onTakeAll: (machineId: number) => void;
+  onMend: (machineId: number) => void;
   onSort: (area: SlotArea) => void;
   onGather: (ref: SlotRef) => void;
   onCloseInventory: () => void;
@@ -214,6 +215,7 @@ export class Hud {
         const machine = this.inventory.inspecting;
         if (machine) this.callbacks.onTakeAll(machine.id);
       },
+      onMend: (machineId) => this.callbacks.onMend(machineId),
       onSetRecipe: (machineId, recipeId) => this.callbacks.onSetRecipe(machineId, recipeId),
       onQueueResearch: (techId, op) => this.callbacks.onQueueResearch(techId, op),
       onSetFilter: (machineId, item) => this.callbacks.onSetFilter(machineId, item),
