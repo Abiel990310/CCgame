@@ -59,7 +59,10 @@ export class GroundCache {
   /** Blit every chunk the view touches; `originX/Y` is the world origin in device pixels. */
   draw(ctx: CanvasRenderingContext2D, world: World, view: View, scale: number, originX: number, originY: number): void {
     const n = across();
-    if (this.mesh === null || this.mesh.seed !== world.seed) this.mesh = new GroundMesh(world.seed);
+    if (this.mesh === null || this.mesh.seed !== world.seed) {
+      this.mesh?.stop();
+      this.mesh = new GroundMesh(world.seed);
+    }
     // A different island under the same camera (the menu's backdrop, then the
     // game) must not keep the old island's ground.
     if (this.terrain !== world.terrain || this.scale !== scale) {

@@ -1,6 +1,6 @@
 import { MAP_SIZE, MAP_TILES, TILE } from '@shared/sim/constants';
 import { oreAt, oreBand } from '@shared/sim/ore';
-import { hash2, valueNoise } from '@shared/sim/rng';
+import { hash2 } from '@shared/sim/rng';
 import { TERRAIN_ORDER } from '@shared/sim/terrain';
 import type { Terrain } from '@shared/sim/types';
 import { drawOreTiles, type OreTile } from './ore';
@@ -21,6 +21,10 @@ const OVERHANG = 1;
 
 /** Colour field samples per tile edge. Four keeps biome edges organic, not stepped. */
 const FIELD_RES = 4;
+/** Samples along each edge of a block of the colour field, built as it is first needed. */
+const BLOCK = 32;
+/** Samples worked out past a block's edge, more than its blur reaches. */
+const BLOCK_PAD = 6;
 
 /**
  * Ground colours, and how far each wanders. `alt` is the colour a biome drifts
@@ -52,6 +56,41 @@ const SEA: [number, number, number][] = [
 ];
 
 const WET_SAND: [number, number, number] = [188, 170, 128];
+
+/**
+ * `valueNoise` for a field swept row by row. Neighbouring samples share the
+ * four lattice corners they blend, so the corners are hashed once per cell
+ * instead of once per sample; the blend is the same expression, so every
+ * value is identical to `valueNoise` at the same point.
+ */
+class Lattice {
+  private xi = NaN;
+  private yi = NaN;
+  private a = 0;
+  private b = 0;
+  private c = 0;
+  private d = 0;
+
+  constructor(private readonly seed: number) {}
+
+  at(x: number, y: number): number {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    if (xi !== this.xi || yi !== this.yi) {
+      this.xi = xi;
+      this.yi = yi;
+      this.a = hash2(xi, yi, this.seed);
+      this.b = hash2(xi + 1, yi, this.seed);
+      this.c = hash2(xi, yi + 1, this.seed);
+      this.d = hash2(xi + 1, yi + 1, this.seed);
+    }
+    const xf = x - xi;
+    const yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf);
+    const v = yf * yf * (3 - 2 * yf);
+    return this.a * (1 - u) * (1 - v) + this.b * u * (1 - v) + this.c * (1 - u) * v + this.d * u * v;
+  }
+}
 
 /**
  * The island's ground, painted on demand into whatever surface asks for it.
@@ -87,7 +126,7 @@ export class GroundMesh {
     const ty1 = Math.min(MAP_TILES - 1, Math.floor((rect.y + rect.h) / TILE) + OVERHANG);
     if (tx1 < tx0 || ty1 < ty0) return;
 
-    const field = this.ensureField(terrain);
+    const field = this.ensureField(terrain, rect);
     if (field) {
       ctx.save();
       ctx.imageSmoothingEnabled = true;
@@ -113,16 +152,109 @@ export class GroundMesh {
    * One pixel per quarter tile. Each sample looks up the terrain at a
    * noise-nudged point, so biome edges wander instead of following the grid,
    * and takes a colour that drifts across the island in broad patches.
+   *
+   * Built a block at a time, the first time ground inside a block is painted.
+   * The whole field is a million samples on a big island and building it at
+   * once froze the game for a third of a second as an island opened (over a
+   * second on a phone), when the view only ever needs a few blocks of it.
    */
-  private ensureField(terrain: Uint8Array): HTMLCanvasElement | null {
-    if (this.field && this.fieldOf === terrain) return this.field;
+  private ensureField(terrain: Uint8Array, rect: GroundRect): HTMLCanvasElement | null {
+    const field = this.fieldOf === terrain ? this.field : this.startField(terrain);
+    const built = this.built;
+    if (!field || !built) return null;
+    const size = field.width;
+    const across = Math.ceil(size / BLOCK);
+    const step = TILE / FIELD_RES;
+    this.focusX = Math.floor((rect.x + rect.w / 2) / step / BLOCK);
+    this.focusY = Math.floor((rect.y + rect.h / 2) / step / BLOCK);
+    // Smoothing reads a sample past the edge of what it draws.
+    const bx0 = Math.max(0, Math.floor((rect.x / step - 2) / BLOCK));
+    const by0 = Math.max(0, Math.floor((rect.y / step - 2) / BLOCK));
+    const bx1 = Math.min(across - 1, Math.floor(((rect.x + rect.w) / step + 2) / BLOCK));
+    const by1 = Math.min(across - 1, Math.floor(((rect.y + rect.h) / step + 2) / BLOCK));
+    for (let by = by0; by <= by1; by++) {
+      for (let bx = bx0; bx <= bx1; bx++) {
+        if (built[by * across + bx]) continue;
+        built[by * across + bx] = 1;
+        this.fillBlock?.(bx, by);
+      }
+    }
+    return field;
+  }
+
+  private built: Uint8Array | null = null;
+  private fillBlock: ((bx: number, by: number) => void) | null = null;
+  /** The block the ground was last painted around, which the idle fill works out from. */
+  private focusX = 0;
+  private focusY = 0;
+  private stopped = false;
+
+  /** This island's ground is no longer shown; stop filling its field in the background. */
+  stop(): void {
+    this.stopped = true;
+  }
+
+  /**
+   * Fill the blocks not yet needed while the page is idle, nearest the view
+   * first, so walking into new ground finds its colour already worked out.
+   * A block costs a few milliseconds on a phone, the same as painting one
+   * chunk of ground, so one is done at a time. A page that is never idle
+   * (a big factory on a slow phone) still builds each block as it comes
+   * into view.
+   */
+  private fillIdle(terrain: Uint8Array): void {
+    const next = (): void => {
+      const built = this.built;
+      if (this.stopped || this.fieldOf !== terrain || !built) return;
+      const across = Math.round(Math.sqrt(built.length));
+      let best = -1;
+      let bestD = Infinity;
+      for (let k = 0; k < built.length; k++) {
+        if (built[k]) continue;
+        const dx = (k % across) - this.focusX;
+        const dy = Math.floor(k / across) - this.focusY;
+        const d = dx * dx + dy * dy;
+        if (d < bestD) {
+          bestD = d;
+          best = k;
+        }
+      }
+      if (best < 0) return;
+      built[best] = 1;
+      this.fillBlock?.(best % across, Math.floor(best / across));
+      schedule();
+    };
+    // Safari has no idle callback; a short timer still lands between frames.
+    const schedule = (): void => {
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(next);
+      else setTimeout(next, 30);
+    };
+    schedule();
+  }
+
+  private startField(terrain: Uint8Array): HTMLCanvasElement | null {
+    this.field = null;
+    this.fieldOf = terrain;
+    this.built = null;
+    this.fillBlock = null;
     const size = MAP_TILES * FIELD_RES;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const c = canvas.getContext('2d');
-    if (!c) return null;
-    const image = c.createImageData(size, size);
+    const field = document.createElement('canvas');
+    field.width = size;
+    field.height = size;
+    const f = field.getContext('2d');
+    // A block is worked out with a margin, blurred, and only its middle kept,
+    // so each pixel sees the same neighbours it would in the whole field.
+    const span = BLOCK + BLOCK_PAD * 2;
+    const raw = document.createElement('canvas');
+    raw.width = span;
+    raw.height = span;
+    const c = raw.getContext('2d');
+    const soft = document.createElement('canvas');
+    soft.width = span;
+    soft.height = span;
+    const b = soft.getContext('2d');
+    if (!f || !c || !b) return null;
+    const image = c.createImageData(span, span);
     const px = image.data;
     const step = TILE / FIELD_RES;
     const seed = this.seed;
@@ -167,71 +299,88 @@ export class GroundMesh {
       return SEA_REACH.length;
     };
 
-    for (let sy = 0; sy < size; sy++) {
-      for (let sx = 0; sx < size; sx++) {
-        const wx = (sx + 0.5) * step;
-        const wy = (sy + 0.5) * step;
-        const jx =
-          (valueNoise(wx / 52, wy / 52, seed + 11) - 0.5) * TILE * 1.3 +
-          (valueNoise(wx / 17, wy / 17, seed + 13) - 0.5) * TILE * 0.45;
-        const jy =
-          (valueNoise(wx / 52, wy / 52, seed + 29) - 0.5) * TILE * 1.3 +
-          (valueNoise(wx / 17, wy / 17, seed + 31) - 0.5) * TILE * 0.45;
-        // Biome edges wander freely, but the coast stays within a few pixels
-        // of where the land really ends, or you would see yourself wade.
-        const sx0 = wx + jx * 0.22;
-        const sy0 = wy + jy * 0.22;
-        const near = kindAt(sx0, sy0);
-        const far = kindAt(wx + jx, wy + jy);
-        const kind = isWet(near) === isWet(far) ? far : near;
-        let { base, alt } = GROUND[kind];
+    const jitterX = new Lattice(seed + 11);
+    const wobbleX = new Lattice(seed + 13);
+    const jitterY = new Lattice(seed + 29);
+    const wobbleY = new Lattice(seed + 31);
+    const broad = new Lattice(seed + 101);
+    const patches = new Lattice(seed + 7);
+    const shade = new Lattice(seed + 53);
 
-        if (isWet(kind)) {
-          // Water is coloured by how far the nearest land is, so the sea
-          // shelves from surf to shallows to deep along the real coastline.
-          const reach = landWithin(sx0, sy0);
-          const band = SEA[reach];
-          base = band;
-          alt = band;
-        } else if (kind === 'sand' && landWithin(sx0, sy0, true) === 0) {
-          base = WET_SAND;
-          alt = WET_SAND;
-        }
+    const sample = (sx: number, sy: number, i: number): void => {
+      const wx = (sx + 0.5) * step;
+      const wy = (sy + 0.5) * step;
+      const jx =
+        (jitterX.at(wx / 52, wy / 52) - 0.5) * TILE * 1.3 +
+        (wobbleX.at(wx / 17, wy / 17) - 0.5) * TILE * 0.45;
+      const jy =
+        (jitterY.at(wx / 52, wy / 52) - 0.5) * TILE * 1.3 +
+        (wobbleY.at(wx / 17, wy / 17) - 0.5) * TILE * 0.45;
+      // Biome edges wander freely, but the coast stays within a few pixels
+      // of where the land really ends, or you would see yourself wade.
+      const sx0 = wx + jx * 0.22;
+      const sy0 = wy + jy * 0.22;
+      const near = kindAt(sx0, sy0);
+      const far = kindAt(wx + jx, wy + jy);
+      const kind = isWet(near) === isWet(far) ? far : near;
+      let { base, alt } = GROUND[kind];
 
-        const patch = valueNoise(wx / 260, wy / 260, seed + 101) * 0.65 + valueNoise(wx / 90, wy / 90, seed + 7) * 0.35;
-        const mixAlt = Math.max(0, Math.min(1, (patch - 0.35) * 2.2));
-        const light = 1 + (valueNoise(wx / 55, wy / 55, seed + 53) - 0.5) * 0.12 + (hash2(sx, sy, seed) - 0.5) * 0.025;
-
-        const i = (sy * size + sx) * 4;
-        px[i] = Math.min(255, (base[0] + (alt[0] - base[0]) * mixAlt) * light);
-        px[i + 1] = Math.min(255, (base[1] + (alt[1] - base[1]) * mixAlt) * light);
-        px[i + 2] = Math.min(255, (base[2] + (alt[2] - base[2]) * mixAlt) * light);
-        px[i + 3] = 255;
+      if (isWet(kind)) {
+        // Water is coloured by how far the nearest land is, so the sea
+        // shelves from surf to shallows to deep along the real coastline.
+        const reach = landWithin(sx0, sy0);
+        const band = SEA[reach];
+        base = band;
+        alt = band;
+      } else if (kind === 'sand' && landWithin(sx0, sy0, true) === 0) {
+        base = WET_SAND;
+        alt = WET_SAND;
       }
-    }
-    c.putImageData(image, 0, 0);
 
-    // A blur about one sample wide melts the stair-steps a sample grid leaves
-    // along every biome edge, and lets every repaint stretch the field with
-    // plain bilinear smoothing. Blurring at this size rather than after
-    // enlarging it costs a seventh as much, which was most of the hitch as an
-    // island first appears. Where canvas filters are unsupported it is simply
-    // skipped, and the edges are a little crisper.
-    const soft = document.createElement('canvas');
-    soft.width = size;
-    soft.height = size;
-    const b = soft.getContext('2d');
-    if (!b) return null;
-    // Blurring pulls in transparent black at the border; pad it with the sea.
-    b.fillStyle = 'rgb(22, 64, 96)';
-    b.fillRect(0, 0, size, size);
-    b.filter = 'blur(1px)';
-    b.drawImage(canvas, 0, 0);
-    b.filter = 'none';
+      const patch = broad.at(wx / 260, wy / 260) * 0.65 + patches.at(wx / 90, wy / 90) * 0.35;
+      const mixAlt = Math.max(0, Math.min(1, (patch - 0.35) * 2.2));
+      const light = 1 + (shade.at(wx / 55, wy / 55) - 0.5) * 0.12 + (hash2(sx, sy, seed) - 0.5) * 0.025;
 
-    this.field = soft;
-    this.fieldOf = terrain;
-    return soft;
+      px[i] = Math.min(255, (base[0] + (alt[0] - base[0]) * mixAlt) * light);
+      px[i + 1] = Math.min(255, (base[1] + (alt[1] - base[1]) * mixAlt) * light);
+      px[i + 2] = Math.min(255, (base[2] + (alt[2] - base[2]) * mixAlt) * light);
+      px[i + 3] = 255;
+    };
+
+    this.fillBlock = (bx: number, by: number): void => {
+      const ox = bx * BLOCK - BLOCK_PAD;
+      const oy = by * BLOCK - BLOCK_PAD;
+      // Past the island's edge stays transparent, as it is around the whole field.
+      px.fill(0);
+      for (let y = 0; y < span; y++) {
+        const sy = oy + y;
+        if (sy < 0 || sy >= size) continue;
+        for (let x = 0; x < span; x++) {
+          const sx = ox + x;
+          if (sx < 0 || sx >= size) continue;
+          sample(sx, sy, (y * span + x) * 4);
+        }
+      }
+      c.putImageData(image, 0, 0);
+
+      // A blur about one sample wide melts the stair-steps a sample grid
+      // leaves along every biome edge, and lets every repaint stretch the
+      // field with plain bilinear smoothing. Where canvas filters are
+      // unsupported it is simply skipped, and the edges are a little crisper.
+      // Blurring pulls in transparent black at the border; pad it with the sea.
+      b.fillStyle = 'rgb(22, 64, 96)';
+      b.fillRect(0, 0, span, span);
+      b.filter = 'blur(1px)';
+      b.drawImage(raw, 0, 0);
+      b.filter = 'none';
+      const w = Math.min(BLOCK, size - bx * BLOCK);
+      const h = Math.min(BLOCK, size - by * BLOCK);
+      f.drawImage(soft, BLOCK_PAD, BLOCK_PAD, w, h, bx * BLOCK, by * BLOCK, w, h);
+    };
+    this.built = new Uint8Array(Math.ceil(size / BLOCK) ** 2);
+    this.field = field;
+    this.fillIdle(terrain);
+    return field;
   }
 
   /**

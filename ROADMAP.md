@@ -915,6 +915,15 @@ detail behind the factory entries is in
       pixel-identical frame. GPU renderer unchanged (its context never paid
       that). Re-profiled after the spells, boss cutscene, turrets, dash jump
       and pixel icons merges first: no regression on desktop or phone.
+- [x] Opening an island froze the page while its whole ground colour field
+      was worked out, a million samples on a mainland: about 0.35 s on a
+      desktop and 1.4 s on a phone (emulated, 4x slower CPU), and the menu
+      paid the same for the island behind it. The field is now built in
+      blocks as the view first needs them, and the rest fills in while the
+      page is idle, nearest first. Entering an island 355 → 71 ms desktop,
+      1.4 s → 0.28 s phone; the menu is ready in 0.39 s instead of 0.66 s,
+      and 1.3 s instead of 2.4 s on the phone. The finished field is
+      bit-identical to the old one, and the rendered frame matches main.
 - [ ] On the GPU renderer, the first seconds after a big factory comes into
       view were ~100 ms frames headless, nearly all in vertex buffer uploads
       (`bufferSubData`) inside software WebGL; steady state is ~5 ms. Needs a
