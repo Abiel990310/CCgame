@@ -1,4 +1,4 @@
-import { GOALS } from '../data/goals';
+import { GOAL_ROWS_ADDED, GOALS } from '../data/goals';
 import { grantXp } from './progression';
 import type { Player, World } from './types';
 
@@ -39,5 +39,24 @@ export function catchUpGoals(world: World, player: Player): void {
   while (player.goal < GOALS.length && GOALS[player.goal].have(world, player) >= GOALS[player.goal].need) {
     player.goal += 1;
     skipInapplicable(world, player);
+  }
+}
+
+/**
+ * Carry a goal index saved by an older version across the rows added since,
+ * so a player keeps the goal they were on rather than being sent back one.
+ */
+export function shiftGoalsForAddedRows(player: Player, version: number): void {
+  const added = [...GOAL_ROWS_ADDED].sort((a, b) => a.since - b.since);
+  for (const row of added) {
+    if (row.since <= version) continue;
+    // Where the row sat when it went in: rows added after it are not in the
+    // saved index yet.
+    let at = GOALS.findIndex((g) => g.id === row.id);
+    if (at < 0) continue;
+    for (const later of added) {
+      if (later.since > row.since && GOALS.findIndex((g) => g.id === later.id) < at) at -= 1;
+    }
+    if (player.goal >= at) player.goal += 1;
   }
 }
