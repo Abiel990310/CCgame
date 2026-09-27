@@ -432,6 +432,22 @@ export function drawPixelSignRing(ctx: CanvasRenderingContext2D, x: number, y: n
   );
 }
 
+/** A small pickaxe for the sign over a miner that has dug out everything in reach. */
+export function drawPixelPickGlyph(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  blitGrid(ctx, 'mpick', x, y, 4, 4, () =>
+    piece(4, (g) => {
+      const head = ramp('#dfe6ee');
+      const haft = ramp('#d9a864');
+      // Drawn on the diagonal with the head's arms bending back towards the
+      // grip: square to the frame, a pick reads as a letter T.
+      for (let i = 0; i < 5; i++) g.p(-3 + i, 3 - i, i < 3 ? haft[1] : haft[0]);
+      for (const [px, py] of [[2, -2], [2, -3], [3, -2], [1, -2], [2, -1]] as const) g.p(px, py, head[0]);
+      for (const [px, py] of [[1, -3], [0, -3], [3, -1], [3, 0]] as const) g.p(px, py, head[1]);
+      for (const [px, py] of [[-1, -3], [-2, -2], [3, 1], [2, 2]] as const) g.p(px, py, head[2]);
+    }),
+  );
+}
+
 /** The lab's glass dome over its dark well, brighter while it works. */
 export function drawPixelDome(ctx: CanvasRenderingContext2D, x: number, y: number, def: MachineDef, running: boolean): void {
   blitGrid(ctx, `mdome:${def.id}:${running ? 1 : 0}`, x, y, 11, 11, () =>

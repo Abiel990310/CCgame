@@ -40,7 +40,7 @@ import type { GpuStage } from './gpu/stage';
 import { setItemScale } from './items';
 import { setPaintScale } from './paint';
 import { polygon } from './shapes';
-import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFactoryScale, setTurretMobs } from './factory';
+import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFactoryScale, setFactoryWorld, setTurretMobs } from './factory';
 import { drawPowerCoverage, drawPowerWires } from './power';
 import { dirAngle, stepN, tileCenter, tileKey } from '@shared/sim/grid';
 import { MACHINES, TUNNEL_REACH } from '@shared/data/machines';
@@ -388,6 +388,7 @@ export class Renderer {
     setItemScale(scale);
     setFactoryScale(scale);
     setTurretMobs(world.mobs);
+    setFactoryWorld(world);
     setPaintScale(scale);
 
     const visible = (p: Vec2, pad = 0): boolean =>

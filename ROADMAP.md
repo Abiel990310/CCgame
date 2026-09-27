@@ -1096,8 +1096,9 @@ detail behind the factory entries is in
 
 - [ ] A merger with a priority side, draining one feed first and topping up
       from the other, for a main line that should never starve.
-- [ ] Splitters and mergers draw no status light, so one jammed on a full line
+- [x] Splitters and mergers draw no status light, so one jammed on a full line
       looks the same as one working. A small light on a stalled one would help.
+      Done: a jammed one blinks red like any blocked machine; working, no light.
 - [ ] Power: an accumulator that stores daytime solar surplus for the night.
 - [ ] Power: a production-stats panel per network (supply, demand, coal per
       minute over time).
@@ -1133,8 +1134,11 @@ detail behind the factory entries is in
 - [ ] The ledger counts what is made, not what is used. A consumed column
       beside it would name a shortfall outright instead of leaving the player
       to compare two lines.
-- [ ] A dry miner looks the same in the world as a blocked one (a red light).
+- [x] A dry miner looks the same in the world as a blocked one (a red light).
       A distinct mark on the machine itself would save opening the map.
+      Done: a gold pickaxe sign over any miner with no ore left in reach.
+- [ ] The inspect card says nothing for a jammed splitter or merger; a
+      "Jammed: neither side takes" line would name which side is full.
 - [ ] A goal for the resonance pack, the one late step the goal chain skips.
 - [ ] Goals could pay in items as well as XP, such as a stack of belts for
       the belt goal, which would also speed up a first factory.

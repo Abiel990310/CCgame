@@ -9,7 +9,8 @@ import { TILE } from '@shared/sim/constants';
 import { filterOf } from '@shared/sim/factory';
 import { dirAngle, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
-import type { Belt, Direction, Machine, MachineId, Mob } from '@shared/sim/types';
+import { minerOreLeft } from '@shared/sim/ore';
+import type { Belt, Direction, Machine, MachineId, Mob, World } from '@shared/sim/types';
 import { drawItemSprite } from './items';
 import { around, blitCached } from './paint';
 import { UI, rgba, shift } from './palette';
@@ -26,6 +27,7 @@ import {
   drawPixelInserterBase,
   drawPixelJunction,
   drawPixelLamp,
+  drawPixelPickGlyph,
   drawPixelSignRing,
   drawPixelTurretBase,
 } from './pixelmachines';
@@ -205,6 +207,7 @@ export function drawMachine(
   drawStatusLight(ctx, machine, def, time, x, y);
   if (outOfFuel(machine)) drawFuelSign(ctx, time, x, y);
   else if (machine.unpowered) drawPowerSign(ctx, time, x, y);
+  else if (isDry(machine, def)) drawDrySign(ctx, time, x, y);
   drawProgress(ctx, machine, x, y);
 }
 
@@ -408,6 +411,52 @@ export function poleTip(machine: Machine, side: -1 | 1): { x: number; y: number 
 export function outOfFuel(machine: Machine): boolean {
   if (!machine.fuel || (machine.heat ?? 0) > 0) return false;
   return machine.fuel.every((slot) => slot === null || slot.count <= 0);
+}
+
+let oreWorld: World | null = null;
+
+/** The world a miner's dry sign is checked against; the renderer sets it each frame. */
+export function setFactoryWorld(world: World): void {
+  oreWorld = world;
+}
+
+/**
+ * A miner with no ore left in reach never starts again, which a red light
+ * alone does not say: it looked the same as one whose belt had backed up.
+ * Only a stalled miner is checked, so a working field costs nothing.
+ */
+function isDry(machine: Machine, def: MachineDef): boolean {
+  return def.family === 'miner' && machine.stalled && machine.ore !== null && oreWorld !== null && minerOreLeft(oreWorld, machine) === 0;
+}
+
+/** A pickaxe in a gold ring over a miner that has dug out its patch: move it. */
+function drawDrySign(ctx: CanvasRenderingContext2D, time: number, x: number, y: number): void {
+  const sx = x - TILE * 0.28;
+  const sy = y - TILE * 0.36;
+  ctx.globalAlpha = 0.8 + Math.sin(time * 2.5) * 0.2;
+  if (pixelSprites()) {
+    drawPixelSignRing(ctx, sx, sy, UI.gold, true);
+    drawPixelPickGlyph(ctx, sx, sy);
+  } else {
+    blitCached(ctx, 'sign:dry', sx, sy, around(7.5), (c) => {
+      c.fillStyle = 'rgba(12, 16, 22, 0.75)';
+      c.beginPath();
+      c.arc(0, 0, 5.5, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = UI.gold;
+      c.lineWidth = 1.5;
+      c.stroke();
+      c.strokeStyle = '#d8dde4';
+      c.lineWidth = 1.2;
+      c.beginPath();
+      c.moveTo(-3, -1.2);
+      c.quadraticCurveTo(0, -3.4, 3, -1.2);
+      c.moveTo(0, -2.4);
+      c.lineTo(0, 3);
+      c.stroke();
+    });
+  }
+  ctx.globalAlpha = 1;
 }
 
 /**
@@ -1000,6 +1049,8 @@ export function isBlocked(machine: Machine, def: MachineDef): boolean {
   if (outOfFuel(machine)) return true;
   if (machine.unpowered) return true;
   if (def.family === 'miner' && machine.output.every((s) => s === null)) return true;
+  // Neither has an output grid to fill: a stall is the jam itself.
+  if (def.family === 'splitter' || def.family === 'merger') return true;
   return machine.output.length > 0 && machine.output.every((s) => s !== null);
 }
 
@@ -1061,8 +1112,11 @@ function drawStatusLight(
   x: number,
   y: number,
 ): void {
-  // A chest has nothing to report, and a splitter or merger passes items straight on.
-  if (def.family === 'chest' || def.family === 'splitter' || def.family === 'merger') return;
+  // A chest has nothing to report. A splitter or merger passes items straight
+  // on, so its light shows only when it jams: one stuck on a full line would
+  // otherwise look the same as one working.
+  if (def.family === 'chest') return;
+  if ((def.family === 'splitter' || def.family === 'merger') && !machine.stalled) return;
   const lx = x + TILE * 0.32;
   const ly = y + TILE * 0.27;
   const blocked = machine.stalled && isBlocked(machine, def);
