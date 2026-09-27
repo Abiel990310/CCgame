@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { GOALS } from '@shared/data/goals';
 import { placeBelt, placeMachine, setSideFilter, setRecipe } from '@shared/sim/factory';
 import { addItem } from '@shared/sim/inventory';
 import { addToSlots } from '@shared/sim/slots';
@@ -494,5 +495,52 @@ describe('worldgen in a save', () => {
     store.set(slotKey(SLOT), JSON.stringify(header));
 
     expect(loadWorld(SLOT)).toBeNull();
+  });
+});
+
+describe('the goal a player is on', () => {
+  function onGoal(id: string): World {
+    const world = createWorld(4242, false);
+    const player = addPlayer(world, 'You');
+    player.goal = GOALS.findIndex((g) => g.id === id);
+    return world;
+  }
+
+  function header(): { players: { goal?: unknown }[] } {
+    return JSON.parse(store.get(slotKey(SLOT))!);
+  }
+
+  function rewriteGoal(goal: unknown): void {
+    const file = header();
+    file.players[0].goal = goal;
+    store.set(slotKey(SLOT), JSON.stringify(file));
+    forgetSlot(SLOT);
+  }
+
+  function loadedGoal(): string | undefined {
+    const loaded = loadWorld(SLOT)!;
+    return GOALS[[...loaded.players.values()][0].goal]?.id;
+  }
+
+  it('is saved by id and comes back as the same goal', () => {
+    saveWorld(onGoal('electricity'), SLOT);
+    expect(header().players[0].goal).toBe('electricity');
+    expect(loadedGoal()).toBe('electricity');
+  });
+
+  it('reads an older save kept as a place in the chain against the chain as it was', () => {
+    saveWorld(onGoal('electricity'), SLOT);
+    // Electricity was 17th before the turret goal went in ahead of it.
+    rewriteGoal(16);
+    expect(GOALS[16].id).not.toBe('electricity');
+    expect(loadedGoal()).toBe('electricity');
+    rewriteGoal(23);
+    expect(loadedGoal()).toBeUndefined();
+  });
+
+  it('starts an unreadable goal at the first one not yet met', () => {
+    saveWorld(onGoal('electricity'), SLOT);
+    rewriteGoal('no-such-goal');
+    expect(loadedGoal()).toBe('wood');
   });
 });
