@@ -54,7 +54,8 @@ describe('the crafting table', () => {
     const tools = CRAFTS.filter((c) => c.group === 'tools');
     expect(tools.length).toBeGreaterThan(0);
     for (const c of tools) {
-      expect(ITEMS[c.output].tool).toBeDefined();
+      // A gathering tool, or the grappling hook, which is carried for its reach.
+      expect(ITEMS[c.output].tool ?? ITEMS[c.output].leap, c.id).toBeDefined();
       for (const part of c.cost) expect(ITEMS[part.id]).toBeDefined();
     }
   });

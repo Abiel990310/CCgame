@@ -298,5 +298,5 @@ export function blitPixels(
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(canvas, Math.round(m.a * x + m.e - anchorX * scale), Math.round(m.d * y + m.f - anchorY * scale));
-  ctx.setTransform(m);
+  ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
 }

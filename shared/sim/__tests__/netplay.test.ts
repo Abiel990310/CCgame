@@ -79,6 +79,9 @@ describe('co-op replay', () => {
     addPerk(player, spellPerk('fireball'));
     addPerk(player, spellPerk('frostNova'));
     player.spell = 'fireball';
+    // Food and a wound, so eating is covered too.
+    addItem(player, 'fish', 3);
+    player.hp = 40;
     // Modules to fit into a tier 3 furnace built mid-run.
     addItem(player, 'speedModule', 2);
     const snap = decode<Snapshot>(encode(takeSnapshot(host)));
@@ -95,6 +98,7 @@ describe('co-op replay', () => {
       ]);
       if (t === 300) pending.push({ p: player.id, c: { k: 'spell', id: 'frostNova' } });
       if (t === 61) pending.push({ p: player.id, c: { k: 'craft', id: 'satchel' } });
+      if (t === 62) pending.push({ p: player.id, c: { k: 'eat' } });
       if (t === 120) {
         pending.push({ p: friend.id, c: { k: 'queue', tech: 'roboticArms', op: 'add' } });
         pending.push({ p: player.id, c: { k: 'queue', tech: 'angling', op: 'add' } });

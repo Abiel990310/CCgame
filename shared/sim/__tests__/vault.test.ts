@@ -6,6 +6,7 @@ import { EMPTY_INPUT } from '../step';
 import { stepPlayerMovement } from '../systems/movement';
 import { TERRAIN_ORDER } from '../terrain';
 import type { PlayerInput, Terrain } from '../types';
+import { addItem } from '../inventory';
 import { at, bench } from './bench';
 
 const DT = 1 / 30;
@@ -23,7 +24,7 @@ function dashFrom(tx: number, ty: number, setup: (b: ReturnType<typeof bench>) =
   world.events.length = 0;
   stepPlayerMovement(world, player, DASH_EAST, DT);
   const vaulted = player.vault !== undefined;
-  for (let t = 0; t < VAULT.duration + 0.3; t += DT) stepPlayerMovement(world, player, EMPTY_INPUT, DT);
+  for (let t = 0; t < VAULT.duration * 2 + 0.3; t += DT) stepPlayerMovement(world, player, EMPTY_INPUT, DT);
   return { world, player, vaulted };
 }
 
@@ -86,5 +87,41 @@ describe('vaulting', () => {
     stepPlayerMovement(world, player, EMPTY_INPUT, DT);
     expect(player.dashTime).toBeGreaterThan(0);
     expect(player.invuln).toBeGreaterThan(0);
+  });
+
+  it('a grappling hook pulls its owner across water too wide or deep to leap', () => {
+    const start = at(2, 4);
+    const strait = (world: ReturnType<typeof bench>['world'], kind: Terrain): void => {
+      for (let dx = 2; dx <= 7; dx++) for (let dy = -2; dy <= 2; dy++) paint(world, start.tx + dx, start.ty + dy, kind);
+    };
+    for (const kind of ['water', 'deep'] as const) {
+      const hooked = dashFrom(start.tx, start.ty, ({ world, player }) => {
+        strait(world, kind);
+        addItem(player, 'grapple', 1);
+      });
+      expect(hooked.vaulted, kind).toBe(true);
+      expect(hooked.player.pos.x, kind).toBeGreaterThan((start.tx + 8) * TILE);
+      expect(hooked.world.events.some((e) => e.kind === 'vault' && e.hook), kind).toBe(true);
+    }
+  });
+
+  it('a hook still finds nothing to bite on open sea', () => {
+    const start = at(2, 4);
+    const { player, vaulted } = dashFrom(start.tx, start.ty, ({ world, player }) => {
+      for (let dx = 2; dx <= 20; dx++) for (let dy = -2; dy <= 2; dy++) paint(world, start.tx + dx, start.ty + dy, 'deep');
+      addItem(player, 'grapple', 1);
+    });
+    expect(vaulted).toBe(false);
+    expect(player.pos.x).toBeLessThan((start.tx + 2) * TILE);
+  });
+
+  it('a short gap is leapt bare-handed even with a hook in the bag', () => {
+    const start = at(2, 4);
+    const { world, vaulted } = dashFrom(start.tx, start.ty, ({ world, player }) => {
+      paint(world, start.tx + 2, start.ty, 'water');
+      addItem(player, 'grapple', 1);
+    });
+    expect(vaulted).toBe(true);
+    expect(world.events.some((e) => e.kind === 'vault' && !e.hook)).toBe(true);
   });
 });

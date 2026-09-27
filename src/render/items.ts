@@ -2,6 +2,8 @@ import { ITEMS, type ItemShape } from '@shared/data/items';
 import type { ItemId } from '@shared/sim/types';
 import { rgba, shift } from './palette';
 import { pieceIconVar } from './pieces';
+import { drawPixelItem, pixelItemUrl } from './pixelitems';
+import { pixelSprites } from './pixelmobs';
 
 /**
  * One drawing of an item, used everywhere an item is shown: riding a belt, in
@@ -537,6 +539,49 @@ function basket(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, 
   ctx.fill();
 }
 
+/** A three-pronged iron hook on a coil of rope. */
+function hook(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  const { lit, line } = tones(color);
+  ctx.lineCap = 'round';
+  // The rope, coiled at the bottom left and running up to the shank.
+  ctx.beginPath();
+  ctx.ellipse(x - s * 0.35, y + s * 0.5, s * 0.48, s * 0.28, 0, 0, Math.PI * 2);
+  ctx.moveTo(x - s * 0.05, y + s * 0.3);
+  ctx.quadraticCurveTo(x + s * 0.2, y + s * 0.05, x + s * 0.2, y - s * 0.2);
+  ctx.strokeStyle = '#6b4e2e';
+  ctx.lineWidth = Math.max(1.1, s * 0.2);
+  ctx.stroke();
+  ctx.strokeStyle = '#c9a36a';
+  ctx.lineWidth = Math.max(0.7, s * 0.11);
+  ctx.stroke();
+  // Shank and prongs.
+  const prongs = (): void => {
+    ctx.beginPath();
+    ctx.moveTo(x + s * 0.2, y - s * 0.2);
+    ctx.lineTo(x + s * 0.2, y - s * 0.95);
+    ctx.moveTo(x + s * 0.2, y - s * 0.3);
+    ctx.quadraticCurveTo(x - s * 0.35, y - s * 0.35, x - s * 0.3, y - s * 0.8);
+    ctx.moveTo(x + s * 0.2, y - s * 0.3);
+    ctx.quadraticCurveTo(x + s * 0.8, y - s * 0.35, x + s * 0.75, y - s * 0.8);
+  };
+  prongs();
+  ctx.strokeStyle = line;
+  ctx.lineWidth = Math.max(1.3, s * 0.26);
+  ctx.stroke();
+  prongs();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(0.8, s * 0.15);
+  ctx.stroke();
+  if (s >= 5) {
+    ctx.beginPath();
+    ctx.moveTo(x + s * 0.16, y - s * 0.9);
+    ctx.lineTo(x + s * 0.16, y - s * 0.45);
+    ctx.strokeStyle = lit;
+    ctx.lineWidth = Math.max(0.5, s * 0.06);
+    ctx.stroke();
+  }
+}
+
 /** A bag worn on the back: a rounded body, a buckled flap and a strap loop. */
 function pack(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
   const { lit, shade, line } = tones(color);
@@ -591,6 +636,7 @@ const SHAPES: Record<ItemShape, ShapeFn> = {
   pick,
   rod,
   basket,
+  hook,
   pack,
   crate,
   chunk,
@@ -641,6 +687,13 @@ export function drawItemSprite(
   size: number,
   item: ItemId,
 ): void {
+  // Pixel sprites are one size, one pixel per world unit; the few marks drawn
+  // smaller than that (a filter on an inserter, the coal on a fuel sign) keep
+  // the smooth drawing rather than a sprite too big for them.
+  if (size >= 4.5 && pixelSprites()) {
+    drawPixelItem(ctx, x, y, item);
+    return;
+  }
   const box = (size * 2) / FIT;
   // As with scenery in `blitCached`: under a plain scale, bake at exactly the
   // size it lands on screen and copy it to a whole pixel, which skips the
@@ -670,7 +723,7 @@ export function drawItemSprite(
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(sprite, Math.round(m.a * x + m.e - px / 2), Math.round(m.d * y + m.f - px / 2));
-  ctx.setTransform(m);
+  ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
 }
 
 /**
@@ -698,12 +751,16 @@ export function installItemIcons(): void {
   if (!ctx) return;
 
   const lines: string[] = [];
+  // The pixel look swaps every slot to the pixel sprite by overriding the
+  // same property under its body class, so slot markup stays one `var()`.
+  const pixel: string[] = [];
   for (const id of Object.keys(ITEMS) as ItemId[]) {
     // A packed machine shows the machine in the bag, not a generic crate.
     if (ITEMS[id].shape === 'crate') {
       lines.push(`--icon-${id}: ${pieceIconVar(`machine:${id}`)};`);
       continue;
     }
+    pixel.push(`--icon-${id}: url(${pixelItemUrl(id)});`);
     ctx.clearRect(0, 0, ICON_PX, ICON_PX);
     // A margin keeps the widest shapes and their outlines off the edge.
     drawItem(ctx, ICON_PX / 2, ICON_PX / 2, ICON_PX * 0.44, id);
@@ -711,6 +768,6 @@ export function installItemIcons(): void {
   }
 
   const style = document.createElement('style');
-  style.textContent = `:root {\n${lines.join('\n')}\n}`;
+  style.textContent = `:root {\n${lines.join('\n')}\n}\n.pixel-ui {\n${pixel.join('\n')}\n}`;
   document.head.appendChild(style);
 }

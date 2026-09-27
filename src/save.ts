@@ -3,7 +3,7 @@ import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
 import { TECH_BY_ID } from '@shared/data/techs';
 import { backfillPrerequisites, newResearch, pruneResearchQueue } from '@shared/sim/research';
-import { catchUpGoals } from '@shared/sim/goals';
+import { goalMarker, restoreGoal } from '@shared/sim/goals';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
 import { bagSlots } from '@shared/sim/inventory';
@@ -35,6 +35,9 @@ const VERSION = 7;
  */
 const GATED_SINCE = 7;
 
+/** A player as a save holds them; see `SaveFile.players`. */
+type SavedPlayer = Omit<Player, 'goal'> & { goal?: string | number };
+
 /**
  * The header: everything that moves on every single save. Small enough that
  * rewriting it eight seconds apart costs nothing.
@@ -54,7 +57,8 @@ interface SaveFile {
   nightIndex: number;
   nextId: number;
   rngState: number;
-  players: Player[];
+  /** A player as saved: the goal is its id, or on an older island its place in the chain. */
+  players: SavedPlayer[];
   peaceful: boolean;
   /**
    * The worldgen that grew this island's terrain, ore and scenery. Version 6
@@ -172,7 +176,8 @@ export function saveWorld(world: World, slot: string): boolean {
     nightIndex: world.nightIndex,
     nextId: world.nextId,
     rngState: world.rngState,
-    players: [...world.players.values()],
+    // The goal goes down as an id, so the chain can grow in the middle.
+    players: [...world.players.values()].map((p) => ({ ...p, goal: goalMarker(p) })),
     peaceful: world.peaceful,
     research: world.research,
   };
@@ -257,7 +262,8 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
     // Older islands were built before scenery blocked placement, so they can
     // hold a tree standing inside a belt. The grid has to exist to spot them.
     clearBuriedNodes(world);
-    world.players = new Map(file.players.map((p) => [p.id, p]));
+    const savedGoals = new Map(file.players.map((p) => [p.id, p.goal]));
+    world.players = new Map(file.players.map((p) => [p.id, { ...p, goal: 0 }]));
 
     const explored = readSection<string>(slot, EXPLORED_SUFFIX);
     if (typeof explored === 'string') world.explored = unpackExplored(explored, world.terrain.length);
@@ -281,9 +287,9 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
       if (typeof bag !== 'number' || !Number.isInteger(bag) || bag < 0 || bag > BAG_MAX) player.bag = 0;
       player.inventory = normalizeSlots(player.inventory, bagSlots(player));
       player.cursor = asStack(player.cursor);
-      // Goals arrived without a version bump: the field is simply missing on
-      // an older island, whose player starts at the first goal not yet met.
-      if (typeof player.goal !== 'number' || !(player.goal >= 0)) catchUpGoals(world, player);
+      // A goal is saved as its id, or on an older island as its place in the
+      // chain as it was then; missing, it is the first goal not yet met.
+      restoreGoal(world, player, savedGoals.get(player.id));
     }
 
     // The freshly generated nodes are what the next save diffs against, and we

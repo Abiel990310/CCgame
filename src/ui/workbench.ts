@@ -1,3 +1,4 @@
+import { TILE } from '@shared/sim/constants';
 import { CRAFTS, type CraftDef } from '@shared/data/crafting';
 import { ITEMS } from '@shared/data/items';
 import { MACHINES } from '@shared/data/machines';
@@ -113,6 +114,7 @@ function card(world: World, player: Player, c: CraftDef): string {
   const sewn = item.bag !== undefined && (player.bag ?? 0) >= item.bag;
   const needsLast = item.bag !== undefined && (player.bag ?? 0) < item.bag - 1;
   if (item.tool) sub = `${item.tool.speed}× ${VERB[item.tool.kind]}`;
+  else if (item.leap) sub = `Dash across ${Math.round(item.leap / TILE)} tiles of water`;
   else if (item.bag !== undefined) sub = `+${BAG_ROW} slots`;
   else if (c.unlock) {
     const tier = MACHINES[c.unlock].tier;

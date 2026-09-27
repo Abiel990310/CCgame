@@ -25,6 +25,7 @@ export type ItemId =
   | 'ironPlate'
   | 'copperPlate'
   | 'steelPlate'
+  | 'grilledFish'
   // Assembled
   | 'gear'
   | 'wire'
@@ -38,6 +39,7 @@ export type ItemId =
   | 'frame'
   | 'lens'
   | 'rounds'
+  | 'steelRounds'
   // Consumed by labs
   | 'researchPack'
   | 'logicPack'
@@ -62,6 +64,7 @@ export type ToolItemId =
   | 'steelPick'
   | 'fishingRod'
   | 'forageBasket'
+  | 'grapple'
   | 'satchel'
   | 'ironPack'
   | 'steelPack';
@@ -89,6 +92,9 @@ export type CraftedMachineId =
   | 'solar'
   | 'beacon'
   | 'turret';
+
+/** What a gun turret fires, best last. */
+export type TurretAmmo = 'rounds' | 'steelRounds';
 
 export type ToolKind = 'axe' | 'pick' | 'hand' | 'rod';
 
@@ -255,7 +261,7 @@ export interface Player {
   dashCd: number;
   dashTime: number;
   /** A leap in progress, from where it left the ground to where it lands. */
-  vault?: { from: Vec2; to: Vec2; t: number };
+  vault?: { from: Vec2; to: Vec2; t: number; hook?: boolean };
   invuln: number;
   downed: number;
   /** Node currently being harvested, with accumulated progress. */
@@ -511,6 +517,7 @@ export interface World {
 export type SimEvent =
   | { kind: 'hit'; pos: Vec2; amount: number }
   | { kind: 'shot'; pos: Vec2; weapon: WeaponId }
+  | { kind: 'turretShot'; pos: Vec2; ammo: TurretAmmo }
   | { kind: 'collected'; pos: Vec2; item: ItemId | null; count: number; playerId: number }
   | { kind: 'produced'; pos: Vec2; machine: MachineId; item: ItemId; count: number }
   | { kind: 'placed'; pos: Vec2; what: MachineId | 'belt' }
@@ -540,10 +547,11 @@ export type SimEvent =
   /** A blow passed through a player mid-dash; their next swing is a counter. */
   | { kind: 'dodge'; playerId: number; pos: Vec2 }
   /** A dash that leapt something in its way; the client times the arc and the landing thud from it. */
-  | { kind: 'vault'; playerId: number; from: Vec2; to: Vec2 }
+  | { kind: 'vault'; playerId: number; from: Vec2; to: Vec2; hook: boolean }
   | { kind: 'downed'; playerId: number }
   | { kind: 'built'; pos: Vec2; type: BuildingId }
   | { kind: 'crafted'; pos: Vec2; item: ItemId }
+  | { kind: 'ate'; playerId: number; pos: Vec2; item: ItemId; healed: number }
   | { kind: 'research'; tech: string; level: number; next: string | null }
   | { kind: 'goal'; playerId: number; goal: string; next: string | null }
   | { kind: 'oreChanged'; tx: number; ty: number }

@@ -48,6 +48,27 @@ export const SOUNDS = {
     throttle: 0.04,
     layers: [NOISE(1400, 600, 0.6, 0.002, 0.07, 1.4), TONE('triangle', 300, 170, 0.5, 0.002, 0.06)],
   },
+  // A turret is a gun, not a thrown thing: a dry crack over a low thump, and
+  // steel rounds a heavier one, so a line upgraded to steel is heard to be.
+  turretShot: {
+    gain: 0.15,
+    vary: 0.07,
+    throttle: 0.06,
+    layers: [
+      NOISE(3200, 1200, 0.7, 0.001, 0.05, 1.6, 0, 'highpass'),
+      TONE('square', 160, 60, 0.35, 0.001, 0.07),
+    ],
+  },
+  turretSteel: {
+    gain: 0.18,
+    vary: 0.06,
+    throttle: 0.07,
+    layers: [
+      NOISE(2400, 800, 0.75, 0.001, 0.07, 1.4, 0, 'highpass'),
+      TONE('square', 120, 45, 0.45, 0.001, 0.1),
+      TONE('sine', 1800, 900, 0.12, 0.001, 0.05),
+    ],
+  },
   shotBow: {
     gain: 0.18,
     vary: 0.06,
@@ -407,6 +428,17 @@ export const SOUNDS = {
       TONE('triangle', 1047, 1047, 0.18, 0.03, 0.8, 0.24),
     ],
   },
+  // Two soft bites, then a small rising note: food going down, health coming back.
+  eat: {
+    gain: 0.22,
+    vary: 0.08,
+    throttle: 0.15,
+    layers: [
+      NOISE(700, 350, 0.7, 0.004, 0.07, 1.1),
+      NOISE(650, 320, 0.6, 0.004, 0.07, 1.1, 0.13),
+      TONE('sine', 440, 660, 0.3, 0.02, 0.28, 0.2),
+    ],
+  },
   // A counter after a dodge: a heavy swing that rings like a struck bell.
   counter: {
     gain: 0.3,
@@ -437,6 +469,17 @@ export const SOUNDS = {
     vary: 0.08,
     throttle: 0.1,
     layers: [NOISE(500, 1900, 0.8, 0.02, 0.22, 0.9), TONE('sine', 240, 420, 0.18, 0.02, 0.2)],
+  },
+  // A hook thrown: the rope pays out with a rising zip, and the prongs bite.
+  hook: {
+    gain: 0.18,
+    vary: 0.06,
+    throttle: 0.1,
+    layers: [
+      NOISE(900, 3200, 0.6, 0.01, 0.3, 1.1),
+      TONE('triangle', 300, 900, 0.2, 0.01, 0.28),
+      TONE('square', 1400, 1100, 0.25, 0.001, 0.05, 0.3),
+    ],
   },
   // ...and it comes down on both feet with a soft thud and a scuff of grit.
   land: {

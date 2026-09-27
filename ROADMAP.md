@@ -230,9 +230,10 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] Co-op: when a guest's direct channel fails mid-game it switches to the
-      relay and says hello again, so the host treats it as a new arrival
-      (a fresh snapshot, and on a gone host 30 s before the guest is told).
+- [x] Co-op: when a guest's direct channel fails mid-game it switches to the
+      relay and says hello again, so the host treats it as a new arrival.
+      Fixed 2026-09-27: the link carries on through the relay as the same
+      friend, and a stalled channel moves after 3 s instead of about 17 s.
 
 - [x] Night 15 in headless Chromium with the GPU renderer showed no night
       darkness: the island was lit like day while the HUD read Night. The
@@ -539,11 +540,20 @@ detail behind the factory entries is in
       nearest creature within 8 tiles, twice a second, led like a thrown
       weapon and boosted by weapon research. It takes rounds from belts,
       arms or by hand, shows a rounds bar, and its barrel tracks its target.*
-- [ ] Turrets want a sound of their own; they borrow the sling's shot now.
+- [x] Turrets want a sound of their own; they borrow the sling's shot now.
+      *A dry crack over a low thump, and a heavier one for steel.*
 - [ ] Creatures should go for turrets and machines near camp, so a turret
       line needs walls and repairs rather than only ammo.
-- [ ] Turret tiers: a steel turret, and Steel Rounds that pierce, as rows.
-- [ ] A goal in the chain for the first turret fed by a belt.
+- [x] Turret tiers: a steel turret, and Steel Rounds that pierce, as rows.
+      *Steel Rounds (a steel and a copper plate make four) hit for 20 against
+      iron's 9 and pass through the first creature. A turret keeps a slot for
+      each and fires steel first; no second turret was needed.*
+- [x] **Arm the camp** — a goal for the first loaded turret, between logic
+      packs and electricity; peaceful islands skip it. *Shipped 2026-09-27.*
+- [x] **Goals saved by id** — a save stores the id of the goal a player is
+      on, so the chain can grow in the middle. Old saves' indexes map through
+      a frozen copy of the chain they were written against.
+      *Shipped 2026-09-27.*
 - [x] **Production ledger** — items per minute per item, with a graph and a
       personal best. A Production tab beside the island map (L on desktop):
       ten minutes of island time per item, the busiest first, and the best
@@ -582,6 +592,10 @@ detail behind the factory entries is in
       which sticks) shows fps, the 95th-percentile and worst frame over two
       seconds, sim and draw time, and what is on the island; on GPU also how
       many sprites and shapes were drawn.
+
+- [x] Eating: H or the Eat button (shown only with food in the bag) eats the
+      food that best fits the wound. Berries +5, fish +12, Grilled Fish +35
+      (a furnace recipe, fish in), so fish finally has a use (2026-09-26).
 
 ### Changes
 
@@ -823,8 +837,15 @@ detail behind the factory entries is in
 - [ ] Paste one machine at a time is still a click per arm. Shift-dragging across
       a row to paste onto each machine the pointer crosses would make a bank one
       gesture.
-- [ ] A chest slot kept for coal shows a dark ghost on a dark slot and is hard to
+- [x] A chest slot kept for coal shows a dark ghost on a dark slot and is hard to
       read. The ghost wants an outline or a lighter backdrop for dark items.
+      *(2026-09-26: ghosts are brightened as well as faded, and pixel items
+      carry their own outline.)*
+- [x] Empty machine slots show faintly what the machine waits for
+      (2026-09-26): the chosen recipe's missing ingredients in the input,
+      its product in the output, and coal in an empty fuel slot.
+- [x] Opening a chest after an assembler showed the assembler's recipe list
+      under the chest (2026-09-26).
 - [ ] A splitter's sides cannot be filtered before it is placed, so every one
       is placed, opened and then set. A filter carried on the build selection
       would make a row of sorters one pass instead of two.
@@ -881,6 +902,15 @@ detail behind the factory entries is in
       Re-profiled after the pixel creatures, death animations and 12-frame
       run, on desktop and emulated phone: camp, running, a 40-creature night
       and 40 deaths all within noise of the morning's build.
+- [x] A late-game factory cost 10 ms a frame on the Canvas renderer (41 ms on
+      an emulated phone), most of it not drawing: each cached sprite put the
+      canvas's transform back by handing it the matrix object, which Chrome
+      converts through a slow dictionary path, and a factory is thousands of
+      sprites. Handing back the six numbers instead: 5.3 ms desktop, 19 ms
+      phone, a night raid over the factory 11 → 6 ms and 47 → 26 ms, with a
+      pixel-identical frame. GPU renderer unchanged (its context never paid
+      that). Re-profiled after the spells, boss cutscene, turrets, dash jump
+      and pixel icons merges first: no regression on desktop or phone.
 - [ ] On the GPU renderer, the first seconds after a big factory comes into
       view were ~100 ms frames headless, nearly all in vertex buffer uploads
       (`bufferSubData`) inside software WebGL; steady state is ~5 ms. Needs a
@@ -954,6 +984,26 @@ detail behind the factory entries is in
       and shellbacks flip onto their backs and kick, and everything that
       stands topples over backward, then fades (`drawPixelDeath`).
 - [x] Downed player pose as a pixel frame (2026-09-26), plus a hit recoil and an idle blink.
+- [x] Machines as pixel sprites (2026-09-26): every body, deck, port and
+      tier mark, and the moving parts (drill, gears, arm, fire, lamp, lab
+      dome, turret head, inserter arms, splitter and merger arrows), on whole
+      pixels with the creatures' outline and light (`src/render/pixelmachines.ts`).
+- [x] Belts, underground belts, power poles and the Skyward Beacon as pixel
+      sprites (2026-09-26): rails with a joint at every tile, treads that
+      scroll a whole pixel at a time, outlined tunnel hoods, timber poles with
+      glass insulators, and the beacon's plinth, lattice and scaffold
+      (`src/render/pixelworks.ts`). Its light and beam stay soft on purpose.
+- [x] Items as 12-pixel sprites (2026-09-26), one per shape in each item's
+      own colour, on belts, in inserter hands, on the ground and in every
+      bag slot and resource chip in the pixel look (`src/render/pixelitems.ts`).
+- [ ] The inserter filter mark and the coal on the no-fuel sign are smaller
+      than a 12-pixel item and still use the smooth drawing.
+- [ ] Rounds share the nugget shape; a bullet sprite would read better on a
+      turret's feed belt.
+- [ ] Power wires are a smooth 1px curve; a stepped pixel sag would match the
+      poles, if it can be baked cheaply for a base with hundreds of wires.
+- [ ] The steam engine's steam is still drawn smooth; the steam engine and
+      fish trap have pixel bodies but were not checked on a real shore.
 - [x] Floating damage numbers and name tags are drawn at the pixel grid and
       look soft; a small bitmap digit font would keep them crisp.
       *(2026-09-26: damage, loot and combat words use a 5×5 outlined pixel
@@ -1004,7 +1054,10 @@ detail behind the factory entries is in
       somersault, with a shrinking shadow and a landing thud. Wall-jumps
       and air dashes are side-view verbs with nothing to push off in a
       top-down island; a grapple to cross wide water is the next candidate.*
-- [ ] A grapple or rope to cross water wider than a leap, as a crafted tool.
+- [x] A grapple or rope to cross water wider than a leap, as a crafted tool.
+      *(2026-09-26: the Grappling Hook, made at the workbench from iron,
+      fibre and wood. Carried, a dash at water too wide to leap throws it
+      and the rope pulls you up to ten tiles across, over deep water too.)*
 - [ ] 8. **Story framing.** Illustrated story cards and portraits; ours has
       none.
       *2026-09-26: a new island opens on three illustrated pixel story cards,
@@ -1012,6 +1065,10 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Cook at the campfire by hand, so grilled fish does not wait for a
+      furnace, and more meals (berry pie, stew) that heal over time or buff.
+- [ ] Eating is instant; a short eat time or cooldown would stop a stack of
+      grilled fish trivialising a boss fight if it turns out to.
 - [ ] Underground belts carry items across instantly; a transit delay equal to
       the belt time over the gap would feel truer on long lines.
 - [ ] A way to place an underground exit on purpose (a key to flip in/out),
@@ -1223,6 +1280,8 @@ detail behind the factory entries is in
 - [ ] Module balance over a long island: whether output modules on miners are
       worth their processors, and whether speed modules overload a typical
       steam network too easily.
+- [ ] Food balance: whether +12 fish and +35 grilled fish, eaten instantly,
+      make night raids and the Stone Warden too easy with a fish trap running.
 - [ ] Underground belts by touch: the pairing preview was driven with a mouse
       only, and a finger has no hover to show the exit's dashed link first.
 
