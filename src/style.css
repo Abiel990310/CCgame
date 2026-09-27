@@ -240,6 +240,12 @@ kbd {
   transition: background 0.14s ease, border-color 0.14s ease;
 }
 
+.mini-btn .mend-cost {
+  width: 15px;
+  height: 15px;
+  margin-left: 2px;
+}
+
 .mini-btn .ico {
   font-size: 13px;
 }

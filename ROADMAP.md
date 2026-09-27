@@ -550,8 +550,13 @@ detail behind the factory entries is in
       silent until the camp patches every gun at dawn. An armour bar shows
       once it is hurt, and the bites and the wreck each have a sound.
       *Shipped 2026-09-27.*
-- [ ] Mend a wrecked turret by hand mid-night for a few iron plates, so a
-      player can hold a breaking line rather than wait for dawn.
+- [x] **Mend a turret by hand** — a bitten turret's screen has a Mend button
+      priced in iron plates (6 for a wreck, its share for a dent), so a
+      breaking line can be held mid-raid rather than waiting for dawn. The
+      screen now reads Defence and Rounds rather than Storage and Stored.
+      *Shipped 2026-09-27.*
+- [ ] On a phone the machine screen's "Take all (30)" wraps to three lines
+      beside Sort and a third button; the header row wants to wrap as a row.
 - [ ] Raiders still ignore every other machine. Furnaces and belts near camp
       could take bites too, once walls are cheap enough to ring a factory.
 - [x] Turret tiers: a steel turret, and Steel Rounds that pierce, as rows.
