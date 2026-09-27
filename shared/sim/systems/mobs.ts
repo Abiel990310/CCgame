@@ -114,6 +114,8 @@ export function stepMobs(world: World, dt: number): void {
       mob.look = Math.atan2(target.pos.y - mob.pos.y, target.pos.x - mob.pos.x);
     } else mob.look = undefined;
     if (def.summons) summon(world, mob, dt * tempo);
+    const quaking = def.quake !== undefined && mob.enraged === true && quake(world, mob, dt * tempo);
+    if (quaking) pace = 0;
     if (mob.windup) pace *= BITE.pace;
 
     mob.vel.x = damp(mob.vel.x, dir.x * speed * pace, 8, dt);
@@ -124,8 +126,39 @@ export function stepMobs(world: World, dt: number): void {
     // After separation, so a crowd pressing on a furnace cannot shove one of
     // its own members through it.
     resolveMachines(world, mob.pos, def.radius);
-    attackNearby(world, mob, def.radius, def.damage, dt);
+    if (!quaking) attackNearby(world, mob, def.radius, def.damage, dt);
   }
+}
+
+/**
+ * The enraged warden's slam. Returns whether it is busy with one this tick,
+ * so it stands still and does not also bite.
+ */
+function quake(world: World, mob: Mob, dt: number): boolean {
+  const q = MOBS[mob.type].quake!;
+  if (mob.quake && mob.quake > 0) {
+    mob.quake = Math.max(0, mob.quake - dt);
+    if (mob.quake > 0) return true;
+    let hits = 0;
+    for (const player of world.players.values()) {
+      if (player.downed > 0 || distance(player.pos, mob.pos) > q.radius + PLAYER.radius) continue;
+      if (tryDodge(world, player, mob.pos)) continue;
+      damagePlayer(world, player, q.damage);
+      const away = normalize({ x: player.pos.x - mob.pos.x, y: player.pos.y - mob.pos.y });
+      player.vel.x = away.x * q.knock;
+      player.vel.y = away.y * q.knock;
+      hits++;
+    }
+    mob.quakeCd = q.interval;
+    world.events.push({ kind: 'quake', pos: { ...mob.pos }, radius: q.radius, hits });
+    return true;
+  }
+  mob.quakeCd = Math.max(0, (mob.quakeCd ?? q.interval * 0.4) - dt);
+  if (mob.quakeCd > 0 || !playerWithin(world, mob, q.radius * 0.8)) return false;
+  mob.quake = q.windup;
+  mob.windup = 0;
+  world.events.push({ kind: 'quakeWind', pos: { ...mob.pos }, radius: q.radius, windup: q.windup / BOSS_RAGE.tempo });
+  return true;
 }
 
 /**
@@ -167,8 +200,9 @@ function summon(world: World, mob: Mob, dt: number): void {
   mob.summonCd = call.interval;
   if (world.mobs.length >= SUMMON_CAP) return;
   const radius = MOBS[mob.type].radius;
-  for (let i = 0; i < call.count; i++) {
-    const angle = (i / call.count) * Math.PI * 2 + nextFloat(world);
+  const count = mob.enraged ? (call.rageCount ?? call.count) : call.count;
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2 + nextFloat(world);
     const child = spawnMob(world, call.into, {
       x: mob.pos.x + Math.cos(angle) * radius,
       y: mob.pos.y + Math.sin(angle) * radius,

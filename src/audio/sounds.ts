@@ -156,6 +156,24 @@ export const SOUNDS = {
       NOISE(900, 200, 0.6, 0.02, 0.8, 0.7, 0, 'lowpass'),
     ],
   },
+  // A boss rearing up for a quake: stone grinding, rising, so the ear gets the warning too.
+  quakeWind: {
+    gain: 0.3,
+    vary: 0.04,
+    throttle: 0.5,
+    layers: [NOISE(120, 420, 0.6, 0.15, 0.8, 0.8, 0, 'lowpass'), TONE('sawtooth', 45, 90, 0.3, 0.2, 0.75, 0, 7)],
+  },
+  // ...and it comes down: the heaviest thud there is, and rubble after it.
+  quake: {
+    gain: 0.5,
+    vary: 0.04,
+    throttle: 0.3,
+    layers: [
+      TONE('sine', 90, 28, 0.9, 0.003, 0.6),
+      NOISE(700, 90, 0.8, 0.003, 0.7, 0.9, 0, 'lowpass'),
+      NOISE(2400, 900, 0.3, 0.05, 0.35, 1.3, 0.08),
+    ],
+  },
   boss: {
     gain: 0.4,
     vary: 0,

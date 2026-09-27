@@ -293,6 +293,12 @@ export class GameAudio {
         case 'bossRage':
           this.play('bossRage');
           break;
+        case 'quakeWind':
+          this.play('quakeWind', { pos: event.pos });
+          break;
+        case 'quake':
+          this.play('quake', { pos: event.pos });
+          break;
         case 'landmark':
           this.play('goal', { pos: event.pos });
           break;

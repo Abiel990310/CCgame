@@ -151,6 +151,10 @@ export interface Mob {
   shield?: number;
   /** A boss past its turn: see `BOSS_RAGE`. */
   enraged?: boolean;
+  /** Seconds until an enraged boss with a quake can start another. */
+  quakeCd?: number;
+  /** Seconds left rearing up before a quake lands; absent or 0 when not winding one up. */
+  quake?: number;
   /** Called in by another mob: worth no XP or orbs, so a boss left alive is not a farm. */
   brood?: boolean;
   /** The post a landmark's keeper holds: it leaves it only for a player close by, and dawn does not clear it. */
@@ -528,6 +532,10 @@ export type SimEvent =
   | { kind: 'summon'; pos: Vec2 }
   | { kind: 'guardsWoke'; pos: Vec2; landmark: ResourceKind }
   | { kind: 'boss'; pos: Vec2; type: MobTypeId }
+  /** An enraged boss rearing up: a quake of this radius lands in `windup` seconds. */
+  | { kind: 'quakeWind'; pos: Vec2; radius: number; windup: number }
+  /** The quake landed, and how many it caught. */
+  | { kind: 'quake'; pos: Vec2; radius: number; hits: number }
   /** A boss turned: below `BOSS_RAGE.at` of its health it is enraged. */
   | { kind: 'bossRage'; pos: Vec2; type: MobTypeId }
   | { kind: 'beacon'; pos: Vec2; stage: number; lit: boolean }
