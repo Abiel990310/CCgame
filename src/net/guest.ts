@@ -223,10 +223,9 @@ export class CoopGuest {
       const arrived = this.arrived;
       this.arrived = null;
       this.failed = null;
-      // Once a direct channel is open the game runs browser to browser, and
-      // keeping the broker would only let its hiccups end a game that no longer
-      // needs it. A relayed game runs through the broker, so it stays.
-      if (!this.link.relayed) this.broker.close();
+      // The broker stays for the whole game: a direct channel that drops
+      // later moves to the relay through it. Its own hiccups end nothing,
+      // since `fail` only acts while joining.
       arrived();
     }
   }
