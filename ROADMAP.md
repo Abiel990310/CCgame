@@ -230,9 +230,10 @@ detail behind the factory entries is in
 
 ### Bugs
 
-- [ ] Co-op: when a guest's direct channel fails mid-game it switches to the
-      relay and says hello again, so the host treats it as a new arrival
-      (a fresh snapshot, and on a gone host 30 s before the guest is told).
+- [x] Co-op: when a guest's direct channel fails mid-game it switches to the
+      relay and says hello again, so the host treats it as a new arrival.
+      Fixed 2026-09-27: the link carries on through the relay as the same
+      friend, and a stalled channel moves after 3 s instead of about 17 s.
 
 - [x] Night 15 in headless Chromium with the GPU renderer showed no night
       darkness: the island was lit like day while the HUD read Night. The
