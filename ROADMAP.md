@@ -924,6 +924,14 @@ detail behind the factory entries is in
       1.4 s → 0.28 s phone; the menu is ready in 0.39 s instead of 0.66 s,
       and 1.3 s instead of 2.4 s on the phone. The finished field is
       bit-identical to the old one, and the rendered frame matches main.
+- [x] The HUD's portrait and corner map asked for their own size every frame,
+      after the rest of the HUD had changed the page, which made the browser
+      lay out the whole interface a second time each frame. They now hear
+      about size changes from a resize observer: one layout a frame instead
+      of two, and about 8% less work per frame on a desktop, 6% on a phone.
+      Checked in passing, nothing else to fix: a 2.5-minute soak of gliding
+      and raids keeps a flat heap on both renderers, and the simulation
+      runs 6,400 machines and 13,000 belts in under 1 ms a tick.
 - [ ] On the GPU renderer, the first seconds after a big factory comes into
       view were ~100 ms frames headless, nearly all in vertex buffer uploads
       (`bufferSubData`) inside software WebGL; steady state is ~5 ms. Needs a

@@ -15,13 +15,22 @@ const FEET = 35;
 export class Portrait {
   private g: CanvasRenderingContext2D;
   private last = '';
+  /**
+   * The medallion's width, told by the browser when it changes. Asking for it
+   * every frame, after the HUD has changed the page, made the browser lay out
+   * the whole interface again each frame to answer.
+   */
+  private width = 0;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.g = canvas.getContext('2d')!;
+    new ResizeObserver((entries) => {
+      for (const entry of entries) this.width = entry.contentRect.width;
+    }).observe(canvas);
   }
 
   update(player: Player, now: number): void {
-    const size = Math.max(1, Math.round(this.canvas.clientWidth * (window.devicePixelRatio || 1)));
+    const size = Math.max(1, Math.round(this.width * (window.devicePixelRatio || 1)));
     const k = Math.max(1, Math.ceil(size / SPAN));
     const blink = ((now / 1000) * 0.35 + 0.1) % 1 < 0.035;
     const flash = player.hitFlash > 0.1;
