@@ -286,8 +286,10 @@ detail behind the factory entries is in
       the palette edge; it scrolls sideways, but nothing says so. A row with
       more cards now fades at its edge and shows an arrow that steps one card
       along, and swipes snap to a card. Checked at 320, 390 and 800x360.
-- [ ] The Lab's "Workbench" note in the desktop build palette runs 5px past
-      its card's right edge at 1280px.
+- [x] The Lab's "Workbench" note in the desktop build palette runs 5px past
+      its card's right edge at 1280px. The Underground Belt's name ran 11px
+      over too. Cards narrower than 140px now use a smaller piece and name;
+      measured clean at 390, 1024, 1280 and 1440px.
 - [x] The overlapping HUD panels are still showing after the UI revamp. The
       co-op code chip sat on the resource pouch at every screen size, and on
       a 320px phone the phase panel wrapped into it. The top-right corner is
@@ -568,13 +570,15 @@ detail behind the factory entries is in
       gurgles, a shellback cracks, the Warden crumbles and the Queen shrieks.
 - [ ] Mob voices for attacks and hurt, not only deaths, so a brute winding up
       behind you is audible before it lands.
-- [ ] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
+- [x] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
       themselves. Movement is the verb the player does most and it is silent.
+      Done: sand hisses, grass swishes, forest adds a twig crackle, rock taps.
 - [ ] **A pitch per item on production sounds**, so a bank of furnaces reads as
       a chord and a stalled one is audible as a gap.
-- [ ] **Muffle the world behind an open modal** — a lowpass on the master bus
+- [x] **Muffle the world behind an open modal** — a lowpass on the master bus
       while the pause or inventory screen is up, so the interface sits in front
-      of the island rather than inside it.
+      of the island rather than inside it. Done for pause, level-up, bag and map;
+      music and interface clicks stay clear.
 - [ ] **A sound for a finished research cycle**, and a different one for a
       finished tech. A lab is the one machine whose output is invisible.
 - [x] **Bag upgrades** — three bags at the workbench, sewn on in order, each a
@@ -585,8 +589,8 @@ detail behind the factory entries is in
 - [ ] On a phone the bag grid is 6 wide, so 32 and 40 slots leave a short last
       row. Either the bag rows go to 6 on a narrow screen or the grid picks
       its width from the slot count.
-- [ ] A goal for the first satchel, so the first-hour chain points at it
-      once the bag starts to fill.
+- [x] A goal for the first satchel, so the first-hour chain points at it
+      once the bag starts to fill. It comes after copper plates, before gears.
 - [x] A frame-time overlay behind a debug flag, so performance regressions show
       up while playing rather than only under a profiler. F3 (or `?perf=1`,
       which sticks) shows fps, the 95th-percentile and worst frame over two
@@ -1275,11 +1279,20 @@ detail behind the factory entries is in
 - [ ] Let inserters feed modules into empty module slots, for fitting a whole
       bank of machines from a chest.
 
+- [ ] Footsteps on factory floor: a hollow metal clank when crossing belts and
+      machines, and a splash when wading the shallows, so the base sounds built.
+- [ ] Step volume and rate from the stride length, so a sprint or dash lands
+      harder than a stroll instead of only coming faster.
+
 ### Needs testing
 
 - [ ] Module balance over a long island: whether output modules on miners are
       worth their processors, and whether speed modules overload a typical
       steam network too easily.
+- [ ] Footsteps and the menu muffle by ear on real speakers. The sandbox checked
+      them with an analyser on the output (each ground plays its own step; the
+      bag cuts a grass step's highs by about 35 dB), never by listening.
+
 - [ ] Food balance: whether +12 fish and +35 grilled fish, eaten instantly,
       make night raids and the Stone Warden too easy with a fish trap running.
 - [ ] Underground belts by touch: the pairing preview was driven with a mouse

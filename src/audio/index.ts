@@ -25,6 +25,13 @@ const DEFAULTS: AudioSettings = {
 const EARSHOT = TILE * 22;
 /** Sounds started in one tick, before the rest are dropped. */
 const VOICE_BUDGET = 8;
+/**
+ * Where the lowpass sits with no menu open: above hearing, so it colours
+ * nothing. Behind a menu it drops low enough that the island sounds like it is
+ * through a wall, but not so low the campfire and the surf disappear.
+ */
+const OPEN_AIR_HZ = 20000;
+const MUFFLED_HZ = 650;
 
 function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
@@ -65,6 +72,11 @@ export interface PlayOptions {
 export class GameAudio {
   private ctx: AudioContext | null = null;
   private buses: Record<Bus, GainNode> | null = null;
+  /** The world's sounds pass through this; menus pull it down. */
+  private muffler: BiquadFilterNode | null = null;
+  /** Interface sounds, at the effects level but past the muffler. */
+  private dry: GainNode | null = null;
+  private muffled = false;
   private ambience: Ambience | null = null;
   private music: Music | null = null;
 
@@ -121,12 +133,21 @@ export class GameAudio {
 
     const master = ctx.createGain();
     master.connect(ctx.destination);
-    const make = (): GainNode => {
+    const muffler = ctx.createBiquadFilter();
+    muffler.type = 'lowpass';
+    muffler.Q.value = 0.5;
+    muffler.frequency.value = this.muffled ? MUFFLED_HZ : OPEN_AIR_HZ;
+    muffler.connect(master);
+    const make = (to: AudioNode): GainNode => {
       const node = ctx.createGain();
-      node.connect(master);
+      node.connect(to);
       return node;
     };
-    this.buses = { master, sfx: make(), ambience: make(), music: make() };
+    // Music stays in the open: it is the one thing that belongs to the menu as
+    // much as to the island, and muffling it reads as a fault, not a mood.
+    this.buses = { master, sfx: make(muffler), ambience: make(muffler), music: make(master) };
+    this.muffler = muffler;
+    this.dry = make(master);
 
     this.ctx = ctx;
     this.ambience = new Ambience(ctx, this.buses.ambience);
@@ -161,6 +182,19 @@ export class GameAudio {
     for (const bus of ['sfx', 'ambience', 'music'] as const) {
       this.buses[bus].gain.setTargetAtTime(this.settings[bus], now, 0.05);
     }
+    this.dry?.gain.setTargetAtTime(this.settings.sfx, now, 0.05);
+  }
+
+  /**
+   * Pull the world behind a wall while a menu is open, and let it back out
+   * when the menu closes. Safe to call every frame: only a change does work.
+   */
+  muffle(on: boolean): void {
+    if (on === this.muffled) return;
+    this.muffled = on;
+    if (!this.ctx || !this.muffler) return;
+    // Faster in than out: the menu arrives at once, the world eases back.
+    this.muffler.frequency.setTargetAtTime(on ? MUFFLED_HZ : OPEN_AIR_HZ, this.ctx.currentTime, on ? 0.06 : 0.18);
   }
 
   private save(): void {
@@ -208,11 +242,12 @@ export class GameAudio {
     this.budget--;
     this.lastPlayed.set(id, now);
 
-    let dest: AudioNode = buses.sfx;
+    const bus = def.ui && !options.pos && this.dry ? this.dry : buses.sfx;
+    let dest: AudioNode = bus;
     if (pan !== 0 && typeof ctx.createStereoPanner === 'function') {
       const panner = ctx.createStereoPanner();
       panner.pan.value = pan;
-      panner.connect(buses.sfx);
+      panner.connect(bus);
       dest = panner;
       window.setTimeout(() => panner.disconnect(), 4000);
     }

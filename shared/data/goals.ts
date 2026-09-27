@@ -132,6 +132,16 @@ export const GOALS: GoalDef[] = [
     xp: 14,
   },
   {
+    // Placed where ore, plates and the first parts have begun to crowd 24
+    // slots.
+    id: 'satchel',
+    title: 'Sew on a satchel',
+    hint: 'Your bag is filling up. Craft a Woven Satchel at a Workbench (Camp tab) for another row. Trees drop fibre.',
+    have: (_w, p) => ((p.bag ?? 0) >= 1 ? 1 : 0),
+    need: 1,
+    xp: 14,
+  },
+  {
     id: 'gear',
     title: 'Make gears',
     hint: 'An Assembler set to Gear turns two iron plates into one.',
@@ -150,8 +160,8 @@ export const GOALS: GoalDef[] = [
   {
     id: 'lab',
     title: 'Build a Lab',
-    // Goal progress is saved as an index into this table, so the workbench is
-    // folded into this hint rather than given a row of its own.
+    // The satchel goal has usually put a workbench down by now, but an island
+    // caught up past that row may never have built one.
     hint: 'Build a Workbench (Camp tab), press C beside it to craft a Lab, then place it.',
     touchHint: 'Build a Workbench (Camp tab), tap Craft beside it to make a Lab, then place it.',
     have: (w) => machinesOf(w, 'lab'),
