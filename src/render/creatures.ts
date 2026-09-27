@@ -250,17 +250,21 @@ export function drawWarden(ctx: CanvasRenderingContext2D, mob: Mob, time: number
   if (pixelSprites()) {
     const walk = moving ? Math.floor(((((gait / (Math.PI * 2)) % 1) + 1) % 1) * BOSS_WALK) : Math.floor(time * 1.2) % 2;
     drawPixelWarden(ctx, x, feet, mobAct(mob, moving), walk, hurt, face.x < 0, paintFlash() > 0);
-    // The fire inside shows through as light, not pixels.
-    const heat = 0.45 + hurt * 0.55 + Math.sin(time * 4) * 0.08;
+    // The fire inside shows through as light, not pixels: a small hot glow
+    // on the core. Kept tight and deep orange, because a wide additive wash
+    // over the slabs bleached the stone pale just when the cracks should
+    // read brightest against it.
+    const heat = 0.5 + hurt * 0.5 + Math.sin(time * 4) * 0.08;
     const cx = x + (face.x < 0 ? -1 : 1) * r * 0.05;
-    const cy = feet - stomp - r * 1.2;
+    const cy = feet - stomp - r * 1.25;
+    const reach = r * (0.3 + 0.15 * hurt);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.75);
-    core.addColorStop(0, `rgba(255, 190, 90, ${0.55 * heat})`);
-    core.addColorStop(1, 'rgba(255, 140, 40, 0)');
+    const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, reach);
+    core.addColorStop(0, `rgba(255, 150, 60, ${0.5 * heat})`);
+    core.addColorStop(1, 'rgba(230, 80, 20, 0)');
     ctx.fillStyle = core;
-    ctx.fillRect(cx - r * 0.75, cy - r * 0.75, r * 1.5, r * 1.5);
+    ctx.fillRect(cx - reach, cy - reach, reach * 2, reach * 2);
     ctx.restore();
     return;
   }
