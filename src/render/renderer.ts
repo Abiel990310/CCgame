@@ -3,7 +3,7 @@ import { drawNameTags } from './nametags';
 import { RESOURCES } from '@shared/data/items';
 import { CAMP, CYCLE, MAP_SIZE, MAP_TILES, TILE } from '@shared/sim/constants';
 import { clamp } from '@shared/sim/math';
-import { TERRAIN_ORDER } from '@shared/sim/terrain';
+import { TERRAIN_ORDER, terrainAt } from '@shared/sim/terrain';
 import type {
   Belt,
   BuildingId,
@@ -12,6 +12,7 @@ import type {
   MachineId,
   Player,
   SimEvent,
+  Terrain,
   Vec2,
   World,
 } from '@shared/sim/types';
@@ -585,6 +586,9 @@ export class Renderer {
         if (m.step <= 0) {
           m.step = 0.3;
           this.effects.dust(feet, dashing ? 2 : 1, 0.7);
+          // Mid-vault the feet are in the air, and a step there would land
+          // on whatever the arc happens to cross.
+          if (!airborne) this.onCue?.(STEP_CUE[terrainAt(world.terrain, feet)], feet, self);
         }
       } else m.step = 0;
     }
@@ -1072,7 +1076,31 @@ function toolFor(world: World, player: Player): Tool {
  * than finishing early and snapping back.
  */
 /** Sounds the renderer notices from motion rather than from sim events. */
-export type Cue = 'chop' | 'chip' | 'rustle' | 'dash' | 'leap' | 'hook' | 'land';
+export type Cue =
+  | 'chop'
+  | 'chip'
+  | 'rustle'
+  | 'dash'
+  | 'leap'
+  | 'hook'
+  | 'land'
+  | 'stepSand'
+  | 'stepGrass'
+  | 'stepForest'
+  | 'stepRock';
+
+/**
+ * The ground under a stride. Water is only reached by wading the shallows'
+ * edge, where the sand is still what the foot lands on.
+ */
+const STEP_CUE = {
+  deep: 'stepSand',
+  water: 'stepSand',
+  sand: 'stepSand',
+  grass: 'stepGrass',
+  forest: 'stepForest',
+  rock: 'stepRock',
+} as const satisfies Record<Terrain, Cue>;
 
 /** How close the camera stands, as multiples of the size-based default. */
 const ZOOM_STEPS = [0.7, 0.85, 1, 1.2, 1.45];

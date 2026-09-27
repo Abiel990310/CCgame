@@ -12,6 +12,11 @@ export interface SoundDef {
   /** Random pitch spread as a fraction, so a repeated sound never phases. */
   vary?: number;
   /**
+   * Plays past the muffle that falls over the world behind a menu: the menu's
+   * own clicks are what the player is listening to while it is open.
+   */
+  ui?: boolean;
+  /**
    * Seconds this sound refuses to start again. A hundred furnaces finishing on
    * the same tick is one thunk, not a hundred overlapping ones.
    */
@@ -566,6 +571,7 @@ export const SOUNDS = {
     ],
   },
   denied: {
+    ui: true,
     gain: 0.18,
     layers: [
       TONE('square', 200, 200, 0.4, 0.002, 0.05),
@@ -573,21 +579,68 @@ export const SOUNDS = {
     ],
   },
 
+  // ---- Footsteps: quiet enough to vanish under anything else, but each
+  // ground has its own grain, so you can tell the beach from the quarry with
+  // your eyes shut. A footstep with a pitched tone in it reads as a UI blip,
+  // so only rock, which really does ring, gets one. ----
+  stepSand: {
+    gain: 0.07,
+    vary: 0.14,
+    throttle: 0.05,
+    layers: [
+      NOISE(1500, 700, 0.6, 0.012, 0.09, 0.7),
+      NOISE(900, 500, 0.35, 0.02, 0.07, 0.6, 0.03, 'lowpass'),
+    ],
+  },
+  stepGrass: {
+    gain: 0.06,
+    vary: 0.15,
+    throttle: 0.05,
+    layers: [
+      NOISE(3800, 2600, 0.45, 0.004, 0.05, 0.8, 0, 'highpass'),
+      NOISE(260, 160, 0.5, 0.003, 0.05, 0.8, 0, 'lowpass'),
+    ],
+  },
+  // Grass with litter on it: the same soft fall plus a dry crackle of twigs.
+  stepForest: {
+    gain: 0.065,
+    vary: 0.15,
+    throttle: 0.05,
+    layers: [
+      NOISE(2200, 1500, 0.5, 0.003, 0.06, 1.6),
+      NOISE(4200, 3000, 0.25, 0.001, 0.02, 2.4, 0.025),
+      NOISE(240, 150, 0.45, 0.003, 0.05, 0.8, 0, 'lowpass'),
+    ],
+  },
+  stepRock: {
+    gain: 0.07,
+    vary: 0.12,
+    throttle: 0.05,
+    layers: [
+      NOISE(3400, 2200, 0.45, 0.001, 0.025, 1.2, 0, 'highpass'),
+      TONE('triangle', 230, 150, 0.35, 0.001, 0.04),
+    ],
+  },
+
   // ---- Interface ----
   click: {
+    ui: true,
     gain: 0.12,
     vary: 0.05,
     layers: [TONE('sine', 760, 620, 0.4, 0.001, 0.04), NOISE(2400, 1600, 0.2, 0.001, 0.02, 2)],
   },
   open: {
+    ui: true,
     gain: 0.14,
     layers: [TONE('sine', 420, 700, 0.5, 0.004, 0.1), TONE('triangle', 840, 1100, 0.2, 0.004, 0.08)],
   },
   close: {
+    ui: true,
     gain: 0.14,
     layers: [TONE('sine', 700, 380, 0.5, 0.004, 0.1), TONE('triangle', 1100, 620, 0.2, 0.004, 0.08)],
   },
   slot: {
+    ui: true,
     gain: 0.1,
     vary: 0.1,
     throttle: 0.02,
