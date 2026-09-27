@@ -376,6 +376,9 @@ export class Game {
   showcase(): void {
     if (this.running || this.showcasing) return;
     this.showcasing = true;
+    // Quitting from the pause screen leaves the world muffled, and the menu is
+    // not a screen over the island but the island itself.
+    audio.muffle(false);
     const first = this.world.players.values().next().value as Player | undefined;
     this.showcaseFocus = first ? { ...first.pos } : { ...this.world.camp };
     this.renderer.resize();
@@ -1251,6 +1254,7 @@ export class Game {
       this.interpolator.restore();
     }
     audio.update(this.world, elapsed);
+    audio.muffle(paused || this.hud.isInventoryOpen || this.worldMap.isOpen);
     this.hud.update(this.world, this.self);
     this.goals.update(this.world, this.self, elapsed, this.input.isTouch);
     this.ledger.advance(this.world.time);

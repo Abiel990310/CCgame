@@ -563,13 +563,15 @@ detail behind the factory entries is in
       gurgles, a shellback cracks, the Warden crumbles and the Queen shrieks.
 - [ ] Mob voices for attacks and hurt, not only deaths, so a brute winding up
       behind you is audible before it lands.
-- [ ] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
+- [x] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
       themselves. Movement is the verb the player does most and it is silent.
+      Done: sand hisses, grass swishes, forest adds a twig crackle, rock taps.
 - [ ] **A pitch per item on production sounds**, so a bank of furnaces reads as
       a chord and a stalled one is audible as a gap.
-- [ ] **Muffle the world behind an open modal** — a lowpass on the master bus
+- [x] **Muffle the world behind an open modal** — a lowpass on the master bus
       while the pause or inventory screen is up, so the interface sits in front
-      of the island rather than inside it.
+      of the island rather than inside it. Done for pause, level-up, bag and map;
+      music and interface clicks stay clear.
 - [ ] **A sound for a finished research cycle**, and a different one for a
       finished tech. A lab is the one machine whose output is invisible.
 - [x] **Bag upgrades** — three bags at the workbench, sewn on in order, each a
@@ -1261,7 +1263,16 @@ detail behind the factory entries is in
 - [ ] Hitstop for co-op: a host-side freeze all guests replay.
 - [ ] Drop arcs are stepped at the 30 Hz tick; interpolate `settle` too.
 
+- [ ] Footsteps on factory floor: a hollow metal clank when crossing belts and
+      machines, and a splash when wading the shallows, so the base sounds built.
+- [ ] Step volume and rate from the stride length, so a sprint or dash lands
+      harder than a stroll instead of only coming faster.
+
 ### Needs testing
+
+- [ ] Footsteps and the menu muffle by ear on real speakers. The sandbox checked
+      them with an analyser on the output (each ground plays its own step; the
+      bag cuts a grass step's highs by about 35 dB), never by listening.
 
 - [ ] Food balance: whether +12 fish and +35 grilled fish, eaten instantly,
       make night raids and the Stone Warden too easy with a fish trap running.
