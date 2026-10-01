@@ -1,5 +1,6 @@
 import { MAP_TILES, TILE } from './constants';
 import { fbm } from './rng';
+import { COAST_REACH, type IslandSite } from './regions';
 import type { Terrain, Vec2 } from './types';
 
 export const TERRAIN_ORDER: Terrain[] = ['deep', 'water', 'sand', 'grass', 'forest', 'rock'];
@@ -108,6 +109,45 @@ function generateMainland(seed: number): Uint8Array {
 
   carveCamp(grid, seed);
   return grid;
+}
+
+/**
+ * Grow a second island into a grid that is otherwise open sea. It is the
+ * mainland's recipe — noise over a lumpy radial falloff — with a rougher hand:
+ * ridges push rock up out of the middle and nothing is flattened for a camp,
+ * because nobody lives here yet. Only deep water is overwritten, so it can
+ * never carve into an island that was already there.
+ */
+export function stampIsland(grid: Uint8Array, seed: number, site: IslandSite): void {
+  const reach = Math.ceil(site.radius * COAST_REACH);
+  const salt = 0x2a51;
+  for (let ty = Math.max(0, site.cy - reach); ty <= Math.min(MAP_TILES - 1, site.cy + reach); ty++) {
+    for (let tx = Math.max(0, site.cx - reach); tx <= Math.min(MAP_TILES - 1, site.cx + reach); tx++) {
+      if (grid[ty * MAP_TILES + tx] !== 0) continue;
+      const nx = (tx - site.cx) / site.radius;
+      const ny = (ty - site.cy) / site.radius;
+      const coast = 1 + (fbm(tx * 0.035, ty * 0.035, seed + salt + 991, 3) - 0.5) * 0.42;
+      const dist = Math.hypot(nx, ny) / coast;
+
+      const base = fbm(tx * 0.06, ty * 0.06, seed + salt, 5);
+      const detail = fbm(tx * 0.17, ty * 0.17, seed + salt + 7777, 3);
+      const ridge = fbm(tx * 0.028, ty * 0.028, seed + salt + 4242, 3);
+
+      const falloff = Math.max(0, 1 - Math.pow(dist * 0.97, 3.2));
+      let value = (base * 0.72 + detail * 0.28) * falloff * 1.14;
+      if (falloff < 0.35) value = Math.min(value, falloff * 1.6);
+      else value += Math.max(0, ridge - 0.5) * 1.5 + Math.max(0, dist - 0.55) * 0.25;
+
+      let kind: Terrain;
+      if (value < 0.2) kind = 'deep';
+      else if (value < 0.31) kind = 'water';
+      else if (value < 0.37) kind = 'sand';
+      else if (value < 0.58) kind = 'grass';
+      else if (value < 0.74) kind = 'forest';
+      else kind = 'rock';
+      grid[ty * MAP_TILES + tx] = TERRAIN_ORDER.indexOf(kind);
+    }
+  }
 }
 
 /** Guarantee a flat, walkable clearing at the island's heart for the camp. */

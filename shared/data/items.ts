@@ -81,6 +81,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   ironOre: { id: 'ironOre', name: 'Iron Ore', color: '#7391b6', stack: 999, shape: 'chunk' },
   copperOre: { id: 'copperOre', name: 'Copper Ore', color: '#c28356', stack: 999, shape: 'chunk' },
   coal: { id: 'coal', name: 'Coal', color: '#4a4a52', stack: 999, shape: 'chunk' },
+  titaniumOre: { id: 'titaniumOre', name: 'Titanium Ore', color: '#5fa8a8', stack: 999, shape: 'chunk' },
 
   ironPlate: { id: 'ironPlate', name: 'Iron Plate', color: '#c3ccd6', stack: 999, shape: 'plate' },
   copperPlate: {
@@ -91,6 +92,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     shape: 'plate',
   },
   steelPlate: { id: 'steelPlate', name: 'Steel Plate', color: '#7e8ea6', stack: 999, shape: 'ingot' },
+  titaniumPlate: { id: 'titaniumPlate', name: 'Titanium Plate', color: '#7fc4c0', stack: 999, shape: 'ingot' },
   grilledFish: { id: 'grilledFish', name: 'Grilled Fish', color: '#c98a4a', stack: 999, shape: 'fish', food: 35 },
 
   gear: { id: 'gear', name: 'Gear', color: '#9aa4ae', stack: 999, shape: 'gear' },

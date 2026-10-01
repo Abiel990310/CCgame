@@ -56,6 +56,26 @@ describe('islands from every worldgen', () => {
     expect([...back.players.values()][0].inventory).toEqual(player.inventory);
   });
 
+  it('keeps a generation 3 mainland exactly as it was, with no second island', () => {
+    const world = createWorld(4242, true, 3);
+    addPlayer(world, 'You');
+    const felled = world.nodes[11];
+    world.nodes = world.nodes.filter((n) => n.id !== felled.id);
+    const tile = firstOreTile(world);
+    world.oreLeft[tile] = 5;
+    const terrain = Uint8Array.from(world.terrain);
+    const nodes = world.nodes.length;
+    saveWorld(world, SLOT);
+
+    createWorld(99);
+    const back = loadWorld(SLOT)!;
+    expect(back.worldgen).toBe(3);
+    expect(MAP_TILES).toBe(256);
+    expect(back.terrain).toEqual(terrain);
+    expect(back.nodes.length).toBe(nodes);
+    expect(back.oreLeft[tile]).toBe(5);
+  });
+
   it('keeps the deltas of an island grown by the current one', () => {
     const world = createWorld(4242, true);
     addPlayer(world, 'You');

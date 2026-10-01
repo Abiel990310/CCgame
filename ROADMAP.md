@@ -89,6 +89,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Far ore | Patches get up to 2.2× richer and wider towards the coast | Makes the far side of the island worth a long belt or a second base instead of only more of the same. |
 | Power | One network per set of wired poles, balanced every tick; tier 3 runs on it instead of coal | The fuel memo said power should replace tier 3's fuel rather than run beside it. Supply short of demand slows every machine by the same share rather than stopping some, so an overloaded base degrades visibly instead of flickering. The layout is derived from the machines and never saved; a starved machine's `unpowered` flag is, so a guest balances the same demand as the host. |
 | Tech added under a finished one | Granted on load | Electricity sits under Resonance; an island that finished Resonance first gets it free, so its electric machines stay buildable. Done generically for any prerequisite added later. |
+| Second island | Generation 4 builds generation 3's mainland whole, in the north-west corner of a 384-tile sea, and then stamps the Far Shore into the east, drawing everything it adds from random streams of its own | Abiel's standing ask for content that multiplies. Carrying generation 3 across (copied, never regenerated at a new size) keeps a seed's home island exactly as it was, with the same tile coordinates, so the contract in "Worldgen" holds and a later migration of old islands only has to restride their tile keys; a test compares every tile, ore amount and node. Old islands keep their own generation and size, so none of them gains a region yet (an idea in the backlog). The strait is 17+ tiles wide, past the grappling hook's 10, so the crossing is a build and not a leap. Titanium exists only on the far side, so crossing is the point. Further islands are one more `IslandSite` row in `regions.ts`; the 384 map has the whole south for them. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
@@ -595,7 +596,17 @@ detail behind the factory entries is in
       raises a toast once, and shows as a red ring on the map until moved; the
       Production tab counts them and links to the map.
 - [ ] **Second island via a bridge** — a new generated region with its own ore
-      tier and tech branch. Multiplies content instead of ending it.
+      tier and tech branch. Multiplies content instead of ending it. Shipped in
+      steps (design in the decision log, "Second island"):
+  - [x] **The island** — worldgen 4: the Far Shore, 17+ tiles of sea from the
+        mainland, with titanium ore found nowhere else, its own scenery and
+        guarded landmarks. Generation 3's mainland is carried across untouched.
+        *Shipped 2026-10-01.*
+  - [ ] **The bridge** — a placeable span that turns sea into walkable deck,
+        grown out from a shore; gated by a tech; saved as terrain deltas.
+  - [ ] **The titanium tier** — miners and furnaces that can work it, the
+        plate, and what it is spent on.
+  - [ ] **A tech branch** that opens with the crossing and leads on from titanium.
 - [x] **Mob voices** — each of the nine creatures dies to its own sound: a
       slime pops, crawlers click, a wisp rises away, a brute thuds, a spitter
       gurgles, a shellback cracks, the Warden crumbles and the Queen shrieks.
@@ -1195,6 +1206,15 @@ detail behind the factory entries is in
 - [ ] A face for the voice that answers the beacon, shown on the ending cards.
 
 ### Ideas
+
+- [ ] **Bring the Far Shore to islands made before it.** Worldgen 4 only
+      applies to new islands. Generation 3's mainland sits at the same tile
+      coordinates inside generation 4, so an old island could be carried across
+      by restriding its tile keys on load. It would give existing players the
+      second region, at the cost of a one-way migration.
+- [ ] **Further islands.** The 384-tile map has the whole south empty: another
+      `IslandSite` in `shared/sim/regions.ts` with its own ore and landmarks,
+      reached by a longer bridge.
 
 - [ ] A Mk3 belt moves at 6.4 tiles a second but a full lane delivers about 15
       items a second, not 25: machines and belts put an item on at offset 0

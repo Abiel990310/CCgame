@@ -21,10 +21,12 @@ export type ItemId =
   | 'ironOre'
   | 'copperOre'
   | 'coal'
+  | 'titaniumOre'
   // Smelted
   | 'ironPlate'
   | 'copperPlate'
   | 'steelPlate'
+  | 'titaniumPlate'
   | 'grilledFish'
   // Assembled
   | 'gear'
@@ -342,7 +344,7 @@ export interface PlayerInput {
 /** Grid-aligned facing. Belts flow this way; machines output this way. */
 export type Direction = 0 | 1 | 2 | 3;
 
-export type OreKind = 'ironOre' | 'copperOre' | 'coal';
+export type OreKind = 'ironOre' | 'copperOre' | 'coal' | 'titaniumOre';
 
 /**
  * What a machine fundamentally is. Every tier of a machine shares its family's

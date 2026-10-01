@@ -3,7 +3,7 @@ import { placeBuilding, placementError } from '../building';
 import { factoryPlacementError, placeBelt } from '../factory';
 import { tileCenter, tileKey } from '../grid';
 import { TERRAIN_ORDER } from '../terrain';
-import { MAP_TILES } from '../constants';
+import { TILE } from '../constants';
 import { bench, type Bench } from './bench';
 
 /**
@@ -11,11 +11,13 @@ import { bench, type Bench } from './bench';
  * bench sits deliberately clear of it, so these tests flatten their own patch
  * around the campfire instead.
  */
-// Read once a world exists: each island sets its own size.
-const campTile = (): number => MAP_TILES / 2;
+// Where the camp is, once a world exists: it is not the map's middle on an island with company.
+let camp = 0;
+const campTile = (): number => camp;
 
 function campBench(): Bench {
   const b = bench();
+  camp = Math.floor(b.world.camp.x / TILE);
   const grass = TERRAIN_ORDER.indexOf('grass');
 
   for (let ty = campTile() - 2; ty <= campTile() + 2; ty++) {

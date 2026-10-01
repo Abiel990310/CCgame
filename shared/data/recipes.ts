@@ -33,6 +33,14 @@ export const RECIPES: Recipe[] = [
     outputs: [{ id: 'copperPlate', count: 1 }],
   },
   {
+    id: 'titaniumPlate',
+    name: 'Titanium Plate',
+    machine: 'furnace',
+    time: 4,
+    inputs: [{ id: 'titaniumOre', count: 1 }],
+    outputs: [{ id: 'titaniumPlate', count: 1 }],
+  },
+  {
     // Raw fish already heals; grilling nearly triples it, which is what gives
     // a fish trap feeding a furnace a reason to exist on a raid island.
     id: 'grilledFish',

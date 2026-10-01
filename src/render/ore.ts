@@ -28,6 +28,7 @@ const STYLE: Record<OreKind, OreStyle> = {
   ironOre: { bed: '#4a4f5c', rim: '#31353f', lump: '#7391b6', light: '#b6cbe6', glint: '#f2f8ff', fleck: '#c0673f' },
   copperOre: { bed: '#5e4632', rim: '#3d2c1f', lump: '#cf7f45', light: '#f3b27a', glint: '#fff0dc', fleck: '#4fae94' },
   coal: { bed: '#2c2c33', rim: '#18181d', lump: '#3a3a45', light: '#666b80', glint: '#b9c3e0', fleck: '#23232a' },
+  titaniumOre: { bed: '#34585f', rim: '#1d3036', lump: '#5fbdb8', light: '#b4f2ec', glint: '#f2fffd', fleck: '#8a7fc0' },
 };
 
 export interface OreTile {

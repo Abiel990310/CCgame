@@ -24,7 +24,7 @@ const SHALLOWS: [number, number, number] = [74, 142, 160];
 /** The surf line drawn on the land's edge where it meets the water. */
 const FOAM: [number, number, number] = [226, 232, 214];
 /** Ore in `ORE_ORDER`, index 0 being none. */
-const ORE: ([number, number, number] | null)[] = [null, [120, 150, 190], [210, 128, 70], [40, 40, 48]];
+const ORE: ([number, number, number] | null)[] = [null, [120, 150, 190], [210, 128, 70], [40, 40, 48], [95, 190, 186]];
 /** Unseen ground is shown as a dim ghost of itself, so the coast still reads. */
 const FOG = [18, 22, 30];
 /** Map colours for the landmarks; anything else on the island is not marked. */
@@ -219,6 +219,7 @@ export class WorldMap {
           <span><i style="background:rgb(120,150,190)"></i>Iron</span>
           <span><i style="background:rgb(210,128,70)"></i>Copper</span>
           <span><i style="background:rgb(40,40,48)"></i>Coal</span>
+          <span><i style="background:rgb(95,190,186)"></i>Titanium</span>
           <span><i class="dot-factory"></i>Factory</span>
           <span><i class="dot-camp"></i>Camp</span>
           <span><i class="dot-landmark"></i>Landmark</span>
