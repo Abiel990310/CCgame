@@ -332,6 +332,7 @@ export class GameAudio {
           break;
         }
         case 'placed':
+        case 'turretMended':
           this.play('placed', { pos: event.pos });
           break;
         case 'built':

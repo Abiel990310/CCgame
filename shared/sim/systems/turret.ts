@@ -1,10 +1,11 @@
-import { TURRET, TURRET_AMMO, TURRET_AMMO_ORDER } from '../../data/machines';
+import { MACHINES, TURRET, TURRET_AMMO, TURRET_AMMO_ORDER } from '../../data/machines';
 import { MOBS } from '../../data/mobs';
 import { tileCenter } from '../grid';
 import { distanceSq } from '../math';
 import type { ResearchBonuses } from '../research';
+import { countItem, removeItem } from '../inventory';
 import { countIn, takeFromSlots } from '../slots';
-import type { ItemId, Machine, Mob, TurretAmmo, World } from '../types';
+import type { ItemId, Machine, Mob, Player, TurretAmmo, World } from '../types';
 import { leadAim } from './combat';
 
 /** True for the rounds a turret fires, the only things it takes from a belt or an arm. */
@@ -20,6 +21,33 @@ export function loadedAmmo(machine: Machine): TurretAmmo | null {
 /** True once creatures have chewed through its armour: it does not fire until dawn. */
 export function turretWrecked(machine: Machine): boolean {
   return (machine.wear ?? 0) >= TURRET.armour;
+}
+
+/** Iron plates it costs to mend this turret whole, or 0 when it is unhurt. */
+export function mendCost(machine: Machine): number {
+  const wear = machine.wear ?? 0;
+  if (wear <= 0) return 0;
+  return Math.max(1, Math.ceil((wear / TURRET.armour) * TURRET.mendPlates));
+}
+
+/**
+ * Patch a turret by hand, paying iron plates from the bag, so a wrecked gun
+ * can be back in the fight before dawn. False when there is nothing to mend
+ * or not enough plates.
+ */
+export function mendTurret(world: World, player: Player, machineId: number): boolean {
+  const machine = world.machines.find((m) => m.id === machineId);
+  if (!machine || !isTurret(machine)) return false;
+  const cost = mendCost(machine);
+  if (cost === 0 || countItem(player, 'ironPlate') < cost) return false;
+  removeItem(player, 'ironPlate', cost);
+  delete machine.wear;
+  world.events.push({ kind: 'turretMended', pos: tileCenter(machine.tx, machine.ty) });
+  return true;
+}
+
+function isTurret(machine: Machine): boolean {
+  return MACHINES[machine.type].family === 'turret';
 }
 
 /** The closest living creature a turret at `at` can reach, or null. */

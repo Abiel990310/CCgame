@@ -851,6 +851,12 @@ export const TURRET = {
    * of the player, so the guns draw the fight the way a wall line would.
    */
   aggro: 110,
+  /**
+   * Iron plates to mend a turret from wrecked to whole by hand; a lighter
+   * dent costs its share. Cheap next to a new turret, so holding a breaking
+   * line in the middle of a raid is worth a run to the gun.
+   */
+  mendPlates: 6,
 } as const;
 
 /**

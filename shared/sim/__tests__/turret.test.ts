@@ -5,7 +5,8 @@ import { clickSlot } from '../containers';
 import { tileCenter } from '../grid';
 import { countIn } from '../slots';
 import { spawnMob } from '../systems/mobs';
-import { turretWrecked } from '../systems/turret';
+import { mendCost, mendTurret, turretWrecked } from '../systems/turret';
+import { countItem } from '../inventory';
 import { insertIntoMachine } from '../systems/factory';
 import type { Machine } from '../types';
 import { advance, at, bench, fill, put, type Bench } from './bench';
@@ -168,5 +169,34 @@ describe('gun turret', () => {
     mob.pos = { x: c.x, y: c.y + TURRET.aggro * 3 };
     advance(b.world, 3);
     expect(m.wear).toBeUndefined();
+  });
+
+  it('is mended by hand for iron plates, its share of the full price', () => {
+    const b = bench();
+    const m = turret(b);
+    expect(mendCost(m)).toBe(0);
+    expect(mendTurret(b.world, b.player, m.id)).toBe(false);
+
+    m.wear = TURRET.armour / 2;
+    expect(mendCost(m)).toBe(TURRET.mendPlates / 2);
+    m.wear = TURRET.armour;
+    expect(turretWrecked(m)).toBe(true);
+    expect(mendCost(m)).toBe(TURRET.mendPlates);
+    const plates = countItem(b.player, 'ironPlate');
+    expect(mendTurret(b.world, b.player, m.id)).toBe(true);
+    expect(countItem(b.player, 'ironPlate')).toBe(plates - TURRET.mendPlates);
+    expect(m.wear).toBeUndefined();
+    expect(turretWrecked(m)).toBe(false);
+  });
+
+  it('will not be mended without the plates to pay for it', () => {
+    const b = bench();
+    const m = turret(b);
+    m.wear = TURRET.armour;
+    b.player.inventory = b.player.inventory.map((s) => (s?.id === 'ironPlate' ? null : s));
+    b.player.inventory[0] = { id: 'ironPlate', count: TURRET.mendPlates - 1 };
+    expect(mendTurret(b.world, b.player, m.id)).toBe(false);
+    expect(m.wear).toBe(TURRET.armour);
+    expect(countItem(b.player, 'ironPlate')).toBe(TURRET.mendPlates - 1);
   });
 });

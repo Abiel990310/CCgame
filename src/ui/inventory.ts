@@ -1,5 +1,6 @@
 import { ITEMS, ITEM_ORDER } from '@shared/data/items';
-import { FUEL_VALUE, MACHINES } from '@shared/data/machines';
+import { FUEL_VALUE, MACHINES, TURRET } from '@shared/data/machines';
+import { mendCost, turretWrecked } from '@shared/sim/systems/turret';
 import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
 import { TECHS, TECH_BY_ID } from '@shared/data/techs';
 import { minerOreLeft } from '@shared/sim/ore';
@@ -30,6 +31,8 @@ export interface InventoryCallbacks {
   /** A slot was clicked: pick up, put down, split, or send across. */
   onSlotAction: (ref: SlotRef, button: ClickButton, quick: boolean) => void;
   onTakeAll: () => void;
+  /** Patch the open turret whole with iron plates from the bag. */
+  onMend: (machineId: number) => void;
   /** Tidy one grid: loose stacks merged, laid out in table order. */
   onSort: (area: SlotArea) => void;
   /** Double-click: pull every loose stack of this item into this slot. */
@@ -87,6 +90,7 @@ export class InventoryScreen {
     progress: HTMLElement;
     progressFill: HTMLElement;
     takeAll: HTMLButtonElement;
+    mend: HTMLButtonElement;
     filterMode: HTMLButtonElement;
     filterHint: HTMLElement;
     settings: HTMLElement;
@@ -152,6 +156,7 @@ export class InventoryScreen {
       progress: must('inv-progress'),
       progressFill: must('inv-progress-fill'),
       takeAll: must<HTMLButtonElement>('inv-take-all'),
+      mend: must<HTMLButtonElement>('inv-mend'),
       filterMode: must<HTMLButtonElement>('inv-filter-mode'),
       filterHint: must('inv-filter-hint'),
       settings: must('inv-settings'),
@@ -186,6 +191,9 @@ export class InventoryScreen {
     this.els.takeAll.addEventListener('click', () => {
       audio.play('click');
       this.callbacks.onTakeAll();
+    });
+    this.els.mend.addEventListener('click', () => {
+      if (this.machine) this.callbacks.onMend(this.machine.id);
     });
     this.els.filterMode.addEventListener('click', () => {
       audio.play('click');
@@ -300,6 +308,8 @@ export class InventoryScreen {
       ? 'Research'
       : def.family === 'beacon'
         ? 'Great work'
+      : def.family === 'turret'
+        ? 'Defence'
       : def.choosesRecipe
         ? 'Machine'
         : arm
@@ -323,6 +333,8 @@ export class InventoryScreen {
         ? beaconLit(machine)
           ? 'Fuel'
           : 'Delivered'
+      : def.family === 'turret'
+        ? 'Rounds'
       : def.choosesRecipe
         ? 'In'
         : arm
@@ -425,6 +437,7 @@ export class InventoryScreen {
     }
     if (machine && MACHINES[machine.type].family === 'lab') this.updateResearchNote(world);
     if (machine && MACHINES[machine.type].family === 'beacon') this.updateBeacon(machine);
+    this.updateMend(player, machine);
     if (!machine) this.updatePage(world, player);
     this.updatePanel(world, machine);
   }
@@ -633,6 +646,36 @@ export class InventoryScreen {
           `and creatures within ${BEACON_WARD_TILES} tiles of it slow down. ` +
           `${countIn(machine.input, 'processor')} processors in reserve, ${Math.ceil(machine.progress)}s on the one alight.`
         : `Lit, but banked. Feed it processors and it burns, one a minute, for ${Math.round(BEACON_BOOST * 100)}% faster machines, miners and labs across the island, and a ward that slows creatures near it.`;
+    if (this.els.blurb.textContent !== text) this.els.blurb.textContent = text;
+  }
+
+  /**
+   * A bitten turret offers to be mended on the spot, and says what it costs;
+   * the button stays up but greyed when the bag is short, so the price is
+   * learned before the plates are.
+   */
+  private updateMend(player: Player, machine: Machine | null): void {
+    const turret = machine !== null && MACHINES[machine.type].family === 'turret';
+    const cost = turret ? mendCost(machine) : 0;
+    this.els.mend.classList.toggle('hidden', cost === 0);
+    if (!turret) return;
+    if (cost === 0) {
+      const whole = MACHINES[machine.type].description;
+      if (this.els.blurb.textContent !== whole) this.els.blurb.textContent = whole;
+      return;
+    }
+    // The price as the plate's own icon and a count, which fits a phone's
+    // header row where "6 Iron Plates" spelled out wraps to three lines.
+    const label = `Mend <i class="res-icon mend-cost" style="background-image:${itemIconVar('ironPlate')}"></i>${cost}`;
+    if (this.els.mend.dataset.label !== label) {
+      this.els.mend.dataset.label = label;
+      this.els.mend.innerHTML = label;
+      this.els.mend.title = `Mend for ${cost} Iron Plate${cost === 1 ? '' : 's'}`;
+    }
+    this.els.mend.disabled = countIn(player.inventory, 'ironPlate') < cost;
+    const text = turretWrecked(machine)
+      ? 'Wrecked. Creatures chewed through its armour; it stays silent until dawn, or until you mend it.'
+      : `Armour ${TURRET.armour - (machine.wear ?? 0)} of ${TURRET.armour}. Creatures that reach it bite it, and at nothing it is wrecked until dawn.`;
     if (this.els.blurb.textContent !== text) this.els.blurb.textContent = text;
   }
 

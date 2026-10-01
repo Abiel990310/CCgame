@@ -530,6 +530,7 @@ export type SimEvent =
   | { kind: 'turretShot'; pos: Vec2; ammo: TurretAmmo }
   /** A creature bit a turret; `wrecked` when that bite finished it. */
   | { kind: 'turretHit'; pos: Vec2; wrecked: boolean }
+  | { kind: 'turretMended'; pos: Vec2 }
   | { kind: 'collected'; pos: Vec2; item: ItemId | null; count: number; playerId: number }
   | { kind: 'produced'; pos: Vec2; machine: MachineId; item: ItemId; count: number }
   | { kind: 'placed'; pos: Vec2; what: MachineId | 'belt' }

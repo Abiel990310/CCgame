@@ -112,6 +112,12 @@ describe('co-op replay', () => {
         pending.push({ p: player.id, c: { k: 'machine', what: 'tunnel', tx: ore.tx, ty: ore.ty + 3, dir: 0 } });
         pending.push({ p: player.id, c: { k: 'machine', what: 'tunnel', tx: ore.tx + 4, ty: ore.ty + 3, dir: 0 } });
         pending.push({ p: player.id, c: { k: 'machine', what: 'furnaceMk3', tx: ore.tx + 6, ty: ore.ty, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'turret', tx: ore.tx + 9, ty: ore.ty, dir: 0 } });
+      }
+      if (t === 402) {
+        // Bitten the same on both copies, so the mend below is what is replayed.
+        for (const world of [host, guest]) world.machines.find((m) => m.type === 'turret')!.wear = 100;
+        pending.push({ p: player.id, c: { k: 'mend', machine: host.machines.find((m) => m.type === 'turret')!.id } });
       }
       if (t === 401) {
         const mk3 = host.machines.find((m) => m.type === 'furnaceMk3')!;
@@ -127,6 +133,7 @@ describe('co-op replay', () => {
     }
 
     expect(host.machines.filter((m) => m.type === 'tunnelExit')).toHaveLength(1);
+    expect(guest.machines.find((m) => m.type === 'turret')!.wear).toBeUndefined();
     expect(guest.machines.find((m) => m.type === 'furnaceMk3')!.modules).toEqual([
       { id: 'speedModule', count: 1 },
       { id: 'speedModule', count: 1 },
@@ -159,6 +166,8 @@ describe('co-op replay', () => {
       { k: 'building', type: 'castle', x: 0, y: 0 },
       { k: 'spell', id: 'meteor' },
       { k: 'spell', id: 'mend' },
+      { k: 'mend', machine: 'turret' },
+      { k: 'mend', machine: 999999 },
       { k: 'nonsense' },
     ] as unknown as Order['c'][];
     const bag = player.inventory.length;
