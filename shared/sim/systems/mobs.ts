@@ -145,7 +145,7 @@ export function stepMobs(world: World, dt: number): void {
     // After separation, so a crowd pressing on a furnace cannot shove one of
     // its own members through it.
     resolveMachines(world, mob.pos, def.radius);
-    if (!quaking) attackNearby(world, mob, def.radius, def.damage, dt);
+    if (!quaking) attackNearby(world, mob, def.radius, def.damage * biteScale(world, mob), dt);
   }
 }
 
@@ -459,6 +459,13 @@ export function nightBudget(world: World): number {
  * returning boss grows by visit rather than by night, so the fifth-night
  * Warden stays the fight it was tuned as.
  */
+/** How much harder a raider bites tonight than its table row says; 1 for a boss or a keeper. */
+export function biteScale(world: World, mob: Mob): number {
+  if (mob.post || MOBS[mob.type].bossEvery) return 1;
+  const extra = WAVES.bitePerNight * Math.max(0, world.nightIndex - WAVES.hardenFrom);
+  return 1 + Math.min(WAVES.biteCap, extra);
+}
+
 export function toughness(world: World, type: MobTypeId): number {
   const def = MOBS[type];
   if (def.bossEvery) {
