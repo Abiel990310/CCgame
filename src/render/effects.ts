@@ -126,6 +126,15 @@ export class Effects {
           this.shake = Math.min(16, this.shake + 11);
           break;
         }
+        case 'pulse': {
+          // The ward bursts outward: bright cold rings racing to the edge of
+          // its reach, and ice-blue sparks thrown off the shell.
+          this.rings.push({ pos: { ...event.pos }, radius: event.radius, life: 0.5, maxLife: 0.5, color: '#9ceaff' });
+          this.rings.push({ pos: { ...event.pos }, radius: event.radius * 0.55, life: 0.32, maxLife: 0.32, color: '#e6fbff' });
+          this.burst(event.pos, 26, '#bff2ff', 340);
+          this.shake = Math.min(14, this.shake + 8);
+          break;
+        }
         case 'gathered':
           this.burst(event.pos, 6, '#f0e2c0', 110);
           break;

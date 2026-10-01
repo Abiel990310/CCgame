@@ -460,7 +460,7 @@ export function damageMob(world: World, mob: Mob, amount: number, sourceId: numb
   const dealt = Math.max(1, amount * (mob.shield ?? 1) - (def.armor ?? 0));
   mob.hp -= dealt;
   mob.hitFlash = 0.12;
-  world.events.push({ kind: 'hit', pos: { ...mob.pos }, amount: Math.round(dealt) });
+  world.events.push({ kind: 'hit', pos: { ...mob.pos }, amount: Math.round(dealt), type: mob.type });
 
   const killer = world.players.get(sourceId);
   if (mob.hp > 0 && killer && !def.bossEvery && perk(killer, 'executioner') && mob.hp < mob.maxHp * 0.08) mob.hp = 0;

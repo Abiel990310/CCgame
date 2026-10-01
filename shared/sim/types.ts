@@ -155,6 +155,10 @@ export interface Mob {
   quakeCd?: number;
   /** Seconds left rearing up before a quake lands; absent or 0 when not winding one up. */
   quake?: number;
+  /** Seconds until an enraged boss with a ward pulse can charge another. */
+  pulseCd?: number;
+  /** Seconds left charging before a ward pulse bursts; absent or 0 when not charging one. */
+  pulse?: number;
   /** Called in by another mob: worth no XP or orbs, so a boss left alive is not a farm. */
   brood?: boolean;
   /** The post a landmark's keeper holds: it leaves it only for a player close by, and dawn does not clear it. */
@@ -525,7 +529,10 @@ export interface World {
 }
 
 export type SimEvent =
-  | { kind: 'hit'; pos: Vec2; amount: number }
+  /** A creature took a hit; `type` lets it answer with its own voice. */
+  | { kind: 'hit'; pos: Vec2; amount: number; type: MobTypeId }
+  /** A creature rears back to bite; the bite lands `BITE.windup` seconds later. */
+  | { kind: 'mobBite'; pos: Vec2; type: MobTypeId }
   | { kind: 'shot'; pos: Vec2; weapon: WeaponId }
   | { kind: 'turretShot'; pos: Vec2; ammo: TurretAmmo }
   /** A creature bit a turret; `wrecked` when that bite finished it. */
@@ -545,6 +552,10 @@ export type SimEvent =
   | { kind: 'quakeWind'; pos: Vec2; radius: number; windup: number }
   /** The quake landed, and how many it caught. */
   | { kind: 'quake'; pos: Vec2; radius: number; hits: number }
+  /** An enraged Bulwark charging its crystal: the ward bursts to this radius in `windup` seconds. */
+  | { kind: 'pulseWind'; pos: Vec2; radius: number; windup: number }
+  /** The ward burst, and how many players it shoved. */
+  | { kind: 'pulse'; pos: Vec2; radius: number; hits: number }
   /** A boss turned: below `BOSS_RAGE.at` of its health it is enraged. */
   | { kind: 'bossRage'; pos: Vec2; type: MobTypeId }
   | { kind: 'beacon'; pos: Vec2; stage: number; lit: boolean }

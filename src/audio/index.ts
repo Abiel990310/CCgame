@@ -261,6 +261,8 @@ export class GameAudio {
     if (!this.ctx || this.settings.muted) return;
     this.budget = VOICE_BUDGET;
 
+    const died = new Set<string>();
+    for (const event of events) if (event.kind === 'mobDied') died.add(deathKey(event.type, event.pos));
     for (const event of events) {
       switch (event.kind) {
         case 'shot':
@@ -274,6 +276,11 @@ export class GameAudio {
           break;
         case 'hit':
           this.play('hit', { pos: event.pos });
+          // A blow that kills is answered by the death sound alone.
+          if (!died.has(deathKey(event.type, event.pos))) this.play(MOB_HURT[event.type], { pos: event.pos });
+          break;
+        case 'mobBite':
+          this.play(MOB_BITE[event.type], { pos: event.pos });
           break;
         case 'mobDied':
           this.play(MOB_DEATH[event.type], { pos: event.pos });
@@ -301,6 +308,12 @@ export class GameAudio {
           break;
         case 'quake':
           this.play('quake', { pos: event.pos });
+          break;
+        case 'pulseWind':
+          this.play('pulseWind', { pos: event.pos });
+          break;
+        case 'pulse':
+          this.play('pulse', { pos: event.pos });
           break;
         case 'landmark':
           this.play('goal', { pos: event.pos });
@@ -379,6 +392,37 @@ const SHOT_SOUND = {
   ember: 'shotEmber',
   frost: 'shotFrost',
 } as const satisfies Record<string, SoundId>;
+
+/** Matches a killing blow to the death that follows it in the same batch of events. */
+function deathKey(type: MobTypeId, pos: { x: number; y: number }): string {
+  return `${type}|${Math.round(pos.x)}|${Math.round(pos.y)}`;
+}
+
+const MOB_BITE = {
+  slime: 'biteSlime',
+  crawler: 'biteCrawler',
+  wisp: 'biteWisp',
+  brute: 'biteBrute',
+  spitter: 'biteSpitter',
+  shellback: 'biteShellback',
+  mother: 'biteMother',
+  warden: 'biteWarden',
+  queen: 'biteQueen',
+  bulwark: 'biteBulwark',
+} as const satisfies Record<MobTypeId, SoundId>;
+
+const MOB_HURT = {
+  slime: 'hurtSlime',
+  crawler: 'hurtCrawler',
+  wisp: 'hurtWisp',
+  brute: 'hurtBrute',
+  spitter: 'hurtSpitter',
+  shellback: 'hurtShellback',
+  mother: 'hurtMother',
+  warden: 'hurtWarden',
+  queen: 'hurtQueen',
+  bulwark: 'hurtBulwark',
+} as const satisfies Record<MobTypeId, SoundId>;
 
 const MOB_DEATH = {
   slime: 'diedSlime',

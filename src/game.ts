@@ -1527,6 +1527,8 @@ export class Game {
         if (self) this.hitstop = Math.max(this.hitstop, 0.07);
       } else if (event.kind === 'quake') {
         if (event.hits > 0) this.hitstop = Math.max(this.hitstop, 0.12);
+      } else if (event.kind === 'pulse') {
+        if (event.hits > 0) this.hitstop = Math.max(this.hitstop, 0.1);
       } else if (event.kind === 'bossRage') {
         // The longest hold there is: the fight has turned.
         this.hitstop = Math.max(this.hitstop, 0.22);
