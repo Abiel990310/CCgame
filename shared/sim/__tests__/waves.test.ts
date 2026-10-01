@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { MOBS } from '../../data/mobs';
 import { damageMob } from '../systems/combat';
-import { WAVES } from '../constants';
+import { TICK_DT, WAVES } from '../constants';
 import { biteScale, nightBudget, spawnMob, toughness } from '../systems/mobs';
 import { addPlayer, createWorld } from '../world';
+import { advance } from './bench';
 
 describe('the night curve', () => {
   it('grows each night by more than the night before', () => {
@@ -68,5 +69,22 @@ describe('the night curve', () => {
     const keeper = spawnMob(world, 'brute', { x: 0, y: 0 });
     keeper.post = { x: 0, y: 0 };
     expect(biteScale(world, keeper)).toBe(1);
+  });
+
+  it("scales a spitter's shot with the bite, and leaves a boss's spit alone", () => {
+    const world = createWorld(5);
+    const player = addPlayer(world, 'p1');
+    world.nightIndex = WAVES.hardenFrom + 10;
+    for (const [type, scaled] of [['spitter', true], ['queen', false]] as const) {
+      world.projectiles.length = 0;
+      const mob = spawnMob(world, type, { x: player.pos.x + 60, y: player.pos.y });
+      mob.spitCd = 0;
+      const shot = MOBS[type].spit;
+      if (!shot) continue;
+      for (let i = 0; i < 4 && world.projectiles.length === 0; i++) advance(world, TICK_DT);
+      const fired = world.projectiles.find((p) => p.weapon === 'spit' && p.ownerId === mob.id);
+      expect(fired).toBeDefined();
+      expect(fired!.damage).toBeCloseTo(shot.damage * (scaled ? biteScale(world, mob) : 1));
+    }
   });
 });

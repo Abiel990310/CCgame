@@ -679,8 +679,8 @@ detail behind the factory entries is in
       rises 6% a night (was 8%) and bite 3% a night, capped at +60%: a brute's
       14 is 22.4 from night 26. Bosses and landmark keepers keep their tuned
       damage. *Shipped 2026-10-01; measured in a browser, 14 then 22.4.*
-- [ ] Spit and quake damage from late creatures still do not scale; only the
-      melee bite does.
+- [x] Spit damage from late creatures scales with the bite; a boss's quake and
+      spit stay as tuned, as the only quakers are bosses. *Shipped 2026-10-01.*
 - [x] Belts, machine bodies and belt items are baked sprites copied to whole
       pixels (belts at 16 tread phases per facing). A dense factory, 300
       machines and 600 belts on a 2x screen, went from 17 to 29 fps headless.
