@@ -1,3 +1,5 @@
+import { drawOnDevicePixel } from './paint';
+
 /**
  * Pixel sprites, generated in code the way a sprite artist blocks one out:
  * shapes laid on a small grid of whole pixels, each shaded from a three-step
@@ -296,7 +298,5 @@ export function blitPixels(
     ctx.imageSmoothingEnabled = smoothing;
     return;
   }
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(canvas, Math.round(m.a * x + m.e - anchorX * scale), Math.round(m.d * y + m.f - anchorY * scale));
-  ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
+  drawOnDevicePixel(ctx, canvas, m, Math.round(m.a * x + m.e - anchorX * scale), Math.round(m.d * y + m.f - anchorY * scale));
 }

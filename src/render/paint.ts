@@ -107,12 +107,25 @@ export function blitCached(
     ctx.drawImage(sprite, x - box.left, y - box.top, w, h);
     return;
   }
-  // Six numbers rather than the matrix object: passing a DOMMatrix back to a
-  // CPU canvas goes through a dictionary conversion that cost more than the
-  // blit itself, and a factory is blitted by the thousand.
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(sprite, Math.round(m.a * (x - box.left) + m.e), Math.round(m.d * (y - box.top) + m.f));
-  ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
+  drawOnDevicePixel(ctx, sprite, m, Math.round(m.a * (x - box.left) + m.e), Math.round(m.d * (y - box.top) + m.f));
+}
+
+/**
+ * Draw a bitmap baked at device resolution with its corner on device pixel
+ * `(px, py)`, under the plain scale `m` the context already holds. Stepping
+ * out to the identity transform and back cost a factory more than the
+ * drawing: three transform calls a blit, thousands of blits a frame. Sized
+ * back through the same scale, the bitmap lands one texel to one pixel.
+ */
+export function drawOnDevicePixel(
+  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  m: DOMMatrix,
+  px: number,
+  py: number,
+): void {
+  const k = m.a;
+  ctx.drawImage(canvas, (px - m.e) / k, (py - m.f) / k, canvas.width / k, canvas.height / k);
 }
 
 function dropStale(): void {
