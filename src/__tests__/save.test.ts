@@ -186,9 +186,9 @@ describe('saving an island', () => {
   it('rewrites only the sections that moved', () => {
     const world = island();
     saveWorld(world, SLOT);
-    // The header, the scenery, the factory, the ground the miners have taken
-    // and what the player has seen.
-    expect(new Set(writes).size).toBe(5);
+    // The header, the scenery, the factory, the ground the miners have taken,
+    // the spans laid over water, and what the player has seen.
+    expect(new Set(writes).size).toBe(6);
 
     writes.length = 0;
     world.tick += 240;

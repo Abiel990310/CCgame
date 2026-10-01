@@ -45,6 +45,8 @@ import {
   beltUpgradeTarget,
 } from '@shared/sim/factory';
 import { rotate, step1, tileCenter, tileKey, toTile } from '@shared/sim/grid';
+import { isBridgePiece } from '@shared/sim/bridge';
+import { isBridgeByte } from '@shared/sim/terrain';
 import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
 import { setResearch, type QueueOp } from '@shared/sim/research';
 import { GOAL_BY_ID } from '@shared/data/goals';
@@ -997,6 +999,9 @@ export class Game {
 
     const entity = entityAt(this.world, tx, ty);
     if (entity) return { kind: 'grid', tx, ty, fixed: false };
+    // Bare deck is only a target while a bridge is in hand: with anything else
+    // selected it is just ground, and an outline on every plank would be noise.
+    if (this.bridgeInHand() && isBridgeByte(this.world.terrain[tileKey(tx, ty)])) return { kind: 'grid', tx, ty, fixed: false };
 
     const building = buildingAt(this.world, pos);
     if (building) {
@@ -1160,6 +1165,8 @@ export class Game {
       locked: `Research ${UNLOCKED_BY.get(what)?.name ?? 'more'} first`,
       scenery: "Clear what's growing there first",
       camp: 'A camp building is in the way',
+      water: 'A bridge goes over open water',
+      anchor: 'A bridge has to start from the shore or from another span',
       cost:
         !isBeltId(what) && MACHINES[what].crafted
           ? `Craft a ${MACHINES[what].name} at a workbench first`
@@ -1189,6 +1196,11 @@ export class Game {
     if (target && !target.fixed) this.hud.toast('Open build mode (B) to remove', 'warn');
   }
 
+  private bridgeInHand(): boolean {
+    const selection = this.hud.selected;
+    return selection.kind === 'machine' && isBridgePiece(selection.id);
+  }
+
   private removeUnderCursor(): void {
     const pos = this.cursorWorld;
     const { tx, ty } = toTile(pos);
@@ -1198,6 +1210,17 @@ export class Game {
       this.act({ k: 'remove', tx, ty });
       this.hud.toast('Removed', 'good');
       this.requestSave();
+      return;
+    }
+
+    if (this.bridgeInHand() && isBridgeByte(this.world.terrain[tileKey(tx, ty)])) {
+      if (this.act({ k: 'remove', tx, ty })) {
+        this.hud.toast('Removed', 'good');
+        this.requestSave();
+      } else {
+        audio.play('denied');
+        this.hud.toast('Clear the deck first: nothing can stand on a span you take up', 'warn');
+      }
       return;
     }
 

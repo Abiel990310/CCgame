@@ -24,8 +24,9 @@ import type {
   Slot,
   World,
 } from '@shared/sim/types';
-import { EXPLORED_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
+import { BRIDGE_SUFFIX, EXPLORED_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
 import { packExplored, reveal, unpackExplored } from '@shared/sim/explore';
+import { isBridgeByte } from '@shared/sim/terrain';
 import { sanitizePins } from '@shared/sim/pins';
 
 const VERSION = 7;
@@ -158,6 +159,13 @@ interface FactorySection {
 type OreSection = Record<number, number>;
 
 /**
+ * Every span built over water, as `[tile key, stored terrain byte]`. Terrain is
+ * regrown from the seed and holds no spans, so unlike ore this is the whole of
+ * what a player built rather than a difference. A save with no section has none.
+ */
+type BridgeSection = [number, number][];
+
+/**
  * Phase 2 persistence: one island split across three localStorage entries,
  * grouped by how often each part changes.
  *
@@ -197,6 +205,7 @@ export function saveWorld(world: World, slot: string): boolean {
   if (!writeSection(slot, SCENERY_SUFFIX, packScenery(world))) return false;
   if (!writeSection(slot, FACTORY_SUFFIX, packFactory(world))) return false;
   if (!writeSection(slot, ORE_SUFFIX, minedTiles(world))) return false;
+  if (!writeSection(slot, BRIDGE_SUFFIX, builtSpans(world))) return false;
   if (!writeSection(slot, EXPLORED_SUFFIX, packExplored(world.explored))) return false;
   return writeSection(slot, '', file);
 }
@@ -208,6 +217,32 @@ function minedTiles(world: World): OreSection {
     if (world.oreLeft[i] !== world.oreMax[i]) out[i] = world.oreLeft[i];
   }
   return out;
+}
+
+/** The spans standing on the island. Terrain is a Uint8Array, so this is one pass over bytes. */
+function builtSpans(world: World): BridgeSection {
+  const out: BridgeSection = [];
+  const terrain = world.terrain;
+  for (let i = 0; i < terrain.length; i++) {
+    if (isBridgeByte(terrain[i])) out.push([i, terrain[i]]);
+  }
+  return out;
+}
+
+/**
+ * Lay saved spans back over the regrown sea. Only water takes one: a span
+ * recorded where the seed now grows land (an island regrown by a different
+ * generator) is dropped rather than painted over ground.
+ */
+function applySpans(world: World, spans: BridgeSection | null): void {
+  if (!Array.isArray(spans)) return;
+  for (const entry of spans) {
+    if (!Array.isArray(entry)) continue;
+    const [i, byte] = entry;
+    if (!Number.isInteger(i) || i < 0 || i >= world.terrain.length || !isBridgeByte(byte)) continue;
+    if (world.terrain[i] > 1) continue;
+    world.terrain[i] = byte;
+  }
 }
 
 /** What a load had to do beyond reading the island back. */
@@ -268,6 +303,7 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
 
     const mined = readSection<OreSection>(slot, ORE_SUFFIX);
     if (sameGround) applyMinedTiles(world, mined);
+    applySpans(world, readSection<BridgeSection>(slot, BRIDGE_SUFFIX));
     // The tile index is derived state, so rebuild it rather than storing it.
     rebuildGrid(world);
     // Older islands were built before scenery blocked placement, so they can

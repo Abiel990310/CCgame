@@ -3,7 +3,20 @@ import { fbm } from './rng';
 import { COAST_REACH, type IslandSite } from './regions';
 import type { Terrain, Vec2 } from './types';
 
-export const TERRAIN_ORDER: Terrain[] = ['deep', 'water', 'sand', 'grass', 'forest', 'rock'];
+/**
+ * Index is the byte a tile is stored as. The last two are the same ground: a
+ * span built over shallows and one built over deep water, kept apart only so
+ * taking the span down can put the right sea back.
+ */
+export const TERRAIN_ORDER: Terrain[] = ['deep', 'water', 'sand', 'grass', 'forest', 'rock', 'bridge', 'bridge'];
+
+export const BRIDGE_OVER_WATER = 6;
+export const BRIDGE_OVER_DEEP = 7;
+
+/** True for a stored terrain byte that is a built span rather than ground the seed grew. */
+export function isBridgeByte(byte: number): boolean {
+  return byte === BRIDGE_OVER_WATER || byte === BRIDGE_OVER_DEEP;
+}
 
 export function terrainAtIndex(terrain: Uint8Array, tx: number, ty: number): Terrain {
   if (tx < 0 || ty < 0 || tx >= MAP_TILES || ty >= MAP_TILES) return 'deep';

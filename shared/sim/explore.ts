@@ -44,8 +44,9 @@ export function exploredShare(world: World): number {
   let land = 0;
   let seen = 0;
   for (let i = 0; i < world.terrain.length; i++) {
-    // Terrain order puts deep and shallow water first.
-    if (world.terrain[i] < 2) continue;
+    // Terrain order puts deep and shallow water first, and spans last: a
+    // bridge is not land to be found, and laying one must not lower the share.
+    if (world.terrain[i] < 2 || world.terrain[i] > 5) continue;
     land++;
     if (world.explored[i]) seen++;
   }

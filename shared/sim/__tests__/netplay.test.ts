@@ -11,6 +11,7 @@ import { checksum, decode, encode, restoreSnapshot, takeSnapshot, type Snapshot 
 import { step } from '../step';
 import { spawnMob } from '../systems/mobs';
 import type { PlayerInput, World } from '../types';
+import { FAR_TILES } from '../regions';
 import { createPlayer, spawnPoint } from '../world';
 import { at, bench, plantOre } from './bench';
 
@@ -328,6 +329,27 @@ describe('co-op replay of placing with settings and repairing', () => {
       expect(next.filters).toEqual(['ironPlate', 'coal']);
     }
     expect(checksum(guest)).toBe(tick.hash);
+  });
+
+  it('lays and lifts bridge spans on a guest exactly as on the host', () => {
+    const { world: host, player } = bench();
+    // A strait of shallows and deep water across the bench, three tiles wide.
+    for (let dy = 1; dy <= 3; dy++) {
+      for (let dx = 4; dx <= 8; dx++) host.terrain[at(dx, dy).ty * FAR_TILES + at(dx, dy).tx] = dx < 6 ? 1 : 0;
+    }
+    const guest = restoreSnapshot(decode<Snapshot>(encode(takeSnapshot(host))));
+    const idle = new Map([[player.id, { move: { x: 0, y: 0 }, dash: false, interact: false }]]);
+    const lay = (dx: number): Order => ({ p: player.id, c: { k: 'machine', what: 'bridge', tx: at(dx, 2).tx, ty: at(dx, 2).ty, dir: 0 } });
+    const batches: Order[][] = [[lay(4), lay(5)], [lay(6), lay(7)], [{ p: player.id, c: { k: 'remove', tx: at(7, 2).tx, ty: at(7, 2).ty } }]];
+
+    for (const orders of batches) {
+      const tick = hostTick(host, orders, idle);
+      guestTick(guest, tick);
+      expect(checksum(guest)).toBe(tick.hash);
+      expect(guest.terrain).toEqual(host.terrain);
+    }
+    expect(host.terrain[at(6, 2).ty * FAR_TILES + at(6, 2).tx]).toBe(7);
+    expect(host.terrain[at(7, 2).ty * FAR_TILES + at(7, 2).tx]).toBe(0);
   });
 
   it('refuses malformed repairs and sides', () => {

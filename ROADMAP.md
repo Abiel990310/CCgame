@@ -90,6 +90,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Power | One network per set of wired poles, balanced every tick; tier 3 runs on it instead of coal | The fuel memo said power should replace tier 3's fuel rather than run beside it. Supply short of demand slows every machine by the same share rather than stopping some, so an overloaded base degrades visibly instead of flickering. The layout is derived from the machines and never saved; a starved machine's `unpowered` flag is, so a guest balances the same demand as the host. |
 | Tech added under a finished one | Granted on load | Electricity sits under Resonance; an island that finished Resonance first gets it free, so its electric machines stay buildable. Done generically for any prerequisite added later. |
 | Second island | Generation 4 builds generation 3's mainland whole, in the north-west corner of a 384-tile sea, and then stamps the Far Shore into the east, drawing everything it adds from random streams of its own | Abiel's standing ask for content that multiplies. Carrying generation 3 across (copied, never regenerated at a new size) keeps a seed's home island exactly as it was, with the same tile coordinates, so the contract in "Worldgen" holds and a later migration of old islands only has to restride their tile keys; a test compares every tile, ore amount and node. Old islands keep their own generation and size, so none of them gains a region yet (an idea in the backlog). The strait is 17+ tiles wide, past the grappling hook's 10, so the crossing is a build and not a leap. Titanium exists only on the far side, so crossing is the point. Further islands are one more `IslandSite` row in `regions.ts`; the 384 map has the whole south for them. |
+| Bridges | A span is terrain, not a machine: it rewrites a water or deep tile to byte 6 or 7 and is laid through the ordinary `machine` Command | Reusing the palette, ghost, drag-build and Command plumbing meant no new input path, and co-op replays it for free (the checksum mixes every terrain byte above 5, and snapshots send terrain whole). It must grow from walkable ground, so the sea cannot be crossed by hopping; the strait is 31+ tiles of deck, about 124 wood and 31 plates, which makes the crossing a project and not a toll. Taking one up refuses while a belt, a player or a creature is on it. Saves keep only the spans (section `.b`, rebuilt over the seed's own sea, which a lifted span also restores), so worldgen is untouched. The deck is drawn as a live overlay rather than baked into the ground, so laying or lifting one costs no repaint. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
@@ -602,8 +603,10 @@ detail behind the factory entries is in
         mainland, with titanium ore found nowhere else, its own scenery and
         guarded landmarks. Generation 3's mainland is carried across untouched.
         *Shipped 2026-10-01.*
-  - [ ] **The bridge** — a placeable span that turns sea into walkable deck,
+  - [x] **The bridge** — a placeable span that turns sea into walkable deck,
         grown out from a shore; gated by a tech; saved as terrain deltas.
+        Wood 4 + iron plate 1 a tile, unlocked by the *Causeways* tech, drag to
+        lay a run, right-click to lift it. *Shipped 2026-10-01.*
   - [ ] **The titanium tier** — miners and furnaces that can work it, the
         plate, and what it is spent on.
   - [ ] **A tech branch** that opens with the crossing and leads on from titanium.
@@ -1248,6 +1251,11 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Creatures that wander onto a long bridge and a night raid that crosses it,
+      so the span is something to defend. Nothing spawns on deck yet.
+- [ ] Bridge pieces that are not a straight deck: a gate, a lamp post every few
+      tiles, and a pier that ends in a fishing spot.
+
 - [ ] **Bring the Far Shore to islands made before it.** Worldgen 4 only
       applies to new islands. Generation 3's mainland sits at the same tile
       coordinates inside generation 4, so an old island could be carried across
@@ -1519,6 +1527,9 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Bridges on a phone: laying a long run by dragging a finger, and whether
+      the rails read at small sizes. Driven with a mouse only, in headless
+      Chromium.
 - [ ] Production chord by ear: whether a big smelting floor reads as pleasant
       or busy, and whether the eight-note range wants narrowing. Verified only
       by reading oscillator frequencies in headless Chromium, not by listening.

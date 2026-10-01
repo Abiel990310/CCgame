@@ -41,6 +41,7 @@ import type { GpuStage } from './gpu/stage';
 import { setItemScale } from './items';
 import { setPaintScale } from './paint';
 import { polygon } from './shapes';
+import { drawBridges } from './bridges';
 import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFactoryScale, setFactoryWorld, setTurretMobs } from './factory';
 import { drawPowerCoverage, drawPowerWires } from './power';
 import { dirAngle, stepN, tileCenter, tileKey } from '@shared/sim/grid';
@@ -398,6 +399,7 @@ export class Renderer {
     this.collectFactory(world, view);
 
     this.drawWaterShimmer(world, time, view);
+    drawBridges(ctx, world.terrain, view);
     for (const belt of this.visibleBelts) drawBelt(ctx, belt, time);
     drawCampRing(ctx, world, CAMP.buildRadius);
     // Build mode snaps to tiles, so the tiles have to be visible while it is on.
@@ -1142,6 +1144,8 @@ const STEP_CUE = {
   grass: 'stepGrass',
   forest: 'stepForest',
   rock: 'stepRock',
+  // Boards ring like stone underfoot, and nothing else here is hollow.
+  bridge: 'stepRock',
 } as const satisfies Record<Terrain, Cue>;
 
 /** How close the camera stands, as multiples of the size-based default. */

@@ -1,6 +1,6 @@
 export type Vec2 = { x: number; y: number };
 
-export type Terrain = 'deep' | 'water' | 'sand' | 'grass' | 'forest' | 'rock';
+export type Terrain = 'deep' | 'water' | 'sand' | 'grass' | 'forest' | 'rock' | 'bridge';
 
 export type ResourceKind = 'tree' | 'rock' | 'bush' | 'fish' | LandmarkKind;
 
@@ -367,6 +367,7 @@ export type MachineFamily =
   | 'solar'
   | 'accumulator'
   | 'pole'
+  | 'bridge'
   | 'beacon'
   | 'turret';
 

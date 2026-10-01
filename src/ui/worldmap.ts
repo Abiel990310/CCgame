@@ -18,6 +18,9 @@ const LAND: [number, number, number][] = [
   [102, 148, 80],
   [64, 108, 62],
   [128, 130, 130],
+  // A span over the sea, as boards, in both of the bytes it is stored as.
+  [150, 118, 76],
+  [150, 118, 76],
 ];
 /** Water right against the land, so the coast has a lighter shelf around it. */
 const SHALLOWS: [number, number, number] = [74, 142, 160];
@@ -474,7 +477,11 @@ export class WorldMap {
 
   private paintLand(world: World): void {
     const n = MAP_TILES;
-    const key = `${world.seed}|${world.worldgen}|${n}`;
+    // Laying or lifting a span redraws the coast, so the count is part of what
+    // the painted base depends on.
+    let spans = 0;
+    for (let i = 0; i < world.terrain.length; i++) if (world.terrain[i] > 5) spans++;
+    const key = `${world.seed}|${world.worldgen}|${n}|${spans}`;
     if (key !== this.baseKey || !this.seenBase) {
       this.paintBases(world);
       this.baseKey = key;

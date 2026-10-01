@@ -180,6 +180,10 @@ export function checksum(world: World): number {
     for (const item of b.items) mix(item.offset);
   }
   for (const n of world.nodes) mix(n.charges);
+  // Spans are the one thing that reshapes terrain after worldgen.
+  for (let i = 0; i < world.terrain.length; i++) {
+    if (world.terrain[i] > 5) mix(i * 8 + world.terrain[i]);
+  }
   for (const pin of world.pins) {
     mix(pin.id);
     mix(pin.x);

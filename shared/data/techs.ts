@@ -270,6 +270,24 @@ export const TECHS: TechDef[] = [
     xp: 12,
   },
   {
+    // The way off the mainland: the sea around a new island is wider than a
+    // grappling hook throws, so the Far Shore waits on this tech and on the
+    // wood and plates to run a span across.
+    id: 'causeways',
+    name: 'Causeways',
+    description:
+      'Piles driven into the seabed and decking laid over them. Lay a bridge from any shore, and walk, or run belts, across open water.',
+    inputs: [
+      { id: 'researchPack', count: 2 },
+      { id: 'logicPack', count: 1 },
+    ],
+    cycles: 40,
+    time: 6,
+    requires: ['beltLogistics', 'metallurgy'],
+    unlocks: ['bridge'],
+    xp: 14,
+  },
+  {
     id: 'longHaul',
     name: 'Long-Haul Logistics',
     description:
