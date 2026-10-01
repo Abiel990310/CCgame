@@ -24,7 +24,7 @@ export function defaultHotbar(): HotbarBinding[] {
     .map((e) => e.selection)
     // Later tiers are earned, not started with, so they do not take a default
     // slot from the chest and the inserter a new island actually needs.
-    .filter((s) => s.kind !== 'machine' || MACHINES[s.id].tier === 1);
+    .filter((s) => (s.kind === 'machine' ? MACHINES[s.id].tier === 1 : s.kind !== 'belt' || s.tier === 1));
   const slots: HotbarBinding[] = [];
   for (let i = 0; i < HOTBAR_SLOTS; i++) slots.push(order[i] ?? null);
   return slots;
@@ -34,7 +34,11 @@ export function defaultHotbar(): HotbarBinding[] {
 function valid(binding: unknown): HotbarBinding {
   if (!binding || typeof binding !== 'object') return null;
   const { kind, id } = binding as { kind?: string; id?: string };
-  if (kind === 'belt') return { kind: 'belt' };
+  if (kind === 'belt') {
+    // A binding saved before belts had tiers names no tier, and is a plain belt.
+    const tier = (binding as { tier?: unknown }).tier;
+    return { kind: 'belt', tier: tier === 2 || tier === 3 ? tier : 1 };
+  }
   if (kind === 'machine' && id && id in MACHINES) return { kind: 'machine', id: id as never };
   if (kind === 'building' && id && id in BUILDINGS) return { kind: 'building', id: id as never };
   return null;

@@ -102,6 +102,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Co-op signalling | The game's own Supabase project (Realtime Broadcast) first, the public PeerJS broker second; either can also relay the game when no direct channel opens | 2026-09-26: joins failed on Abiel's Mac with the host never answering through the public broker, which nobody here can fix or see into. The host now listens on both, and a guest tries its own project first. |
 | Pixel look | The scene is drawn at one canvas pixel per world unit and the browser scales it up by a whole number of device pixels (`image-rendering: pixelated`); zoom steps are those whole numbers. `?look=smooth` or Esc > Graphics gives the old full-resolution look | 2026-09-26, the "one art style" gap against Cinderhollow: the player sprite, the vector trees and the belts now share one pixel grid, so the whole scene reads as pixel art, and there are far fewer pixels to fill. |
 | Colour grade | Three DOM layers the compositor blends over the stage (grey at `saturation`, a tint at `soft-light`, a vignette), in `src/render/grade.ts`; only the vignette without a graphics card | 2026-09-26, from comparing with Cinderhollow: every screen shared one flat palette, so noon, dusk and a raid looked alike. Grading the frame gives the day a mood without repainting any art, and costs the same under Canvas and Pixi. In software each blended layer cost about 10 fps at night, so a browser drawing WebGL on the CPU gets the vignette alone; `?grade=full` or `?grade=lite` overrides the guess. |
+| Belt tiers | A `BELTS` table of speed and cost per tier; a `Belt` carries only an optional `tier`, and the belt system reads its speed off the belt it moves | Answers the open question: yes. Same shape as machine tiers (one row each, upgrade in place by laying the next tier over it), so a fourth tier is a row. Items move first and change belts afterwards, carrying the distance they overshot a tile edge, or a Mk3 line crawled at tile-per-tick speed and a line's speed depended on the order its belts were laid. The tier is packed into the facing slot of the save row (facing + 4 per tier above the first), so old rows are Mk1 with no migration. |
+| Long-haul transport | A pair of ports bound by id (`Machine.link`), items in flight stored on the sender (`transit`), delay = 1 s + distance / 10 tiles per second, 6 items a second, 96 in flight | One palette item, like the underground belt: the second placed becomes the receiving end and links to the newest unpaired sender, so pairing is a `machine` Command and co-op needs nothing new. Both halves of the trip live on the sender so the pair stays in step whatever the tick order. The capacity is what back-pressures a blocked receiver, and what bounds the longest haul that keeps up with the rate. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -162,7 +164,7 @@ world a levelling curve at last.
   the same share. The **Electricity** tech (research + logic packs, after
   Metallurgy) unlocks it and sits under Resonance.
 - Steel and resin: recipes six or more steps from raw ore.
-- Belt tiers or not (see open questions).
+- Belt tiers: built 2026-10-01 as Mk2 and Mk3 belts.
 - Production statistics, so a player can find their own bottleneck. This is a
   core factory-game affordance, not a nicety. **Done 2026-09-25:** the
   Production tab beside the map (L).
@@ -211,8 +213,8 @@ Unresolved, and worth a deliberate answer rather than a default.
   log above. Revisit only if play shows the numbers are wrong.
 - ~~**How is the tech tree gated?**~~ Answered: by producing research packs and
   belting them into labs, in the decision log above.
-- **Do belts get tiers** (faster belts), or does throughput scale only by adding
-  parallel lines?
+- ~~**Do belts get tiers** (faster belts), or does throughput scale only by adding
+  parallel lines?~~ Answered: yes, Mk2 and Mk3 (2026-10-01), unlocked by research.
 - **How early do blueprints arrive?** They remove enormous tedium, but also
   remove the learning that early tedium teaches.
 - ~~**How are private world invite lists managed**~~ Answered: accounts and a
@@ -530,14 +532,27 @@ detail behind the factory entries is in
       Every Mk3 miner, furnace and assembler has two module slots, fitted by
       hand (shift-click from the bag); an output module on a miner brings up
       ore the patch does not lose. Speed and power floor at 20%.*
-- [ ] **Belt tiers Mk2 and Mk3** (3.2 and 6.4 tiles/s), pending the open
-      question on whether belts get tiers at all.
+- [x] **Belt tiers Mk2 and Mk3** (3.2 and 6.4 tiles/s). *Built 2026-10-01:
+      belts are a table (`BELTS`) with a speed and a cost per tier, and each
+      belt moves at its own tier's speed. Mk2 (iron plate, gear) opens with
+      Belt Logistics and Mk3 (steel plate, gear, circuit) with Resonance; laid
+      over a lower belt, or dragged along a whole line, it upgrades in place
+      keeping facing and cargo and refunds the old belt, as machine tiers do.
+      Rails and chevrons are copper-red for Mk2 and blue with a cyan chevron
+      for Mk3. The tier rides in the belt's save row, so old belts load as Mk1.*
 - [x] **Underground belts** — a placed pair passing items beneath up to 6
       tiles. What makes a large factory readable. One crafted item (Belt
       Logistics); the second placed facing the same way becomes the exit.
-- [ ] **Long-haul transport** — a bound pair of ports, items entering one
+- [x] **Long-haul transport** — a bound pair of ports, items entering one
       arriving at the other after a delay. Matches the tier-6 drone decision
-      and costs a fraction of rails.
+      and costs a fraction of rails. *Built 2026-10-01: a crafted Haul Port
+      (Long-Haul Logistics tech, after Robotic Arms and Electricity); the
+      second one placed anywhere on the island becomes the receiving end and
+      binds to the first. The sender takes 6 items a second and each arrives
+      1 s plus a tenth of a second per tile later; the pipe holds 96, so a
+      blocked receiver backs the belt up rather than losing anything.
+      Taking either port up turns the other into a waiting sender and hands
+      back whatever was in flight.*
 - [x] **Belt-fed turrets** — ammo becomes a production line and the factory
       starts defending itself. The cleanest way to make the two halves of the
       game touch. *Built: a Gun Turret (workbench, after Fortification) fires
@@ -624,6 +639,9 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [ ] Belt and haul costs are a first guess (Mk2: iron plate and gear a tile;
+      Mk3: steel plate, gear and circuit; Haul Port: 8 steel, 6 circuits,
+      2 motors); play a full line and tune them.
 - [x] Recipe cards in the machine screen show the real craft time, with
       research, a burning beacon and modules applied (the base time is the
       tooltip), and the machine's hover card shows its rate in items per
@@ -1163,6 +1181,19 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] A Mk3 belt moves at 6.4 tiles a second but a full lane delivers about 15
+      items a second, not 25: machines and belts put an item on at offset 0
+      once a tick, so spacing rounds up to whole ticks. Placing it at the
+      offset it would have reached between ticks would close the gap.
+- [ ] A second haul tier: Haul Port Mk2 with a higher item rate, or a power
+      draw that buys one. One pair moves 6 items a second today, so a big
+      line wants several pairs side by side.
+- [ ] Draw every linked haul pair's dashed line in build mode, not only the
+      one a new port would close, so a base's long-haul network can be read.
+- [ ] A Haul Port could be paired by hand (click a sender, then a receiver)
+      for rebinding, instead of only by placing in order.
+- [ ] Belt tiers on the build bar: a Mk2 and Mk3 belt could join the default
+      hotbar once researched, rather than being found in the palette.
 - [x] Cook at the campfire by hand, so grilled fish does not wait for a
       furnace. *Stand by the campfire with fish in the bag and press G (or
       tap the Cook prompt); the whole stack is grilled at once.*

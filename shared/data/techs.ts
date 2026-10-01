@@ -1,4 +1,4 @@
-import type { ItemId, ItemStack, MachineId } from '../sim/types';
+import type { BeltId, ItemId, ItemStack, MachineId } from '../sim/types';
 
 /**
  * What a completed tech makes better. Every one is a multiplier the simulation
@@ -53,7 +53,7 @@ export interface TechDef {
    * names is there from the start, so a new tier is gated by adding its id
    * here rather than by touching the palette.
    */
-  unlocks?: MachineId[];
+  unlocks?: (MachineId | BeltId)[];
   /** XP every player on the island earns per cycle. */
   xp: number;
   /** Researchable forever, each level dearer than the last. */
@@ -81,13 +81,13 @@ export const TECHS: TechDef[] = [
   {
     id: 'beltLogistics',
     name: 'Belt Logistics',
-    description: 'Tighter bearings. Every belt runs faster, so every line carries more.',
+    description: 'Tighter bearings. Every belt runs faster, and a Mk2 belt can be laid over any of them.',
     inputs: [{ id: 'researchPack', count: 1 }],
     cycles: 30,
     time: 4,
     requires: ['automation'],
     effect: { kind: 'belt', amount: 0.25 },
-    unlocks: ['splitter', 'merger', 'tunnel', 'longInserter'],
+    unlocks: ['splitter', 'merger', 'tunnel', 'longInserter', 'beltMk2'],
     xp: 6,
   },
   {
@@ -217,6 +217,22 @@ export const TECHS: TechDef[] = [
     xp: 12,
   },
   {
+    id: 'longHaul',
+    name: 'Long-Haul Logistics',
+    description:
+      'Matched ports that throw a line across the island. Items go in at one and come out of the other a moment later, with no belt in between.',
+    inputs: [
+      { id: 'researchPack', count: 1 },
+      { id: 'logicPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+    ],
+    cycles: 40,
+    time: 8,
+    requires: ['roboticArms', 'electricity'],
+    unlocks: ['haul'],
+    xp: 20,
+  },
+  {
     id: 'labAutomation',
     name: 'Lab Automation',
     description: 'Labs run their cycles faster, so research keeps up with what you can feed it.',
@@ -260,7 +276,7 @@ export const TECHS: TechDef[] = [
     id: 'resonance',
     name: 'Resonance',
     description:
-      'Essence tuned into a motor. The electric machines, and an arm that moves a stack at a time.',
+      'Essence tuned into a motor. The electric machines, an arm that moves a stack at a time, and the Mk3 belt.',
     inputs: [
       { id: 'logicPack', count: 1 },
       { id: 'powerPack', count: 1 },
@@ -270,7 +286,7 @@ export const TECHS: TechDef[] = [
     time: 8,
     requires: ['roboticArms', 'labAutomation', 'angling', 'electricity'],
     effect: { kind: 'crafting', amount: 0.1 },
-    unlocks: ['minerMk3', 'furnaceMk3', 'assemblerMk3', 'stackInserter'],
+    unlocks: ['minerMk3', 'furnaceMk3', 'assemblerMk3', 'stackInserter', 'beltMk3'],
     xp: 30,
   },
   {
@@ -464,7 +480,7 @@ export function techTier(def: TechDef): number {
 export const TECH_BY_ID = new Map(TECHS.map((t) => [t.id, t]));
 
 /** The tech that puts each gated machine on the palette. */
-export const UNLOCKED_BY = new Map<MachineId, TechDef>(
+export const UNLOCKED_BY = new Map<MachineId | BeltId, TechDef>(
   TECHS.flatMap((t) => (t.unlocks ?? []).map((id) => [id, t] as const)),
 );
 

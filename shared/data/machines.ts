@@ -1,4 +1,4 @@
-import type { CraftedMachineId, ItemId, ItemStack, MachineFamily, MachineId, TurretAmmo } from '../sim/types';
+import type { BeltId, BeltTier, CraftedMachineId, ItemId, ItemStack, MachineFamily, MachineId, TurretAmmo } from '../sim/types';
 
 export interface MachineDef {
   id: MachineId;
@@ -88,7 +88,12 @@ export interface MachineDef {
    * swallows what is fed to it and the exit it pairs with lets it out.
    */
   tunnel?: 'in' | 'out';
-  /** An underground entrance's exit: what placing it becomes when it closes a tunnel. */
+  /**
+   * Long-haul ports only: which end of the pair this is. The sender takes what
+   * it is fed and the receiver puts it out of its front, some way off.
+   */
+  haul?: 'in' | 'out';
+  /** The other end of a pair: what placing this becomes when it closes a tunnel or a long-haul pair. */
   pairsWith?: MachineId;
   /**
    * The crafted item that places this machine, when that is not the machine
@@ -131,6 +136,33 @@ export const FUEL_RESERVE = 5;
  * The exit may stand anywhere up to one past that.
  */
 export const TUNNEL_REACH = 6;
+
+/**
+ * Long-haul transport. A pair of ports moves items between any two tiles of
+ * the island without a belt: one item leaves the sender every `1 / rate`
+ * seconds and reaches the receiver `base + distance / speed` seconds later.
+ * The pipe holds at most `capacity` items, so a receiver that backs up stops
+ * the sender taking more instead of swallowing the line behind it, and the
+ * longest haul that still keeps up with `rate` is about
+ * `(capacity / rate - base) * speed` tiles.
+ */
+export const HAUL = {
+  /** Items per second one sender puts into the pipe. */
+  rate: 6,
+  /** Tiles per second an item travels in the pipe. */
+  speed: 10,
+  /** Seconds every trip takes before distance is counted. */
+  base: 1,
+  /** Most items in flight from one sender. */
+  capacity: 96,
+  /** Items a sender queues, or a receiver holds, while waiting for room. */
+  buffer: 4,
+} as const;
+
+/** Seconds a parcel spends between two ports this many tiles apart. */
+export function haulDelay(tiles: number): number {
+  return HAUL.base + tiles / HAUL.speed;
+}
 
 /** Items a splitter holds while waiting for a side to take them. */
 export const SPLITTER_BUFFER = 4;
@@ -634,6 +666,59 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     fuelSlots: 0,
     solid: false,
   },
+  haul: {
+    id: 'haul',
+    crafted: true,
+    family: 'haul',
+    haul: 'in',
+    pairsWith: 'haulExit',
+    tier: 1,
+    name: 'Haul Port',
+    description:
+      'Place one, then another anywhere on the island: whatever goes into the first comes out of the second after a delay that grows with the distance.',
+    cost: [
+      { id: 'steelPlate', count: 8 },
+      { id: 'circuit', count: 6 },
+      { id: 'motor', count: 2 },
+    ],
+    color: '#3f4f6e',
+    accent: '#8fd0ff',
+    inputSlots: 1,
+    outputSlots: 0,
+    slotSize: HAUL.buffer,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    // What a sender holds is its queue for the trip, not a shelf to take from.
+    storage: false,
+    fuelSlots: 0,
+    // A pad on the ground rather than a block, so nobody is fenced in by one.
+    solid: false,
+  },
+  haulExit: {
+    id: 'haulExit',
+    crafted: true,
+    placedWith: 'haul',
+    family: 'haul',
+    haul: 'out',
+    tier: 1,
+    name: 'Haul Port (receiving)',
+    description: 'The far end of a long-haul pair. Whatever its partner is sent comes out of its front.',
+    cost: [],
+    color: '#3f4f6e',
+    accent: '#8fd0ff',
+    inputSlots: 0,
+    outputSlots: 1,
+    slotSize: HAUL.buffer,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+    fuelSlots: 0,
+    solid: false,
+  },
   fishTrap: {
     id: 'fishTrap',
     family: 'fishTrap',
@@ -843,6 +928,7 @@ export const MACHINE_ORDER: MachineId[] = [
   'splitter',
   'merger',
   'tunnel',
+  'haul',
   'lab',
   'fishTrap',
   'generator',
@@ -853,10 +939,82 @@ export const MACHINE_ORDER: MachineId[] = [
   'turret',
 ];
 
-export const BELT_COST: ItemStack[] = [
-  { id: 'wood', count: 1 },
-  { id: 'stone', count: 1 },
-];
+export interface BeltDef {
+  id: BeltId;
+  tier: BeltTier;
+  name: string;
+  description: string;
+  /** Tiles per second an item travels, before belt research. */
+  speed: number;
+  /** Per tile laid; upgrading over a lower tier refunds what that one cost. */
+  cost: ItemStack[];
+}
+
+/**
+ * The belt ladder. Each tier is a row, the same as a machine tier: the belt
+ * system reads the speed off the belt it is moving items along and knows
+ * nothing about Mk2 or Mk3. Only the first is built from raw materials; the
+ * faster two are upgrades laid over it, like a Mk2 furnace over a Mk1.
+ */
+export const BELTS: Record<BeltId, BeltDef> = {
+  belt: {
+    id: 'belt',
+    tier: 1,
+    name: 'Belt',
+    description: 'Carries items one tile at a time, in the direction it faces.',
+    speed: 1.6,
+    cost: [
+      { id: 'wood', count: 1 },
+      { id: 'stone', count: 1 },
+    ],
+  },
+  beltMk2: {
+    id: 'beltMk2',
+    tier: 2,
+    name: 'Belt Mk2',
+    description: 'Twice as fast as a plain belt. Lay it over one to upgrade it in place, items and all.',
+    speed: 3.2,
+    cost: [
+      { id: 'ironPlate', count: 1 },
+      { id: 'gear', count: 1 },
+    ],
+  },
+  beltMk3: {
+    id: 'beltMk3',
+    tier: 3,
+    name: 'Belt Mk3',
+    description: 'Four times a plain belt: one lane that keeps a bank of electric machines fed.',
+    speed: 6.4,
+    cost: [
+      { id: 'steelPlate', count: 1 },
+      { id: 'gear', count: 1 },
+      { id: 'circuit', count: 1 },
+    ],
+  },
+};
+
+export const BELT_ORDER: BeltId[] = ['belt', 'beltMk2', 'beltMk3'];
+
+export function isBeltId(what: unknown): what is BeltId {
+  return typeof what === 'string' && Object.hasOwn(BELTS, what);
+}
+
+/** The kind of belt that has this tier. */
+export function beltIdOf(tier: BeltTier): BeltId {
+  return BELT_ORDER[tier - 1];
+}
+
+/** A belt's tier: Mk1 unless it says otherwise, which is every belt in an old save. */
+export function beltTier(belt: { tier?: BeltTier }): BeltTier {
+  return belt.tier ?? 1;
+}
+
+export const BELT_COST: ItemStack[] = BELTS.belt.cost;
+
+/** The name of anything the build palette can offer, belts included. */
+export function pieceName(id: MachineId | BeltId): string {
+  return isBeltId(id) ? BELTS[id].name : MACHINES[id].name;
+}
 
 /**
  * Seconds a fish trap takes per catch. What it catches is the fishing spot's
@@ -907,8 +1065,8 @@ export const TURRET_AMMO: Record<TurretAmmo, { damage: number; pierce: number }>
 /** Ammo in the order a turret reaches for it: the best it holds first. */
 export const TURRET_AMMO_ORDER: TurretAmmo[] = ['steelRounds', 'rounds'];
 
-/** Tiles per second an item travels along a belt. */
-export const BELT_SPEED = 1.6;
+/** Tiles per second an item travels along a plain belt. */
+export const BELT_SPEED = BELTS.belt.speed;
 
 /** Maximum items on one belt tile before it backs up. */
 export const BELT_CAPACITY = 4;

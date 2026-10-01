@@ -1,4 +1,4 @@
-import { BELT_COST, MACHINES, TUNNEL_REACH, placementCost } from '../data/machines';
+import { BELTS, MACHINES, TUNNEL_REACH, beltIdOf, beltTier, isBeltId, placementCost } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { buildingOnTile } from './building';
 import { giveOrDrop, payAll, hasAll } from './inventory';
@@ -11,6 +11,7 @@ import { isUnlocked } from './research';
 import { isShore, isWalkable, terrainAtIndex } from './terrain';
 import type {
   Belt,
+  BeltId,
   Direction,
   ItemId,
   ItemStack,
@@ -51,18 +52,20 @@ export function beltAt(world: World, tx: number, ty: number): Belt | null {
 export function factoryPlacementError(
   world: World,
   player: Player,
-  what: MachineId | 'belt',
+  what: MachineId | BeltId,
   tx: number,
   ty: number,
 ): FactoryError {
   if (!inBounds(tx, ty)) return 'bounds';
   // Checked before the upgrade shortcut, since dropping a tier onto the one
   // below it is still building that tier.
-  if (what !== 'belt' && !isUnlocked(world, what)) return 'locked';
-  // An upgrade stands where its predecessor already passed every tile check,
-  // including the ore one: a miner that has emptied its own tile still works
-  // the ring around it, and swapping in a faster drill must not strand it.
-  if (what !== 'belt' && upgradeTarget(world, what, tx, ty) !== null) {
+  if (!isUnlocked(world, what)) return 'locked';
+  if (isBeltId(what)) {
+    if (beltUpgradeTarget(world, what, tx, ty) !== null) return hasAll(player, BELTS[what].cost) ? null : 'cost';
+  } else if (upgradeTarget(world, what, tx, ty) !== null) {
+    // An upgrade stands where its predecessor already passed every tile check,
+    // including the ore one: a miner that has emptied its own tile still works
+    // the ring around it, and swapping in a faster drill must not strand it.
     return hasAll(player, placementCost(what)) ? null : 'cost';
   }
   if (world.grid.has(tileKey(tx, ty))) return 'occupied';
@@ -73,8 +76,8 @@ export function factoryPlacementError(
   // own pass a belt runs straight through a wall.
   if (buildingOnTile(world, tx, ty) !== null) return 'camp';
 
-  if (what === 'belt') {
-    return hasAll(player, BELT_COST) ? null : 'cost';
+  if (isBeltId(what)) {
+    return hasAll(player, BELTS[what].cost) ? null : 'cost';
   }
 
   const def = MACHINES[what];
@@ -89,15 +92,44 @@ export function placeBelt(
   tx: number,
   ty: number,
   dir: Direction,
+  kind: BeltId = 'belt',
 ): Belt | null {
-  if (factoryPlacementError(world, player, 'belt', tx, ty) !== null) return null;
-  if (!payAll(player, BELT_COST)) return null;
+  if (factoryPlacementError(world, player, kind, tx, ty) !== null) return null;
+
+  const existing = beltUpgradeTarget(world, kind, tx, ty);
+  if (existing) return upgradeBelt(world, player, existing, kind);
+
+  if (!payAll(player, BELTS[kind].cost)) return null;
 
   const belt: Belt = { id: world.nextId++, tx, ty, dir, items: [] };
+  if (BELTS[kind].tier > 1) belt.tier = BELTS[kind].tier as NonNullable<Belt['tier']>;
   world.belts.push(belt);
   world.grid.set(tileKey(tx, ty), belt);
   world.events.push({ kind: 'placed', pos: tileCenter(tx, ty), what: 'belt' });
   clearFelledNodes(world);
+  return belt;
+}
+
+/** The belt a placement of `kind` here would upgrade: one of a lower tier. */
+export function beltUpgradeTarget(world: World, kind: BeltId, tx: number, ty: number): Belt | null {
+  const belt = beltAt(world, tx, ty);
+  return belt && beltTier(belt) < BELTS[kind].tier ? belt : null;
+}
+
+/**
+ * Swap a belt for a faster one without lifting it: the same object stays on
+ * the grid, so its facing, its place in the tick order and the items riding
+ * it all carry over. The old belt comes back as its cost, as removing it would.
+ */
+function upgradeBelt(world: World, player: Player, belt: Belt, kind: BeltId): Belt | null {
+  if (!payAll(player, BELTS[kind].cost)) return null;
+  refund(world, player, BELTS[beltIdOf(beltTier(belt))].cost);
+
+  const tier = BELTS[kind].tier;
+  if (tier > 1) belt.tier = tier as NonNullable<Belt['tier']>;
+  else delete belt.tier;
+
+  world.events.push({ kind: 'placed', pos: tileCenter(belt.tx, belt.ty), what: 'belt' });
   return belt;
 }
 
@@ -111,6 +143,8 @@ export function placeMachine(
 ): Machine | null {
   if (factoryPlacementError(world, player, type, tx, ty) !== null) return null;
   type = tunnelEnd(world, type, tx, ty, dir);
+  const waiting = haulSenderWaiting(world, type);
+  type = haulEnd(type, waiting);
 
   const existing = upgradeTarget(world, type, tx, ty);
   if (existing) return upgradeMachine(world, player, existing, type);
@@ -147,11 +181,97 @@ export function placeMachine(
   }
   if (def.moduleSlots) machine.modules = makeSlots(def.moduleSlots);
 
+  // The second long-haul port closes the pair the first was waiting for.
+  if (def.haul === 'out' && waiting) {
+    machine.link = waiting.id;
+    waiting.link = machine.id;
+  }
+  if (def.haul === 'in') machine.transit = [];
+
   world.machines.push(machine);
   world.grid.set(tileKey(tx, ty), machine);
   world.events.push({ kind: 'placed', pos: tileCenter(tx, ty), what: type });
   clearFelledNodes(world);
   return machine;
+}
+
+/**
+ * The long-haul sender still waiting for a partner, if a port placed now would
+ * be one: the newest, so several half-built pairs close in the order they were
+ * started. Null for anything that is not a long-haul port.
+ */
+export function haulSenderWaiting(world: World, type: MachineId): Machine | null {
+  if (MACHINES[type].haul !== 'in') return null;
+  let found: Machine | null = null;
+  for (const machine of world.machines) {
+    if (MACHINES[machine.type].haul !== 'in' || machine.link !== undefined) continue;
+    if (!found || machine.id > found.id) found = machine;
+  }
+  return found;
+}
+
+/**
+ * What placing `type` actually puts down. One long-haul port is in the palette
+ * and the second becomes the receiving end, as a tunnel's exit does, so the
+ * ghost can say which it is about to be before the click.
+ */
+export function haulEnd(type: MachineId, waiting: Machine | null): MachineId {
+  return waiting ? (MACHINES[type].pairsWith ?? type) : type;
+}
+
+/** The port at the other end of a long-haul pair, if it still stands. */
+export function haulPartner(world: World, port: Machine): Machine | null {
+  if (port.link === undefined) return null;
+  const partner = world.machines.find((m) => m.id === port.link);
+  return partner && MACHINES[partner.type].haul && partner.link === port.id ? partner : null;
+}
+
+/**
+ * Take one end of a pair out of service: the other becomes a sender waiting
+ * for a new partner, and everything on its way between them goes back to
+ * whoever pulled the port up, since a parcel with nowhere to land would
+ * otherwise just vanish.
+ */
+function unpairHaul(world: World, player: Player, removed: Machine): void {
+  const partner = haulPartner(world, removed);
+  for (const parcel of removed.transit ?? []) giveOrDrop(world, player, parcel.item, 1);
+  if (!partner) return;
+
+  delete partner.link;
+  if (MACHINES[partner.type].haul === 'out') {
+    // A receiver with no sender becomes one, so the pair can be made again by
+    // placing a port rather than by rebuilding both.
+    for (const stack of partner.output) if (stack) giveOrDrop(world, player, stack.id, stack.count);
+    partner.type = MACHINES[partner.type].placedWith as MachineId;
+    partner.input = makeSlots(MACHINES[partner.type].inputSlots);
+    partner.output = makeSlots(MACHINES[partner.type].outputSlots);
+    partner.transit = [];
+    partner.progress = 0;
+  } else {
+    for (const parcel of partner.transit ?? []) giveOrDrop(world, player, parcel.item, 1);
+    partner.transit = [];
+  }
+  partner.stalled = false;
+}
+
+/**
+ * Make long-haul links agree after a load: a port whose partner is gone stops
+ * pointing at it, and a receiver left with no sender becomes one. A save
+ * edited by hand, or one from a build that dropped a machine type, must not
+ * leave a port waiting on something that cannot answer.
+ */
+export function repairHaulLinks(world: World): void {
+  for (const port of world.machines) {
+    if (!MACHINES[port.type].haul || port.link === undefined) continue;
+    if (haulPartner(world, port)) continue;
+    delete port.link;
+    if (MACHINES[port.type].haul === 'out') {
+      port.type = MACHINES[port.type].placedWith as MachineId;
+      port.input = makeSlots(MACHINES[port.type].inputSlots);
+      port.output = makeSlots(MACHINES[port.type].outputSlots);
+    }
+    port.transit = [];
+  }
 }
 
 /**
@@ -246,12 +366,13 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
 
   if ('items' in entity) {
     drop(world.belts, entity);
-    refund(world, player, BELT_COST);
+    refund(world, player, BELTS[beltIdOf(beltTier(entity))].cost);
     // Items riding the removed belt go back to the player rather than vanishing.
     for (const riding of entity.items) giveOrDrop(world, player, riding.item, 1);
     return true;
   }
 
+  if (MACHINES[entity.type].haul) unpairHaul(world, player, entity);
   drop(world.machines, entity);
   refund(world, player, placementCost(entity.type));
   for (const stack of [...entity.input, ...entity.output, ...(entity.fuel ?? []), ...(entity.modules ?? [])]) {

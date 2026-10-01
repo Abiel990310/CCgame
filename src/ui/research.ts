@@ -1,5 +1,5 @@
 import { ITEMS } from '@shared/data/items';
-import { MACHINES } from '@shared/data/machines';
+import { pieceName } from '@shared/data/machines';
 import { TECHS, TECH_BY_ID, techCycles, type TechDef } from '@shared/data/techs';
 import {
   cyclesDone,
@@ -83,7 +83,7 @@ function paintTechs(world: World, parent: HTMLElement, order: OrderResearch): vo
                 ? `${progress} · click to queue`
                 : progress;
     const unlocks = tech.unlocks?.length
-      ? `<span class="tech-unlocks">Unlocks ${tech.unlocks.map((id) => MACHINES[id].name).join(', ')}</span>`
+      ? `<span class="tech-unlocks">Unlocks ${tech.unlocks.map(pieceName).join(', ')}</span>`
       : '';
 
     button.innerHTML =

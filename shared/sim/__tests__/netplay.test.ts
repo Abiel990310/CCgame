@@ -143,6 +143,34 @@ describe('co-op replay', () => {
         pending.push({ p: player.id, c: { k: 'machine', what: 'solar', tx: ore.tx + 8, ty: ore.ty + 1, dir: 0 } });
         pending.push({ p: player.id, c: { k: 'machine', what: 'accumulator', tx: ore.tx + 8, ty: ore.ty + 2, dir: 0 } });
       }
+      if (t === 410) {
+        // Faster belts laid over standing ones: a new belt born Mk3, one upgraded
+        // in place with ore riding it, and a plain one bumped Mk2 then refused Mk2 again.
+        pending.push({ p: player.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty + 1, dir: 1, tier: 3 } });
+        pending.push({ p: player.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty, dir: 0, tier: 2 } });
+        pending.push({ p: player.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty, dir: 0, tier: 2 } });
+        // The gap the removal above left in the miner's line, closed again.
+        pending.push({ p: player.id, c: { k: 'belt', tx: ore.tx + 2, ty: ore.ty, dir: 0 } });
+      }
+      if (t === 420) {
+        // The chest at the end of the miner's line makes way for a long-haul
+        // pair, which a guest has to pair the same way the host does.
+        pending.push({ p: player.id, c: { k: 'remove', tx: ore.tx + 3, ty: ore.ty } });
+      }
+      if (t === 421) {
+        pending.push({ p: player.id, c: { k: 'machine', what: 'haul', tx: ore.tx + 3, ty: ore.ty, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'haul', tx: ore.tx + 3, ty: ore.ty + 4, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'belt', tx: ore.tx + 4, ty: ore.ty + 4, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'chest', tx: ore.tx + 5, ty: ore.ty + 4, dir: 0 } });
+      }
+      if (t === 700) {
+        // Taking the receiving end up mid-run turns the sender back into one
+        // waiting, and puts a new port beside it to pair again.
+        pending.push({ p: player.id, c: { k: 'remove', tx: ore.tx + 3, ty: ore.ty + 4 } });
+      }
+      if (t === 710) {
+        pending.push({ p: player.id, c: { k: 'machine', what: 'haul', tx: ore.tx + 3, ty: ore.ty + 4, dir: 0 } });
+      }
       if (t === 402) {
         // Bitten the same on both copies, so the mend below is what is replayed.
         for (const world of [host, guest]) world.machines.find((m) => m.type === 'turret')!.wear = 100;
@@ -162,6 +190,20 @@ describe('co-op replay', () => {
     }
 
     expect(host.machines.filter((m) => m.type === 'tunnelExit')).toHaveLength(1);
+    const beltAtTile = (world: World, dx: number, dy: number) =>
+      world.belts.find((b) => b.tx === ore.tx + dx && b.ty === ore.ty + dy)!;
+    for (const world of [host, guest]) {
+      expect(beltAtTile(world, 1, 1).tier).toBe(3);
+      expect(beltAtTile(world, 1, 0).tier).toBe(2);
+      expect(world.belts.filter((b) => b.tier === 2)).toHaveLength(1);
+      const sender = world.machines.find((m) => m.type === 'haul' && m.tx === ore.tx + 3 && m.ty === ore.ty)!;
+      const receiver = world.machines.find((m) => m.type === 'haulExit')!;
+      expect(sender.link).toBe(receiver.id);
+      expect(receiver.link).toBe(sender.id);
+    }
+    // What came through the pipe before the pair was broken and remade is in the chest.
+    const far = guest.machines.find((m) => m.type === 'chest' && m.tx === ore.tx + 5 && m.ty === ore.ty + 4)!;
+    expect(far.input.some((slot) => slot && slot.count > 0)).toBe(true);
     expect(guest.machines.find((m) => m.type === 'turret')!.wear).toBeUndefined();
     expect(guest.machines.find((m) => m.type === 'furnaceMk3')!.modules).toEqual([
       { id: 'speedModule', count: 1 },
@@ -220,6 +262,8 @@ describe('co-op replay', () => {
     const junk = [
       { k: 'machine', what: 'reactor', tx: 1, ty: 1, dir: 0 },
       { k: 'belt', tx: 1.5, ty: 1, dir: 9 },
+      { k: 'belt', tx: 1, ty: 1, dir: 0, tier: 9 },
+      { k: 'belt', tx: 1, ty: 1, dir: 0, tier: 'beltMk3' },
       { k: 'click', machine: null, ref: { area: 'bag', index: 999 }, button: 'left' },
       { k: 'click', machine: 12345, ref: { area: 'input', index: 0 }, button: 'left' },
       { k: 'building', type: 'castle', x: 0, y: 0 },
