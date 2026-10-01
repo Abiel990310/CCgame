@@ -25,7 +25,11 @@ export type TechEffectKind =
    * Ore a miner brings up per ore a tile loses. Speed empties a patch sooner;
    * this is the one kind that makes a finite patch last longer.
    */
-  | 'yield';
+  | 'yield'
+  /** Every islander's max health, on top of what level-ups gave them. */
+  | 'health'
+  /** Every islander's walking speed, on top of what level-ups gave them. */
+  | 'speed';
 
 export interface TechDef {
   id: string;
@@ -107,6 +111,28 @@ export const TECHS: TechDef[] = [
     time: 4,
     requires: ['automation'],
     effect: { kind: 'gather', amount: 0.25 },
+    xp: 6,
+  },
+  {
+    id: 'fieldMedicine',
+    name: 'Field Medicine',
+    description: 'Bandages, broth and a proper rest. Every islander has a fifth more max health.',
+    inputs: [{ id: 'researchPack', count: 1 }],
+    cycles: 30,
+    time: 4,
+    requires: ['toolmaking'],
+    effect: { kind: 'health', amount: 0.2 },
+    xp: 6,
+  },
+  {
+    id: 'conditioning',
+    name: 'Conditioning',
+    description: 'Better boots and a steadier stride. Every islander walks a tenth faster.',
+    inputs: [{ id: 'researchPack', count: 1 }],
+    cycles: 30,
+    time: 4,
+    requires: ['toolmaking'],
+    effect: { kind: 'speed', amount: 0.1 },
     xp: 6,
   },
   {
@@ -401,6 +427,36 @@ export const TECHS: TechDef[] = [
     requires: ['steamPressure'],
     effect: { kind: 'power', amount: 0.1 },
     xp: 28,
+    repeatable: true,
+  },
+  {
+    id: 'vitality',
+    name: 'Vitality',
+    description: 'Never finishes. Each level gives every islander another tenth of max health.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+    ],
+    cycles: 50,
+    time: 8,
+    requires: ['fieldMedicine', 'labAutomation'],
+    effect: { kind: 'health', amount: 0.1 },
+    xp: 25,
+    repeatable: true,
+  },
+  {
+    id: 'endurance',
+    name: 'Endurance',
+    description: 'Never finishes. Each level makes every islander walk a few percent faster again.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+    ],
+    cycles: 50,
+    time: 8,
+    requires: ['conditioning', 'labAutomation'],
+    effect: { kind: 'speed', amount: 0.04 },
+    xp: 25,
     repeatable: true,
   },
 ];

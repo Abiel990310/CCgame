@@ -351,6 +351,18 @@ describe('research in a save', () => {
     expect(research.queue).toEqual(['fireboxDesign', 'toolmaking']);
   });
 
+  it('keeps a repeatable tech planned for several levels', () => {
+    const world = island();
+    for (const id of ['automation', 'prospecting', 'metallurgy', 'labAutomation']) world.research.levels[id] = 1;
+    world.research.current = 'miningProductivity';
+    world.research.queue = ['miningProductivity', 'toolmaking', 'miningProductivity'];
+    saveWorld(world, SLOT);
+
+    const research = loadWorld(SLOT)!.research;
+    expect(research.current).toBe('miningProductivity');
+    expect(research.queue).toEqual(['miningProductivity', 'toolmaking', 'miningProductivity']);
+  });
+
   it('cuts a queue back to what the labs can reach in that order', () => {
     saveWorld(island(), SLOT);
     const header = JSON.parse(store.get(slotKey(SLOT))!);

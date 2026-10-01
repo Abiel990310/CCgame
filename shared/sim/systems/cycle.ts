@@ -1,4 +1,5 @@
 import { CYCLE, PLAYER, WAVES } from '../constants';
+import { researchBonuses } from '../research';
 import { spawnPoint } from '../world';
 import type { World } from '../types';
 import { nightBudget, spawnBosses } from './mobs';
@@ -32,7 +33,18 @@ export function stepCycle(world: World, dt: number): void {
 }
 
 export function stepPlayerUpkeep(world: World, dt: number): void {
+  const health = researchBonuses(world).health;
   for (const player of world.players.values()) {
+    // `stats.maxHp` is what level-ups built; research stacks on top of it. A
+    // gain heals by the same amount, as a level-up's does, so a tech finishing
+    // is never a wasted bar; a loss only trims what is above the new cap.
+    const max = Math.round(player.stats.maxHp * health);
+    if (max !== player.maxHp) {
+      if (max > player.maxHp && player.downed <= 0) player.hp += max - player.maxHp;
+      player.maxHp = max;
+      player.hp = Math.min(player.hp, max);
+    }
+
     if (player.downed > 0) {
       player.downed -= dt;
       if (player.downed <= 0) {
