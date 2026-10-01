@@ -360,6 +360,11 @@ detail behind the factory entries is in
 
 ### New features
 
+- [ ] Co-op: the friend's own character waits for the host's tick before it
+      moves, so it lags by a round trip (worse over the relay, which also
+      bundles at 100 ms). Predict the guest's own movement locally and
+      reconcile with the host, and interpolate other players between ticks.
+
 - [ ] Co-op: a TURN server (Cloudflare or Metered free tier) so friends on
       strict networks get a direct connection rather than the slower relay.
 - [x] Co-op: signal through the Supabase project as well as the PeerJS broker,
