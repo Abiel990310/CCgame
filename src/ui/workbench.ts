@@ -125,7 +125,7 @@ function card(world: World, player: Player, c: CraftDef): string {
     .map((p) => {
       const short = countItem(player, p.id) < p.count;
       return (
-        `<span class="${short ? 'short' : ''}" title="${ITEMS[p.id].name}">` +
+        `<span class="${short ? 'short' : ''}" data-tip="${p.id}">` +
         `<i style="background-image:${itemIconVar(p.id)}"></i>${p.count}</span>`
       );
     })
@@ -142,7 +142,7 @@ function card(world: World, player: Player, c: CraftDef): string {
       ? `<em class="craft-have">${have} in bag</em>`
       : '';
   return (
-    `<button class="craft-card ${state}" data-craft="${c.id}" title="${item.name}">` +
+    `<button class="craft-card ${state}" data-craft="${c.id}" data-tip="${c.output}">` +
     `<i class="craft-icon" style="background-image:${itemIconVar(c.output)}"></i>` +
     `<div class="craft-text"><b>${item.name}</b><small>${sub}</small>` +
     `<span class="cost">${cost}</span>${foot}</div></button>`

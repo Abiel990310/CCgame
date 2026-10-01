@@ -690,13 +690,12 @@ export class Hud {
     this.els.pouch.innerHTML = '';
     this.els.pouch.classList.toggle('hidden', totals.size === 0);
     for (const [id, count] of totals) {
-      const def = ITEMS[id as keyof typeof ITEMS];
       const chip = document.createElement('div');
       chip.className = 'res';
       // A count that just went up flashes, so a haul registers without reading.
       if (count > (this.pouchCounts.get(id) ?? Infinity)) chip.classList.add('bump');
       chip.innerHTML = `<i class="res-icon" style="background-image:${itemIconVar(id as ItemId)}"></i>${formatCount(count)}`;
-      chip.title = `${def.name} — ${count}`;
+      chip.dataset.tip = id;
       this.els.pouch.appendChild(chip);
     }
     this.pouchCounts = totals;
@@ -934,7 +933,7 @@ function costHtml(cost: ItemStack[], player?: Player): string {
   const parts = cost.map((c) => {
     const short = player ? countItem(player, c.id) < c.count : false;
     return (
-      `<span class="${short ? 'short' : ''}" title="${ITEMS[c.id].name}">` +
+      `<span class="${short ? 'short' : ''}" data-tip="${c.id}">` +
       `<i style="background-image:${itemIconVar(c.id)}"></i>${c.count}</span>`
     );
   });

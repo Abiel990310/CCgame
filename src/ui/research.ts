@@ -1,4 +1,3 @@
-import { ITEMS } from '@shared/data/items';
 import { pieceName } from '@shared/data/machines';
 import { TECHS, TECH_BY_ID, techCycles, type TechDef } from '@shared/data/techs';
 import {
@@ -65,7 +64,7 @@ function paintTechs(world: World, parent: HTMLElement, order: OrderResearch): vo
     const cost = tech.inputs
       .map(
         (i) =>
-          `<span class="stack" title="${ITEMS[i.id].name}"><i class="ic" style="background-image:${itemIconVar(i.id)}"></i>${i.count}</span>`,
+          `<span class="stack" data-tip="${i.id}"><i class="ic" style="background-image:${itemIconVar(i.id)}"></i>${i.count}</span>`,
       )
       .join('');
     const progress = `${cyclesDone(world, tech.id)} / ${cyclesNeeded(world, tech)} cycles`;

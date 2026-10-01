@@ -1428,7 +1428,13 @@ detail behind the factory entries is in
       are bevelled wells and a stack bumps when it grows.
 - [ ] Knockback that shows: mobs slide back a step when hit (sim change).
 - [ ] Hotbar and palette slots in the same well style as the bag.
-- [ ] Item tooltips in the bag with what the item is for and where it comes from.
+- [x] Item tooltips in the bag with what the item is for and where it comes from.
+      Done: a card follows the mouse over any item in the bag, machine slots,
+      the pouch, recipe, craft and research costs and the ledger: what it is,
+      what it does, where it comes from and what uses it, all read from the data
+      tables (`src/ui/iteminfo.ts`). Mouse only; touch keeps its press for moving.
+- [ ] Item card: long press on a phone could show the same card, since touch has none.
+- [ ] Item card: show a stack's rate in and out once the ledger knows it for that item.
 - [ ] Hitstop for co-op: a host-side freeze all guests replay.
 - [ ] Drop arcs are stepped at the 30 Hz tick; interpolate `settle` too.
 - [ ] Module tiers (Mk2, Mk3 modules) with bigger effects, so modules keep
