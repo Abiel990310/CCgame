@@ -2041,6 +2041,35 @@ kbd {
   overflow-y: auto;
 }
 
+.recipe-tabs {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.recipe-tab {
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.recipe-tab:hover {
+  color: var(--ink);
+}
+
+.recipe-tab.on {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+
 .filter-head {
   grid-column: 1 / -1;
   font-size: 10.5px;

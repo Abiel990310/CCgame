@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { MACHINES } from '../../data/machines';
-import { RECIPE_BY_ID, craftTime } from '../../data/recipes';
+import { MACHINES, TRAP_TIME } from '../../data/machines';
+import { RECIPES, RECIPE_BY_ID, RECIPE_GROUPS, craftTime, recipeSections, recipesFor } from '../../data/recipes';
+import { TECH_BY_ID } from '../../data/techs';
+import { TERRAIN_ORDER } from '../terrain';
+import { tileKey } from '../grid';
+import { setResearch } from '../research';
 import { TICK_DT } from '../constants';
-import { machineRates, recipeSeconds, workSpeed } from '../rates';
+import { labCyclesPerMinute, machineRates, recipeSeconds, workSpeed } from '../rates';
+import { addItem } from '../inventory';
 import { countIn } from '../slots';
 import type { ItemId, Machine } from '../types';
 import { advance, at, bench, fill, plantOre, put, type Bench } from './bench';
@@ -94,5 +99,60 @@ describe('machine rates', () => {
     const m = put(b, 'furnaceMk3', spot.tx, spot.ty, 0) as Machine;
     m.recipe = null;
     expect(machineRates(b.world, m)).toEqual([]);
+  });
+});
+
+describe('lab and fish trap rates', () => {
+  it('quotes a lab in research cycles a minute, and nothing without a tech', () => {
+    const b = bench(2026, true);
+    const spot = at(2, 3);
+    const lab = put(b, 'lab', spot.tx, spot.ty, 0) as Machine;
+    b.world.research.current = null;
+    expect(labCyclesPerMinute(b.world, lab)).toBe(null);
+
+    setResearch(b.world, 'automation');
+    const tech = TECH_BY_ID.get('automation')!;
+    expect(labCyclesPerMinute(b.world, lab)).toBeCloseTo(60 / tech.time, 9);
+    expect(labCyclesPerMinute(b.world, put(b, 'furnaceMk3', at(6, 3).tx, at(6, 3).ty, 0) as Machine)).toBe(null);
+  });
+
+  it('agrees with the cycles a fed lab finishes', () => {
+    const b = bench(2026, true);
+    const lab = put(b, 'lab', at(2, 3).tx, at(2, 3).ty, 0) as Machine;
+    setResearch(b.world, 'automation');
+    const tech = TECH_BY_ID.get('automation')!;
+    // Research levels reset a tech's bank, so cycles are counted by the packs
+    // a cycle swallows instead.
+    expect(tech.inputs).toEqual([{ id: 'researchPack', count: tech.inputs[0].count }]);
+    fill(lab.input, 'researchPack', 50, MACHINES.lab.slotSize);
+    advance(b.world, 120);
+    const cycles = (50 - countIn(lab.input, 'researchPack')) / tech.inputs[0].count;
+    expect(Math.abs(cycles / 2 - labCyclesPerMinute(b.world, lab)!)).toBeLessThanOrEqual(1);
+  });
+
+  it('quotes a fish trap as the expected catch of each drop', () => {
+    const b = bench(2026, true);
+    addItem(b.player, 'fiber', 200);
+    const { tx, ty } = at(4, 3);
+    b.world.terrain[tileKey(tx, ty - 1)] = TERRAIN_ORDER.indexOf('water');
+    const trap = put(b, 'fishTrap', tx, ty, 0) as Machine;
+    const rates = machineRates(b.world, trap);
+    expect(rates.map((r) => r.item).sort()).toEqual(['essence', 'fish']);
+    const [fish, essence] = [rates.find((r) => r.item === 'fish')!, rates.find((r) => r.item === 'essence')!];
+    expect(fish.perMinute + essence.perMinute).toBeCloseTo(60 / TRAP_TIME, 9);
+    expect(fish.perMinute).toBeGreaterThan(essence.perMinute);
+  });
+});
+
+describe('recipe sections', () => {
+  it('put every recipe in exactly one section of its machine', () => {
+    for (const recipe of RECIPES) expect(Object.keys(RECIPE_GROUPS), recipe.id).toContain(recipe.group);
+    for (const machine of ['furnace', 'assembler'] as const) {
+      const sections = recipeSections(machine);
+      const listed = sections.flatMap((s) => s.recipes.map((r) => r.id)).sort();
+      expect(listed).toEqual(recipesFor(machine).map((r) => r.id).sort());
+    }
+    // The long lists are the reason sections exist.
+    expect(recipeSections('assembler').length).toBeGreaterThan(1);
   });
 });
