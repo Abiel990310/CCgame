@@ -49,6 +49,7 @@ import { GOAL_BY_ID } from '@shared/data/goals';
 import { GraphicsPanel } from './ui/graphics';
 import { GoalTracker } from './ui/goals';
 import { Minimap } from './ui/minimap';
+import { installItemTip } from './ui/itemtip';
 import { WorldMap, type MapTab } from './ui/worldmap';
 import { Ledger, loadLedger, saveLedger } from './ledger';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
@@ -260,6 +261,7 @@ export class Game {
         if (this.act({ k: 'unpin', id })) this.requestSave();
       },
     }, (techId, op, place) => this.orderResearch(techId, op, place));
+    installItemTip();
     this.minimap = new Minimap(document.getElementById('corner-right')!, this.worldMap, () => this.toggleMap());
     this.story = new StoryCards(document.getElementById('ui')!);
     document.getElementById('btn-map')!.addEventListener('click', () => this.toggleMap());

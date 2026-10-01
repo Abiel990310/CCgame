@@ -126,7 +126,7 @@ function bladeCard(world: World, player: Player): string {
 /** A slot-shaped frame for a carried thing. Not an `.islot`: nothing here can be clicked into the bag. */
 function toolArt(item: ItemId | null): string {
   return item
-    ? `<span class="tool-art filled"><i style="background-image:${itemIconVar(item)}"></i></span>`
+    ? `<span class="tool-art filled" data-tip="${item}"><i style="background-image:${itemIconVar(item)}"></i></span>`
     : `<span class="tool-art"></span>`;
 }
 

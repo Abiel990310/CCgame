@@ -96,7 +96,7 @@ export class LedgerView {
         const share = r.best > 0 ? r.rate / r.best : 0;
         const tone = r.best === 0 ? '' : share >= 0.9 ? 'good' : share < 0.5 ? 'low' : '';
         return `
-        <button class="ledger-row ${r.item === this.selected ? 'on' : ''}" data-item="${r.item}">
+        <button class="ledger-row ${r.item === this.selected ? 'on' : ''}" data-item="${r.item}" data-tip="${r.item}">
           <i class="ledger-icon" style="background-image:${itemIconVar(r.item)}"></i>
           <span class="ledger-name">${ITEMS[r.item].name}</span>
           <svg class="ledger-spark" viewBox="0 0 ${LEDGER_HISTORY} 20" preserveAspectRatio="none">

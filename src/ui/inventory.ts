@@ -726,7 +726,7 @@ export class InventoryScreen {
       const button = document.createElement('button');
       button.className = `offer recipe${machine.recipe === recipe.id ? ' on' : ''}`;
       const stack = (id: ItemId, count: number): string =>
-        `<span class="stack" title="${ITEMS[id].name}"><i class="ic" style="background-image:${itemIconVar(id)}"></i>${count}</span>`;
+        `<span class="stack" data-tip="${id}"><i class="ic" style="background-image:${itemIconVar(id)}"></i>${count}</span>`;
       const inputs = recipe.inputs.map((i) => stack(i.id, i.count)).join('');
       const outputs = recipe.outputs.map((o) => stack(o.id, o.count)).join('');
       // What a craft really takes here, after research, a beacon and modules;
@@ -762,6 +762,7 @@ export class InventoryScreen {
         ? `<span class="chip-icon"><i class="item" style="background-image:${itemIconVar(item)}"></i></span>`
         : '<span class="chip-icon any"></span>';
       button.innerHTML = `${icon}<b>${item ? ITEMS[item].name : 'Anything'}</b>`;
+      if (item) button.dataset.tip = item;
       button.addEventListener('click', () => this.callbacks.onSetFilter(machine.id, item));
       this.els.recipes.appendChild(button);
     };
@@ -855,16 +856,13 @@ function paintSlot(
     cell.classList.remove('filled');
     const ghost = filter ?? hint;
     cell.innerHTML = ghost ? `<i class="item" style="background-image:${itemIconVar(ghost)}"></i>` : '';
-    if (filter) cell.title = kept.trim();
-    else if (hint) cell.title = `${verb} ${ITEMS[hint].name}.`;
-    else cell.removeAttribute('title');
+    if (ghost) tip(cell, ghost, filter ? kept.trim() : `${verb} ${ITEMS[ghost].name}.`);
+    else tip(cell, null);
     return;
   }
 
-  const def = ITEMS[slot.id];
   cell.classList.add('filled');
-  const eats = def.food ? ` Eat with H for +${def.food} health.` : '';
-  cell.title = `${def.name} — ${slot.count}.${eats}${kept}`;
+  tip(cell, slot.id, kept.trim());
   cell.innerHTML =
     `<i class="item" style="background-image:${itemIconVar(slot.id)}"></i>` +
     `<b>${slot.count}</b>`;
@@ -891,13 +889,26 @@ function paintSide(cell: HTMLElement, item: ItemId | null): void {
     cell.className = 'islot any';
     cell.textContent = 'Any';
     cell.title = 'Takes anything. Drop an item here to keep this side for it.';
+    tip(cell, null);
     return;
   }
 
-  const def = ITEMS[item];
   cell.className = 'islot filled';
-  cell.title = `${def.name} only. Click with an empty hand to open this side up.`;
+  cell.removeAttribute('title');
+  tip(cell, item, 'Only this goes in on this side. Click with an empty hand to open it up.');
   cell.innerHTML = `<i class="item" style="background-image:${itemIconVar(item)}"></i>`;
+}
+
+/** Point the item card at `item`, or at nothing. */
+function tip(cell: HTMLElement, item: ItemId | null, note = ''): void {
+  if (!item) {
+    delete cell.dataset.tip;
+    delete cell.dataset.tipNote;
+    return;
+  }
+  cell.dataset.tip = item;
+  if (note) cell.dataset.tipNote = note;
+  else delete cell.dataset.tipNote;
 }
 
 function must<T extends HTMLElement>(id: string): T {
