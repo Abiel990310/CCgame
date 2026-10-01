@@ -83,7 +83,10 @@ export function setResearch(world: World, id: string | null): boolean {
   if (!def || !isAvailable(world, def) || isFinished(world, def)) return false;
   if (research.current === id) return false;
 
-  research.queue = research.queue.filter((q) => q !== id);
+  // Only the one instance moves up to current; a repeatable tech planned twice
+  // keeps its second.
+  const at = research.queue.indexOf(id);
+  if (at >= 0) research.queue.splice(at, 1);
   research.current = id;
   pruneResearchQueue(world.research);
   return true;
@@ -96,26 +99,41 @@ export function isQueueOp(op: unknown): op is QueueOp {
   return op === 'add' || op === 'remove' || op === 'up';
 }
 
+/** Most techs the labs can have lined up, current one included. */
+export const MAX_PLANNED = 24;
+
 /** True when the tech is being researched or waits in the queue. */
 export function isPlanned(world: World, id: string): boolean {
   return world.research.current === id || world.research.queue.includes(id);
+}
+
+/** The current tech and then the queue: the one list the labs work down. */
+export function researchPlan(research: Research): string[] {
+  return research.current ? [research.current, ...research.queue] : [...research.queue];
 }
 
 /**
  * Change the research queue. The order is the player's: labs take the front
  * of it the moment the current tech finishes, and only an empty queue falls
  * back to `nextTech`'s guess.
+ *
+ * A repeatable tech may be planned several times, one entry per level, so
+ * `place` says which entry of the plan (current first) a remove or a raise is
+ * about. Left out, it means the last one: "one fewer".
  */
-export function orderResearch(world: World, id: string, op: QueueOp): boolean {
+export function orderResearch(world: World, id: string, op: QueueOp, place?: number): boolean {
   const def = TECH_BY_ID.get(id);
   if (!def) return false;
+  const plan = researchPlan(world.research);
+  const at = place === undefined ? plan.lastIndexOf(id) : place;
+  if (op !== 'add' && plan[at] !== id) return false;
   switch (op) {
     case 'add':
       return queueTech(world, def);
     case 'remove':
-      return unqueueTech(world, id);
+      return unqueueTech(world, at);
     case 'up':
-      return raiseTech(world, def);
+      return raiseTech(world, at);
   }
 }
 
@@ -125,7 +143,10 @@ export function orderResearch(world: World, id: string, op: QueueOp): boolean {
  * works out the road to it.
  */
 function queueTech(world: World, def: TechDef): boolean {
-  if (isFinished(world, def) || isPlanned(world, def.id)) return false;
+  if (isFinished(world, def)) return false;
+  // A repeatable tech is the one thing that can be planned again.
+  if (isPlanned(world, def.id) && !def.repeatable) return false;
+  if (researchPlan(world.research).length >= MAX_PLANNED) return false;
 
   const road: string[] = [];
   const visit = (tech: TechDef): void => {
@@ -143,9 +164,9 @@ function queueTech(world: World, def: TechDef): boolean {
   return true;
 }
 
-function unqueueTech(world: World, id: string): boolean {
+function unqueueTech(world: World, at: number): boolean {
   const research = world.research;
-  if (research.current === id) {
+  if (at === 0 && research.current !== null) {
     // The next in line takes over, but never a guess: labs the player has just
     // stopped should stay stopped rather than pick the same tech back up.
     research.current = null;
@@ -153,9 +174,9 @@ function unqueueTech(world: World, id: string): boolean {
     research.current = research.queue.shift() ?? null;
     return true;
   }
-  const at = research.queue.indexOf(id);
-  if (at < 0) return false;
-  research.queue.splice(at, 1);
+  const index = research.current === null ? at : at - 1;
+  if (index < 0 || index >= research.queue.length) return false;
+  research.queue.splice(index, 1);
   pruneResearchQueue(world.research);
   return true;
 }
@@ -163,28 +184,21 @@ function unqueueTech(world: World, id: string): boolean {
 /**
  * Move a queued tech one place forward; from the front of the queue it takes
  * over from the current one, whose banked cycles wait for it. It never passes
- * its own prerequisite, which is the only thing that could make it unworkable.
+ * its own prerequisite, which is the only thing that could make it unworkable,
+ * and two levels of one repeatable tech have nothing to swap.
  */
-function raiseTech(world: World, def: TechDef): boolean {
+function raiseTech(world: World, at: number): boolean {
   const research = world.research;
-  const at = research.queue.indexOf(def.id);
-  if (at < 0) return false;
+  const plan = researchPlan(research);
+  if (at < 1 || at >= plan.length) return false;
+  const id = plan[at];
+  const ahead = plan[at - 1];
+  if (ahead === id || TECH_BY_ID.get(id)?.requires.includes(ahead)) return false;
 
-  const ahead = at === 0 ? research.current : research.queue[at - 1];
-  if (ahead === null) {
-    research.queue.splice(at, 1);
-    research.current = def.id;
-    return true;
-  }
-  if (def.requires.includes(ahead)) return false;
-
-  if (at === 0) {
-    research.queue[0] = ahead;
-    research.current = def.id;
-  } else {
-    research.queue[at - 1] = def.id;
-    research.queue[at] = ahead;
-  }
+  plan[at] = ahead;
+  plan[at - 1] = id;
+  research.current = plan[0];
+  research.queue = plan.slice(1);
   return true;
 }
 
@@ -199,11 +213,13 @@ export function pruneResearchQueue(research: Research): void {
   if (research.current) ahead.add(research.current);
   research.queue = research.queue.filter((id) => {
     const def = TECH_BY_ID.get(id);
-    if (!def || ahead.has(id) || (!def.repeatable && done(id))) return false;
+    // A repeatable tech can be planned once per level; nothing else twice.
+    if (!def || (ahead.has(id) && !def.repeatable) || (!def.repeatable && done(id))) return false;
     if (!def.requires.every((req) => done(req) || ahead.has(req))) return false;
     ahead.add(id);
     return true;
   });
+  research.queue.length = Math.min(research.queue.length, MAX_PLANNED - (research.current ? 1 : 0));
 }
 
 /**
@@ -244,6 +260,8 @@ const NONE: ResearchBonuses = {
   fuel: 1,
   power: 1,
   yield: 1,
+  health: 1,
+  speed: 1,
 };
 
 /**

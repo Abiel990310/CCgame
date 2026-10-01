@@ -187,6 +187,8 @@ const ISLAND: { kind: keyof ReturnType<typeof researchBonuses>; label: string }[
   { kind: 'fuel', label: 'Fuel' },
   { kind: 'power', label: 'Power' },
   { kind: 'yield', label: 'Yield' },
+  { kind: 'health', label: 'Max health' },
+  { kind: 'speed', label: 'Walking' },
 ];
 
 export function statsPage(world: World, player: Player): string {

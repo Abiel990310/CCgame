@@ -4,6 +4,7 @@ import { applyOrder, type Order } from '../commands';
 import { spellPerk } from '../../data/spells';
 import { addItem, countItem } from '../inventory';
 import { addPerk } from '../perks';
+import { researchPlan } from '../research';
 import { makeRng } from '../rng';
 import { checksum, decode, encode, restoreSnapshot, takeSnapshot, type Snapshot } from '../snapshot';
 import { step } from '../step';
@@ -115,6 +116,18 @@ describe('co-op replay', () => {
         pending.push({ p: player.id, c: { k: 'queue', tech: 'angling', op: 'add' } });
         pending.push({ p: player.id, c: { k: 'queue', tech: 'angling', op: 'up' } });
       }
+      if (t === 125) {
+        // A repeatable tech planned three times, one level dropped again, and
+        // the last one raised past nothing: places travel over the wire too.
+        for (const p of [friend.id, player.id, friend.id]) {
+          pending.push({ p, c: { k: 'queue', tech: 'endurance', op: 'add' } });
+        }
+      }
+      if (t === 126) pending.push({ p: player.id, c: { k: 'queue', tech: 'endurance', op: 'remove' } });
+      if (t === 127) {
+        const place = researchPlan(host.research).indexOf('toolmaking');
+        pending.push({ p: player.id, c: { k: 'queue', tech: 'toolmaking', op: 'up', place } });
+      }
       if (t === 400) {
         pending.push({ p: friend.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty + 1, dir: 1 } });
         pending.push({ p: player.id, c: { k: 'remove', tx: ore.tx + 2, ty: ore.ty } });
@@ -162,7 +175,10 @@ describe('co-op replay', () => {
     expect(guest.pins).toEqual(host.pins);
     expect(countItem(guest.players.get(player.id)!, 'grilledFish')).toBeGreaterThan(0);
     expect(player.spell).toBe('frostNova');
-    expect(guest.research.queue).toEqual(['beltLogistics', 'angling', 'roboticArms']);
+    // Toolmaking was raised a place, past Robotic Arms.
+    expect(guest.research.queue.slice(0, 4)).toEqual(['beltLogistics', 'angling', 'toolmaking', 'roboticArms']);
+    expect(guest.research.queue.filter((id) => id === 'endurance')).toHaveLength(2);
+    expect(guest.research.queue).toEqual(host.research.queue);
     expect(guest.players.get(player.id)!.inventory).toHaveLength(player.inventory.length);
     expect(encode(takeSnapshot(guest))).toBe(encode(takeSnapshot(host)));
   });
