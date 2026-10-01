@@ -530,6 +530,80 @@ export const TECHS: TechDef[] = [
     xp: 25,
     repeatable: true,
   },
+  // The far side's branch. Each eats the frontier pack, which needs titanium
+  // plate, so none of it can be reached without crossing the water and then
+  // running a steel miner and a steel furnace over there.
+  {
+    id: 'titaniumAlloys',
+    name: 'Titanium Alloys',
+    description: 'Light, hard plating on every blade and barrel. All weapons hit harder.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'frontierPack', count: 1 },
+    ],
+    cycles: 40,
+    time: 8,
+    requires: ['causeways', 'electricity'],
+    effect: { kind: 'damage', amount: 0.15 },
+    xp: 18,
+  },
+  {
+    id: 'heatShielding',
+    name: 'Heat Shielding',
+    description: 'Titanium-lined fireboxes hold the heat in. Every burner and engine gets more work out of each lump of coal.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'frontierPack', count: 1 },
+    ],
+    cycles: 50,
+    time: 8,
+    requires: ['titaniumAlloys'],
+    effect: { kind: 'fuel', amount: 0.3 },
+    xp: 20,
+  },
+  {
+    id: 'coreSampling',
+    name: 'Core Sampling',
+    description: 'Titanium-tipped bits read the seam before the drill commits. Every tile yields a fifth more ore.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'frontierPack', count: 1 },
+    ],
+    cycles: 50,
+    time: 8,
+    requires: ['titaniumAlloys', 'prospecting'],
+    effect: { kind: 'yield', amount: 0.2 },
+    xp: 20,
+  },
+  {
+    id: 'precisionOptics',
+    name: 'Precision Optics',
+    description: 'Titanium mounts keep a lens true. Every lab works a quarter faster.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'frontierPack', count: 1 },
+    ],
+    cycles: 50,
+    time: 8,
+    requires: ['titaniumAlloys', 'labAutomation'],
+    effect: { kind: 'lab', amount: 0.25 },
+    xp: 20,
+  },
+  {
+    id: 'frontierDrilling',
+    name: 'Frontier Drilling',
+    description: 'Never finishes. Each level makes every miner faster again, and costs more. Patches run dry sooner.',
+    inputs: [
+      { id: 'powerPack', count: 1 },
+      { id: 'frontierPack', count: 1 },
+    ],
+    cycles: 60,
+    time: 10,
+    requires: ['coreSampling', 'heatShielding'],
+    effect: { kind: 'mining', amount: 0.12 },
+    xp: 28,
+    repeatable: true,
+  },
 ];
 
 /**
@@ -541,6 +615,7 @@ export const PACK_TIER: Partial<Record<ItemId, number>> = {
   logicPack: 2,
   powerPack: 3,
   engineeringPack: 3,
+  frontierPack: 3,
   resonancePack: 4,
 };
 
