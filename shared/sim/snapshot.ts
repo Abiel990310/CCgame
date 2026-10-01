@@ -32,6 +32,8 @@ export interface Snapshot {
   pickups: World['pickups'];
   nodes: World['nodes'];
   buildings: World['buildings'];
+  /** Absent in a snapshot from a build before pins. */
+  pins?: World['pins'];
   camp: World['camp'];
   ore: number[];
   oreLeft: number[];
@@ -62,6 +64,7 @@ export function takeSnapshot(world: World): Snapshot {
     pickups: world.pickups,
     nodes: world.nodes,
     buildings: world.buildings,
+    pins: world.pins,
     camp: world.camp,
     ore: Array.from(world.ore),
     oreLeft: Array.from(world.oreLeft),
@@ -95,6 +98,7 @@ export function restoreSnapshot(snap: Snapshot): World {
   world.pickups = snap.pickups;
   world.nodes = snap.nodes;
   world.buildings = snap.buildings;
+  world.pins = snap.pins ?? [];
   world.camp = snap.camp;
   world.ore = Uint8Array.from(snap.ore);
   world.oreLeft = Uint16Array.from(snap.oreLeft);
@@ -176,6 +180,11 @@ export function checksum(world: World): number {
     for (const item of b.items) mix(item.offset);
   }
   for (const n of world.nodes) mix(n.charges);
+  for (const pin of world.pins) {
+    mix(pin.id);
+    mix(pin.x);
+    mix(pin.y);
+  }
   return h >>> 0;
 }
 

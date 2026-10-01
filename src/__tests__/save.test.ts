@@ -544,3 +544,20 @@ describe('the goal a player is on', () => {
     expect(loadedGoal()).toBe('wood');
   });
 });
+
+describe('map pins in a save', () => {
+  it('come back with the island', () => {
+    const world = island();
+    world.pins.push({ id: world.nextId++, x: 321, y: 654, hue: 4 });
+    saveWorld(world, SLOT);
+    expect(loadWorld(SLOT)?.pins).toEqual(world.pins);
+  });
+
+  it('are none on an island saved before they existed', () => {
+    saveWorld(island(), SLOT);
+    const header = JSON.parse(store.get(slotKey(SLOT))!);
+    delete header.pins;
+    store.set(slotKey(SLOT), JSON.stringify(header));
+    expect(loadWorld(SLOT)?.pins).toEqual([]);
+  });
+});

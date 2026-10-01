@@ -1,7 +1,7 @@
 import { MACHINES } from '@shared/data/machines';
 import { TILE } from '@shared/sim/constants';
 import type { World } from '@shared/sim/types';
-import type { WorldMap } from './worldmap';
+import { PIN_COLORS, drawPin, type WorldMap } from './worldmap';
 
 /** Tiles across the corner map: enough to see the next ore patch or a raid coming. */
 const VIEW_TILES = 40;
@@ -110,6 +110,10 @@ export class Minimap {
     for (const mob of world.mobs) {
       const [x, y] = at(mob.pos.x, mob.pos.y);
       if (inView(x, y)) dot(x, y, 2.5, '#ef6171');
+    }
+    for (const pin of world.pins) {
+      const [x, y] = at(pin.x, pin.y);
+      if (inView(x, y)) drawPin(ctx, x, y, 3.2 * dpr, PIN_COLORS[pin.hue] ?? PIN_COLORS[0]);
     }
 
     for (const player of world.players.values()) {

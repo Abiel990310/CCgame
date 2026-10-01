@@ -25,6 +25,7 @@ import type {
 } from '@shared/sim/types';
 import { EXPLORED_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
 import { packExplored, reveal, unpackExplored } from '@shared/sim/explore';
+import { sanitizePins } from '@shared/sim/pins';
 
 const VERSION = 7;
 
@@ -70,6 +71,8 @@ interface SaveFile {
    * 7 it also says whether the island predates the gated palette.
    */
   research?: World['research'];
+  /** Map pins. Absent on an island saved before they existed, which has none. */
+  pins?: World['pins'];
   /** Version 3 and older only. */
   nodes?: ResourceNode[];
   buildings?: Building[];
@@ -180,6 +183,7 @@ export function saveWorld(world: World, slot: string): boolean {
     players: [...world.players.values()].map((p) => ({ ...p, goal: goalMarker(p) })),
     peaceful: world.peaceful,
     research: world.research,
+    pins: world.pins,
   };
 
   // Sections go down before the header. Neither order is atomic, but this one
@@ -240,6 +244,7 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
     world.nextId = file.nextId;
     world.rngState = file.rngState;
     world.research = loadResearch(file.research, file.version);
+    world.pins = sanitizePins(file.pins, file.nextId);
 
     const scenery = readSection<ScenerySection>(slot, SCENERY_SUFFIX);
     // An older island carried its scenery in the header; a version 4 one has

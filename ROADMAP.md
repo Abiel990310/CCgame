@@ -459,7 +459,10 @@ detail behind the factory entries is in
       from before keep their 96 tiles. Exploration fog and an island map (M,
       or the Map button) show what you have seen.
 - [ ] A rich ore vein guarded by a nest, as a landmark kind of its own.
-- [ ] Map pins: let the player mark a spot on the island map.
+- [x] Map pins: let the player mark a spot on the island map. *The pin tool
+      on the map (M) drops a coloured pin where you click and lifts one you
+      click; up to 24 per island, shared in co-op, saved with the island and
+      shown on the corner map too.*
 - [ ] A big content pass across every system (recipes, machines, techs, goals,
       mobs, camp) aimed at tens to hundreds of hours of play over the next
       weeks. *Hold lifted 2026-09-24; planned across the week to 2026-10-01:
@@ -1154,8 +1157,13 @@ detail behind the factory entries is in
 
 ### Ideas
 
-- [ ] Cook at the campfire by hand, so grilled fish does not wait for a
-      furnace, and more meals (berry pie, stew) that heal over time or buff.
+- [x] Cook at the campfire by hand, so grilled fish does not wait for a
+      furnace. *Stand by the campfire with fish in the bag and press G (or
+      tap the Cook prompt); the whole stack is grilled at once.*
+- [ ] More meals at the campfire (berry pie, stew) that heal over time or buff.
+- [ ] Map pins: a name for each pin, and a list of them to jump the map to.
+- [ ] Map pins: drop one from the corner map or with a key, without opening
+      the full map first.
 - [ ] Eating is instant; a short eat time or cooldown would stop a stack of
       grilled fish trivialising a boss fight if it turns out to.
 - [ ] Underground belts carry items across instantly; a transit delay equal to
