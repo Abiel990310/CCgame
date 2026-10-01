@@ -607,8 +607,12 @@ detail behind the factory entries is in
 - [x] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
       themselves. Movement is the verb the player does most and it is silent.
       Done: sand hisses, grass swishes, forest adds a twig crackle, rock taps.
-- [ ] **A pitch per item on production sounds**, so a bank of furnaces reads as
+- [x] **A pitch per item on production sounds**, so a bank of furnaces reads as
       a chord and a stalled one is audible as a gap.
+      *(2026-10-01: miners, furnaces and assemblers play at a note per item
+      from a pentatonic, picked by the item's row in `ITEMS`, so neighbouring
+      items never share one. The random spread is a few cents now. Same item
+      from many machines is one unison note; `src/audio/pitch.ts`.)*
 - [x] **Muffle the world behind an open modal** — a lowpass on the master bus
       while the pause or inventory screen is up, so the interface sits in front
       of the island rather than inside it. Done for pause, level-up, bag and map;
@@ -1197,6 +1201,8 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Tune the production notes to the music bed's key, so the factory and
+      the score stay in harmony.
 - [ ] A Mk3 belt moves at 6.4 tiles a second but a full lane delivers about 15
       items a second, not 25: machines and belts put an item on at offset 0
       once a tick, so spacing rounds up to whole ticks. Placing it at the
@@ -1458,6 +1464,9 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Production chord by ear: whether a big smelting floor reads as pleasant
+      or busy, and whether the eight-note range wants narrowing. Verified only
+      by reading oscillator frequencies in headless Chromium, not by listening.
 - [ ] Module balance over a long island: whether output modules on miners are
       worth their processors, and whether speed modules overload a typical
       steam network too easily.
