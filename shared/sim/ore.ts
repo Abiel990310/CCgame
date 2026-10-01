@@ -2,10 +2,11 @@ import { MAP_TILES, ORE } from './constants';
 import { hash2, makeRng } from './rng';
 import { isWalkable, terrainAtIndex } from './terrain';
 import { tileKey } from './grid';
+import { COAST_REACH, type IslandSite } from './regions';
 import type { Machine, OreKind, World } from './types';
 
 /** Index 0 is "no ore", so a zeroed grid means a bare island. */
-export const ORE_ORDER: Array<OreKind | null> = [null, 'ironOre', 'copperOre', 'coal'];
+export const ORE_ORDER: Array<OreKind | null> = [null, 'ironOre', 'copperOre', 'coal', 'titaniumOre'];
 
 /** A generated field: what each tile holds, and how much of it is left. */
 export interface OreField {
@@ -162,6 +163,46 @@ export function generateOre(terrain: Uint8Array, seed: number, worldgen = 1): Or
   }
 
   return field;
+}
+
+/** What a far island grows: a kind, how many patches, how wide, how rich. */
+export interface IslandPatches {
+  kind: OreKind;
+  count: number;
+  radius: number;
+  /** Multiplies every tile's amount, the way distance from camp does on the mainland. */
+  richness: number;
+}
+
+/**
+ * Stamp a second island's patches into the field. It draws from a stream of
+ * its own, so the home island's ore is exactly what generation 3 grew.
+ */
+export function stampIslandOre(
+  field: OreField,
+  terrain: Uint8Array,
+  seed: number,
+  site: IslandSite,
+  plan: IslandPatches[],
+): void {
+  const rng = makeRng(seed ^ 0x3c6ef372);
+  const reach = Math.ceil(site.radius * COAST_REACH);
+  for (const patch of plan) {
+    const index = ORE_ORDER.indexOf(patch.kind);
+    let placed = 0;
+    let guard = 0;
+    while (placed < patch.count && guard++ < 4000) {
+      const cx = site.cx - reach + Math.floor(rng() * reach * 2);
+      const cy = site.cy - reach + Math.floor(rng() * reach * 2);
+      if (!isWalkable(terrainAtIndex(terrain, cx, cy))) continue;
+      if (!patchFits(terrain, cx, cy, patch.radius)) continue;
+      // Not on top of another patch: a seam of one metal beside a seam of
+      // another is the point, a muddle of both is not.
+      if (field.kind[tileKey(cx, cy)] !== 0) continue;
+      stampPatch(field, terrain, cx, cy, patch.radius, index, rng, seed, patch.richness);
+      placed++;
+    }
+  }
 }
 
 function patchFits(terrain: Uint8Array, cx: number, cy: number, radius: number): boolean {

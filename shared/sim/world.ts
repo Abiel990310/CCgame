@@ -8,6 +8,8 @@ import { xpForLevel } from './progression';
 import { newResearch } from './research';
 import { newInventory } from './inventory';
 import { EXPLORE_RADIUS, reveal } from './explore';
+import { FAR_TILES } from './regions';
+import { growFarShore } from './farshore';
 
 export function createPlayer(id: number, name: string, pos: Vec2): Player {
   return {
@@ -57,15 +59,18 @@ export function createPlayer(id: number, name: string, pos: Vec2): Player {
  * stop applying an older island's scenery and ore deltas to ground they no
  * longer describe.
  */
-export const WORLDGEN = 3;
+export const WORLDGEN = 4;
 
 /**
  * How many tiles across each generation's island is. Generation 1 is the
  * first small island; an island keeps its generation, so it keeps its size.
  */
-export const WORLDGEN_TILES: Record<number, number> = { 1: 96, 2: 256, 3: 256 };
+export const WORLDGEN_TILES: Record<number, number> = { 1: 96, 2: 256, 3: 256, 4: FAR_TILES };
 
 export function createWorld(seed = 12345, peaceful = false, worldgen = WORLDGEN): World {
+  // Generation 4 is generation 3's mainland, untouched, with a second island
+  // grown beside it in the sea around; see `farshore.ts`.
+  if (worldgen >= 4) return growFarShore(createWorld(seed, peaceful, 3), worldgen);
   setMapTiles(WORLDGEN_TILES[worldgen] ?? WORLDGEN_TILES[WORLDGEN]);
   const terrain = generateTerrain(seed, worldgen);
   const camp: Vec2 = { x: MAP_CENTER, y: MAP_CENTER };
@@ -121,6 +126,23 @@ export function createWorld(seed = 12345, peaceful = false, worldgen = WORLDGEN)
  */
 function populateNodes(world: World): void {
   const rng = makeRng(world.seed ^ 0x51ed2701);
+  scatterNodes(world, rng, { x0: 0, y0: 0, x1: MAP_TILES, y1: MAP_TILES });
+}
+
+/** A rectangle of tiles, `x1` and `y1` exclusive. */
+export interface TileBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/**
+ * Scenery over every tile in `box`, drawn from `rng`. The home island runs it
+ * over the whole map from one stream; a second island runs it over its own
+ * box from a stream of its own, so neither moves the other's trees.
+ */
+export function scatterNodes(world: World, rng: () => number, box: TileBox): void {
   const { terrain } = world;
 
   const place = (kind: ResourceKind, tx: number, ty: number): void => {
@@ -144,8 +166,8 @@ function populateNodes(world: World): void {
     });
   };
 
-  for (let ty = 0; ty < MAP_TILES; ty++) {
-    for (let tx = 0; tx < MAP_TILES; tx++) {
+  for (let ty = box.y0; ty < box.y1; ty++) {
+    for (let tx = box.x0; tx < box.x1; tx++) {
       const t = terrainAtIndex(terrain, tx, ty);
       if (!isWalkable(t)) continue;
       const roll = rng();
@@ -183,12 +205,22 @@ const LANDMARK_SPACING = 14;
  */
 function placeLandmarks(world: World): void {
   const rng = makeRng(world.seed ^ 0x1a2d3a4f);
+  placeLandmarkSet(world, rng, { x0: 0, y0: 0, x1: MAP_TILES, y1: MAP_TILES }, LANDMARKS);
+}
+
+/** Lay out `plan` inside `box`, drawing every choice from `rng`. */
+export function placeLandmarkSet(
+  world: World,
+  rng: () => number,
+  box: TileBox,
+  plan: Array<{ kind: LandmarkKind; count: number; minTiles: number }>,
+): void {
   const placed: Vec2[] = [];
-  for (const { kind, count, minTiles } of LANDMARKS) {
+  for (const { kind, count, minTiles } of plan) {
     let left = count;
     for (let attempt = 0; attempt < count * 80 && left > 0; attempt++) {
-      const tx = Math.floor(rng() * MAP_TILES);
-      const ty = Math.floor(rng() * MAP_TILES);
+      const tx = box.x0 + Math.floor(rng() * (box.x1 - box.x0));
+      const ty = box.y0 + Math.floor(rng() * (box.y1 - box.y0));
       const t = terrainAtIndex(world.terrain, tx, ty);
       if (!isWalkable(t) || isShore(world.terrain, tx, ty) || oreAt(world.ore, tx, ty) !== null) continue;
       const pos = { x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE };

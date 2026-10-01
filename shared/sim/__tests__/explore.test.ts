@@ -7,8 +7,12 @@ import { addPlayer, createWorld } from '../world';
 describe('a big island', () => {
   it('grows new islands at the new size and keeps old ones at theirs', () => {
     const fresh = createWorld(7);
+    expect(MAP_TILES).toBe(384);
+    expect(fresh.terrain.length).toBe(384 * 384);
+
+    const mainland = createWorld(7, false, 3);
     expect(MAP_TILES).toBe(256);
-    expect(fresh.terrain.length).toBe(256 * 256);
+    expect(mainland.terrain.length).toBe(256 * 256);
 
     const old = createWorld(7, false, 1);
     expect(MAP_TILES).toBe(96);
@@ -16,7 +20,8 @@ describe('a big island', () => {
   });
 
   it('puts richer ore further from camp', () => {
-    const world = createWorld(4242);
+    // The mainland's own ore: the far island has its own richer seams.
+    const world = createWorld(4242, false, 3);
     const centre = MAP_TILES / 2;
     const near: number[] = [];
     const far: number[] = [];
