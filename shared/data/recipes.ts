@@ -53,6 +53,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'titaniumPlate',
     name: 'Titanium Plate',
+    group: 'metal',
     machine: 'furnace',
     time: 4,
     inputs: [{ id: 'titaniumOre', count: 1 }],
