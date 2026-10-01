@@ -7,7 +7,7 @@ import { backfillPrerequisites, newResearch, pruneResearchQueue } from '@shared/
 import { goalMarker, restoreGoal } from '@shared/sim/goals';
 import { tileKey } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
-import { bagSlots } from '@shared/sim/inventory';
+import { carrySlots } from '@shared/sim/inventory';
 import { BAG_MAX } from '@shared/data/items';
 import { asStack, normalizeSlots } from '@shared/sim/slots';
 import { normalizeModules } from '@shared/sim/modules';
@@ -296,7 +296,7 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
       // A bag count that is not a whole number in range reads as none sewn on.
       const bag = player.bag;
       if (typeof bag !== 'number' || !Number.isInteger(bag) || bag < 0 || bag > BAG_MAX) player.bag = 0;
-      player.inventory = normalizeSlots(player.inventory, bagSlots(player));
+      player.inventory = normalizeSlots(player.inventory, carrySlots(world, player));
       player.cursor = asStack(player.cursor);
       // A goal is saved as its id, or on an older island as its place in the
       // chain as it was then; missing, it is the first goal not yet met.

@@ -1489,6 +1489,29 @@ kbd {
   color: var(--gold);
 }
 
+.offer.tech .tech-tier {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.offer.tech .tech-tier.raises {
+  color: var(--danger);
+}
+
+.raid-note {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-dim);
+}
+
+.raid-note b {
+  color: var(--ink);
+}
+
 .offer.on {
   border-color: var(--gold);
   background: linear-gradient(180deg, rgba(240, 185, 74, 0.2), rgba(240, 185, 74, 0.08));

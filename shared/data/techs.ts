@@ -29,7 +29,16 @@ export type TechEffectKind =
   /** Every islander's max health, on top of what level-ups gave them. */
   | 'health'
   /** Every islander's walking speed, on top of what level-ups gave them. */
-  | 'speed';
+  | 'speed'
+  /** How far an islander's hand reaches for a drop, on top of what level-ups gave them. */
+  | 'pickup'
+  /** How fast a dash recharges: the cooldown is divided by the multiplier. */
+  | 'dash'
+  /**
+   * Rows of eight added to every islander's bag. Unlike the other kinds this
+   * is a count, not a multiplier, so it starts from 0 and `amount` is rows.
+   */
+  | 'carry';
 
 export interface TechDef {
   id: string;
@@ -134,6 +143,50 @@ export const TECHS: TechDef[] = [
     requires: ['toolmaking'],
     effect: { kind: 'speed', amount: 0.1 },
     xp: 6,
+  },
+  {
+    id: 'magnetism',
+    name: 'Magnetism',
+    description: 'Lodestone in the sash. Drops fly to you from a third farther away.',
+    inputs: [{ id: 'researchPack', count: 1 }],
+    cycles: 25,
+    time: 4,
+    requires: ['toolmaking'],
+    effect: { kind: 'pickup', amount: 0.35 },
+    xp: 6,
+  },
+  {
+    id: 'footwork',
+    name: 'Footwork',
+    description: 'Planted feet and a quicker reset. Your dash comes back a quarter faster.',
+    inputs: [{ id: 'researchPack', count: 1 }],
+    cycles: 30,
+    time: 4,
+    requires: ['conditioning'],
+    effect: { kind: 'dash', amount: 0.25 },
+    xp: 6,
+  },
+  {
+    id: 'packFrames',
+    name: 'Pack Frames',
+    description: 'Ash-wood frames and stitched dividers. Every islander carries another row of eight slots.',
+    inputs: [{ id: 'researchPack', count: 2 }],
+    cycles: 30,
+    time: 5,
+    requires: ['toolmaking'],
+    effect: { kind: 'carry', amount: 1 },
+    xp: 8,
+  },
+  {
+    id: 'loadBearing',
+    name: 'Load-Bearing Harness',
+    description: 'Steel stays take the weight off your shoulders. Another row of eight slots for every islander.',
+    inputs: [{ id: 'logicPack', count: 1 }],
+    cycles: 40,
+    time: 6,
+    requires: ['packFrames', 'metallurgy'],
+    effect: { kind: 'carry', amount: 1 },
+    xp: 12,
   },
   {
     id: 'prospecting',
