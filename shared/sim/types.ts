@@ -577,6 +577,8 @@ export type SimEvent =
   | { kind: 'crafted'; pos: Vec2; item: ItemId }
   | { kind: 'ate'; playerId: number; pos: Vec2; item: ItemId; healed: number }
   | { kind: 'research'; tech: string; level: number; next: string | null }
+  /** A lab finished one cycle of a tech that still has more to go. */
+  | { kind: 'researchCycle'; pos: Vec2 }
   | { kind: 'goal'; playerId: number; goal: string; next: string | null }
   | { kind: 'oreChanged'; tx: number; ty: number }
   /** A miner pulled up the last ore within its reach and will now stand idle. */

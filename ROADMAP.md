@@ -592,8 +592,10 @@ detail behind the factory entries is in
       while the pause or inventory screen is up, so the interface sits in front
       of the island rather than inside it. Done for pause, level-up, bag and map;
       music and interface clicks stay clear.
-- [ ] **A sound for a finished research cycle**, and a different one for a
+- [x] **A sound for a finished research cycle**, and a different one for a
       finished tech. A lab is the one machine whose output is invisible.
+      *A quiet two-note blip per cycle (throttled, so a lab bank is a patter
+      not a roar) and a rising four-note chord when a tech completes.*
 - [x] **Bag upgrades** — three bags at the workbench, sewn on in order, each a
       row of 8 more slots: a Woven Satchel (fibre and wood, 32), an Iron-Frame
       Pack (iron plate, 40) and a Steel Rucksack (steel and gears, 48). Sewn on
