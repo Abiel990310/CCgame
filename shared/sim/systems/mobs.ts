@@ -227,7 +227,7 @@ function spit(world: World, mob: Mob, at: Vec2, dt: number): number {
       id: world.nextId++,
       pos: { ...mob.pos },
       vel: { x: dir.x * shot.speed, y: dir.y * shot.speed },
-      damage: shot.damage,
+      damage: shot.damage * biteScale(world, mob),
       life: shot.range / shot.speed + 0.4,
       ownerId: mob.id,
       weapon: 'spit',
