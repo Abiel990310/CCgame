@@ -4,7 +4,7 @@ import { MACHINES } from '@shared/data/machines';
 import { TECH_BY_ID } from '@shared/data/techs';
 import { backfillPrerequisites, newResearch, pruneResearchQueue } from '@shared/sim/research';
 import { goalMarker, restoreGoal } from '@shared/sim/goals';
-import { tileKey } from '@shared/sim/grid';
+import { occupy } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
 import { bagSlots } from '@shared/sim/inventory';
 import { BAG_MAX } from '@shared/data/items';
@@ -622,8 +622,8 @@ function loadFilter(machine: Machine): ItemId | null {
 
 function rebuildGrid(world: World): void {
   world.grid.clear();
-  for (const belt of world.belts) world.grid.set(tileKey(belt.tx, belt.ty), belt);
-  for (const machine of world.machines) world.grid.set(tileKey(machine.tx, machine.ty), machine);
+  for (const belt of world.belts) occupy(world.grid, belt);
+  for (const machine of world.machines) occupy(world.grid, machine);
 }
 
 // --- Storage -----------------------------------------------------------------

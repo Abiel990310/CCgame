@@ -1,5 +1,6 @@
 import { MACHINES } from '@shared/data/machines';
 import { TILE } from '@shared/sim/constants';
+import { machineSize } from '@shared/sim/grid';
 import type { World } from '@shared/sim/types';
 import type { WorldMap } from './worldmap';
 
@@ -93,7 +94,8 @@ export class Minimap {
       const [x, y] = at(machine.tx * TILE, machine.ty * TILE);
       if (!inView(x, y)) continue;
       ctx.fillStyle = MACHINES[machine.type].accent;
-      ctx.fillRect(Math.round(x), Math.round(y), cell, cell);
+      const span = machineSize(machine.type);
+      ctx.fillRect(Math.round(x), Math.round(y), cell * span, cell * span);
     }
 
     const dot = (x: number, y: number, r: number, fill: string): void => {

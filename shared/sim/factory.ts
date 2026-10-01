@@ -4,7 +4,20 @@ import { buildingOnTile } from './building';
 import { giveOrDrop, payAll, hasAll } from './inventory';
 import { makeSlots, normalizeSlots } from './slots';
 import { normalizeModules } from './modules';
-import { inBounds, opposite, rotate, step1, stepN, tileCenter, tileKey, turnLeft } from './grid';
+import {
+  footprintAt,
+  inBounds,
+  machineCentre,
+  occupy,
+  opposite,
+  rotate,
+  step1,
+  stepN,
+  tileCenter,
+  tileKey,
+  turnLeft,
+  vacate,
+} from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
 import { oreAt } from './ore';
 import { isUnlocked } from './research';
@@ -65,13 +78,19 @@ export function factoryPlacementError(
   if (what !== 'belt' && upgradeTarget(world, what, tx, ty) !== null) {
     return hasAll(player, placementCost(what)) ? null : 'cost';
   }
-  if (world.grid.has(tileKey(tx, ty))) return 'occupied';
-  if (!isWalkable(terrainAtIndex(world.terrain, tx, ty))) return 'terrain';
-  // A tree buried under a belt keeps standing and keeps regrowing; clear it first.
-  if (nodeOnTile(world, tx, ty) !== null) return 'scenery';
-  // Camp pieces are held by radius rather than on the grid, so without their
-  // own pass a belt runs straight through a wall.
-  if (buildingOnTile(world, tx, ty) !== null) return 'camp';
+  // A bigger machine has to clear every tile it would cover, and the first
+  // one that fails names the reason, so the ghost reads the same as a small one.
+  const tiles = what === 'belt' ? [{ tx, ty }] : footprintAt(what, tx, ty);
+  for (const tile of tiles) {
+    if (!inBounds(tile.tx, tile.ty)) return 'bounds';
+    if (world.grid.has(tileKey(tile.tx, tile.ty))) return 'occupied';
+    if (!isWalkable(terrainAtIndex(world.terrain, tile.tx, tile.ty))) return 'terrain';
+    // A tree buried under a belt keeps standing and keeps regrowing; clear it first.
+    if (nodeOnTile(world, tile.tx, tile.ty) !== null) return 'scenery';
+    // Camp pieces are held by radius rather than on the grid, so without their
+    // own pass a belt runs straight through a wall.
+    if (buildingOnTile(world, tile.tx, tile.ty) !== null) return 'camp';
+  }
 
   if (what === 'belt') {
     return hasAll(player, BELT_COST) ? null : 'cost';
@@ -148,8 +167,8 @@ export function placeMachine(
   if (def.moduleSlots) machine.modules = makeSlots(def.moduleSlots);
 
   world.machines.push(machine);
-  world.grid.set(tileKey(tx, ty), machine);
-  world.events.push({ kind: 'placed', pos: tileCenter(tx, ty), what: type });
+  occupy(world.grid, machine);
+  world.events.push({ kind: 'placed', pos: machineCentre(machine), what: type });
   clearFelledNodes(world);
   return machine;
 }
@@ -168,7 +187,11 @@ export function upgradeTarget(
   if (!machine) return null;
   const from = MACHINES[machine.type];
   const to = MACHINES[type];
-  return from.family === to.family && to.tier > from.tier ? machine : null;
+  // A bigger footprint cannot grow out of a smaller one in place: the tiles it
+  // would take are somebody else's, so it has to be placed on clear ground.
+  return from.family === to.family && to.tier > from.tier && (from.size ?? 1) === (to.size ?? 1)
+    ? machine
+    : null;
 }
 
 /**
@@ -211,7 +234,7 @@ function upgradeMachine(
   if (def.moduleSlots) machine.modules = normalizeModules(machine.modules ?? [], def.moduleSlots);
   machine.stalled = false;
 
-  world.events.push({ kind: 'placed', pos: tileCenter(machine.tx, machine.ty), what: type });
+  world.events.push({ kind: 'placed', pos: machineCentre(machine), what: type });
   return machine;
 }
 
@@ -240,9 +263,9 @@ export function removeAt(world: World, player: Player, tx: number, ty: number): 
 
   // The grid has already resolved the tile, so the type of the piece decides
   // which list to take it out of; the lists are only scanned because they are
-  // what defines the tick order.
-  world.grid.delete(key);
-  world.events.push({ kind: 'removed', pos: tileCenter(tx, ty) });
+  // what defines the tick order. Any tile of a big machine takes all of it.
+  vacate(world.grid, entity);
+  world.events.push({ kind: 'removed', pos: 'items' in entity ? tileCenter(tx, ty) : machineCentre(entity) });
 
   if ('items' in entity) {
     drop(world.belts, entity);
@@ -271,7 +294,7 @@ export function turnAt(world: World, tx: number, ty: number, dir: Direction): bo
   entity.dir = dir;
   world.events.push({
     kind: 'placed',
-    pos: tileCenter(tx, ty),
+    pos: 'items' in entity ? tileCenter(tx, ty) : machineCentre(entity),
     what: 'items' in entity ? 'belt' : entity.type,
   });
   return true;

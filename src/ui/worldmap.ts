@@ -1,5 +1,6 @@
 import { MACHINES } from '@shared/data/machines';
 import { MAP_TILES, TILE } from '@shared/sim/constants';
+import { machineSize } from '@shared/sim/grid';
 import { exploredShare } from '@shared/sim/explore';
 import { minerOreLeft } from '@shared/sim/ore';
 import type { Machine, ResourceKind, World } from '@shared/sim/types';
@@ -494,7 +495,8 @@ export class WorldMap {
     }
     for (const machine of world.machines) {
       ctx.fillStyle = MACHINES[machine.type].accent;
-      ctx.fillRect(machine.tx * TILE * scale, machine.ty * TILE * scale, cell, cell);
+      const span = machineSize(machine.type);
+      ctx.fillRect(machine.tx * TILE * scale, machine.ty * TILE * scale, cell * span, cell * span);
     }
 
     const ring = (x: number, y: number, r: number, fill: string, line: string): void => {

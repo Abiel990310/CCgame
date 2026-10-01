@@ -514,8 +514,14 @@ detail behind the factory entries is in
       inserter. Miners, furnaces and assemblers have three tiers each now;
       `MachineDef.speed` already multiplies an inserter's swing, so both are a
       row apiece. Built: a 16-slot steel chest, twice a wooden one.
-- [ ] **A third chest tier** — a warehouse bigger than one tile, or a chest
+- [x] **A third chest tier** — a warehouse bigger than one tile, or a chest
       that reserves slots per item, once a steel chest stops being enough.
+      *Built 2026-10-01: a 2x2 warehouse, crafted from 40 steel plates and 12
+      gears after Robotic Arms, with 48 slots of 400 (six times a steel
+      chest). It is the first machine with a footprint: `size` on its row, the
+      anchor is the top-left tile, and every tile it covers points at it on the
+      grid, so an arm on any side loads or empties it with no new logic. Slot
+      filters, copy settings and the machine screen came free as a chest.*
 - [x] **Upgrade in place** — placing a Mk2 over a Mk1 swaps it, keeping its
       recipe, its contents and its facing. Built: any higher tier of the same
       family can go over a lower one (Mk1 straight to Mk3 too), the old machine
@@ -616,6 +622,9 @@ detail behind the factory entries is in
 
 ### Changes
 
+- [ ] Placing a warehouse over a steel chest is refused, where Mk2 over Mk1
+      swaps in place; a footprint that grows would need the neighbours' tiles
+      free, so offer it when they are, moving the contents across.
 - [ ] Recipe cards in the machine screen show the machine's base craft time,
       ignoring research and modules; show the real time a craft takes there.
 - [x] **Nights keep getting harder.** A scripted player showed nights 6 to 9
@@ -1115,6 +1124,14 @@ detail behind the factory entries is in
 
 ### Ideas
 
+- [ ] Other machines with a footprint (a 2x2 smelter stack or assembler line)
+      now that `size` exists on `MachineDef`; the grid, placement, removal,
+      save, collision and drawing already cope, but a footprint with an
+      output port would need `outputTile` to start from the right edge.
+- [ ] The warehouse ghost anchors at its top-left tile under the cursor;
+      centring it on the pointer, or rotating the anchor, may feel better.
+- [ ] A storage readout on a warehouse (how full it is) drawn on its front, as
+      a belt shows its load, so a full store is visible from across the base.
 - [ ] Cook at the campfire by hand, so grilled fish does not wait for a
       furnace, and more meals (berry pie, stew) that heal over time or buff.
 - [ ] Eating is instant; a short eat time or cooldown would stop a stack of
@@ -1342,6 +1359,8 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] The warehouse on a phone: the ghost, the removal outline and the machine
+      screen's 48 slots were driven on a desktop viewport only.
 - [ ] Module balance over a long island: whether output modules on miners are
       worth their processors, and whether speed modules overload a typical
       steam network too easily.

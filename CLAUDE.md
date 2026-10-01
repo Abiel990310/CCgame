@@ -133,6 +133,13 @@ on purpose and should stay true as tiers are added.
   `shared/sim/slots.ts` rather than pushing onto them, and remember `loadWorld`
   resizes an old save's grids to whatever the tables now say. What the player
   may move where lives in `shared/sim/containers.ts`, not in the UI.
+- **A machine may cover more than one tile** (`size` on its `MachineDef`, the
+  warehouse is 2x2). Its `tx`, `ty` is the top-left tile and every tile it
+  covers points at it on `world.grid`, so reading the grid by tile (arms,
+  belts, collision) needs nothing special, but anything that *writes* the grid
+  or loops over it must go through `occupy`/`vacate`/`footprint` in
+  `shared/sim/grid.ts`, and anything that draws or measures from a machine
+  uses `machineCentre`, not `tileCenter(tx, ty)`.
 - **Every click that changes the world is a `Command`** in
   `shared/sim/commands.ts`, applied through `Game.act`. In co-op a guest's
   world only changes by replaying the host's ticks, so a UI handler that calls
