@@ -7,7 +7,7 @@ import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TECH_BY_ID } from '@shared/data/techs';
 import { TILE } from '@shared/sim/constants';
 import { filterOf } from '@shared/sim/factory';
-import { dirAngle, tileCenter } from '@shared/sim/grid';
+import { dirAngle, machineCentre, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
 import { minerOreLeft } from '@shared/sim/ore';
 import { turretWrecked } from '@shared/sim/systems/turret';
@@ -31,6 +31,7 @@ import {
   drawPixelPickGlyph,
   drawPixelSignRing,
   drawPixelTurretBase,
+  drawPixelWarehouse,
 } from './pixelmachines';
 import { pixelSprites } from './pixelmobs';
 import { drawPixelBelt, drawPixelPole, drawPixelTunnel } from './pixelworks';
@@ -185,8 +186,12 @@ export function drawMachine(
   cached = true,
 ): void {
   const def = MACHINES[machine.type];
-  const { x, y } = tileCenter(machine.tx, machine.ty);
+  const { x, y } = machineCentre(machine);
 
+  if ((def.size ?? 1) > 1) {
+    drawWarehouse(ctx, def, x, y);
+    return;
+  }
   if (def.family === 'inserter') {
     drawInserter(ctx, machine, x, y);
     if (machine.unpowered) drawPowerSign(ctx, time, x, y);
@@ -226,6 +231,25 @@ export function drawMachine(
   else if (machine.unpowered) drawPowerSign(ctx, time, x, y);
   else if (isDry(machine, def)) drawDrySign(ctx, time, x, y);
   drawProgress(ctx, machine, x, y);
+}
+
+/** A footprint bigger than one tile: a body and nothing live, since a store only holds things. */
+function drawWarehouse(ctx: CanvasRenderingContext2D, def: MachineDef, x: number, y: number): void {
+  const reach = (def.size ?? 1) * TILE;
+  shadow(ctx, x + 3, y + reach * 0.46, reach * 0.52, 0.28);
+  if (pixelSprites()) {
+    drawPixelWarehouse(ctx, def, x, y);
+    return;
+  }
+  // The smooth look has no sprite for it, so the chest's body is drawn at the
+  // footprint's scale; its detail scales with it.
+  const scale = def.size ?? 1;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  drawBlock(ctx, def, 0, 0);
+  drawMachineDeck(ctx, def, 0, 0);
+  ctx.restore();
 }
 
 /**

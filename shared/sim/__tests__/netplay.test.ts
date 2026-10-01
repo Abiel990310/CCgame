@@ -137,6 +137,8 @@ describe('co-op replay', () => {
         pending.push({ p: player.id, c: { k: 'machine', what: 'tunnel', tx: ore.tx + 4, ty: ore.ty + 3, dir: 0 } });
         pending.push({ p: player.id, c: { k: 'machine', what: 'furnaceMk3', tx: ore.tx + 6, ty: ore.ty, dir: 0 } });
         pending.push({ p: player.id, c: { k: 'machine', what: 'turret', tx: ore.tx + 9, ty: ore.ty, dir: 0 } });
+        // A warehouse takes four tiles, and a guest has to hold all four.
+        pending.push({ p: player.id, c: { k: 'machine', what: 'warehouse', tx: ore.tx + 12, ty: ore.ty, dir: 0 } });
         // A panel and an accumulator on one pole, so a bank charging through
         // the day is covered: its charge is state a guest must replay.
         pending.push({ p: player.id, c: { k: 'machine', what: 'pole', tx: ore.tx + 7, ty: ore.ty + 1, dir: 0 } });
@@ -171,6 +173,8 @@ describe('co-op replay', () => {
       if (t === 710) {
         pending.push({ p: player.id, c: { k: 'machine', what: 'haul', tx: ore.tx + 3, ty: ore.ty + 4, dir: 0 } });
       }
+      // Taken down by its far corner, which only a footprint-aware guest can find.
+      if (t === 500) pending.push({ p: player.id, c: { k: 'remove', tx: ore.tx + 13, ty: ore.ty + 1 } });
       if (t === 402) {
         // Bitten the same on both copies, so the mend below is what is replayed.
         for (const world of [host, guest]) world.machines.find((m) => m.type === 'turret')!.wear = 100;
@@ -209,6 +213,8 @@ describe('co-op replay', () => {
       { id: 'speedModule', count: 1 },
       { id: 'speedModule', count: 1 },
     ]);
+    expect(host.machines.some((m) => m.type === 'warehouse')).toBe(false);
+    expect(guest.grid.size).toBe(host.grid.size);
     expect(guest.machines.find((m) => m.type === 'accumulator')!.charge).toBeGreaterThan(0);
     expect(host.nightIndex).toBeGreaterThan(0);
     expect(host.players.size).toBe(2);

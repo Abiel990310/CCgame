@@ -1,4 +1,4 @@
-import { tileKey } from './grid';
+import { occupy } from './grid';
 import type { Belt, Machine, Player, World } from './types';
 import { createWorld } from './world';
 import { packExplored, unpackExplored } from './explore';
@@ -110,8 +110,8 @@ export function restoreSnapshot(snap: Snapshot): World {
   world.nextId = snap.nextId;
   world.rngState = snap.rngState;
   world.grid = new Map();
-  for (const belt of world.belts) world.grid.set(tileKey(belt.tx, belt.ty), belt);
-  for (const machine of world.machines) world.grid.set(tileKey(machine.tx, machine.ty), machine);
+  for (const belt of world.belts) occupy(world.grid, belt);
+  for (const machine of world.machines) occupy(world.grid, machine);
   return world;
 }
 

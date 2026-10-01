@@ -266,7 +266,7 @@ export const TECHS: TechDef[] = [
     time: 6,
     requires: ['beltLogistics'],
     effect: { kind: 'inserter', amount: 0.5 },
-    unlocks: ['fastInserter'],
+    unlocks: ['fastInserter', 'warehouse'],
     xp: 12,
   },
   {

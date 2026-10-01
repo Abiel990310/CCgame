@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { MACHINES } from '@shared/data/machines';
+import { MAP_TILES } from '@shared/sim/constants';
 import { makeSlots } from '@shared/sim/slots';
 import type { Machine, MachineId, World } from '@shared/sim/types';
 import { createWorld } from '@shared/sim/world';
@@ -228,5 +229,27 @@ describe('saving a tier 3 machine with modules in it', () => {
     const loaded = loadWorld('b')!.machines[0];
     expect(loaded.modules).toEqual([null, null]);
     expect(loaded.bonus).toBe(0);
+  });
+});
+
+describe('saving a warehouse', () => {
+  it('brings its contents back and stands on all four tiles again', () => {
+    const world = createWorld(7, true);
+    const store1 = machine('warehouse', 40, 30);
+    store1.input[3] = { id: 'ironPlate', count: 300 };
+    store1.input[47] = { id: 'gear', count: 12 };
+    world.machines.push(store1);
+
+    expect(saveWorld(world, 'a')).toBe(true);
+    const loaded = loadWorld('a')!;
+
+    const found = loaded.machines[0];
+    expect(found.input).toHaveLength(MACHINES.warehouse.inputSlots);
+    expect(found.input[3]).toEqual({ id: 'ironPlate', count: 300 });
+    expect(found.input[47]).toEqual({ id: 'gear', count: 12 });
+    for (const [x, y] of [[40, 30], [41, 30], [40, 31], [41, 31]]) {
+      expect(loaded.grid.get(y * MAP_TILES + x)).toBe(found);
+    }
+    expect(loaded.grid.get(30 * MAP_TILES + 42)).toBeUndefined();
   });
 });

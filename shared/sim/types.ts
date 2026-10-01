@@ -81,6 +81,7 @@ export type CraftedMachineId =
   | 'assemblerMk2'
   | 'assemblerMk3'
   | 'steelChest'
+  | 'warehouse'
   | 'longInserter'
   | 'fastInserter'
   | 'stackInserter'
@@ -380,6 +381,7 @@ export type MachineId =
   | 'fastInserter'
   | 'stackInserter'
   | 'steelChest'
+  | 'warehouse'
   | 'tunnelExit'
   | 'haulExit';
 

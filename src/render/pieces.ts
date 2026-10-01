@@ -1,7 +1,7 @@
 import { BUILDINGS } from '@shared/data/buildings';
 import { BELTS, BELT_ORDER, MACHINES } from '@shared/data/machines';
 import { TILE } from '@shared/sim/constants';
-import { tileCenter } from '@shared/sim/grid';
+import { machineCentre, machineSize, tileCenter } from '@shared/sim/grid';
 import type { BuildingId, MachineId } from '@shared/sim/types';
 import { drawBuilding } from './entities';
 import { drawBeltAt, drawMachine, previewMachine } from './factory';
@@ -65,7 +65,11 @@ export function installPieceIcons(): void {
 
   for (const id of Object.keys(MACHINES) as MachineId[]) {
     bake(`machine:${id}`, () => {
-      onTile();
+      // A bigger machine is shrunk to fit the same frame, about its own centre.
+      const span = machineSize(id);
+      const c = machineCentre({ type: id, tx: 0, ty: 0 });
+      const s = tileScale / span;
+      ctx.setTransform(s, 0, 0, s, ICON_PX / 2 - c.x * s, ICON_PX / 2 - (c.y - 1) * s);
       // Facing right: the output port is on the side a reader expects.
       drawMachine(ctx, previewMachine(id, 0, 0, 0), 0.3, false);
     });

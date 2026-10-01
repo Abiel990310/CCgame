@@ -43,7 +43,7 @@ import { setPaintScale } from './paint';
 import { polygon } from './shapes';
 import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFactoryScale, setFactoryWorld, setTurretMobs } from './factory';
 import { drawPowerCoverage, drawPowerWires } from './power';
-import { dirAngle, stepN, tileCenter, tileKey } from '@shared/sim/grid';
+import { dirAngle, machineSize, stepN, tileCenter, tileKey } from '@shared/sim/grid';
 import { BELTS, MACHINES, TUNNEL_REACH, isBeltId } from '@shared/data/machines';
 import { haulEnd, haulSenderWaiting, tunnelEnd, tunnelEntranceOf } from '@shared/sim/factory';
 
@@ -414,7 +414,7 @@ export class Renderer {
       count++;
     };
 
-    for (const machine of this.visibleMachines) add(tileCenter(machine.tx, machine.ty).y, Layer.Machine, machine);
+    for (const machine of this.visibleMachines) add((machine.ty + machineSize(machine.type) - 0.5) * TILE, Layer.Machine, machine);
     // Indexed, not for-of: this runs over every node on the island each
     // frame, and in a function this size the iterator was not optimised away.
     const nodes = world.nodes;
@@ -632,7 +632,12 @@ export class Renderer {
         const entity = world.grid.get(tileKey(tx, ty));
         if (entity === undefined) continue;
         if ('items' in entity) belts.push(entity);
-        else machines.push(entity);
+        // A big machine answers on every tile it covers; it is drawn once, from
+        // the first of those tiles the scan reaches, which may not be its anchor
+        // when the anchor is off screen.
+        else if (machineSize(entity.type) === 1 || (tx === Math.max(entity.tx, tx0) && ty === Math.max(entity.ty, ty0))) {
+          machines.push(entity);
+        }
       }
     }
   }
@@ -779,9 +784,11 @@ export class Renderer {
     if (!isBeltId(what) && MACHINES[what].tunnel) drawTunnelSpan(ctx, world, what, ghost, tint);
     if (waiting && !isBeltId(what) && MACHINES[what].haul === 'out') drawHaulLink(ctx, waiting, ghost, tint);
 
+    // A big machine's ghost covers every tile it would take, from the anchor.
+    const span = isBeltId(what) ? 1 : machineSize(what);
     const { x, y } = tileCenter(ghost.tx, ghost.ty);
     ctx.beginPath();
-    ctx.roundRect(x - TILE / 2 + 1, y - TILE / 2 + 1, TILE - 2, TILE - 2, 5);
+    ctx.roundRect(x - TILE / 2 + 1, y - TILE / 2 + 1, TILE * span - 2, TILE * span - 2, 5);
     ctx.fill();
     ctx.globalAlpha = 1;
     ctx.stroke();
@@ -793,6 +800,11 @@ export class Renderer {
     else drawMachine(ctx, previewMachine(what, ghost.tx, ghost.ty, ghost.dir), time);
     ctx.globalAlpha = 1;
 
+    // A store has no front, so there is no facing to preview.
+    if (span > 1) {
+      ctx.restore();
+      return;
+    }
     // An arrow beyond the tile so facing is obvious before anything is committed.
     ctx.translate(x, y);
     ctx.rotate(dirAngle(ghost.dir));
@@ -826,10 +838,11 @@ export class Renderer {
     let y: number;
     if (removal.kind === 'grid') {
       const center = tileCenter(removal.tx, removal.ty);
-      x = center.x;
-      y = center.y;
+      const span = removal.size;
+      x = center.x + ((span - 1) * TILE) / 2;
+      y = center.y + ((span - 1) * TILE) / 2;
       ctx.beginPath();
-      ctx.roundRect(x - TILE / 2 + 1, y - TILE / 2 + 1, TILE - 2, TILE - 2, 5);
+      ctx.roundRect(center.x - TILE / 2 + 1, center.y - TILE / 2 + 1, TILE * span - 2, TILE * span - 2, 5);
     } else {
       x = removal.pos.x;
       y = removal.pos.y;
@@ -842,7 +855,7 @@ export class Renderer {
     if (!removal.fixed) {
       // A small cross above the piece, so the art underneath stays readable.
       const reach = 4;
-      const top = removal.kind === 'grid' ? y - TILE / 2 - 5 : y - removal.radius - 10;
+      const top = removal.kind === 'grid' ? y - (removal.size * TILE) / 2 - 5 : y - removal.radius - 10;
       ctx.setLineDash([]);
       ctx.lineWidth = 2.5;
       ctx.beginPath();
@@ -1079,7 +1092,7 @@ export type GhostPreview =
  * radius around a point, and the campfire is the one that will refuse.
  */
 export type RemovalPreview =
-  | { kind: 'grid'; tx: number; ty: number; fixed: boolean }
+  | { kind: 'grid'; tx: number; ty: number; size: number; fixed: boolean }
   | { kind: 'building'; pos: Vec2; radius: number; fixed: boolean };
 
 /** What a player is holding while they harvest, from what they are working. */

@@ -73,6 +73,13 @@ export interface MachineDef {
   wire?: number;
   supply?: number;
   /**
+   * Tiles along each side of its square footprint; absent for the usual one.
+   * The machine's `tx`, `ty` is the footprint's top-left tile and every tile it
+   * covers points back at it on the grid, so an arm reaching any of them finds
+   * the same machine.
+   */
+  size?: number;
+  /**
    * True when players and mobs bump into it. A splitter is part of a belt
    * line, and belts are walkable so a factory never walls its owner in.
    */
@@ -475,6 +482,31 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     inputSlots: 16,
     outputSlots: 0,
     slotSize: 200,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    solid: true,
+    storage: true,
+    fuelSlots: 0,
+  },
+  warehouse: {
+    id: 'warehouse',
+    crafted: true,
+    family: 'chest',
+    tier: 3,
+    size: 2,
+    name: 'Warehouse',
+    description: 'A two-by-two store with three times the slots of a steel chest. Arms load and empty it from any side.',
+    cost: [
+      { id: 'steelPlate', count: 40 },
+      { id: 'gear', count: 12 },
+    ],
+    color: '#7b6a54',
+    accent: '#e3b86a',
+    inputSlots: 48,
+    outputSlots: 0,
+    slotSize: 400,
     speed: 1,
     needsOre: false,
     choosesRecipe: false,
@@ -921,6 +953,7 @@ export const MACHINE_ORDER: MachineId[] = [
   'assemblerMk3',
   'chest',
   'steelChest',
+  'warehouse',
   'inserter',
   'fastInserter',
   'stackInserter',

@@ -42,7 +42,7 @@ import {
   beltAt,
   beltUpgradeTarget,
 } from '@shared/sim/factory';
-import { rotate, step1, tileCenter, tileKey, toTile } from '@shared/sim/grid';
+import { machineSize, rotate, step1, tileCenter, tileKey, toTile } from '@shared/sim/grid';
 import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
 import { setResearch, type QueueOp } from '@shared/sim/research';
 import { GOAL_BY_ID } from '@shared/data/goals';
@@ -978,7 +978,12 @@ export class Game {
     const { tx, ty } = toTile(pos);
 
     const entity = entityAt(this.world, tx, ty);
-    if (entity) return { kind: 'grid', tx, ty, fixed: false };
+    // A big machine is outlined whole, from its anchor, wherever on it the cursor is.
+    if (entity) {
+      return 'items' in entity
+        ? { kind: 'grid', tx, ty, size: 1, fixed: false }
+        : { kind: 'grid', tx: entity.tx, ty: entity.ty, size: machineSize(entity.type), fixed: false };
+    }
 
     const building = buildingAt(this.world, pos);
     if (building) {

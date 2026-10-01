@@ -360,6 +360,60 @@ export function drawPixelBody(ctx: CanvasRenderingContext2D, def: MachineDef, di
   blitGrid(ctx, `mbody:${def.id}:${facing}`, x, y, C, C, () => makeBody(def, dir));
 }
 
+/**
+ * A storehouse over a two-by-two footprint: the chest's block at twice the
+ * size, with a plank roof and a pair of double doors on the front, so it reads
+ * as the chest tier above rather than as four chests.
+ */
+function makeWarehouse(def: MachineDef): PixelGrid {
+  const g = new Body(128);
+  const half = 30;
+  const top = -31;
+  const lip = 9;
+  const base = 29;
+  const roof = ramp(def.color);
+  const front = ramp(shift(def.color, -34));
+  g.box(-half, lip, half, base, front);
+  g.fill(-half + 1, lip + 1, half - 1, lip + 1, front[2]);
+  g.box(-half, top, half, lip, roof);
+  g.fill(-half + 2, top + 1, half - 2, top + 1, roof[0]);
+  // Planks across the roof, with a ridge beam up the middle.
+  for (const ly of [-24, -17, -10, -3]) g.fill(-half + 1, ly, half - 1, ly, roof[2]);
+  const beam = ramp(shift(def.color, -58));
+  g.fill(-half + 1, top + 14, half - 1, top + 15, beam[1]);
+  g.fill(-half + 1, top + 14, half - 1, top + 14, beam[0]);
+  // Roof bands at the ends, in the dark of the chest's own bands.
+  for (const bx of [-24, 21]) {
+    g.fill(bx, top, bx + 2, lip, beam[1]);
+    g.fill(bx, top, bx, lip, beam[0]);
+  }
+  // Double doors, each leaf planked, with a clasp at the join.
+  const door = ramp(shift(def.color, -60));
+  for (const [x0, x1] of [
+    [-14, -1],
+    [1, 14],
+  ] as const) {
+    g.fill(x0, lip + 5, x1, base - 2, door[1]);
+    g.fill(x0, lip + 5, x1, lip + 5, door[2]);
+    g.fill(x0, lip + 5, x0, base - 2, door[2]);
+    for (let px = x0 + 4; px < x1; px += 4) g.fill(px, lip + 6, px, base - 2, door[0]);
+  }
+  g.part((p) => p.box(-3, lip + 11, 2, lip + 15, ramp(def.accent)));
+  // Tier pips, as the smaller machines carry.
+  const mark = ramp(def.accent);
+  for (let i = 0; i < def.tier - 1; i++) {
+    const x = -half + 4 + i * 4;
+    g.fill(x, lip + 3, x + 1, lip + 3, mark[0]);
+  }
+  g.outline();
+  return g;
+}
+
+/** The warehouse, centred on its footprint at (x, y). */
+export function drawPixelWarehouse(ctx: CanvasRenderingContext2D, def: MachineDef, x: number, y: number): void {
+  blitGrid(ctx, `mbody:${def.id}`, x, y, 64, 64, () => makeWarehouse(def));
+}
+
 /** A small square grid for a moving part, addressed from its centre. */
 function piece(half: number, draw: (g: Body) => void): PixelGrid {
   const g = new Body(half * 2 + 1);
