@@ -761,6 +761,18 @@ export class Renderer {
       polygon(ctx, ghost.pos.x, ghost.pos.y, BUILDINGS[ghost.type].radius, 6, 5, 0.1);
       ctx.fill();
       ctx.stroke();
+      if (ghost.repair) {
+        // A plus over the wall: it is being added to, not placed again.
+        const arm = BUILDINGS[ghost.type].radius * 0.55;
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(ghost.pos.x - arm, ghost.pos.y);
+        ctx.lineTo(ghost.pos.x + arm, ghost.pos.y);
+        ctx.moveTo(ghost.pos.x, ghost.pos.y - arm);
+        ctx.lineTo(ghost.pos.x, ghost.pos.y + arm);
+        ctx.stroke();
+      }
       ctx.restore();
       // The build radius only matters for camp pieces, so only show it then.
       drawCampRing(ctx, world, CAMP.buildRadius);
@@ -1064,7 +1076,8 @@ function drawTunnelSpan(
 }
 
 export type GhostPreview =
-  | { kind: 'building'; type: BuildingId; pos: Vec2; valid: boolean }
+  /** `repair` marks a chipped wall the click would mend rather than a new piece. */
+  | { kind: 'building'; type: BuildingId; pos: Vec2; valid: boolean; repair?: boolean }
   | {
       kind: 'grid';
       what: MachineId | BeltId;

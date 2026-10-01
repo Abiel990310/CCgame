@@ -140,6 +140,8 @@ export function placeMachine(
   tx: number,
   ty: number,
   dir: Direction,
+  /** A splitter's two sides, so a new one goes down already filtered. */
+  sides?: readonly (ItemId | null)[],
 ): Machine | null {
   if (factoryPlacementError(world, player, type, tx, ty) !== null) return null;
   type = tunnelEnd(world, type, tx, ty, dir);
@@ -170,7 +172,7 @@ export function placeMachine(
   // Only a splitter carries sides and only storage carries slot filters, so
   // nothing else pays for the fields.
   if (def.family === 'splitter') {
-    machine.filters = [null, null];
+    machine.filters = [sides?.[0] ?? null, sides?.[1] ?? null];
     machine.turn = 0;
   }
   if (def.family === 'merger') machine.turn = 0;
