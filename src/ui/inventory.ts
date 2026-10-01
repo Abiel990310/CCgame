@@ -1,7 +1,7 @@
 import { ITEMS, ITEM_ORDER } from '@shared/data/items';
 import { FUEL_VALUE, MACHINES, TURRET } from '@shared/data/machines';
 import { mendCost, turretWrecked } from '@shared/sim/systems/turret';
-import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
+import { RECIPE_BY_ID, RECIPE_GROUPS, craftTime, recipeSections, type Recipe, type RecipeGroup } from '@shared/data/recipes';
 import { TECH_BY_ID } from '@shared/data/techs';
 import { minerOreLeft } from '@shared/sim/ore';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
@@ -118,6 +118,8 @@ export class InventoryScreen {
   /** Signature of what is drawn, so the DOM is only touched when it changes. */
   private painted = '';
   private recipeKey = '';
+  /** The recipe section the machine screen is narrowed to; null shows them all. */
+  private recipeGroup: RecipeGroup | null = null;
   private pageKey = '';
   /**
    * The character sheet's page. Kept across closing, so Tab reopens where the
@@ -246,6 +248,7 @@ export class InventoryScreen {
     // Never a real key, so the panel is rebuilt even for a container with
     // none: a chest opened after an assembler kept the assembler's recipes.
     this.recipeKey = '-';
+    this.recipeGroup = null;
     this.pageKey = '';
     this.pressRef = null;
     this.root.classList.remove('hidden');
@@ -702,7 +705,7 @@ export class InventoryScreen {
       : def?.family === 'lab'
         ? `lab:${researchKey(world)}`
         : def?.choosesRecipe
-          ? `recipe:${machine.id}:${machine.recipe}:${workSpeed(world, machine)}`
+          ? `recipe:${machine.id}:${machine.recipe}:${workSpeed(world, machine)}:${this.recipeGroup ?? ''}`
           : def?.family === 'inserter'
             ? `filter:${machine.id}:${machine.filter}`
           : '';
@@ -722,26 +725,63 @@ export class InventoryScreen {
     }
     if (!def?.choosesRecipe) return;
 
-    for (const recipe of recipesFor(machine.type)) {
+    const sections = recipeSections(machine.type);
+    // A machine with one kind of recipe has nothing to sort. A filter left over
+    // from a machine that had more must not hide this one's only section.
+    const sorted = sections.length > 1;
+    const shown = sorted && this.recipeGroup ? sections.filter((s) => s.group === this.recipeGroup) : sections;
+    if (sorted) this.paintRecipeTabs(sections.map((s) => s.group));
+    for (const section of shown) {
+      if (sorted) {
+        const head = document.createElement('p');
+        head.className = 'filter-head';
+        head.textContent = RECIPE_GROUPS[section.group];
+        this.els.recipes.appendChild(head);
+      }
+      for (const recipe of section.recipes) this.els.recipes.appendChild(this.recipeCard(world, machine, recipe));
+    }
+  }
+
+  /** "All" and one tab per section the machine has; the choice outlives a recipe click. */
+  private paintRecipeTabs(groups: RecipeGroup[]): void {
+    const row = document.createElement('div');
+    row.className = 'recipe-tabs';
+    const tab = (group: RecipeGroup | null, label: string): void => {
       const button = document.createElement('button');
-      button.className = `offer recipe${machine.recipe === recipe.id ? ' on' : ''}`;
-      const stack = (id: ItemId, count: number): string =>
-        `<span class="stack" data-tip="${id}"><i class="ic" style="background-image:${itemIconVar(id)}"></i>${count}</span>`;
-      const inputs = recipe.inputs.map((i) => stack(i.id, i.count)).join('');
-      const outputs = recipe.outputs.map((o) => stack(o.id, o.count)).join('');
-      // What a craft really takes here, after research, a beacon and modules;
-      // the base time is the tooltip so a boost reads as the saving it is.
-      const seconds = Math.round(recipeSeconds(world, machine, recipe) * 10) / 10;
-      const base = Math.round(craftTime(recipe, def.speed) * 10) / 10;
-      button.innerHTML =
-        `<b>${recipe.name}</b><span class="recipe-flow">${inputs}${icon('arrow')}${outputs}` +
-        `<em title="${base === seconds ? 'Craft time' : `Base ${base}s`}">${seconds}s</em></span>`;
+      button.className = `recipe-tab${this.recipeGroup === group ? ' on' : ''}`;
+      button.textContent = label;
       button.addEventListener('click', () => {
         audio.play('click');
-        this.callbacks.onSetRecipe(machine.id, recipe.id);
+        this.recipeGroup = group;
+        this.recipeKey = '-';
       });
-      this.els.recipes.appendChild(button);
-    }
+      row.appendChild(button);
+    };
+    tab(null, 'All');
+    for (const group of groups) tab(group, RECIPE_GROUPS[group]);
+    this.els.recipes.appendChild(row);
+  }
+
+  private recipeCard(world: World, machine: Machine, recipe: Recipe): HTMLButtonElement {
+    const def = MACHINES[machine.type];
+    const button = document.createElement('button');
+    button.className = `offer recipe${machine.recipe === recipe.id ? ' on' : ''}`;
+    const stack = (id: ItemId, count: number): string =>
+      `<span class="stack" data-tip="${id}"><i class="ic" style="background-image:${itemIconVar(id)}"></i>${count}</span>`;
+    const inputs = recipe.inputs.map((i) => stack(i.id, i.count)).join('');
+    const outputs = recipe.outputs.map((o) => stack(o.id, o.count)).join('');
+    // What a craft really takes here, after research, a beacon and modules;
+    // the base time is the tooltip so a boost reads as the saving it is.
+    const seconds = Math.round(recipeSeconds(world, machine, recipe) * 10) / 10;
+    const base = Math.round(craftTime(recipe, def.speed) * 10) / 10;
+    button.innerHTML =
+      `<b>${recipe.name}</b><span class="recipe-flow">${inputs}${icon('arrow')}${outputs}` +
+      `<em title="${base === seconds ? 'Craft time' : `Base ${base}s`}">${seconds}s</em></span>`;
+    button.addEventListener('click', () => {
+      audio.play('click');
+      this.callbacks.onSetRecipe(machine.id, recipe.id);
+    });
+    return button;
   }
 
   /**

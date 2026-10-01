@@ -1,10 +1,11 @@
-import { MACHINES } from '../data/machines';
+import { MACHINES, TRAP_TIME } from '../data/machines';
+import { RESOURCES } from '../data/items';
 import { RECIPE_BY_ID, craftTime, type Recipe } from '../data/recipes';
 import { withBeacon } from './beacon';
 import { TICK_DT } from './constants';
 import { moduleEffects } from './modules';
 import { powerFactor } from './power';
-import { researchBonuses } from './research';
+import { activeTech, researchBonuses } from './research';
 import { MINE_TIME } from './systems/factory';
 import type { ItemId, Machine, World } from './types';
 
@@ -74,8 +75,29 @@ export function machineRates(world: World, machine: Machine): MachineRate[] {
   if (def.family === 'miner') {
     return machine.ore ? [{ item: machine.ore, perMinute: (pace * power) / mineSeconds(world, machine) }] : [];
   }
+  if (def.family === 'fishTrap') {
+    // The expected catch: one roll every TRAP_TIME, split by the table's
+    // weights, so the card quotes the average and not any one lucky minute.
+    const { drops } = RESOURCES.fish;
+    const total = drops.reduce((sum, d) => sum + d.weight, 0);
+    const rolls = (pace * def.speed) / TRAP_TIME;
+    return drops.map((d) => ({ item: d.item, perMinute: (rolls * d.count * d.weight) / total }));
+  }
   const recipe = def.choosesRecipe && machine.recipe ? RECIPE_BY_ID.get(machine.recipe) : null;
   if (!recipe) return [];
   const seconds = recipeSeconds(world, machine, recipe, power);
   return recipe.outputs.map((out) => ({ item: out.id, perMinute: (pace * out.count) / seconds }));
+}
+
+/**
+ * Research cycles a lab finishes per minute on the island's current tech, or
+ * null when it has nothing to work on. A lab makes no item, so it has no row in
+ * `machineRates`; this is its rate in the unit that matters, a cycle.
+ */
+export function labCyclesPerMinute(world: World, machine: Machine): number | null {
+  const def = MACHINES[machine.type];
+  const tech = activeTech(world);
+  if (def.family !== 'lab' || !tech) return null;
+  const bonus = withBeacon(world, researchBonuses(world));
+  return (60 * def.speed * bonus.lab) / tech.time;
 }
