@@ -10,6 +10,7 @@ import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
 import { powerNetOf } from '@shared/sim/power';
 import { powerDraw } from '@shared/sim/modules';
+import { machineRates } from '@shared/sim/rates';
 import { BEACON_BOOST, BEACON_FUEL_CAP, BEACON_STAGES, BEACON_WARD_TILES } from '@shared/data/beacon';
 import { beaconStage } from '@shared/sim/beacon';
 import { countIn } from '@shared/sim/slots';
@@ -18,6 +19,7 @@ import { findNearestNode } from '@shared/sim/systems/gathering';
 import { turretWrecked } from '@shared/sim/systems/turret';
 import type { Machine, OreKind, Player, ToolKind, Vec2, World } from '@shared/sim/types';
 import type { Camera } from '../render/camera';
+import type { Ledger } from '../ledger';
 import { isBlocked, outOfFuel } from '../render/factory';
 import { itemIconVar } from '../render/items';
 import { pieceIconVar } from '../render/pieces';
@@ -70,6 +72,8 @@ export interface InspectContext {
   /** A screen or build mode is up; the world is not what is being looked at. */
   busy: boolean;
   touch: boolean;
+  /** What the island has been making, which a machine's own pace is read against. */
+  ledger: Ledger;
 }
 
 export class Inspector {
@@ -138,7 +142,7 @@ export class Inspector {
       return;
     }
     const world = c.camera.screenToWorld(c.pointer.x, c.pointer.y);
-    const card = this.describe(c.world, world);
+    const card = this.describe(c.world, world, c.ledger);
     if (!card) {
       this.hideCard();
       return;
@@ -169,7 +173,7 @@ export class Inspector {
   }
 
   /** The thing under a world point, nearest the viewer first. */
-  private describe(world: World, pos: Vec2): Card | null {
+  private describe(world: World, pos: Vec2, ledger: Ledger): Card | null {
     for (const mob of world.mobs) {
       const r = MOBS[mob.type].radius + 6;
       if (Math.abs(mob.pos.x - pos.x) < r && pos.y < mob.pos.y + r * 0.6 && pos.y > mob.pos.y - r * 2.4) {
@@ -216,7 +220,7 @@ export class Inspector {
 
     const { tx, ty } = toTile(pos);
     const machine = machineAt(world, tx, ty);
-    if (machine) return describeMachine(world, machine);
+    if (machine) return describeMachine(world, machine, ledger);
 
     const belt = beltAt(world, tx, ty);
     if (belt) {
@@ -301,7 +305,7 @@ export class Inspector {
   }
 }
 
-function describeMachine(world: World, machine: Machine): Card {
+function describeMachine(world: World, machine: Machine, ledger: Ledger): Card {
   const def = MACHINES[machine.type];
   if (def.family === 'pole' || def.generates) return describePower(world, machine);
   if (def.family === 'beacon') return describeBeacon(machine);
@@ -332,6 +336,13 @@ function describeMachine(world: World, machine: Machine): Card {
   if (def.family === 'miner' && machine.ore) rows.push(['Mining', ITEMS[machine.ore].name]);
   else if (recipe) rows.push(['Making', recipe.name]);
   else if (def.choosesRecipe) rows.push(['Making', 'Nothing chosen']);
+  // The same unit the ledger counts in, so the card and the graph read against
+  // each other: this machine's pace, then the whole island's for that item.
+  for (const { item, perMinute } of machineRates(world, machine)) {
+    rows.push(['Rate', `${fmtRate(perMinute)}/min ${ITEMS[item].name}`]);
+    const island = ledger.rateOf(item);
+    if (island.rate > 0) rows.push(['Island', `${fmtRate(island.rate)}/min`]);
+  }
 
   let status: Card['status'];
   if (def.family === 'tunnel') {
@@ -437,6 +448,10 @@ function describePower(world: World, machine: Machine): Card {
     meter,
     hint: def.fuelSlots > 0 ? 'Click to add coal' : undefined,
   };
+}
+
+function fmtRate(n: number): string {
+  return n >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10);
 }
 
 function esc(text: string): string {

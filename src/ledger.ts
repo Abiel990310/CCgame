@@ -104,6 +104,12 @@ export class Ledger {
     return rows.sort((a, b) => b.rate - a.rate || b.best - a.best || a.item.localeCompare(b.item));
   }
 
+  /** The island's whole output of one item over the last finished minute, and its best. */
+  rateOf(item: ItemId): { rate: number; best: number } {
+    const line = this.lines.get(item);
+    return line ? { rate: sumTail(line.counts, PER_MINUTE), best: line.best } : { rate: 0, best: 0 };
+  }
+
   toSave(): LedgerSave {
     const lines: LedgerSave['lines'] = {};
     for (const [item, line] of this.lines) lines[item] = { counts: [...line.counts], best: line.best, open: line.open };
