@@ -330,6 +330,12 @@ export class GameAudio {
         case 'levelUp':
           this.play('levelUp');
           break;
+        case 'researchCycle':
+          this.play('labCycle', { pos: event.pos });
+          break;
+        case 'research':
+          this.play('techDone');
+          break;
         case 'goal':
           this.play('goal');
           break;

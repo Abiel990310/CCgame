@@ -534,6 +534,28 @@ export const SOUNDS = {
     ],
   },
 
+  // A lab finishing one cycle: a soft two-note blip, quiet because a busy
+  // lab bank does it every few seconds. A finished tech is the bigger one.
+  labCycle: {
+    gain: 0.1,
+    vary: 0.05,
+    throttle: 0.25,
+    layers: [
+      TONE('sine', 880, 880, 0.4, 0.005, 0.09),
+      TONE('sine', 1320, 1320, 0.3, 0.005, 0.16, 0.06),
+    ],
+  },
+  techDone: {
+    gain: 0.3,
+    layers: [
+      TONE('triangle', 392, 392, 0.45, 0.01, 0.2),
+      TONE('triangle', 587, 587, 0.45, 0.01, 0.22, 0.1),
+      TONE('triangle', 784, 784, 0.45, 0.01, 0.26, 0.2),
+      TONE('sine', 1175, 1175, 0.35, 0.01, 0.6, 0.3),
+      TONE('sine', 2350, 2350, 0.1, 0.01, 0.6, 0.3),
+    ],
+  },
+
   // A goal met: brighter and shorter than a level-up, since the two often land
   // together and the level-up should still read as the bigger moment.
   goal: {
