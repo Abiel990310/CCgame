@@ -1,10 +1,10 @@
 import { BUILDINGS } from '@shared/data/buildings';
 import { ITEMS, RESOURCES } from '@shared/data/items';
-import { MACHINES, TUNNEL_REACH, TURRET } from '@shared/data/machines';
+import { BELTS, MACHINES, TUNNEL_REACH, TURRET, beltIdOf, beltTier, haulDelay } from '@shared/data/machines';
 import { MOBS } from '@shared/data/mobs';
 import { RECIPE_BY_ID } from '@shared/data/recipes';
 import { MAP_TILES, TILE } from '@shared/sim/constants';
-import { beltAt, machineAt, tunnelEntranceOf, tunnelExitOf } from '@shared/sim/factory';
+import { beltAt, haulPartner, machineAt, tunnelEntranceOf, tunnelExitOf } from '@shared/sim/factory';
 import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
@@ -223,10 +223,14 @@ export class Inspector {
       const carried = belt.items.length
         ? belt.items.map((i) => ITEMS[i.item].name).filter((n, k, all) => all.indexOf(n) === k).join(', ')
         : 'Nothing';
+      const tier = beltTier(belt);
       return {
-        title: 'Belt',
-        icon: pieceIconVar('belt'),
-        rows: [['Carrying', carried]],
+        title: BELTS[beltIdOf(tier)].name,
+        icon: pieceIconVar(tier === 1 ? 'belt' : `belt:${tier}`),
+        rows: [
+          ['Speed', `${BELTS[beltIdOf(tier)].speed} tiles/s`],
+          ['Carrying', carried],
+        ],
         hint: 'Right-click in build mode to pick it up',
       };
     }
@@ -342,6 +346,19 @@ function describeMachine(world: World, machine: Machine): Card {
     if (other) rows.push([def.tunnel === 'in' ? 'Exit' : 'Entrance', `${gap} ${gap === 1 ? 'tile' : 'tiles'} under`]);
     else if (def.tunnel === 'in') status = { text: `No exit within ${TUNNEL_REACH} tiles`, tone: 'bad' };
     else status = { text: 'No entrance feeding it', tone: 'warn' };
+  } else if (def.family === 'haul') {
+    const other = haulPartner(world, machine);
+    if (other) {
+      const tiles = Math.round(Math.hypot(other.tx - machine.tx, other.ty - machine.ty));
+      rows.push([def.haul === 'in' ? 'Sends to' : 'Receives from', `${tiles} tiles away`]);
+      if (def.haul === 'in') {
+        rows.push(['Trip', `${haulDelay(tiles).toFixed(1)} s`]);
+        rows.push(['In flight', `${machine.transit?.length ?? 0}`]);
+      }
+      status = def.haul === 'in' ? { text: 'Paired', tone: 'good' } : { text: 'Paired, receiving', tone: 'good' };
+    } else {
+      status = { text: 'Place a second port to pair it', tone: 'warn' };
+    }
   } else if (def.family !== 'chest' && def.family !== 'splitter' && def.family !== 'merger') {
     if (outOfFuel(machine)) status = { text: 'Out of fuel', tone: 'bad' };
     else if (machine.unpowered) status = { text: powerNetOf(world, machine) ? 'No power' : 'No pole in reach', tone: 'bad' };

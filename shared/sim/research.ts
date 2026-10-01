@@ -1,7 +1,7 @@
 import type { TechDef, TechEffectKind } from '../data/techs';
 import { TECHS, TECH_BY_ID, UNLOCKED_BY, techCycles } from '../data/techs';
 import { grantXp } from './progression';
-import type { MachineId, Research, World } from './types';
+import type { BeltId, MachineId, Research, World } from './types';
 
 export function newResearch(): Research {
   return { current: null, queue: [], progress: {}, levels: {}, unlockedAll: false };
@@ -22,7 +22,7 @@ export function isAvailable(world: World, def: TechDef): boolean {
  * the palette, so a server running the same code refuses a locked piece
  * whatever a client claims to have on its bar.
  */
-export function isUnlocked(world: World, id: MachineId): boolean {
+export function isUnlocked(world: World, id: MachineId | BeltId): boolean {
   if (world.research.unlockedAll) return true;
   const tech = UNLOCKED_BY.get(id);
   return !tech || techLevel(world, tech.id) > 0;

@@ -2,7 +2,7 @@ import { expect } from 'vitest';
 import { TICK_DT, TILE } from '../constants';
 import { placeBelt, placeMachine, setRecipe } from '../factory';
 import { tileKey } from '../grid';
-import { CRAFTED_MACHINES } from '../../data/machines';
+import { CRAFTED_MACHINES, isBeltId } from '../../data/machines';
 import { INVENTORY_SLOTS, addItem } from '../inventory';
 import { addToSlots, countIn, makeSlots, stacksIn, totalIn } from '../slots';
 import { ORE_ORDER } from '../ore';
@@ -11,6 +11,7 @@ import { EMPTY_INPUT, step } from '../step';
 import { TERRAIN_ORDER } from '../terrain';
 import type {
   Belt,
+  BeltId,
   Direction,
   ItemId,
   Machine,
@@ -159,12 +160,12 @@ export function advance(world: World, seconds: number): void {
 }
 
 /** One part of a line: a belt, or a machine optionally set to a recipe. */
-export type Part = 'belt' | MachineId | [MachineId, string];
+export type Part = BeltId | MachineId | [MachineId, string];
 
 /** Place one part, failing the test rather than skipping when it will not fit. */
 export function put(b: Bench, part: Part, tx: number, ty: number, dir: Direction): Belt | Machine {
-  if (part === 'belt') {
-    const belt = placeBelt(b.world, b.player, tx, ty, dir);
+  if (isBeltId(part)) {
+    const belt = placeBelt(b.world, b.player, tx, ty, dir, part);
     expect(belt, `no belt at ${tx},${ty}`).not.toBe(null);
     return belt!;
   }

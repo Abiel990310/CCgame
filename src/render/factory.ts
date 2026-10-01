@@ -1,7 +1,7 @@
 import { drawBeacon } from './beacon';
 import { ITEMS } from '@shared/data/items';
 import type { MachineDef } from '@shared/data/machines';
-import { BELT_SPEED, INSERTER_SWING, MACHINES, TRAP_TIME, TURRET } from '@shared/data/machines';
+import { BELTS, BELT_SPEED, INSERTER_SWING, MACHINES, TRAP_TIME, TURRET, beltIdOf, beltTier } from '@shared/data/machines';
 import { MOBS } from '@shared/data/mobs';
 import { RECIPE_BY_ID, craftTime } from '@shared/data/recipes';
 import { TECH_BY_ID } from '@shared/data/techs';
@@ -11,7 +11,7 @@ import { dirAngle, tileCenter } from '@shared/sim/grid';
 import { MINE_TIME } from '@shared/sim/systems/factory';
 import { minerOreLeft } from '@shared/sim/ore';
 import { turretWrecked } from '@shared/sim/systems/turret';
-import type { Belt, Direction, Machine, MachineId, Mob, World } from '@shared/sim/types';
+import type { Belt, BeltTier, Direction, Machine, MachineId, Mob, World } from '@shared/sim/types';
 import { drawItemSprite } from './items';
 import { around, blitCached } from './paint';
 import { UI, rgba, shift } from './palette';
@@ -43,17 +43,21 @@ import { meter, shadow } from './shapes';
  */
 export function drawBelt(ctx: CanvasRenderingContext2D, belt: Belt, time: number): void {
   const { x, y } = tileCenter(belt.tx, belt.ty);
+  // The treads scroll at the belt's own speed, which is how a Mk3 reads as
+  // fast before a single item has been put on it.
+  const tier = beltTier(belt);
+  const speed = BELTS[beltIdOf(tier)].speed;
   // A base is hundreds of belts, and tracing each one's bed, treads and rails
   // was half of a busy factory's frame. The treads only ever sit at one of a
   // few phases of their spacing, so each facing and phase is baked once.
-  const phase = Math.floor((((time * BELT_SPEED * TILE) % BELT_SPACING) / BELT_SPACING) * BELT_PHASES);
+  const phase = Math.floor((((time * speed * TILE) % BELT_SPACING) / BELT_SPACING) * BELT_PHASES);
   if (pixelSprites()) {
-    drawPixelBelt(ctx, x, y, belt.dir, (time * BELT_SPEED * TILE) % BELT_SPACING);
+    drawPixelBelt(ctx, x, y, belt.dir, (time * speed * TILE) % BELT_SPACING, tier);
     return;
   }
   const r = TILE * 0.5 + 1;
-  blitCached(ctx, `belt:${belt.dir}:${phase}`, x, y, { left: r, right: r, top: r, bottom: r }, (c) =>
-    drawBeltAt(c, 0, 0, belt.dir, (phase / BELT_PHASES) * (BELT_SPACING / (BELT_SPEED * TILE)), 0.5),
+  blitCached(ctx, `belt:${tier}:${belt.dir}:${phase}`, x, y, { left: r, right: r, top: r, bottom: r }, (c) =>
+    drawBeltAt(c, 0, 0, belt.dir, (phase / BELT_PHASES) * (BELT_SPACING / (speed * TILE)), 0.5, tier),
   );
 }
 
@@ -68,11 +72,14 @@ export function drawBeltAt(
   dir: Belt['dir'],
   time: number,
   bleed = 0,
+  tier: BeltTier = 1,
 ): void {
+  const speed = BELTS[beltIdOf(tier)].speed;
   if (pixelSprites()) {
-    drawPixelBelt(ctx, x, y, dir, (time * BELT_SPEED * TILE) % BELT_SPACING);
+    drawPixelBelt(ctx, x, y, dir, (time * speed * TILE) % BELT_SPACING, tier);
     return;
   }
+  const paint = BELT_PAINT[tier];
   const h = TILE / 2;
   // How far bed and rails reach past the tile, so baked neighbours, each
   // snapped to its own whole pixel, overlap instead of leaving a hairline.
@@ -90,7 +97,7 @@ export function drawBeltAt(
   ctx.strokeStyle = BELT.tread;
   ctx.lineWidth = 2;
   const spacing = BELT_SPACING;
-  const scroll = (time * BELT_SPEED * TILE) % spacing;
+  const scroll = (time * speed * TILE) % spacing;
   ctx.beginPath();
   for (let i = -h - spacing; i < h + spacing; i += spacing) {
     const lx = i + scroll;
@@ -101,19 +108,19 @@ export function drawBeltAt(
   ctx.stroke();
 
   // Rails, one path: the lit top edge and the shaded body of both sides.
-  ctx.fillStyle = BELT.rail;
+  ctx.fillStyle = paint.rail;
   ctx.beginPath();
   ctx.rect(-e, -TILE * 0.44, e * 2, TILE * 0.1);
   ctx.rect(-e, TILE * 0.34, e * 2, TILE * 0.1);
   ctx.fill();
-  ctx.fillStyle = BELT.railLit;
+  ctx.fillStyle = paint.railLit;
   ctx.beginPath();
   ctx.rect(-e, -TILE * 0.44, e * 2, TILE * 0.035);
   ctx.rect(-e, TILE * 0.34, e * 2, TILE * 0.035);
   ctx.fill();
 
   // A chevron painted on the bed.
-  ctx.fillStyle = BELT.arrow;
+  ctx.fillStyle = paint.arrow;
   ctx.beginPath();
   ctx.moveTo(TILE * 0.2, 0);
   ctx.lineTo(TILE * 0.02, -TILE * 0.15);
@@ -130,10 +137,14 @@ export function drawBeltAt(
 const BELT = {
   bed: '#2b3139',
   tread: '#3b434e',
-  rail: '#8a939f',
-  railLit: '#c3cad3',
-  arrow: 'rgba(232, 182, 76, 0.55)',
 } as const;
+
+/** What a belt's tier changes in the smooth look; see `BELT_PAINT` in pixelworks for the pixel one. */
+const BELT_PAINT: Record<BeltTier, { rail: string; railLit: string; arrow: string }> = {
+  1: { rail: '#8a939f', railLit: '#c3cad3', arrow: 'rgba(232, 182, 76, 0.55)' },
+  2: { rail: '#b9774f', railLit: '#e4b08f', arrow: 'rgba(240, 116, 63, 0.7)' },
+  3: { rail: '#5f8bb8', railLit: '#a9cdee', arrow: 'rgba(111, 224, 247, 0.7)' },
+};
 
 /** Items ride on top of every belt, drawn after the belts themselves. */
 export function drawBeltItems(ctx: CanvasRenderingContext2D, belt: Belt): void {
@@ -1009,6 +1020,47 @@ function drawMachineLive(
       ctx.restore();
       break;
     }
+    case 'haul': {
+      // A landing pad with a beam standing on it. Items rise up the sender's
+      // beam and drop down the receiver's; a pad with nothing to do or no
+      // partner is dim, so a stalled pair is told from a busy one at a glance.
+      const sends = def.haul === 'in';
+      const busy = sends ? (machine.transit?.length ?? 0) > 0 || machine.input.some((s) => s !== null) : machine.output.some((s) => s !== null);
+      const paired = machine.link !== undefined;
+      const pulse = busy ? 0.5 + Math.sin(time * 5) * 0.25 : 0.2;
+      ctx.save();
+      ctx.translate(x, cy);
+      ctx.strokeStyle = rgba(accent, paired ? 0.35 + pulse * 0.5 : 0.18);
+      ctx.lineWidth = 1.4;
+      for (const r of [0.26, 0.17]) {
+        ctx.beginPath();
+        ctx.ellipse(0, 0, TILE * r, TILE * r * 0.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.fillStyle = rgba(accent, paired ? 0.2 + pulse * 0.3 : 0.1);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, TILE * 0.17, TILE * 0.085, 0, 0, Math.PI * 2);
+      ctx.fill();
+      if (busy && paired) {
+        // Three motes climbing (or falling) the beam, a third of a trip apart.
+        for (let i = 0; i < 3; i++) {
+          const t = (time * 1.1 + i / 3) % 1;
+          const rise = sends ? t : 1 - t;
+          ctx.fillStyle = rgba('#e8f6ff', 0.85 * (1 - Math.abs(rise - 0.5) * 1.4));
+          ctx.beginPath();
+          ctx.arc(Math.sin(time * 2 + i * 2) * 2, -rise * TILE * 0.7, 1.7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.strokeStyle = rgba(accent, 0.22);
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -TILE * 0.7);
+        ctx.stroke();
+      }
+      ctx.restore();
+      break;
+    }
     case 'fishTrap': {
       // A ripple spreading from a float that bobs while the trap is fishing
       // and lies still once its catch has nowhere to go.
@@ -1423,7 +1475,7 @@ function drawProgress(
   const def = MACHINES[machine.type];
   // A chest has no cycle, an inserter's arm already is its progress bar, and a
   // splitter passes items straight through.
-  if (def.family === 'chest' || def.family === 'inserter' || def.family === 'splitter' || def.family === 'merger') return;
+  if (def.family === 'chest' || def.family === 'inserter' || def.family === 'splitter' || def.family === 'merger' || def.family === 'haul') return;
 
   const duration = cycleLength(machine);
   if (duration <= 0 || machine.progress <= 0) return;

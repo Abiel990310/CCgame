@@ -88,6 +88,7 @@ export type CraftedMachineId =
   | 'splitter'
   | 'merger'
   | 'tunnel'
+  | 'haul'
   | 'generator'
   | 'solar'
   | 'beacon'
@@ -343,6 +344,7 @@ export type MachineFamily =
   | 'splitter'
   | 'merger'
   | 'tunnel'
+  | 'haul'
   | 'lab'
   | 'fishTrap'
   | 'generator'
@@ -363,7 +365,8 @@ export type MachineId =
   | 'fastInserter'
   | 'stackInserter'
   | 'steelChest'
-  | 'tunnelExit';
+  | 'tunnelExit'
+  | 'haulExit';
 
 /** One item riding a belt tile, positioned 0..1 along its length. */
 export interface BeltItem {
@@ -372,11 +375,20 @@ export interface BeltItem {
   offset: number;
 }
 
+/**
+ * A belt's tier and the kind a player picks to lay one. A plain belt is
+ * tier 1 and the faster ones are upgrades laid over it, as a machine tier is.
+ */
+export type BeltTier = 1 | 2 | 3;
+export type BeltId = 'belt' | 'beltMk2' | 'beltMk3';
+
 export interface Belt {
   id: number;
   tx: number;
   ty: number;
   dir: Direction;
+  /** Absent on a tier 1 belt, so every island saved before tiers loads as Mk1. */
+  tier?: Exclude<BeltTier, 1>;
   /** Ordered front-to-back; index 0 is closest to the output end. */
   items: BeltItem[];
 }
@@ -446,6 +458,24 @@ export interface Machine {
    * second one the moment the grid is empty.
    */
   heat?: number;
+  /**
+   * Long-haul ports only: the id of the port at the other end of the pair, set
+   * on both. Absent on a sender still waiting for its partner.
+   */
+  link?: number;
+  /**
+   * A long-haul sender only: items on their way to the receiver, oldest
+   * first, each with the seconds still to go. They belong to neither port
+   * while they travel, so they are saved and refunded with the sender.
+   */
+  transit?: HaulParcel[];
+}
+
+/** One item in flight between two long-haul ports. */
+export interface HaulParcel {
+  item: ItemId;
+  /** Seconds until it reaches the receiver; 0 means waiting for room there. */
+  left: number;
 }
 
 /**

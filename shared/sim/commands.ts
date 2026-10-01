@@ -1,7 +1,7 @@
 import { BUILDINGS } from '../data/buildings';
 import { CRAFT_BY_ID } from '../data/crafting';
 import { ITEMS } from '../data/items';
-import { MACHINES } from '../data/machines';
+import { MACHINES, beltIdOf } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { SPELLS } from '../data/spells';
 import { TECH_BY_ID } from '../data/techs';
@@ -35,7 +35,7 @@ import { isQueueOp, orderResearch, setResearch, type QueueOp } from './research'
 import { decode, encode } from './snapshot';
 import { readySpell } from './systems/spells';
 import { mendTurret } from './systems/turret';
-import type { BuildingId, Direction, ItemId, MachineId, Player, SpellId, World } from './types';
+import type { BeltTier, BuildingId, Direction, ItemId, MachineId, Player, SpellId, World } from './types';
 
 /**
  * Everything a player can do to the island outside of moving, as data.
@@ -48,7 +48,8 @@ import type { BuildingId, Direction, ItemId, MachineId, Player, SpellId, World }
  * guests will quietly drift away from the host.
  */
 export type Command =
-  | { k: 'belt'; tx: number; ty: number; dir: Direction }
+  /** `tier` is absent from a plain belt, and from every command sent before tiers. */
+  | { k: 'belt'; tx: number; ty: number; dir: Direction; tier?: BeltTier }
   | { k: 'machine'; what: MachineId; tx: number; ty: number; dir: Direction }
   | { k: 'building'; type: BuildingId; x: number; y: number }
   | { k: 'turn'; tx: number; ty: number; dir: Direction }
@@ -114,7 +115,12 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
     case 'leave':
       return world.players.delete(player.id);
     case 'belt':
-      return isTile(c.tx, c.ty) && isDir(c.dir) && placeBelt(world, player, c.tx, c.ty, c.dir) !== null;
+      return (
+        isTile(c.tx, c.ty) &&
+        isDir(c.dir) &&
+        (c.tier === undefined || c.tier === 1 || c.tier === 2 || c.tier === 3) &&
+        placeBelt(world, player, c.tx, c.ty, c.dir, beltIdOf(c.tier ?? 1)) !== null
+      );
     case 'machine':
       return (
         isTile(c.tx, c.ty) &&

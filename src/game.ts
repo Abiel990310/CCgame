@@ -1,7 +1,7 @@
 import { BUILDINGS } from '@shared/data/buildings';
 import { applyOrder, type Command } from '@shared/sim/commands';
 import { CRAFT_BY_ID } from '@shared/data/crafting';
-import { BELT_COST, MACHINES, placementCost } from '@shared/data/machines';
+import { BELTS, MACHINES, beltIdOf, isBeltId, pieceName, placementCost } from '@shared/data/machines';
 import { ITEMS, RESOURCES } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
 import { BEACON_STAGES } from '@shared/data/beacon';
@@ -40,6 +40,7 @@ import {
   setSideFilter,
   upgradeTarget,
   beltAt,
+  beltUpgradeTarget,
 } from '@shared/sim/factory';
 import { rotate, step1, tileCenter, tileKey, toTile } from '@shared/sim/grid';
 import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
@@ -56,10 +57,12 @@ import { craftError, nearWorkbench } from '@shared/sim/crafting';
 import { pickFood } from '@shared/sim/food';
 import type {
   Belt,
+  BeltId,
   Direction,
   MachineFamily,
   ItemStack,
   Machine,
+  MachineId,
   MobTypeId,
   Player,
   PlayerInput,
@@ -899,17 +902,21 @@ export class Game {
       return { kind: 'building', type: selection.id, pos: snapped, valid };
     }
 
-    const what = selection.kind === 'belt' ? 'belt' : selection.id;
+    const what = selection.kind === 'belt' ? beltIdOf(selection.tier) : selection.id;
     const valid = factoryPlacementError(this.world, this.self, what, tx, ty) === null;
-    // An upgrade keeps the facing of the machine it replaces, so the ghost does too.
-    const replacing = what === 'belt' ? null : upgradeTarget(this.world, what, tx, ty);
+    // An upgrade keeps the facing of the piece it replaces, so the ghost does too.
+    const replacing = this.upgradeOf(what, tx, ty);
     const dir = replacing ? replacing.dir : this.buildDir;
     return { kind: 'grid', what, tx, ty, dir, valid };
   }
 
   private isUpgrade(ghost: GhostPreview | null): boolean {
-    if (ghost?.kind !== 'grid' || ghost.what === 'belt') return false;
-    return upgradeTarget(this.world, ghost.what, ghost.tx, ghost.ty) !== null;
+    return ghost?.kind === 'grid' && this.upgradeOf(ghost.what, ghost.tx, ghost.ty) !== null;
+  }
+
+  /** The belt or machine that placing `what` here would replace with a higher tier. */
+  private upgradeOf(what: MachineId | BeltId, tx: number, ty: number): Belt | Machine | null {
+    return isBeltId(what) ? beltUpgradeTarget(this.world, what, tx, ty) : upgradeTarget(this.world, what, tx, ty);
   }
 
   /**
@@ -986,7 +993,7 @@ export class Game {
     while ((dx !== 0 || dy !== 0) && guard++ < 24) {
       const dir: Direction =
         Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 0 : 2) : dy > 0 ? 1 : 3;
-      if (ghost.what === 'belt') {
+      if (isBeltId(ghost.what)) {
         this.buildDir = dir;
         // The belt the line starts from only now learns which way it runs.
         if (drag.laid.has(tileKey(drag.tx, drag.ty)) || beltAt(this.world, drag.tx, drag.ty)) {
@@ -1036,10 +1043,12 @@ export class Game {
     const error = factoryPlacementError(this.world, this.self, what, tx, ty);
 
     if (error === null) {
-      const replacing = what === 'belt' ? null : upgradeTarget(this.world, what, tx, ty);
-      if (what === 'belt') this.act({ k: 'belt', tx, ty, dir: this.buildDir });
+      const replacing = this.upgradeOf(what, tx, ty);
+      // A belt keeps its facing through an upgrade, so there is nothing to say
+      // about it per tile: a line of them is one stroke, not forty toasts.
+      if (isBeltId(what)) this.act({ k: 'belt', tx, ty, dir: this.buildDir, tier: BELTS[what].tier });
       else this.act({ k: 'machine', what, tx, ty, dir: this.buildDir });
-      if (replacing) this.hud.toast(`Upgraded to ${MACHINES[replacing.type].name}`, 'good');
+      if (replacing && 'type' in replacing) this.hud.toast(`Upgraded to ${MACHINES[replacing.type].name}`, 'good');
       this.requestSave();
       return true;
     }
@@ -1050,7 +1059,7 @@ export class Game {
     let existing: Belt | Machine | null = null;
     if (error === 'occupied') {
       if (this.input.isTouch) existing = entityAt(this.world, tx, ty);
-      else if (what === 'belt') existing = beltAt(this.world, tx, ty);
+      else if (isBeltId(what)) existing = beltAt(this.world, tx, ty);
     }
     if (existing) {
       const dir = this.input.isTouch ? rotate(existing.dir) : this.buildDir;
@@ -1065,18 +1074,18 @@ export class Game {
     // A finger resting on a piece is about to remove it, not to be told off.
     if (error === 'occupied' && this.input.isTouch) return false;
 
-    const cost = what === 'belt' ? BELT_COST : placementCost(what);
+    const cost = isBeltId(what) ? BELTS[what].cost : placementCost(what);
     const messages: Record<NonNullable<typeof error>, string> = {
       bounds: 'Off the edge of the island',
       occupied: 'Something is already there',
       terrain: "Can't build on water",
       ore: 'A miner has to sit on an ore patch',
       shore: 'A fish trap has to sit on the shoreline',
-      locked: what === 'belt' ? '' : `Research ${UNLOCKED_BY.get(what)?.name ?? 'more'} first`,
+      locked: `Research ${UNLOCKED_BY.get(what)?.name ?? 'more'} first`,
       scenery: "Clear what's growing there first",
       camp: 'A camp building is in the way',
       cost:
-        what !== 'belt' && MACHINES[what].crafted
+        !isBeltId(what) && MACHINES[what].crafted
           ? `Craft a ${MACHINES[what].name} at a workbench first`
           : this.costMessage(cost),
     };
@@ -1394,7 +1403,7 @@ export class Game {
       );
       // Only the first level of a tech opens anything.
       if (tech?.unlocks?.length && event.level === 1) {
-        const names = tech.unlocks.map((id) => MACHINES[id].name).join(', ');
+        const names = tech.unlocks.map(pieceName).join(', ');
         this.hud.toast(`New on the build palette: ${names}`, 'good');
       }
       this.requestSave();

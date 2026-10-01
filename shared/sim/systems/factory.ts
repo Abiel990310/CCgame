@@ -1,14 +1,18 @@
 import { insertIntoBeacon, stepBeacon, withBeacon } from '../beacon';
 import type { MachineDef } from '../../data/machines';
 import {
+  BELTS,
   BELT_CAPACITY,
   BELT_ITEM_GAP,
-  BELT_SPEED,
   FUEL_RESERVE,
+  HAUL,
   FUEL_VALUE,
   INSERTER_SWING,
   MACHINES,
   TRAP_TIME,
+  beltIdOf,
+  beltTier,
+  haulDelay,
   isFuel,
 } from '../../data/machines';
 import { RESOURCES } from '../../data/items';
@@ -17,6 +21,7 @@ import { RESEARCH_PACKS, TECH_BY_ID, isResearchPack } from '../../data/techs';
 import {
   beltAt,
   filterOf,
+  haulPartner,
   inputTile,
   isMerger,
   isSplitter,
@@ -44,24 +49,45 @@ import type { Belt, ItemId, ItemStack, Machine, Slot, World } from '../types';
  * the whole belt O(items) rather than O(items²).
  */
 export function stepBelts(world: World, dt: number): void {
-  const travel = BELT_SPEED * researchBonuses(world).belt * dt;
+  const bonus = researchBonuses(world).belt;
+  const belts = world.belts;
+  if (overshoot.length < belts.length) overshoot = new Array<number>(belts.length).fill(0);
 
-  for (const belt of world.belts) {
+  // Everything moves first and only then do fronts change belts. Handing off
+  // mid-pass let an item ride on again in a belt that came later in the list,
+  // so how fast a line was depended on the order it was laid in.
+  for (let b = 0; b < belts.length; b++) {
+    const belt = belts[b];
+    // Each belt moves at its own tier's pace, which is what makes a Mk3 a Mk3.
+    const travel = BELTS[beltIdOf(beltTier(belt))].speed * bonus * dt;
+    overshoot[b] = 0;
     for (let i = 0; i < belt.items.length; i++) {
       const item = belt.items[i];
       // The item ahead sets the ceiling; the front item may leave the belt.
       const ceiling = i === 0 ? 1 : belt.items[i - 1].offset - BELT_ITEM_GAP;
-      item.offset = Math.min(item.offset + travel, Math.max(0, ceiling));
+      const next = item.offset + travel;
+      item.offset = Math.min(next, Math.max(0, ceiling));
+      // How far past the end the front item would have gone. A fast belt
+      // covers a sizeable part of a tile every tick, and an item that lost
+      // that on every handoff would crawl at a Mk3's tile rate no matter how
+      // fast the belt was.
+      if (i === 0) overshoot[b] = Math.max(0, next - 1);
     }
+  }
 
+  for (let b = 0; b < belts.length; b++) {
+    const belt = belts[b];
     const front = belt.items[0];
     if (!front || front.offset < 1) continue;
-    if (handoff(world, belt, front.item)) belt.items.shift();
+    if (handoff(world, belt, front.item, overshoot[b])) belt.items.shift();
   }
 }
 
+/** How far each belt's front item overshot its end this tick; scratch, rewritten every tick. */
+let overshoot: number[] = [];
+
 /** Move the front item off this belt into whatever sits at its output tile. */
-function handoff(world: World, belt: Belt, item: ItemId): boolean {
+function handoff(world: World, belt: Belt, item: ItemId, carry: number): boolean {
   const { tx, ty } = outputTile(belt);
 
   const nextBelt = beltAt(world, tx, ty);
@@ -69,7 +95,7 @@ function handoff(world: World, belt: Belt, item: ItemId): boolean {
     // A belt feeding directly back into this one would deadlock; refuse it.
     const back = outputTile(nextBelt);
     if (back.tx === belt.tx && back.ty === belt.ty) return false;
-    return pushOntoBelt(nextBelt, item);
+    return pushOntoBelt(nextBelt, item, carry);
   }
 
   const machine = machineAt(world, tx, ty);
@@ -80,21 +106,31 @@ function handoff(world: World, belt: Belt, item: ItemId): boolean {
   return false;
 }
 
-/** Add an item at the back of a belt if there is room for it. */
-export function pushOntoBelt(belt: Belt, item: ItemId): boolean {
+/**
+ * Add an item at the back of a belt if there is room for it. `offset` is how
+ * far in it already is, for an item that crossed the join with distance to
+ * spare; it never lands closer to the item ahead than the gap allows.
+ */
+export function pushOntoBelt(belt: Belt, item: ItemId, offset = 0): boolean {
   if (belt.items.length >= BELT_CAPACITY) return false;
 
   const last = belt.items[belt.items.length - 1];
   // The back of the belt must be clear enough to fit another item.
   if (last && last.offset < BELT_ITEM_GAP) return false;
 
-  belt.items.push({ item, offset: 0 });
+  const start = last ? Math.min(offset, last.offset - BELT_ITEM_GAP) : offset;
+  belt.items.push({ item, offset: Math.max(0, start) });
   return true;
 }
 
 /** Accept an item into a machine's input, respecting its recipe and slots. */
 export function insertIntoMachine(machine: Machine, item: ItemId): boolean {
   const def = MACHINES[machine.type];
+  // A sender queues what it is fed for the trip, and refuses it until it has a
+  // partner: items backing up on the belt say more than a full buffer would.
+  if (def.family === 'haul') {
+    return def.haul === 'in' && machine.link !== undefined && addToSlots(machine.input, item, 1, def.slotSize) === 1;
+  }
   // A generator has no recipe, only a firebox.
   if (def.family === 'generator') {
     return !!machine.fuel && isFuel(item) && addToSlots(machine.fuel, item, 1, def.slotSize) === 1;
@@ -275,6 +311,9 @@ export function stepMachines(world: World, dt: number): void {
         break;
       case 'tunnel':
         stepTunnel(world, machine);
+        break;
+      case 'haul':
+        stepHaul(world, machine, dt);
         break;
       case 'fishTrap':
         stepTrap(world, machine, dt);
@@ -651,6 +690,50 @@ function stepTunnel(world: World, machine: Machine): void {
     if (!slot || addToSlots(exit.output, slot.id, 1, cap) !== 1) return;
     takeStack(machine.input, slot.id, 1);
   }
+}
+
+/**
+ * A long-haul sender puts one item into the pipe every `1 / HAUL.rate`
+ * seconds, and parcels that have finished their trip step out into the
+ * receiver's output, which lets them onto its front like any machine's output.
+ * Both halves of the trip live on the sender, so the pair stays in step with
+ * itself however the two ports happen to fall in the tick order.
+ */
+function stepHaul(world: World, machine: Machine, dt: number): void {
+  // A receiver has nothing to do beyond the output push every machine gets.
+  if (MACHINES[machine.type].haul !== 'in') {
+    machine.stalled = false;
+    return;
+  }
+  const partner = haulPartner(world, machine);
+  if (!partner) {
+    machine.stalled = true;
+    return;
+  }
+  const transit = (machine.transit ??= []);
+  machine.stalled = false;
+
+  // Arrivals first, so a slot that opens this tick is used by the oldest
+  // parcel. A parcel the receiver has no room for waits at the head of the
+  // queue, and everything behind it waits too: the pipe keeps its order.
+  for (const parcel of transit) parcel.left = Math.max(0, parcel.left - dt);
+  const cap = MACHINES[partner.type].slotSize;
+  while (transit.length > 0 && transit[0].left <= 0) {
+    if (addToSlots(partner.output, transit[0].item, 1, cap) !== 1) break;
+    transit.shift();
+  }
+
+  // Departures, at most one per interval however long the sender sat idle.
+  const interval = 1 / HAUL.rate;
+  machine.progress = Math.min(machine.progress + dt, interval);
+  if (machine.progress < interval || transit.length >= HAUL.capacity) return;
+  const slot = machine.input.find((s): s is ItemStack => s !== null && s.count > 0);
+  if (!slot) return;
+
+  takeStack(machine.input, slot.id, 1);
+  const tiles = Math.hypot(partner.tx - machine.tx, partner.ty - machine.ty);
+  transit.push({ item: slot.id, left: haulDelay(tiles) });
+  machine.progress -= interval;
 }
 
 /** Lift the front item off the first feeding belt, from whose turn it is. */

@@ -143,7 +143,7 @@ export class Hud {
 
   private inventory: InventoryScreen;
   private sound: SoundPanel;
-  private selection: BuildSelection = { kind: 'belt' };
+  private selection: BuildSelection = { kind: 'belt', tier: 1 };
   private tab: PaletteTab = 'factory';
   private buildMode = false;
   private pauseOpen = false;

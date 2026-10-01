@@ -1,5 +1,5 @@
 import { BUILDINGS } from '@shared/data/buildings';
-import { MACHINES } from '@shared/data/machines';
+import { BELTS, BELT_ORDER, MACHINES } from '@shared/data/machines';
 import { TILE } from '@shared/sim/constants';
 import { tileCenter } from '@shared/sim/grid';
 import type { BuildingId, MachineId } from '@shared/sim/types';
@@ -56,10 +56,12 @@ export function installPieceIcons(): void {
     return c;
   };
 
-  bake('belt', () => {
-    const c = onTile();
-    drawBeltAt(ctx, c.x, c.y, 0, 0.1);
-  });
+  for (const id of BELT_ORDER) {
+    bake(BELTS[id].tier === 1 ? 'belt' : `belt:${BELTS[id].tier}`, () => {
+      const c = onTile();
+      drawBeltAt(ctx, c.x, c.y, 0, 0.1, 0, BELTS[id].tier);
+    });
+  }
 
   for (const id of Object.keys(MACHINES) as MachineId[]) {
     bake(`machine:${id}`, () => {

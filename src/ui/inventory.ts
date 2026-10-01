@@ -1,5 +1,5 @@
 import { ITEMS, ITEM_ORDER } from '@shared/data/items';
-import { FUEL_VALUE, MACHINES, TURRET } from '@shared/data/machines';
+import { FUEL_VALUE, MACHINES, TURRET, pieceName } from '@shared/data/machines';
 import { mendCost, turretWrecked } from '@shared/sim/systems/turret';
 import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
 import { TECHS, TECH_BY_ID } from '@shared/data/techs';
@@ -314,7 +314,7 @@ export class InventoryScreen {
         ? 'Machine'
         : arm
           ? 'Arm'
-          : def.family === 'splitter' || def.family === 'merger' || def.family === 'tunnel'
+          : def.family === 'splitter' || def.family === 'merger' || def.family === 'tunnel' || def.family === 'haul'
             ? 'Logistics'
             : 'Storage';
     this.els.title.textContent = def.name;
@@ -339,7 +339,7 @@ export class InventoryScreen {
         ? 'In'
         : arm
           ? 'Holding'
-          : def.family === 'splitter' || def.family === 'merger' || def.family === 'tunnel'
+          : def.family === 'splitter' || def.family === 'merger' || def.family === 'tunnel' || def.family === 'haul'
             ? 'Passing through'
             : 'Stored';
     this.els.inputGrid.parentElement?.classList.toggle('hidden', def.inputSlots === 0);
@@ -780,7 +780,7 @@ export class InventoryScreen {
               : progress;
       const name = tech.repeatable && level > 0 ? `${tech.name} ${level + 1}` : tech.name;
       const unlocks = tech.unlocks?.length
-        ? `<span class="tech-unlocks">Unlocks ${tech.unlocks.map((id) => MACHINES[id].name).join(', ')}</span>`
+        ? `<span class="tech-unlocks">Unlocks ${tech.unlocks.map(pieceName).join(', ')}</span>`
         : '';
 
       button.className += ' tech';

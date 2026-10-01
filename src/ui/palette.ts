@@ -1,12 +1,12 @@
 import { BUILDINGS, BUILD_ORDER } from '@shared/data/buildings';
-import { BELT_COST, MACHINES, MACHINE_ORDER, placementCost } from '@shared/data/machines';
+import { BELTS, BELT_ORDER, MACHINES, MACHINE_ORDER, beltIdOf, placementCost } from '@shared/data/machines';
 import { UNLOCKED_BY, type TechDef } from '@shared/data/techs';
 import { isUnlocked } from '@shared/sim/research';
-import type { BuildingId, ItemStack, MachineFamily, MachineId, World } from '@shared/sim/types';
+import type { BeltTier, BuildingId, ItemStack, MachineFamily, MachineId, World } from '@shared/sim/types';
 
 /** What the player currently has selected in build mode. */
 export type BuildSelection =
-  | { kind: 'belt' }
+  | { kind: 'belt'; tier: BeltTier }
   | { kind: 'machine'; id: MachineId }
   | { kind: 'building'; id: BuildingId };
 
@@ -42,6 +42,7 @@ const FAMILY_GROUP: Record<MachineFamily, (typeof GROUPS)[number]> = {
   splitter: 'Logistics',
   merger: 'Logistics',
   tunnel: 'Logistics',
+  haul: 'Logistics',
   lab: 'Research',
   furnace: 'Smelting',
   assembler: 'Assembly',
@@ -55,14 +56,14 @@ const FAMILY_GROUP: Record<MachineFamily, (typeof GROUPS)[number]> = {
 };
 
 const FACTORY: PaletteEntry[] = [
-  {
-    selection: { kind: 'belt' },
-    name: 'Belt',
-    description: 'Carries items one tile at a time, in the direction it faces.',
-    cost: BELT_COST,
+  ...BELT_ORDER.map((id) => ({
+    selection: { kind: 'belt' as const, tier: BELTS[id].tier },
+    name: BELTS[id].name,
+    description: BELTS[id].description,
+    cost: BELTS[id].cost,
     group: 'Logistics',
-    tier: 1,
-  },
+    tier: BELTS[id].tier,
+  })),
   ...MACHINE_ORDER.map((id) => ({
     selection: { kind: 'machine' as const, id },
     name: MACHINES[id].name,
@@ -87,7 +88,8 @@ export function entriesFor(tab: PaletteTab): PaletteEntry[] {
 }
 
 export function selectionKey(selection: BuildSelection): string {
-  return selection.kind === 'belt' ? 'belt' : `${selection.kind}:${selection.id}`;
+  if (selection.kind === 'belt') return selection.tier === 1 ? 'belt' : `belt:${selection.tier}`;
+  return `${selection.kind}:${selection.id}`;
 }
 
 const BY_KEY = new Map<string, PaletteEntry>(
@@ -110,6 +112,8 @@ export function tabOf(selection: BuildSelection): PaletteTab {
  * seeing the next tier is most of the reason to feed a lab.
  */
 export function lockedBy(world: World, selection: BuildSelection): TechDef | null {
-  if (selection.kind !== 'machine' || isUnlocked(world, selection.id)) return null;
-  return UNLOCKED_BY.get(selection.id) ?? null;
+  if (selection.kind === 'building') return null;
+  const id = selection.kind === 'belt' ? beltIdOf(selection.tier) : selection.id;
+  if (isUnlocked(world, id)) return null;
+  return UNLOCKED_BY.get(id) ?? null;
 }
