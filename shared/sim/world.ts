@@ -88,6 +88,7 @@ export function createWorld(seed = 12345, peaceful = false, worldgen = WORLDGEN)
     pickups: [],
     nodes: [],
     buildings: [],
+    pins: [],
     camp,
     ore: ore.kind,
     oreLeft: ore.left,

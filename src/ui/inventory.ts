@@ -13,6 +13,7 @@ import {
 } from '@shared/sim/research';
 import { countIn, totalIn } from '@shared/sim/slots';
 import { moduleEffects } from '@shared/sim/modules';
+import { recipeSeconds, workSpeed } from '@shared/sim/rates';
 import { BEACON_BOOST, BEACON_STAGES, BEACON_WARD_TILES } from '@shared/data/beacon';
 import { beaconLit, beaconStage } from '@shared/sim/beacon';
 import { audio } from '../audio';
@@ -701,7 +702,7 @@ export class InventoryScreen {
       : def?.family === 'lab'
         ? `lab:${researchKey(world)}`
         : def?.choosesRecipe
-          ? `recipe:${machine.id}:${machine.recipe}`
+          ? `recipe:${machine.id}:${machine.recipe}:${workSpeed(world, machine)}`
           : def?.family === 'inserter'
             ? `filter:${machine.id}:${machine.filter}`
           : '';
@@ -728,10 +729,13 @@ export class InventoryScreen {
         `<span class="stack" title="${ITEMS[id].name}"><i class="ic" style="background-image:${itemIconVar(id)}"></i>${count}</span>`;
       const inputs = recipe.inputs.map((i) => stack(i.id, i.count)).join('');
       const outputs = recipe.outputs.map((o) => stack(o.id, o.count)).join('');
-      const seconds = Math.round(craftTime(recipe, def.speed) * 10) / 10;
+      // What a craft really takes here, after research, a beacon and modules;
+      // the base time is the tooltip so a boost reads as the saving it is.
+      const seconds = Math.round(recipeSeconds(world, machine, recipe) * 10) / 10;
+      const base = Math.round(craftTime(recipe, def.speed) * 10) / 10;
       button.innerHTML =
         `<b>${recipe.name}</b><span class="recipe-flow">${inputs}${icon('arrow')}${outputs}` +
-        `<em>${seconds}s</em></span>`;
+        `<em title="${base === seconds ? 'Craft time' : `Base ${base}s`}">${seconds}s</em></span>`;
       button.addEventListener('click', () => {
         audio.play('click');
         this.callbacks.onSetRecipe(machine.id, recipe.id);

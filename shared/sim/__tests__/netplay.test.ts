@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CRAFT_BY_ID } from '../../data/crafting';
 import { applyOrder, type Order } from '../commands';
 import { spellPerk } from '../../data/spells';
-import { addItem } from '../inventory';
+import { addItem, countItem } from '../inventory';
 import { addPerk } from '../perks';
 import { researchPlan } from '../research';
 import { makeRng } from '../rng';
@@ -84,6 +84,8 @@ describe('co-op replay', () => {
     // Food and a wound, so eating is covered too.
     addItem(player, 'fish', 3);
     player.hp = 40;
+    // The fish are cooked at the campfire, and the map is pinned and unpinned.
+    const campfire = host.buildings.find((b) => b.type === 'campfire')!;
     // Modules to fit into a tier 3 furnace built mid-run.
     addItem(player, 'speedModule', 2);
     const snap = decode<Snapshot>(encode(takeSnapshot(host)));
@@ -101,6 +103,14 @@ describe('co-op replay', () => {
       if (t === 300) pending.push({ p: player.id, c: { k: 'spell', id: 'frostNova' } });
       if (t === 61) pending.push({ p: player.id, c: { k: 'craft', id: 'satchel' } });
       if (t === 62) pending.push({ p: player.id, c: { k: 'eat' } });
+      if (t === 63) pending.push({ p: player.id, c: { k: 'pin', x: 900, y: 1200, hue: 3 } });
+      if (t === 64) pending.push({ p: friend.id, c: { k: 'pin', x: 1500, y: 800, hue: 1 } });
+      if (t === 70) pending.push({ p: friend.id, c: { k: 'unpin', id: host.pins[0].id } });
+      if (t === 80) {
+        // Beside the fire on both copies; wandering would otherwise decide it.
+        for (const world of [host, guest]) world.players.get(player.id)!.pos = { x: campfire.pos.x + 30, y: campfire.pos.y };
+        pending.push({ p: player.id, c: { k: 'cook' } });
+      }
       if (t === 120) {
         pending.push({ p: friend.id, c: { k: 'queue', tech: 'roboticArms', op: 'add' } });
         pending.push({ p: player.id, c: { k: 'queue', tech: 'angling', op: 'add' } });
@@ -155,6 +165,9 @@ describe('co-op replay', () => {
     expect(host.nightIndex).toBeGreaterThan(0);
     expect(host.players.size).toBe(2);
     expect(player.bag).toBe(1);
+    expect(host.pins).toHaveLength(1);
+    expect(guest.pins).toEqual(host.pins);
+    expect(countItem(guest.players.get(player.id)!, 'grilledFish')).toBeGreaterThan(0);
     expect(player.spell).toBe('frostNova');
     // Toolmaking was raised a place, past Robotic Arms.
     expect(guest.research.queue.slice(0, 4)).toEqual(['beltLogistics', 'angling', 'toolmaking', 'roboticArms']);
@@ -208,6 +221,9 @@ describe('co-op replay', () => {
       { k: 'spell', id: 'mend' },
       { k: 'mend', machine: 'turret' },
       { k: 'mend', machine: 999999 },
+      { k: 'pin', x: 'far', y: 3, hue: 0 },
+      { k: 'pin', x: 3, y: 3, hue: 'red' },
+      { k: 'unpin', id: 'first' },
       { k: 'nonsense' },
     ] as unknown as Order['c'][];
     const bag = player.inventory.length;
