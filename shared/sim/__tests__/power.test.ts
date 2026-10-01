@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FUEL_VALUE, GENERATOR_FUEL_SHARE, MACHINES } from '../../data/machines';
 import { tileKey } from '../grid';
-import { powerNetOf, powerWires } from '../power';
+import { bankOf, powerNetOf, powerWires } from '../power';
 import { countIn } from '../slots';
 import { TERRAIN_ORDER } from '../terrain';
 import type { Machine } from '../types';
@@ -219,5 +219,119 @@ describe('solar panels', () => {
     expect(panel.stalled).toBe(true);
     expect(f.unpowered).toBe(true);
     expect(countIn(f.output, 'gear')).toBe(0);
+  });
+});
+
+describe('accumulators', () => {
+  const { capacity, rate } = MACHINES.accumulator.stores!;
+
+  /** A pole with a panel, an accumulator and an assembler that can be made to ask for power. */
+  function plant(b: Bench, load: boolean): { panel: Machine; bank: Machine; f: Machine } {
+    const f = put(b, ['assemblerMk3', 'gear'], at(2, 3).tx, at(2, 3).ty, 0) as Machine;
+    if (load) fill(f.input, 'ironPlate', 100);
+    pole(b, 3, 3);
+    const panel = put(b, 'solar', at(4, 3).tx, at(4, 3).ty, 0) as Machine;
+    const bank = put(b, 'accumulator', at(4, 4).tx, at(4, 4).ty, 0) as Machine;
+    return { panel, bank, f };
+  }
+
+  it('stores a daytime surplus, at the panel\'s surplus and no faster', () => {
+    const b = bench();
+    b.world.phase = 'day';
+    b.world.phaseTime = 1000;
+    const { bank } = plant(b, false);
+    advance(b.world, 10);
+    // 60 kW and nothing asking for it: 600 kJ over ten seconds, less the one
+    // tick before the idle assembler first reports that it wants nothing.
+    expect(bank.charge).toBeGreaterThan(590);
+    expect(bank.charge).toBeLessThanOrEqual(600);
+    expect(powerNetOf(b.world, bank)!.flow).toBeCloseTo(60, 6);
+  });
+
+  it('never charges past its capacity or its rate', () => {
+    const b = bench();
+    b.world.phase = 'day';
+    b.world.phaseTime = 1e6;
+    const { bank } = plant(b, false);
+    for (let i = 0; i < 4; i++) put(b, 'solar', at(6 + i, 3).tx, at(6 + i, 3).ty, 0);
+    advance(b.world, 1);
+    // Five panels make 300 kW, which is exactly the rate it can take.
+    expect(bank.charge).toBeLessThanOrEqual(rate + 1e-6);
+    advance(b.world, 200);
+    expect(bank.charge).toBe(capacity);
+    expect(powerNetOf(b.world, bank)!.flow).toBe(0);
+  });
+
+  it('carries a load through the night, then runs dry', () => {
+    const b = bench();
+    b.world.phase = 'night';
+    b.world.phaseTime = 1e6;
+    const { bank, f } = plant(b, true);
+    bank.charge = 1500;
+    advance(b.world, 5);
+    // The assembler asks for 150 kW and the bank gives it, all of it.
+    expect(powerNetOf(b.world, f)!.satisfaction).toBe(1);
+    expect(f.unpowered).toBeUndefined();
+    expect(bank.charge).toBeCloseTo(1500 - 150 * 5, 1);
+    expect(countIn(f.output, 'gear')).toBeGreaterThan(0);
+
+    advance(b.world, 20);
+    expect(bank.charge).toBeUndefined();
+    expect(f.unpowered).toBe(true);
+    expect(powerNetOf(b.world, f)!.satisfaction).toBe(0);
+  });
+
+  it('spares the engines\' coal while it can cover the load', () => {
+    const coalLeft = (charge: number): number => {
+      const b = bench();
+      b.world.phase = 'night';
+      b.world.phaseTime = 1e6;
+      const { bank } = plant(b, true);
+      if (charge > 0) bank.charge = charge;
+      const g = engine(b, 8, 3, 20);
+      pole(b, 7, 3);
+      advance(b.world, 10);
+      return countIn(g.fuel!, 'coal') + (g.heat ?? 0) / (FUEL_VALUE.coal! * GENERATOR_FUEL_SHARE);
+    };
+    expect(coalLeft(capacity)).toBeGreaterThan(coalLeft(0));
+    expect(coalLeft(capacity)).toBeCloseTo(20, 6);
+  });
+
+  it('does not burn coal to charge itself', () => {
+    const b = bench();
+    b.world.phase = 'night';
+    b.world.phaseTime = 1e6;
+    const { bank } = plant(b, false);
+    const g = engine(b, 8, 3, 20);
+    pole(b, 7, 3);
+    advance(b.world, 10);
+    expect(bank.charge).toBeUndefined();
+    // The same one tick of stale demand may have lit a coal, but no more.
+    expect(countIn(g.fuel!, 'coal') + (g.heat ?? 0) / (FUEL_VALUE.coal! * GENERATOR_FUEL_SHARE)).toBeGreaterThan(19.9);
+  });
+
+  it('shares a flow across a row by what each can take', () => {
+    const b = bench();
+    b.world.phase = 'day';
+    b.world.phaseTime = 1e6;
+    const { bank } = plant(b, false);
+    const second = put(b, 'accumulator', at(5, 4).tx, at(5, 4).ty, 0) as Machine;
+    second.charge = capacity - 100;
+    advance(b.world, 10);
+    // 600 kJ in: the nearly full one takes 100 and the other the rest.
+    expect(second.charge).toBeCloseTo(capacity, 6);
+    expect(bank.charge).toBeGreaterThan(490);
+    expect(bank.charge).toBeLessThanOrEqual(500);
+    expect(bankOf(powerNetOf(b.world, bank)!).capacity).toBe(capacity * 2);
+  });
+
+  it('is idle with no pole to reach it', () => {
+    const b = bench();
+    b.world.phase = 'day';
+    b.world.phaseTime = 1000;
+    const bank = put(b, 'accumulator', at(4, 4).tx, at(4, 4).ty, 0) as Machine;
+    advance(b.world, 5);
+    expect(bank.charge).toBeUndefined();
+    expect(bank.stalled).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import type { TechDef, TechEffectKind } from '../data/techs';
-import { TECHS, TECH_BY_ID, UNLOCKED_BY, techCycles } from '../data/techs';
+import { TECHS, TECH_BY_ID, UNLOCKED_BY, techCycles, techTier } from '../data/techs';
 import { grantXp } from './progression';
 import type { BeltId, MachineId, Research, World } from './types';
 
@@ -291,4 +291,17 @@ export function finishCycle(world: World, def: TechDef, xpBonus: number): void {
     level,
     next: next && next.id !== def.id ? next.id : null,
   });
+}
+
+/**
+ * The highest pack tier of any tech this island has finished, 0 before the
+ * first. Raids read it, so choosing to research is what makes nights harder:
+ * a factory that never opens a lab keeps the nights its night count earns.
+ */
+export function researchTier(world: World): number {
+  let tier = 0;
+  for (const def of TECHS) {
+    if (techLevel(world, def.id) > 0) tier = Math.max(tier, techTier(def));
+  }
+  return tier;
 }

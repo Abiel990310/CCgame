@@ -61,6 +61,12 @@ export interface MachineDef {
   /** Generators only: the most power it can put into its network, in kW. */
   generates?: number;
   /**
+   * Accumulators only: kJ it holds, and the most kW it takes in or gives out.
+   * It never makes power, only moves it from a daytime surplus to a night's
+   * shortfall, so it is a row in the same table as the panels it pairs with.
+   */
+  stores?: { capacity: number; rate: number };
+  /**
    * Poles only: how far its wires reach to the next pole, and the half-width
    * of the square around it whose machines it powers, both in tiles.
    */
@@ -793,6 +799,33 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     generates: 60,
     solid: true,
   },
+  accumulator: {
+    id: 'accumulator',
+    crafted: true,
+    family: 'accumulator',
+    tier: 1,
+    name: 'Accumulator',
+    description:
+      'Banks what the panels make beyond what the base uses by day, and gives it back once the sun is down, before any engine burns coal. A night of one assembler fits in one.',
+    cost: [
+      { id: 'steelPlate', count: 5 },
+      { id: 'copperPlate', count: 10 },
+      { id: 'circuit', count: 5 },
+    ],
+    color: '#4a5a52',
+    accent: '#8ff0a8',
+    inputSlots: 0,
+    outputSlots: 0,
+    slotSize: 1,
+    speed: 1,
+    needsOre: false,
+    choosesRecipe: false,
+    reach: 0,
+    storage: false,
+    fuelSlots: 0,
+    stores: { capacity: 9000, rate: 300 },
+    solid: true,
+  },
   beacon: {
     id: 'beacon',
     crafted: true,
@@ -900,6 +933,7 @@ export const MACHINE_ORDER: MachineId[] = [
   'fishTrap',
   'generator',
   'solar',
+  'accumulator',
   'pole',
   'beacon',
   'turret',

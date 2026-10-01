@@ -19,7 +19,7 @@ import {
   type SlotRef,
 } from './containers';
 import { craft } from './crafting';
-import { eat } from './food';
+import { cook, eat } from './food';
 import {
   pasteSettings,
   placeBelt,
@@ -30,6 +30,7 @@ import {
   turnAt,
   type MachineSettings,
 } from './factory';
+import { placePin, removePin } from './pins';
 import { chooseUpgrade } from './progression';
 import { isQueueOp, orderResearch, setResearch, type QueueOp } from './research';
 import { decode, encode } from './snapshot';
@@ -72,6 +73,12 @@ export type Command =
   | { k: 'craft'; id: string }
   /** Eats one food from the bag, whichever suits the damage taken. */
   | { k: 'eat' }
+  /** Grills the fish in the bag at the campfire. */
+  | { k: 'cook' }
+  /** Marks a spot on the island map, in world coordinates. */
+  | { k: 'pin'; x: number; y: number; hue: number }
+  /** Takes a map pin down. */
+  | { k: 'unpin'; id: number }
   /** Readies a learned spell for Q. */
   | { k: 'spell'; id: SpellId }
   /** Host only: a player arrives, whole, carrying whatever they had last time. */
@@ -174,6 +181,12 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
       return typeof c.id === 'string' && CRAFT_BY_ID.has(c.id) && craft(world, player, c.id);
     case 'eat':
       return eat(world, player);
+    case 'cook':
+      return cook(world, player) > 0;
+    case 'pin':
+      return isPoint(c.x, c.y) && placePin(world, c.x, c.y, c.hue);
+    case 'unpin':
+      return isId(c.id) && removePin(world, c.id);
     case 'spell':
       return typeof c.id === 'string' && c.id in SPELLS && readySpell(player, c.id);
     default:

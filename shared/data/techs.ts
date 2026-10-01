@@ -347,7 +347,7 @@ export const TECHS: TechDef[] = [
   {
     id: 'solarPower',
     name: 'Solar Power',
-    description: 'Panels that make power from daylight alone. Nothing to feed, and nothing at night.',
+    description: 'Panels that make power from daylight alone, and accumulators to bank the surplus for the night.',
     inputs: [
       { id: 'logicPack', count: 1 },
       { id: 'engineeringPack', count: 1 },
@@ -355,7 +355,7 @@ export const TECHS: TechDef[] = [
     cycles: 60,
     time: 8,
     requires: ['electricity'],
-    unlocks: ['solar'],
+    unlocks: ['solar', 'accumulator'],
     xp: 20,
   },
   {
@@ -404,6 +404,22 @@ export const TECHS: TechDef[] = [
     repeatable: true,
   },
 ];
+
+/**
+ * How far up the tree a pack sits. A tech's tier is the highest pack it eats,
+ * and the raid budget reads the highest tier an island has finished.
+ */
+export const PACK_TIER: Partial<Record<ItemId, number>> = {
+  researchPack: 1,
+  logicPack: 2,
+  powerPack: 3,
+  engineeringPack: 3,
+  resonancePack: 4,
+};
+
+export function techTier(def: TechDef): number {
+  return def.inputs.reduce((top, input) => Math.max(top, PACK_TIER[input.id] ?? 0), 0);
+}
 
 export const TECH_BY_ID = new Map(TECHS.map((t) => [t.id, t]));
 

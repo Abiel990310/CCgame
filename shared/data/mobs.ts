@@ -33,6 +33,14 @@ export interface MobDef {
    */
   quake?: { radius: number; damage: number; interval: number; windup: number; knock: number };
   /**
+   * A boss's second-phase move, the Bulwark's answer to the quake: once
+   * enraged and with a player inside reach, its crystal charges for `windup`
+   * seconds (it keeps plodding, slowly) and then its ward bursts outward,
+   * shoving everyone inside `radius` back by `knock`. It stings less than a
+   * quake because the point is distance: the ward is only worth reaching.
+   */
+  pulse?: { radius: number; damage: number; interval: number; windup: number; knock: number };
+  /**
    * Never bought from a night's budget: one walks in at the start of every
    * night that is a multiple of this, once it has reached `minNight`.
    */
@@ -205,6 +213,7 @@ export const MOBS: Record<MobTypeId, MobDef> = {
     accent: '#8fe6ff',
     armor: 4,
     shields: { radius: 210, take: 0.35 },
+    pulse: { radius: 240, damage: 10, interval: 6, windup: 1.1, knock: 620 },
     bossEvery: 5,
     bossPhase: 1,
     epithet: 'Its crystal wards the raid. Reach it first',

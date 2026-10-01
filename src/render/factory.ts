@@ -815,6 +815,26 @@ function drawMachineDeck(ctx: CanvasRenderingContext2D, def: MachineDef, x: numb
       ctx.fill();
       break;
     }
+    case 'accumulator': {
+      // Three cells set into the deck, empty: the live pass fills them to
+      // the charge held, so the baked body never changes with it.
+      ctx.fillStyle = shift(def.color, -46);
+      ctx.beginPath();
+      ctx.roundRect(x - TILE * 0.4, y + TILE * (TOP + 0.04), TILE * 0.8, TILE * (LIP - TOP - 0.08), 3);
+      ctx.fill();
+      ctx.fillStyle = shift(def.color, -66);
+      for (let i = 0; i < CELLS; i++) {
+        const c = cellRect(x, y, i);
+        ctx.fillRect(c.x, c.y, c.w, c.h);
+      }
+      // Terminal caps along the back edge.
+      ctx.fillStyle = shift(def.color, 26);
+      for (let i = 0; i < CELLS; i++) {
+        const c = cellRect(x, y, i);
+        ctx.fillRect(c.x + c.w * 0.3, c.y - 3, c.w * 0.4, 3);
+      }
+      break;
+    }
     case 'fishTrap': {
       // A square of open water let into the deck, for the float to sit on.
       ctx.fillStyle = shift(accent, -70);
@@ -828,6 +848,17 @@ function drawMachineDeck(ctx: CanvasRenderingContext2D, def: MachineDef, x: numb
       break;
     }
   }
+}
+
+const CELLS = 3;
+
+/** One of an accumulator's cells, in world units, left to right. */
+function cellRect(x: number, y: number, i: number): { x: number; y: number; w: number; h: number } {
+  const w = TILE * 0.2;
+  const gap = TILE * 0.045;
+  const left = x - (CELLS * w + (CELLS - 1) * gap) / 2;
+  const top = y + TILE * (TOP + 0.11);
+  return { x: left + i * (w + gap), y: top, w, h: TILE * (LIP - TOP - 0.2) };
 }
 
 /** The moving parts: only what changes frame to frame is drawn every frame. */
@@ -1059,6 +1090,21 @@ function drawMachineLive(
         ctx.stroke();
       }
       ctx.restore();
+      break;
+    }
+    case 'accumulator': {
+      // Cells fill left to right, each from the bottom, so the charge
+      // reads at a glance from across the base.
+      const held = Math.min(1, (machine.charge ?? 0) / def.stores!.capacity);
+      const lit = held * CELLS;
+      ctx.fillStyle = held > 0.15 ? accent : UI.gold;
+      for (let i = 0; i < CELLS; i++) {
+        const share = Math.max(0, Math.min(1, lit - i));
+        if (share <= 0) continue;
+        const c = cellRect(x, y, i);
+        const h = Math.max(1, Math.round(c.h * share));
+        ctx.fillRect(c.x, c.y + c.h - h, c.w, h);
+      }
       break;
     }
     case 'fishTrap': {

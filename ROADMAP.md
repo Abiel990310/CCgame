@@ -102,6 +102,8 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Co-op signalling | The game's own Supabase project (Realtime Broadcast) first, the public PeerJS broker second; either can also relay the game when no direct channel opens | 2026-09-26: joins failed on Abiel's Mac with the host never answering through the public broker, which nobody here can fix or see into. The host now listens on both, and a guest tries its own project first. |
 | Pixel look | The scene is drawn at one canvas pixel per world unit and the browser scales it up by a whole number of device pixels (`image-rendering: pixelated`); zoom steps are those whole numbers. `?look=smooth` or Esc > Graphics gives the old full-resolution look | 2026-09-26, the "one art style" gap against Cinderhollow: the player sprite, the vector trees and the belts now share one pixel grid, so the whole scene reads as pixel art, and there are far fewer pixels to fill. |
 | Colour grade | Three DOM layers the compositor blends over the stage (grey at `saturation`, a tint at `soft-light`, a vignette), in `src/render/grade.ts`; only the vignette without a graphics card | 2026-09-26, from comparing with Cinderhollow: every screen shared one flat palette, so noon, dusk and a raid looked alike. Grading the frame gives the day a mood without repainting any art, and costs the same under Canvas and Pixi. In software each blended layer cost about 10 fps at night, so a browser drawing WebGL on the CPU gets the vignette alone; `?grade=full` or `?grade=lite` overrides the guess. |
+| Belt tiers | A `BELTS` table of speed and cost per tier; a `Belt` carries only an optional `tier`, and the belt system reads its speed off the belt it moves | Answers the open question: yes. Same shape as machine tiers (one row each, upgrade in place by laying the next tier over it), so a fourth tier is a row. Items move first and change belts afterwards, carrying the distance they overshot a tile edge, or a Mk3 line crawled at tile-per-tick speed and a line's speed depended on the order its belts were laid. The tier is packed into the facing slot of the save row (facing + 4 per tier above the first), so old rows are Mk1 with no migration. |
+| Long-haul transport | A pair of ports bound by id (`Machine.link`), items in flight stored on the sender (`transit`), delay = 1 s + distance / 10 tiles per second, 6 items a second, 96 in flight | One palette item, like the underground belt: the second placed becomes the receiving end and links to the newest unpaired sender, so pairing is a `machine` Command and co-op needs nothing new. Both halves of the trip live on the sender so the pair stays in step whatever the tick order. The capacity is what back-pressures a blocked receiver, and what bounds the longest haul that keeps up with the rate. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -162,7 +164,7 @@ world a levelling curve at last.
   the same share. The **Electricity** tech (research + logic packs, after
   Metallurgy) unlocks it and sits under Resonance.
 - Steel and resin: recipes six or more steps from raw ore.
-- Belt tiers or not (see open questions).
+- Belt tiers: built 2026-10-01 as Mk2 and Mk3 belts.
 - Production statistics, so a player can find their own bottleneck. This is a
   core factory-game affordance, not a nicety. **Done 2026-09-25:** the
   Production tab beside the map (L).
@@ -211,8 +213,8 @@ Unresolved, and worth a deliberate answer rather than a default.
   log above. Revisit only if play shows the numbers are wrong.
 - ~~**How is the tech tree gated?**~~ Answered: by producing research packs and
   belting them into labs, in the decision log above.
-- **Do belts get tiers** (faster belts), or does throughput scale only by adding
-  parallel lines?
+- ~~**Do belts get tiers** (faster belts), or does throughput scale only by adding
+  parallel lines?~~ Answered: yes, Mk2 and Mk3 (2026-10-01), unlocked by research.
 - **How early do blueprints arrive?** They remove enormous tedium, but also
   remove the learning that early tedium teaches.
 - ~~**How are private world invite lists managed**~~ Answered: accounts and a
@@ -459,7 +461,10 @@ detail behind the factory entries is in
       from before keep their 96 tiles. Exploration fog and an island map (M,
       or the Map button) show what you have seen.
 - [ ] A rich ore vein guarded by a nest, as a landmark kind of its own.
-- [ ] Map pins: let the player mark a spot on the island map.
+- [x] Map pins: let the player mark a spot on the island map. *The pin tool
+      on the map (M) drops a coloured pin where you click and lifts one you
+      click; up to 24 per island, shared in co-op, saved with the island and
+      shown on the corner map too.*
 - [ ] A big content pass across every system (recipes, machines, techs, goals,
       mobs, camp) aimed at tens to hundreds of hours of play over the next
       weeks. *Hold lifted 2026-09-24; planned across the week to 2026-10-01:
@@ -527,14 +532,27 @@ detail behind the factory entries is in
       Every Mk3 miner, furnace and assembler has two module slots, fitted by
       hand (shift-click from the bag); an output module on a miner brings up
       ore the patch does not lose. Speed and power floor at 20%.*
-- [ ] **Belt tiers Mk2 and Mk3** (3.2 and 6.4 tiles/s), pending the open
-      question on whether belts get tiers at all.
+- [x] **Belt tiers Mk2 and Mk3** (3.2 and 6.4 tiles/s). *Built 2026-10-01:
+      belts are a table (`BELTS`) with a speed and a cost per tier, and each
+      belt moves at its own tier's speed. Mk2 (iron plate, gear) opens with
+      Belt Logistics and Mk3 (steel plate, gear, circuit) with Resonance; laid
+      over a lower belt, or dragged along a whole line, it upgrades in place
+      keeping facing and cargo and refunds the old belt, as machine tiers do.
+      Rails and chevrons are copper-red for Mk2 and blue with a cyan chevron
+      for Mk3. The tier rides in the belt's save row, so old belts load as Mk1.*
 - [x] **Underground belts** — a placed pair passing items beneath up to 6
       tiles. What makes a large factory readable. One crafted item (Belt
       Logistics); the second placed facing the same way becomes the exit.
-- [ ] **Long-haul transport** — a bound pair of ports, items entering one
+- [x] **Long-haul transport** — a bound pair of ports, items entering one
       arriving at the other after a delay. Matches the tier-6 drone decision
-      and costs a fraction of rails.
+      and costs a fraction of rails. *Built 2026-10-01: a crafted Haul Port
+      (Long-Haul Logistics tech, after Robotic Arms and Electricity); the
+      second one placed anywhere on the island becomes the receiving end and
+      binds to the first. The sender takes 6 items a second and each arrives
+      1 s plus a tenth of a second per tile later; the pipe holds 96, so a
+      blocked receiver backs the belt up rather than losing anything.
+      Taking either port up turns the other into a waiting sender and hands
+      back whatever was in flight.*
 - [x] **Belt-fed turrets** — ammo becomes a production line and the factory
       starts defending itself. The cleanest way to make the two halves of the
       game touch. *Built: a Gun Turret (workbench, after Fortification) fires
@@ -581,8 +599,11 @@ detail behind the factory entries is in
 - [x] **Mob voices** — each of the nine creatures dies to its own sound: a
       slime pops, crawlers click, a wisp rises away, a brute thuds, a spitter
       gurgles, a shellback cracks, the Warden crumbles and the Queen shrieks.
-- [ ] Mob voices for attacks and hurt, not only deaths, so a brute winding up
+- [x] Mob voices for attacks and hurt, not only deaths, so a brute winding up
       behind you is audible before it lands.
+      *(2026-10-01: all ten creatures have a bite voice, played as they rear
+      back so it is the warning, and a hurt voice, skipped on the blow that
+      kills so the death sound stands alone. Rows in `src/audio/sounds.ts`.)*
 - [x] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
       themselves. Movement is the verb the player does most and it is silent.
       Done: sand hisses, grass swishes, forest adds a twig crackle, rock taps.
@@ -592,8 +613,10 @@ detail behind the factory entries is in
       while the pause or inventory screen is up, so the interface sits in front
       of the island rather than inside it. Done for pause, level-up, bag and map;
       music and interface clicks stay clear.
-- [ ] **A sound for a finished research cycle**, and a different one for a
+- [x] **A sound for a finished research cycle**, and a different one for a
       finished tech. A lab is the one machine whose output is invisible.
+      *A quiet two-note blip per cycle (throttled, so a lab bank is a patter
+      not a roar) and a rising four-note chord when a tech completes.*
 - [x] **Bag upgrades** — three bags at the workbench, sewn on in order, each a
       row of 8 more slots: a Woven Satchel (fibre and wood, 32), an Iron-Frame
       Pack (iron plate, 40) and a Steel Rucksack (steel and gears, 48). Sewn on
@@ -616,8 +639,20 @@ detail behind the factory entries is in
 
 ### Changes
 
-- [ ] Recipe cards in the machine screen show the machine's base craft time,
-      ignoring research and modules; show the real time a craft takes there.
+- [ ] Belt and haul costs are a first guess (Mk2: iron plate and gear a tile;
+      Mk3: steel plate, gear and circuit; Haul Port: 8 steel, 6 circuits,
+      2 motors); play a full line and tune them.
+- [x] Recipe cards in the machine screen show the real craft time, with
+      research, a burning beacon and modules applied (the base time is the
+      tooltip), and the machine's hover card shows its rate in items per
+      minute beside the island's rate from the production ledger. Short
+      crafts are quoted in whole ticks, since the sim drops the spill-over
+      (2026-10-01).
+- [ ] The hover card's rate covers miners, furnaces and assemblers only; labs
+      (research cycles per minute) and fish traps show none.
+- [ ] The ledger counts per item across the island, so the card can only put
+      a machine's pace beside the island's total. A per-machine ledger would
+      show which machine on a line is under-delivering.
 - [x] **Nights keep getting harder.** A scripted player showed nights 6 to 9
       costing less health than night 5, and night 20 barely scratched: the
       wave budget grew in a straight line while player power compounds. The
@@ -771,9 +806,18 @@ detail behind the factory entries is in
 - [ ] A busy factory still rewrites every belt and machine each save, because
       one belt item moving makes the whole section's text differ. Fine at a few
       hundred belts; if the section gets big, split it per chunk of the map.
-- [ ] Scale `waveBudget` off the highest research tier completed rather than
+- [x] Scale `waveBudget` off the highest research tier completed rather than
       the night index alone. Researching is a choice, so difficulty stays
       opt-in and building freely never punishes you.
+      *(2026-10-01: a tech's tier is the highest pack it eats (research 1,
+      logic 2, power and engineering 3, resonance 4); each tier an island has
+      finished adds 7% to the night's budget, `WAVES.budgetPerResearchTier`.
+      Nothing built counts, so an island that never opens a lab sees the
+      nights it saw before.)*
+- [ ] Say in the tech tree that raids grow with the highest tier researched,
+      so the opt-in is an informed one.
+- [ ] Needs testing: whether 7% a tier (up to 28% at tier 4) makes the late
+      nights too hard for a research-rich island. Lower the constant first.
 - [ ] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
       for belt tiers, and it touches the save format.
 - [x] An inserter will not take from or give to another inserter, so items
@@ -945,6 +989,16 @@ detail behind the factory entries is in
       Checked in passing, nothing else to fix: a 2.5-minute soak of gliding
       and raids keeps a flat heap on both renderers, and the simulation
       runs 6,400 machines and 13,000 belts in under 1 ms a tick.
+- [x] Every cached sprite on the Canvas renderer (belt items, machine parts,
+      pixel pieces, item icons) was drawn by stepping out to the identity
+      transform, drawing, and stepping back, three transform calls a sprite
+      and thousands of sprites a frame. They are now drawn in place, sized
+      back through the scale the context already holds, so each texel still
+      lands on one device pixel. Canvas desktop: late factory 5.7 → 5.2 ms,
+      night raid over it 7.4 → 5.8 ms; emulated phone: factory 25 → 21 ms,
+      dying raid 34 → 21 ms. The world is pixel-identical to before at 1x
+      and 2x (the GPU renderer's frame differs from main by exactly the
+      run-to-run noise between two runs of main).
 - [ ] On the GPU renderer, the first seconds after a big factory comes into
       view were ~100 ms frames headless, nearly all in vertex buffer uploads
       (`bufferSubData`) inside software WebGL; steady state is ~5 ms. Needs a
@@ -1085,8 +1139,14 @@ detail behind the factory entries is in
       hard throw for anyone still inside, a dash through it dodges. An
       enraged Swarm Queen calls six at a time instead of three. Both are
       rows in `shared/data/mobs.ts` (`quake`, `rageCount`).)*
-- [ ] The Crystal Bulwark has no second-phase move yet; its ward could
+- [x] The Crystal Bulwark has no second-phase move yet; its ward could
       pulse outward and shove players back once it is enraged.
+      *(2026-10-01: an enraged Bulwark's crystal blazes and a cold ring marks
+      its reach for a second, all the while it plods on at a crawl, then the
+      ward bursts: 10 damage and a hard shove to anyone inside, a dash through
+      it dodges. A `pulse` row in `shared/data/mobs.ts`.)*
+- [ ] The Bulwark's pulse could also drop its ward for a beat, so getting
+      shoved out is paid back by a window to hit the creatures it covers.
 - [x] The Stone Warden reads pale and washed out below a third of its
       health, where its cracks and core glow are brightest.
       *(2026-09-27: the core's light was an additive wash as wide as the
@@ -1115,8 +1175,26 @@ detail behind the factory entries is in
 
 ### Ideas
 
-- [ ] Cook at the campfire by hand, so grilled fish does not wait for a
-      furnace, and more meals (berry pie, stew) that heal over time or buff.
+- [ ] A Mk3 belt moves at 6.4 tiles a second but a full lane delivers about 15
+      items a second, not 25: machines and belts put an item on at offset 0
+      once a tick, so spacing rounds up to whole ticks. Placing it at the
+      offset it would have reached between ticks would close the gap.
+- [ ] A second haul tier: Haul Port Mk2 with a higher item rate, or a power
+      draw that buys one. One pair moves 6 items a second today, so a big
+      line wants several pairs side by side.
+- [ ] Draw every linked haul pair's dashed line in build mode, not only the
+      one a new port would close, so a base's long-haul network can be read.
+- [ ] A Haul Port could be paired by hand (click a sender, then a receiver)
+      for rebinding, instead of only by placing in order.
+- [ ] Belt tiers on the build bar: a Mk2 and Mk3 belt could join the default
+      hotbar once researched, rather than being found in the palette.
+- [x] Cook at the campfire by hand, so grilled fish does not wait for a
+      furnace. *Stand by the campfire with fish in the bag and press G (or
+      tap the Cook prompt); the whole stack is grilled at once.*
+- [ ] More meals at the campfire (berry pie, stew) that heal over time or buff.
+- [ ] Map pins: a name for each pin, and a list of them to jump the map to.
+- [ ] Map pins: drop one from the corner map or with a key, without opening
+      the full map first.
 - [ ] Eating is instant; a short eat time or cooldown would stop a stack of
       grilled fish trivialising a boss fight if it turns out to.
 - [ ] Underground belts carry items across instantly; a transit delay equal to
@@ -1130,7 +1208,11 @@ detail behind the factory entries is in
 - [x] Splitters and mergers draw no status light, so one jammed on a full line
       looks the same as one working. A small light on a stalled one would help.
       Done: a jammed one blinks red like any blocked machine; working, no light.
-- [ ] Power: an accumulator that stores daytime solar surplus for the night.
+- [x] Power: an accumulator that stores daytime solar surplus for the night.
+      Done: unlocked by Solar Power; banks 9,000 kJ and moves 300 kW in or out.
+      Panels carry the load first, the bank covers the rest, and only what is
+      left burns coal. Only a solar surplus charges it, never an engine. Its
+      hover card shows charge, flow and how long the bank lasts.
 - [ ] Power: a production-stats panel per network (supply, demand, coal per
       minute over time).
 - [ ] A fourth pack tier whose ingredients need three lines into one
@@ -1337,6 +1419,11 @@ detail behind the factory entries is in
 
 - [ ] Footsteps on factory floor: a hollow metal clank when crossing belts and
       machines, and a splash when wading the shallows, so the base sounds built.
+- [ ] A second accumulator tier, or a research that raises bank capacity, so
+      a late factory's night does not need a field of the first one.
+- [ ] Power: a bank's charge on the Production tab, next to supply and demand.
+- [ ] Engines could top a bank up from spare capacity when coal is plentiful,
+      as a switch on the accumulator, for bases with no solar field.
 - [ ] Step volume and rate from the stride length, so a sprint or dash lands
       harder than a stroll instead of only coming faster.
 

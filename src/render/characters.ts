@@ -739,6 +739,7 @@ export function drawMob(ctx: CanvasRenderingContext2D, mob: Mob, time: number): 
   if (mob.enraged) drawRage(ctx, mob, time);
   const quaking = (mob.quake ?? 0) > 0 && def.quake !== undefined;
   if (quaking) drawQuakeWarning(ctx, mob, time);
+  if ((mob.pulse ?? 0) > 0 && def.pulse) drawPulseWarning(ctx, mob, time);
   setFlash(mob.hitFlash > 0 ? 1 : 0);
   ctx.save();
   // Pixel creatures have their own rearing and flash frames; stretching a
@@ -888,6 +889,33 @@ function drawQuakeWarning(ctx: CanvasRenderingContext2D, mob: Mob, time: number)
   ctx.lineDashOffset = -time * 40;
   ctx.beginPath();
   ctx.ellipse(mob.pos.x, feet, q.radius, q.radius * 0.55, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * The Bulwark's charging ward: a cold ring marked at the pulse's full reach
+ * and a pale disc swelling inside it, so how far back the shove will carry
+ * is seen before it comes. Cyan, so it never reads as the warden's red.
+ */
+function drawPulseWarning(ctx: CanvasRenderingContext2D, mob: Mob, time: number): void {
+  const def = MOBS[mob.type];
+  const p = def.pulse!;
+  const k = 1 - (mob.pulse ?? 0) / p.windup;
+  const feet = mob.pos.y + def.radius * 0.6;
+  const blink = 0.7 + 0.3 * Math.sin(time * (8 + 18 * k));
+  ctx.save();
+  ctx.fillStyle = `rgba(120, 220, 255, ${0.08 + 0.2 * k})`;
+  ctx.beginPath();
+  ctx.ellipse(mob.pos.x, feet, p.radius * k, p.radius * k * 0.55, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = blink;
+  ctx.strokeStyle = '#9ceaff';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([4, 9]);
+  ctx.lineDashOffset = time * 36;
+  ctx.beginPath();
+  ctx.ellipse(mob.pos.x, feet, p.radius, p.radius * 0.55, 0, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 }

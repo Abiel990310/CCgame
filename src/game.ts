@@ -52,9 +52,10 @@ import { Minimap } from './ui/minimap';
 import { WorldMap, type MapTab } from './ui/worldmap';
 import { Ledger, loadLedger, saveLedger } from './ledger';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
-import { addItem } from '@shared/sim/inventory';
+import { addItem, countItem } from '@shared/sim/inventory';
 import { craftError, nearWorkbench } from '@shared/sim/crafting';
-import { pickFood } from '@shared/sim/food';
+import { nearCampfire, pickFood } from '@shared/sim/food';
+import { MAX_PINS } from '@shared/sim/pins';
 import type {
   Belt,
   BeltId,
@@ -204,7 +205,11 @@ export class Game {
     if (graphics) this.graphics = new GraphicsPanel(graphics, this.renderer);
     this.perf = new PerfMeter(this.renderer);
     const ui = document.getElementById('ui') ?? document.body;
-    this.inspector = new Inspector(ui, () => this.toggleCrafting());
+    this.inspector = new Inspector(
+      ui,
+      () => this.toggleCrafting(),
+      () => this.cook(),
+    );
     this.workbench = new WorkbenchScreen(ui, {
       onCraft: (id) => this.craftItem(id),
       onClose: () => this.closeCrafting(),
@@ -242,7 +247,20 @@ export class Game {
     });
 
     this.goals = new GoalTracker(document.getElementById('ui')!);
-    this.worldMap = new WorldMap(document.getElementById('ui')!, () => this.worldMap.setOpen(false));
+    this.worldMap = new WorldMap(document.getElementById('ui')!, () => this.worldMap.setOpen(false), {
+      place: (x, y, hue) => {
+        if (this.act({ k: 'pin', x, y, hue })) {
+          audio.play('placed');
+          this.requestSave();
+        } else {
+          audio.play('denied');
+          this.hud.toast(this.world.pins.length >= MAX_PINS ? 'The map is full of pins' : 'Too close to another pin', 'warn');
+        }
+      },
+      lift: (id) => {
+        if (this.act({ k: 'unpin', id })) this.requestSave();
+      },
+    });
     this.minimap = new Minimap(document.getElementById('corner-right')!, this.worldMap, () => this.toggleMap());
     this.story = new StoryCards(document.getElementById('ui')!);
     document.getElementById('btn-map')!.addEventListener('click', () => this.toggleMap());
@@ -703,6 +721,24 @@ export class Game {
     if (this.act({ k: 'eat' })) this.requestSave();
   }
 
+  /** Grill the fish in the bag at the campfire, or say what is missing. */
+  private cook(): void {
+    const player = this.self;
+    if (player.downed > 0) return;
+    const fish = countItem(player, 'fish');
+    if (!nearCampfire(this.world, player)) {
+      audio.play('denied');
+      this.hud.toast('Walk up to the campfire to cook', 'warn');
+    } else if (fish <= 0) {
+      audio.play('denied');
+      this.hud.toast('No fish to cook. Fish at a shore', 'warn');
+    } else if (this.act({ k: 'cook' })) {
+      this.flush();
+      this.hud.toast(`Grilled ${fish} fish`, 'good');
+      this.requestSave();
+    }
+  }
+
   private craftItem(id: string): void {
     const error = craftError(this.world, this.self, id);
     const recipe = CRAFT_BY_ID.get(id);
@@ -863,6 +899,7 @@ export class Game {
       if (action === 'upgrade' && !blocked) this.hud.openDraft();
       if (action === 'swapSpell') this.swapSpell();
       if (action === 'eat' && !this.hud.isPauseOpen) this.eat();
+      if (action === 'cook' && !blocked) this.cook();
       if (action === 'cancel' && this.intro) {
         this.endIntro();
         continue;
@@ -1291,6 +1328,7 @@ export class Game {
       hovering: this.input.hovering,
       busy: paused || this.hud.isBuildMode || this.hud.isInventoryOpen || this.workbench.isOpen,
       touch: COARSE.matches,
+      ledger: this.ledger,
     });
   }
 
@@ -1529,6 +1567,8 @@ export class Game {
         if (self) this.hitstop = Math.max(this.hitstop, 0.07);
       } else if (event.kind === 'quake') {
         if (event.hits > 0) this.hitstop = Math.max(this.hitstop, 0.12);
+      } else if (event.kind === 'pulse') {
+        if (event.hits > 0) this.hitstop = Math.max(this.hitstop, 0.1);
       } else if (event.kind === 'bossRage') {
         // The longest hold there is: the fight has turned.
         this.hitstop = Math.max(this.hitstop, 0.22);

@@ -8,16 +8,20 @@ import { beltAt, haulPartner, machineAt, tunnelEntranceOf, tunnelExitOf } from '
 import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
-import { powerNetOf } from '@shared/sim/power';
+import { bankOf, powerNetOf } from '@shared/sim/power';
 import { powerDraw } from '@shared/sim/modules';
+import { machineRates } from '@shared/sim/rates';
 import { BEACON_BOOST, BEACON_FUEL_CAP, BEACON_STAGES, BEACON_WARD_TILES } from '@shared/data/beacon';
 import { beaconStage } from '@shared/sim/beacon';
 import { countIn } from '@shared/sim/slots';
 import { nearWorkbench } from '@shared/sim/crafting';
+import { nearCampfire } from '@shared/sim/food';
+import { countItem } from '@shared/sim/inventory';
 import { findNearestNode } from '@shared/sim/systems/gathering';
 import { turretWrecked } from '@shared/sim/systems/turret';
 import type { Machine, OreKind, Player, ToolKind, Vec2, World } from '@shared/sim/types';
 import type { Camera } from '../render/camera';
+import type { Ledger } from '../ledger';
 import { isBlocked, outOfFuel } from '../render/factory';
 import { itemIconVar } from '../render/items';
 import { pieceIconVar } from '../render/pieces';
@@ -70,6 +74,8 @@ export interface InspectContext {
   /** A screen or build mode is up; the world is not what is being looked at. */
   busy: boolean;
   touch: boolean;
+  /** What the island has been making, which a machine's own pace is read against. */
+  ledger: Ledger;
 }
 
 export class Inspector {
@@ -79,9 +85,10 @@ export class Inspector {
   private bench = document.createElement('button');
   private cardKey = '';
   private promptKey = '';
+  private fire = document.createElement('div');
   private patch: Patch | null = null;
 
-  constructor(root: HTMLElement, onBench: () => void) {
+  constructor(root: HTMLElement, onBench: () => void, onCook: () => void) {
     this.card.id = 'tip';
     this.card.hidden = true;
     this.prompt.id = 'prompt';
@@ -90,13 +97,32 @@ export class Inspector {
     this.bench.hidden = true;
     // Tappable, since a phone has no C key to open the bench with.
     this.bench.addEventListener('click', onBench);
-    root.append(this.card, this.prompt, this.bench);
+    this.fire.className = 'bench-prompt';
+    this.fire.hidden = true;
+    this.fire.addEventListener('click', onCook);
+    root.append(this.card, this.prompt, this.bench, this.fire);
   }
 
   update(c: InspectContext): void {
     this.updatePrompt(c);
     this.updateBench(c);
+    this.updateFire(c);
     this.updateCard(c);
+  }
+
+  /** Raw fish in the bag and the campfire close by: offer to grill them. */
+  private updateFire(c: InspectContext): void {
+    const fish = countItem(c.self, 'fish');
+    const fire = c.busy || c.self.downed > 0 || fish <= 0 ? null : nearCampfire(c.world, c.self);
+    if (!fire) {
+      this.fire.hidden = true;
+      return;
+    }
+    const html = `${c.touch ? '' : '<b class="cap">G</b>'}<span>Cook ${fish} fish</span>`;
+    if (this.fire.innerHTML !== html) this.fire.innerHTML = html;
+    const at = c.camera.worldToScreen(fire.pos.x, fire.pos.y - 34);
+    this.fire.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px) translate(-50%, -100%)`;
+    this.fire.hidden = false;
   }
 
   private updateBench(c: InspectContext): void {
@@ -138,7 +164,7 @@ export class Inspector {
       return;
     }
     const world = c.camera.screenToWorld(c.pointer.x, c.pointer.y);
-    const card = this.describe(c.world, world);
+    const card = this.describe(c.world, world, c.ledger);
     if (!card) {
       this.hideCard();
       return;
@@ -169,7 +195,7 @@ export class Inspector {
   }
 
   /** The thing under a world point, nearest the viewer first. */
-  private describe(world: World, pos: Vec2): Card | null {
+  private describe(world: World, pos: Vec2, ledger: Ledger): Card | null {
     for (const mob of world.mobs) {
       const r = MOBS[mob.type].radius + 6;
       if (Math.abs(mob.pos.x - pos.x) < r && pos.y < mob.pos.y + r * 0.6 && pos.y > mob.pos.y - r * 2.4) {
@@ -216,7 +242,7 @@ export class Inspector {
 
     const { tx, ty } = toTile(pos);
     const machine = machineAt(world, tx, ty);
-    if (machine) return describeMachine(world, machine);
+    if (machine) return describeMachine(world, machine, ledger);
 
     const belt = beltAt(world, tx, ty);
     if (belt) {
@@ -305,8 +331,9 @@ export class Inspector {
   }
 }
 
-function describeMachine(world: World, machine: Machine): Card {
+function describeMachine(world: World, machine: Machine, ledger: Ledger): Card {
   const def = MACHINES[machine.type];
+  if (def.stores) return describeAccumulator(world, machine);
   if (def.family === 'pole' || def.generates) return describePower(world, machine);
   if (def.family === 'beacon') return describeBeacon(machine);
   if (def.family === 'turret') {
@@ -336,6 +363,13 @@ function describeMachine(world: World, machine: Machine): Card {
   if (def.family === 'miner' && machine.ore) rows.push(['Mining', ITEMS[machine.ore].name]);
   else if (recipe) rows.push(['Making', recipe.name]);
   else if (def.choosesRecipe) rows.push(['Making', 'Nothing chosen']);
+  // The same unit the ledger counts in, so the card and the graph read against
+  // each other: this machine's pace, then the whole island's for that item.
+  for (const { item, perMinute } of machineRates(world, machine)) {
+    rows.push(['Rate', `${fmtRate(perMinute)}/min ${ITEMS[item].name}`]);
+    const island = ledger.rateOf(item);
+    if (island.rate > 0) rows.push(['Island', `${fmtRate(island.rate)}/min`]);
+  }
 
   let status: Card['status'];
   if (def.family === 'tunnel') {
@@ -420,6 +454,48 @@ function describeBeacon(machine: Machine): Card {
 }
 
 /**
+ * An accumulator is a charge: how much it holds, whether the network is filling
+ * it or draining it, and for a drain how long that lasts at the present load.
+ */
+function describeAccumulator(world: World, machine: Machine): Card {
+  const def = MACHINES[machine.type];
+  const net = powerNetOf(world, machine);
+  const held = machine.charge ?? 0;
+  const { capacity } = def.stores!;
+  const rows: Array<[string, string]> = [['Charge', `${Math.round(held)} / ${capacity} kJ`]];
+  let status: Card['status'];
+
+  if (!net) {
+    status = { text: 'No pole in reach', tone: 'warn' };
+  } else {
+    const bank = bankOf(net);
+    if (net.accumulators.length > 1) rows.push(['Bank', `${Math.round(bank.charge)} / ${bank.capacity} kJ`]);
+    if (net.flow > 0) {
+      status = { text: 'Charging', tone: 'good' };
+      rows.push(['Taking in', `${Math.round(net.flow)} kW`]);
+    } else if (net.flow < 0) {
+      status = { text: 'Powering the base', tone: 'warn' };
+      rows.push(['Giving out', `${Math.round(-net.flow)} kW`]);
+      rows.push(['Lasts', `about ${Math.max(1, Math.round(bank.charge / -net.flow))} s`]);
+    } else if (held >= capacity - 0.5) {
+      status = { text: 'Full', tone: 'good' };
+    } else if (held <= 0.5) {
+      status = { text: 'Empty: needs a daytime surplus', tone: 'warn' };
+    } else {
+      status = { text: 'Holding', tone: '' };
+    }
+  }
+  return {
+    title: def.name,
+    icon: pieceIconVar(`machine:${machine.type}`),
+    status,
+    rows,
+    // Low is only worth a warning when nothing is filling it back up.
+    meter: { value: held / capacity, tone: held / capacity < 0.15 && !(net && net.flow > 0) ? 'warn' : 'good' },
+  };
+}
+
+/**
  * A pole or an engine is its network: what it can give, what is asked of it,
  * and whether the one is enough for the other.
  */
@@ -435,16 +511,24 @@ function describePower(world: World, machine: Machine): Card {
       ? { text: 'No pole in reach', tone: 'warn' }
       : { text: 'No engine on this line', tone: 'warn' };
   } else {
-    const used = Math.min(net.demand, net.supply);
+    // An accumulator giving out counts as supply, or a base running on its
+    // bank at night would read as unpowered.
+    const given = Math.max(0, -net.flow);
+    const used = Math.min(net.demand, net.supply + given);
     rows.push(['Supply', `${Math.round(net.supply)} kW`], ['Demand', `${Math.round(net.demand)} kW`]);
     if (def.generates && outOfFuel(machine)) status = { text: 'Out of fuel', tone: 'bad' };
     else if (def.generates && def.fuelSlots === 0 && machine.stalled) status = { text: 'Dark until morning', tone: 'warn' };
+    else if (net.supply === 0 && given > 0) status = { text: 'Running on the accumulators', tone: 'warn' };
     else if (net.supply === 0) status = { text: 'No engine running', tone: 'bad' };
     else if (net.satisfaction < 1) status = { text: `Overloaded: ${Math.round(net.satisfaction * 100)}% speed`, tone: 'bad' };
     else if (net.demand === 0) status = { text: 'Idle', tone: 'warn' };
     else status = { text: 'Powered', tone: 'good' };
-    if (net.supply > 0) meter = { value: used / net.supply, tone: net.satisfaction < 1 ? 'bad' : 'good' };
+    if (net.supply + given > 0) meter = { value: used / (net.supply + given), tone: net.satisfaction < 1 ? 'bad' : 'good' };
     if (def.family === 'pole') rows.push(['Poles', String(net.poles.length)], ['Machines', String(net.consumers.length)]);
+    if (net.accumulators.length > 0) {
+      const bank = bankOf(net);
+      rows.push(['Banked', `${Math.round(bank.charge)} / ${bank.capacity} kJ`]);
+    }
   }
   return {
     title: def.name,
@@ -454,6 +538,10 @@ function describePower(world: World, machine: Machine): Card {
     meter,
     hint: def.fuelSlots > 0 ? 'Click to add coal' : undefined,
   };
+}
+
+function fmtRate(n: number): string {
+  return n >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10);
 }
 
 function esc(text: string): string {

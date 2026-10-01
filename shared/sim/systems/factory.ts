@@ -320,6 +320,7 @@ export function stepMachines(world: World, dt: number): void {
         break;
       case 'generator':
       case 'solar':
+      case 'accumulator':
         // `stepPower` runs generators on a network; one no pole reaches is idle.
         if (!powerNetOf(world, machine)) machine.stalled = true;
         break;
@@ -863,7 +864,13 @@ function stepLab(world: World, machine: Machine, dt: number, bonus: ResearchBonu
 
   machine.progress = 0;
   machine.recipe = null;
+  const before = world.events.length;
   finishCycle(world, tech, bonus.xp);
+  // A cycle that finished a whole tech already has its own, bigger event; a
+  // lab's output is otherwise invisible, so the rest get a quiet one here.
+  if (!world.events.slice(before).some((e) => e.kind === 'research')) {
+    world.events.push({ kind: 'researchCycle', pos: tileCenter(machine.tx, machine.ty) });
+  }
 }
 
 /**
