@@ -826,8 +826,9 @@ detail behind the factory entries is in
       a night harder.)*
 - [ ] Needs testing: whether 7% a tier (up to 28% at tier 4) makes the late
       nights too hard for a research-rich island. Lower the constant first.
-- [ ] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
-      for belt tiers, and it touches the save format.
+- [x] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
+      for belt tiers, and it touches the save format. *Done with belt tiers
+      (PR #163): a belt carries its `tier`, and its speed comes from `BELTS`.*
 - [x] An inserter will not take from or give to another inserter, so items
       cannot cross a gap without a belt tile between them. Deliberate — it is
       what stops two facing arms passing one item back and forth forever. The
