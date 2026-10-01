@@ -7,7 +7,7 @@ import { makeSlots, normalizeSlots } from './slots';
 import { normalizeModules } from './modules';
 import { inBounds, opposite, rotate, step1, stepN, tileCenter, tileKey, turnLeft } from './grid';
 import { clearFelledNodes, nodeOnTile } from './nodes';
-import { oreAt } from './ore';
+import { ORE_GRADE, oreAt } from './ore';
 import { isUnlocked } from './research';
 import { isShore, isWalkable, terrainAtIndex } from './terrain';
 import type {
@@ -27,6 +27,8 @@ export type FactoryError =
   | 'occupied'
   | 'terrain'
   | 'ore'
+  /** The ore under a miner is harder than its drill. */
+  | 'grade'
   | 'shore'
   | 'locked'
   | 'cost'
@@ -88,7 +90,11 @@ export function factoryPlacementError(
   }
 
   const def = MACHINES[what];
-  if (def.needsOre && oreAt(world.ore, tx, ty) === null) return 'ore';
+  if (def.needsOre) {
+    const ore = oreAt(world.ore, tx, ty);
+    if (ore === null) return 'ore';
+    if (def.tier < ORE_GRADE[ore]) return 'grade';
+  }
   if (def.needsShore && !isShore(world.terrain, tx, ty)) return 'shore';
   return hasAll(player, placementCost(what)) ? null : 'cost';
 }
@@ -424,6 +430,7 @@ export function setRecipe(world: World, machineId: number, recipeId: string): bo
 
   const recipe = RECIPE_BY_ID.get(recipeId);
   if (!recipe || recipe.machine !== MACHINES[machine.type].family) return false;
+  if (MACHINES[machine.type].tier < (recipe.minTier ?? 1)) return false;
 
   machine.recipe = recipeId;
   machine.progress = 0;

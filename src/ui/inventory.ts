@@ -777,6 +777,14 @@ export class InventoryScreen {
     button.innerHTML =
       `<b>${recipe.name}</b><span class="recipe-flow">${inputs}${icon('arrow')}${outputs}` +
       `<em title="${base === seconds ? 'Craft time' : `Base ${base}s`}">${seconds}s</em></span>`;
+    // A tier too low for it still lists the recipe, so the player learns what
+    // the next furnace is for rather than wondering where titanium went.
+    if (def.tier < (recipe.minTier ?? 1)) {
+      button.disabled = true;
+      button.classList.add('locked');
+      button.title = `Needs a Mk${recipe.minTier} machine`;
+      return button;
+    }
     button.addEventListener('click', () => {
       audio.play('click');
       this.callbacks.onSetRecipe(machine.id, recipe.id);

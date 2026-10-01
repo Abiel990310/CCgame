@@ -6,6 +6,13 @@ import { COAST_REACH, type IslandSite } from './regions';
 import type { Machine, OreKind, World } from './types';
 
 /** Index 0 is "no ore", so a zeroed grid means a bare island. */
+/**
+ * The least miner tier that can break a kind of ore. Titanium is the hard
+ * rock: a plain drill is refused on it, which is what makes the steel miner
+ * (and the steel furnace for the plates) the price of the far side.
+ */
+export const ORE_GRADE: Record<OreKind, number> = { ironOre: 1, copperOre: 1, coal: 1, titaniumOre: 2 };
+
 export const ORE_ORDER: Array<OreKind | null> = [null, 'ironOre', 'copperOre', 'coal', 'titaniumOre'];
 
 /** A generated field: what each tile holds, and how much of it is left. */
