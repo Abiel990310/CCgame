@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RESOURCES } from '../../data/items';
-import { MACHINES, MACHINE_ORDER, TRAP_TIME } from '../../data/machines';
+import { BELTS, MACHINES, MACHINE_ORDER, TRAP_TIME, isBeltId } from '../../data/machines';
 import { RECIPES } from '../../data/recipes';
 import { TECHS, TECH_BY_ID, UNLOCKED_BY, type TechDef } from '../../data/techs';
 import { factoryPlacementError, placeMachine } from '../factory';
@@ -69,7 +69,7 @@ describe('the unlock table', () => {
   it('names each machine once, and only machines that exist', () => {
     const named = TECHS.flatMap((t) => t.unlocks ?? []);
     expect(new Set(named).size).toBe(named.length);
-    for (const id of named) expect(MACHINES[id], id).toBeDefined();
+    for (const id of named) expect(isBeltId(id) ? BELTS[id] : MACHINES[id], id).toBeDefined();
   });
 
   it('opens each gated machine once its tech is done', () => {

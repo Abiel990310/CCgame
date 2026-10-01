@@ -351,6 +351,18 @@ describe('research in a save', () => {
     expect(research.queue).toEqual(['fireboxDesign', 'toolmaking']);
   });
 
+  it('keeps a repeatable tech planned for several levels', () => {
+    const world = island();
+    for (const id of ['automation', 'prospecting', 'metallurgy', 'labAutomation']) world.research.levels[id] = 1;
+    world.research.current = 'miningProductivity';
+    world.research.queue = ['miningProductivity', 'toolmaking', 'miningProductivity'];
+    saveWorld(world, SLOT);
+
+    const research = loadWorld(SLOT)!.research;
+    expect(research.current).toBe('miningProductivity');
+    expect(research.queue).toEqual(['miningProductivity', 'toolmaking', 'miningProductivity']);
+  });
+
   it('cuts a queue back to what the labs can reach in that order', () => {
     saveWorld(island(), SLOT);
     const header = JSON.parse(store.get(slotKey(SLOT))!);
@@ -542,5 +554,41 @@ describe('the goal a player is on', () => {
     saveWorld(onGoal('electricity'), SLOT);
     rewriteGoal('no-such-goal');
     expect(loadedGoal()).toBe('wood');
+  });
+});
+
+describe('map pins in a save', () => {
+  it('come back with the island', () => {
+    const world = island();
+    world.pins.push({ id: world.nextId++, x: 321, y: 654, hue: 4 });
+    saveWorld(world, SLOT);
+    expect(loadWorld(SLOT)?.pins).toEqual(world.pins);
+  });
+
+  it('are none on an island saved before they existed', () => {
+    saveWorld(island(), SLOT);
+    const header = JSON.parse(store.get(slotKey(SLOT))!);
+    delete header.pins;
+    store.set(slotKey(SLOT), JSON.stringify(header));
+    expect(loadWorld(SLOT)?.pins).toEqual([]);
+  });
+});
+
+describe('an island with carry research', () => {
+  it('grows an old 24-slot bag to the rows research gave, keeping its stacks', () => {
+    const world = island();
+    const player = [...world.players.values()][0];
+    player.inventory[2] = { id: 'wood', count: 4 };
+    world.research.levels.packFrames = 1;
+    world.research.levels.toolmaking = 1;
+    world.research.levels.automation = 1;
+    // What an island saved before the tech existed holds.
+    player.inventory.length = 24;
+    saveWorld(world, SLOT);
+
+    const back = loadWorld(SLOT);
+    const loaded = [...(back?.players.values() ?? [])][0];
+    expect(loaded.inventory).toHaveLength(32);
+    expect(loaded.inventory[2]).toEqual({ id: 'wood', count: 4 });
   });
 });

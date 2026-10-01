@@ -1,12 +1,13 @@
 import { WORLDGEN, createWorld } from '@shared/sim/world';
 import { ITEMS } from '@shared/data/items';
-import { MACHINES } from '@shared/data/machines';
+import { HAUL, MACHINES } from '@shared/data/machines';
+import { repairHaulLinks } from '@shared/sim/factory';
 import { TECH_BY_ID } from '@shared/data/techs';
 import { backfillPrerequisites, newResearch, pruneResearchQueue } from '@shared/sim/research';
 import { goalMarker, restoreGoal } from '@shared/sim/goals';
 import { occupy } from '@shared/sim/grid';
 import { clearBuriedNodes } from '@shared/sim/nodes';
-import { bagSlots } from '@shared/sim/inventory';
+import { carrySlots } from '@shared/sim/inventory';
 import { BAG_MAX } from '@shared/data/items';
 import { asStack, normalizeSlots } from '@shared/sim/slots';
 import { normalizeModules } from '@shared/sim/modules';
@@ -25,6 +26,7 @@ import type {
 } from '@shared/sim/types';
 import { EXPLORED_SUFFIX, FACTORY_SUFFIX, ORE_SUFFIX, SCENERY_SUFFIX, SLOT_SUFFIXES, slotKey } from './saves';
 import { packExplored, reveal, unpackExplored } from '@shared/sim/explore';
+import { sanitizePins } from '@shared/sim/pins';
 
 const VERSION = 7;
 
@@ -70,6 +72,8 @@ interface SaveFile {
    * 7 it also says whether the island predates the gated palette.
    */
   research?: World['research'];
+  /** Map pins. Absent on an island saved before they existed, which has none. */
+  pins?: World['pins'];
   /** Version 3 and older only. */
   nodes?: ResourceNode[];
   buildings?: Building[];
@@ -133,6 +137,10 @@ type PackedMachine = [
    */
   PackedSlot[]?,
   number?,
+  /** A long-haul port's partner. Absent on a sender still waiting for one. */
+  number?,
+  /** A long-haul sender's parcels in flight, as item and seconds left pairs. */
+  (ItemId | number)[]?,
 ];
 
 interface FactorySection {
@@ -180,6 +188,7 @@ export function saveWorld(world: World, slot: string): boolean {
     players: [...world.players.values()].map((p) => ({ ...p, goal: goalMarker(p) })),
     peaceful: world.peaceful,
     research: world.research,
+    pins: world.pins,
   };
 
   // Sections go down before the header. Neither order is atomic, but this one
@@ -240,6 +249,7 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
     world.nextId = file.nextId;
     world.rngState = file.rngState;
     world.research = loadResearch(file.research, file.version);
+    world.pins = sanitizePins(file.pins, file.nextId);
 
     const scenery = readSection<ScenerySection>(slot, SCENERY_SUFFIX);
     // An older island carried its scenery in the header; a version 4 one has
@@ -248,12 +258,13 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
     world.buildings = file.buildings ?? scenery?.buildings ?? world.buildings;
 
     const factory = readSection<FactorySection>(slot, FACTORY_SUFFIX);
-    world.belts = file.belts ?? (factory?.belts ?? []).map(unpackBelt);
+    world.belts = (file.belts ?? (factory?.belts ?? []).map(unpackBelt)).map(loadBelt);
     // A machine whose type no longer exists is dropped rather than taken as a
     // reason to refuse the whole island.
     world.machines = (file.machines ?? (factory?.machines ?? []).map(unpackMachine))
       .filter((m) => m.type in MACHINES)
       .map(loadMachine);
+    repairHaulLinks(world);
 
     const mined = readSection<OreSection>(slot, ORE_SUFFIX);
     if (sameGround) applyMinedTiles(world, mined);
@@ -285,7 +296,7 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
       // A bag count that is not a whole number in range reads as none sewn on.
       const bag = player.bag;
       if (typeof bag !== 'number' || !Number.isInteger(bag) || bag < 0 || bag > BAG_MAX) player.bag = 0;
-      player.inventory = normalizeSlots(player.inventory, bagSlots(player));
+      player.inventory = normalizeSlots(player.inventory, carrySlots(world, player));
       player.cursor = asStack(player.cursor);
       // A goal is saved as its id, or on an older island as its place in the
       // chain as it was then; missing, it is the first goal not yet met.
@@ -434,12 +445,25 @@ function applyScenery(nodes: ResourceNode[], section: ScenerySection | null): Re
 
 // --- Factory -----------------------------------------------------------------
 
+/**
+ * A belt's tier rides in its facing slot: the facing is 0 to 3 and each tier
+ * above the first adds 4. A row packed before tiers has a plain facing, so it
+ * reads as a Mk1 with nothing to migrate, and the items after it keep their
+ * place in the row.
+ */
 function packBelt(belt: Belt): PackedBelt {
-  const packed: PackedBelt = [belt.id, belt.tx, belt.ty, belt.dir];
+  const packed: PackedBelt = [belt.id, belt.tx, belt.ty, belt.dir + 4 * ((belt.tier ?? 1) - 1)];
   // Offsets are a position along one tile, so three decimals is finer than any
   // pixel the renderer can draw them at, and a good deal shorter than a float.
   for (const item of belt.items) packed.push(item.item, round(item.offset, 3));
   return packed;
+}
+
+/** Only a tier this build has survives a load; anything else is a plain belt. */
+function loadBelt(belt: Belt): Belt {
+  if (belt.tier === 2 || belt.tier === 3) return belt;
+  const { tier: _unknown, ...plain } = belt;
+  return plain;
 }
 
 function unpackBelt(packed: PackedBelt): Belt {
@@ -447,9 +471,11 @@ function unpackBelt(packed: PackedBelt): Belt {
     id: packed[0] as number,
     tx: packed[1] as number,
     ty: packed[2] as number,
-    dir: packed[3] as Direction,
+    dir: ((packed[3] as number) % 4) as Direction,
     items: [],
   };
+  const tier = Math.floor((packed[3] as number) / 4) + 1;
+  if (tier === 2 || tier === 3) belt.tier = tier;
   for (let i = 4; i + 1 < packed.length; i += 2) {
     belt.items.push({ item: packed[i] as ItemId, offset: packed[i + 1] as number });
   }
@@ -498,6 +524,12 @@ function packMachine(machine: Machine): PackedMachine {
     packed[15] = packSlots(machine.modules);
     packed[16] = round(machine.bonus ?? 0, 4);
   }
+  if (machine.link !== undefined) packed[17] = machine.link;
+  if (machine.transit && machine.transit.length > 0) {
+    const flat: (ItemId | number)[] = [];
+    for (const parcel of machine.transit) flat.push(parcel.item, round(parcel.left, 2));
+    packed[18] = flat;
+  }
   return packed;
 }
 
@@ -533,6 +565,13 @@ function unpackMachine(packed: PackedMachine): Machine {
   if (packed[15]) {
     machine.modules = unpackSlots(packed[15]);
     machine.bonus = packed[16] ?? 0;
+  }
+  if (packed[17] !== undefined && packed[17] !== null) machine.link = packed[17];
+  if (packed[18]) {
+    machine.transit = [];
+    for (let i = 0; i + 1 < packed[18].length; i += 2) {
+      machine.transit.push({ item: packed[18][i] as ItemId, left: packed[18][i + 1] as number });
+    }
   }
   return machine;
 }
@@ -588,6 +627,22 @@ function loadMachine(machine: Machine): Machine {
       const item = saved[i];
       return item && item in ITEMS ? item : null;
     });
+  }
+
+  // Long-haul links and parcels belong to ports alone, and a parcel naming an
+  // item this build no longer has is dropped rather than delivered.
+  if (def.haul) {
+    const link = machine.link;
+    if (Number.isInteger(link)) loaded.link = link;
+    else delete loaded.link;
+    if (def.haul === 'in') {
+      loaded.transit = (machine.transit ?? [])
+        .filter((p) => p && p.item in ITEMS && typeof p.left === 'number' && p.left >= 0)
+        .slice(0, HAUL.capacity);
+    } else delete loaded.transit;
+  } else {
+    delete loaded.link;
+    delete loaded.transit;
   }
 
   // A machine that became a burner after it was built starts with an empty

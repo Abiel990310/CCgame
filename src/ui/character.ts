@@ -3,6 +3,7 @@ import { TECHS } from '@shared/data/techs';
 import { UPGRADES, WEAPON_MAX_LEVEL, type UpgradeKind } from '@shared/data/upgrades';
 import { WEAPONS, weaponDamage, weaponRate } from '@shared/data/weapons';
 import { MELEE, PLAYER } from '@shared/sim/constants';
+import { BAG_ROW } from '@shared/sim/inventory';
 import { toolSpeed } from '@shared/sim/crafting';
 import { masteryId, perk } from '@shared/sim/perks';
 import { researchBonuses, techLevel } from '@shared/sim/research';
@@ -126,7 +127,7 @@ function bladeCard(world: World, player: Player): string {
 /** A slot-shaped frame for a carried thing. Not an `.islot`: nothing here can be clicked into the bag. */
 function toolArt(item: ItemId | null): string {
   return item
-    ? `<span class="tool-art filled"><i style="background-image:${itemIconVar(item)}"></i></span>`
+    ? `<span class="tool-art filled" data-tip="${item}"><i style="background-image:${itemIconVar(item)}"></i></span>`
     : `<span class="tool-art"></span>`;
 }
 
@@ -187,7 +188,17 @@ const ISLAND: { kind: keyof ReturnType<typeof researchBonuses>; label: string }[
   { kind: 'fuel', label: 'Fuel' },
   { kind: 'power', label: 'Power' },
   { kind: 'yield', label: 'Yield' },
+  { kind: 'health', label: 'Max health' },
+  { kind: 'speed', label: 'Walking' },
+  { kind: 'pickup', label: 'Pickup range' },
+  { kind: 'dash', label: 'Dash recharge' },
+  { kind: 'carry', label: 'Bag' },
 ];
+
+/** Carry is a count of rows added, not a multiplier like the rest. */
+function islandValue(kind: keyof ReturnType<typeof researchBonuses>, value: number): string {
+  return kind === 'carry' ? `+${Math.round(value) * BAG_ROW} slots` : percent(value);
+}
 
 export function statsPage(world: World, player: Player): string {
   const xp = player.xpToNext > 0 ? Math.min(1, player.xp / player.xpToNext) : 0;
@@ -211,8 +222,8 @@ export function statsPage(world: World, player: Player): string {
   ).join('');
 
   const bonus = researchBonuses(world);
-  const island = ISLAND.filter((r) => bonus[r.kind] !== 1)
-    .map((r) => `<div class="stat-row"><span>${r.label}</span><b>${percent(bonus[r.kind])}</b></div>`)
+  const island = ISLAND.filter((r) => bonus[r.kind] !== (r.kind === 'carry' ? 0 : 1))
+    .map((r) => `<div class="stat-row"><span>${r.label}</span><b>${islandValue(r.kind, bonus[r.kind])}</b></div>`)
     .join('');
   const known = TECHS.filter((t) => techLevel(world, t.id) > 0).length;
 

@@ -175,10 +175,25 @@ export const WAVES = {
    * night 5 and night 20 a stroll.
    */
   budgetPerNightSq: 0.3,
+  /**
+   * Each research tier finished (see `researchTier`) adds this share to the
+   * night's budget. Research is opt-in, so difficulty is too: a player who
+   * builds a huge factory and never researches meets only what the night
+   * count earns, and one who climbs the tree meets a raid that has noticed.
+   */
+  budgetPerResearchTier: 0.07,
   /** Creatures toughen from this night on, so late nights are fewer, bigger fights rather than only more of them. */
   hardenFrom: 6,
   /** Extra health per night past `hardenFrom`, as a share of the creature's base. */
-  hardenPerNight: 0.08,
+  hardenPerNight: 0.06,
+  /**
+   * Extra bite per night past `hardenFrom`, as a share of the creature's base
+   * damage, capped at `biteCap`. Health alone made late nights sponge fights;
+   * a share of the toughening now lands as bite, so standing still in a late
+   * raid costs something. Bosses and landmark keepers keep their tuned damage.
+   */
+  bitePerNight: 0.03,
+  biteCap: 0.6,
   /** Extra health a boss carries each time it has come back before. */
   bossReturnHp: 0.6,
   /** Seconds between spawn pulses during a night. */

@@ -1,5 +1,5 @@
 import type { MachineDef } from '@shared/data/machines';
-import type { Direction } from '@shared/sim/types';
+import type { BeltTier, Direction } from '@shared/sim/types';
 import { shift } from './palette';
 import { OUTLINE, PixelGrid, ramp } from './pixel';
 import type { Ramp, Rgb } from './pixel';
@@ -58,12 +58,36 @@ const BELT = {
   bedShade: rgb('#21262d'),
   treadLit: rgb('#58626f'),
   tread: rgb('#1d2127'),
-  railLit: rgb('#c3cad3'),
-  rail: rgb('#8a939f'),
-  railDark: rgb('#5d6572'),
-  arrow: rgb('#b08c40'),
-  arrowLit: rgb('#d9ad52'),
 } as const;
+
+/**
+ * What a belt's tier changes: its rails and the chevron on its bed. Steel and
+ * gold for the plain belt, copper-red for Mk2 and blue steel with a cyan
+ * chevron for Mk3, so a faster line is told from a slow one across a base.
+ */
+const BELT_PAINT: Record<BeltTier, { railLit: Rgb; rail: Rgb; railDark: Rgb; arrow: Rgb; arrowLit: Rgb }> = {
+  1: {
+    railLit: rgb('#c3cad3'),
+    rail: rgb('#8a939f'),
+    railDark: rgb('#5d6572'),
+    arrow: rgb('#b08c40'),
+    arrowLit: rgb('#d9ad52'),
+  },
+  2: {
+    railLit: rgb('#e4b08f'),
+    rail: rgb('#b9774f'),
+    railDark: rgb('#7d4a33'),
+    arrow: rgb('#c4502e'),
+    arrowLit: rgb('#f0743f'),
+  },
+  3: {
+    railLit: rgb('#a9cdee'),
+    rail: rgb('#5f8bb8'),
+    railDark: rgb('#3a5778'),
+    arrow: rgb('#2aa0c4'),
+    arrowLit: rgb('#6fe0f7'),
+  },
+};
 
 /** Tread spacing along a belt; it divides a tile, so neighbours' treads line up. */
 const TREAD = 8;
@@ -81,24 +105,25 @@ function beltAxis(g: Sprite, dir: Direction): (u: number, v: number, c: Rgb) => 
 const flow = (dir: Direction): 1 | -1 => (dir === 0 || dir === 1 ? 1 : -1);
 
 /** A belt's bed, treads, rails and chevron over `u` from `u0` to `u1`, treads `step` pixels on. */
-function paintBelt(g: Sprite, dir: Direction, step: number, u0 = -16, u1 = 15): void {
+function paintBelt(g: Sprite, dir: Direction, step: number, u0 = -16, u1 = 15, tier: BeltTier = 1): void {
   const put = beltAxis(g, dir);
+  const paint = BELT_PAINT[tier];
   const sign = flow(dir);
   for (let u = u0; u <= u1; u++) {
     // Rails: an outline, a lit edge, the rail and its shaded side, both sides.
     put(u, -14, OUTLINE);
-    put(u, -13, BELT.railLit);
-    put(u, -12, BELT.rail);
-    put(u, -11, BELT.railDark);
-    put(u, 10, BELT.railLit);
-    put(u, 11, BELT.rail);
-    put(u, 12, BELT.railDark);
+    put(u, -13, paint.railLit);
+    put(u, -12, paint.rail);
+    put(u, -11, paint.railDark);
+    put(u, 10, paint.railLit);
+    put(u, 11, paint.rail);
+    put(u, 12, paint.railDark);
     put(u, 13, OUTLINE);
     put(u, -10, BELT.bedShade);
     for (let v = -9; v <= 9; v++) put(u, v, BELT.bed);
   }
   // A joint in the rails at every tile's edge, so a run reads as laid sections.
-  if (u0 === -16) for (const v of [-13, -12, 10, 11]) put(-16, v, BELT.railDark);
+  if (u0 === -16) for (const v of [-13, -12, 10, 11]) put(-16, v, paint.railDark);
 
   // Treads, each a lit ridge with its face behind it, scrolling with the flow.
   const off = (((sign * step) % TREAD) + TREAD) % TREAD;
@@ -118,18 +143,25 @@ function paintBelt(g: Sprite, dir: Direction, step: number, u0 = -16, u1 = 15): 
     for (const du of [0, 1]) {
       const u = sign > 0 ? -3 + i + du : 2 - i - du;
       if (u < u0 || u > u1) continue;
-      const c = du === 0 ? BELT.arrowLit : BELT.arrow;
+      const c = du === 0 ? paint.arrowLit : paint.arrow;
       put(u, -5 + i, c);
       put(u, 4 - i, c);
     }
   }
 }
 
-export function drawPixelBelt(ctx: CanvasRenderingContext2D, x: number, y: number, dir: Direction, step: number): void {
+export function drawPixelBelt(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  dir: Direction,
+  step: number,
+  tier: BeltTier = 1,
+): void {
   const s = Math.floor(step) % TREAD;
-  blitGrid(ctx, `pbelt:${dir}:${s}`, x, y, 16, 16, () => {
+  blitGrid(ctx, `pbelt:${tier}:${dir}:${s}`, x, y, 16, 16, () => {
     const g = new Sprite(32, 32, 16, 16);
-    paintBelt(g, dir, s);
+    paintBelt(g, dir, s, -16, 15, tier);
     return g;
   });
 }

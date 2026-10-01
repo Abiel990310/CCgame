@@ -410,6 +410,11 @@ kbd {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
 }
 
+.bar-row#research {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 .bar.research {
   height: 10px;
 }
@@ -1484,6 +1489,29 @@ kbd {
   color: var(--gold);
 }
 
+.offer.tech .tech-tier {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+
+.offer.tech .tech-tier.raises {
+  color: var(--danger);
+}
+
+.raid-note {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-dim);
+}
+
+.raid-note b {
+  color: var(--ink);
+}
+
 .offer.on {
   border-color: var(--gold);
   background: linear-gradient(180deg, rgba(240, 185, 74, 0.2), rgba(240, 185, 74, 0.08));
@@ -2034,6 +2062,35 @@ kbd {
   gap: 6px;
   max-height: 210px;
   overflow-y: auto;
+}
+
+.recipe-tabs {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.recipe-tab {
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.recipe-tab:hover {
+  color: var(--ink);
+}
+
+.recipe-tab.on {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: var(--gold-soft);
 }
 
 .filter-head {
@@ -2953,7 +3010,8 @@ kbd {
 
 /* ---------- World hover card and gather prompt ---------- */
 
-#tip {
+#tip,
+.item-tip {
   position: absolute;
   left: 0;
   top: 0;
@@ -2972,19 +3030,22 @@ kbd {
 }
 
 #tip[hidden],
+.item-tip[hidden],
 #prompt[hidden],
 .bench-prompt[hidden] {
   display: none;
 }
 
-#tip header {
+#tip header,
+.item-tip header {
   display: flex;
   align-items: center;
   gap: 9px;
   margin-bottom: 7px;
 }
 
-#tip h4 {
+#tip h4,
+.item-tip h4 {
   font-size: 14.5px;
   font-weight: 800;
   letter-spacing: 0.01em;
@@ -3072,6 +3133,57 @@ kbd {
   color: var(--ink-dim);
   font-size: 11.5px;
   line-height: 1.35;
+}
+
+/* The HUD lets clicks through to the world; the pouch's chips take the
+   mouse only so the item card can name what they hold. */
+#pouch .res {
+  pointer-events: auto;
+}
+
+/* The item card: the world card's look, over every screen, after the mouse. */
+.item-tip {
+  position: fixed;
+  z-index: 200;
+  width: 250px;
+  min-width: 0;
+  max-width: none;
+}
+
+.tip-kind {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+
+.tip-effect {
+  margin: 0 0 6px;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.tip-sect {
+  padding: 5px 0 4px;
+  border-top: 1px solid var(--line);
+  line-height: 1.35;
+}
+
+.tip-sect span {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+}
+
+.tip-sect b {
+  font-weight: 600;
+  color: var(--ink);
 }
 
 #prompt {

@@ -1,21 +1,19 @@
 import { ITEMS, ITEM_ORDER } from '@shared/data/items';
 import { FUEL_VALUE, MACHINES, TURRET } from '@shared/data/machines';
 import { mendCost, turretWrecked } from '@shared/sim/systems/turret';
-import { RECIPE_BY_ID, craftTime, recipesFor } from '@shared/data/recipes';
-import { TECHS, TECH_BY_ID } from '@shared/data/techs';
+import { RECIPE_BY_ID, RECIPE_GROUPS, craftTime, recipeSections, type Recipe, type RecipeGroup } from '@shared/data/recipes';
+import { TECH_BY_ID } from '@shared/data/techs';
 import { minerOreLeft } from '@shared/sim/ore';
 import { INVENTORY_SLOTS } from '@shared/sim/inventory';
 import {
   activeTech,
   cyclesDone,
   cyclesNeeded,
-  isAvailable,
-  isFinished,
-  techLevel,
   type QueueOp,
 } from '@shared/sim/research';
 import { countIn, totalIn } from '@shared/sim/slots';
 import { moduleEffects } from '@shared/sim/modules';
+import { recipeSeconds, workSpeed } from '@shared/sim/rates';
 import { BEACON_BOOST, BEACON_STAGES, BEACON_WARD_TILES } from '@shared/data/beacon';
 import { beaconLit, beaconStage } from '@shared/sim/beacon';
 import { audio } from '../audio';
@@ -25,6 +23,7 @@ import type { ItemId, Machine, MachineFamily, Player, Slot, World } from '@share
 import { itemIconVar } from '../render/items';
 import { pieceIconVar } from '../render/pieces';
 import { icon } from './icons';
+import { paintResearch, researchKey } from './research';
 import { SHEET_TABS, gearPage, sheetKey, skillsPage, statsPage, type SheetTab } from './character';
 
 export interface InventoryCallbacks {
@@ -41,7 +40,7 @@ export interface InventoryCallbacks {
   onOpenDraft: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
   /** Reorder the island's research queue. Research belongs to the world. */
-  onQueueResearch: (techId: string, op: QueueOp) => void;
+  onQueueResearch: (techId: string, op: QueueOp, place?: number) => void;
   /** Restrict an inserter to one item, or clear it with null. */
   onSetFilter: (machineId: number, item: ItemId | null) => void;
   /** Lift this machine's settings, or put the copied ones on it. */
@@ -119,6 +118,8 @@ export class InventoryScreen {
   /** Signature of what is drawn, so the DOM is only touched when it changes. */
   private painted = '';
   private recipeKey = '';
+  /** The recipe section the machine screen is narrowed to; null shows them all. */
+  private recipeGroup: RecipeGroup | null = null;
   private pageKey = '';
   /**
    * The character sheet's page. Kept across closing, so Tab reopens where the
@@ -247,6 +248,7 @@ export class InventoryScreen {
     // Never a real key, so the panel is rebuilt even for a container with
     // none: a chest opened after an assembler kept the assembler's recipes.
     this.recipeKey = '-';
+    this.recipeGroup = null;
     this.pageKey = '';
     this.pressRef = null;
     this.root.classList.remove('hidden');
@@ -314,7 +316,7 @@ export class InventoryScreen {
         ? 'Machine'
         : arm
           ? 'Arm'
-          : def.family === 'splitter' || def.family === 'merger' || def.family === 'tunnel'
+          : def.family === 'splitter' || def.family === 'merger' || def.family === 'tunnel' || def.family === 'haul'
             ? 'Logistics'
             : 'Storage';
     this.els.title.textContent = def.name;
@@ -339,7 +341,7 @@ export class InventoryScreen {
         ? 'In'
         : arm
           ? 'Holding'
-          : def.family === 'splitter' || def.family === 'merger' || def.family === 'tunnel'
+          : def.family === 'splitter' || def.family === 'merger' || def.family === 'tunnel' || def.family === 'haul'
             ? 'Passing through'
             : 'Stored';
     this.els.inputGrid.parentElement?.classList.toggle('hidden', def.inputSlots === 0);
@@ -703,7 +705,7 @@ export class InventoryScreen {
       : def?.family === 'lab'
         ? `lab:${researchKey(world)}`
         : def?.choosesRecipe
-          ? `recipe:${machine.id}:${machine.recipe}`
+          ? `recipe:${machine.id}:${machine.recipe}:${workSpeed(world, machine)}:${this.recipeGroup ?? ''}`
           : def?.family === 'inserter'
             ? `filter:${machine.id}:${machine.filter}`
           : '';
@@ -714,7 +716,7 @@ export class InventoryScreen {
     this.els.recipes.innerHTML = '';
     if (!machine) return;
     if (def?.family === 'lab') {
-      this.paintTechs(world);
+      paintResearch(world, this.els.recipes, (id, op, place) => this.callbacks.onQueueResearch(id, op, place));
       return;
     }
     if (def?.family === 'inserter') {
@@ -723,130 +725,63 @@ export class InventoryScreen {
     }
     if (!def?.choosesRecipe) return;
 
-    for (const recipe of recipesFor(machine.type)) {
-      const button = document.createElement('button');
-      button.className = `offer recipe${machine.recipe === recipe.id ? ' on' : ''}`;
-      const stack = (id: ItemId, count: number): string =>
-        `<span class="stack" title="${ITEMS[id].name}"><i class="ic" style="background-image:${itemIconVar(id)}"></i>${count}</span>`;
-      const inputs = recipe.inputs.map((i) => stack(i.id, i.count)).join('');
-      const outputs = recipe.outputs.map((o) => stack(o.id, o.count)).join('');
-      const seconds = Math.round(craftTime(recipe, def.speed) * 10) / 10;
-      button.innerHTML =
-        `<b>${recipe.name}</b><span class="recipe-flow">${inputs}${icon('arrow')}${outputs}` +
-        `<em>${seconds}s</em></span>`;
-      button.addEventListener('click', () => {
-        audio.play('click');
-        this.callbacks.onSetRecipe(machine.id, recipe.id);
-      });
-      this.els.recipes.appendChild(button);
+    const sections = recipeSections(machine.type);
+    // A machine with one kind of recipe has nothing to sort. A filter left over
+    // from a machine that had more must not hide this one's only section.
+    const sorted = sections.length > 1;
+    const shown = sorted && this.recipeGroup ? sections.filter((s) => s.group === this.recipeGroup) : sections;
+    if (sorted) this.paintRecipeTabs(sections.map((s) => s.group));
+    for (const section of shown) {
+      if (sorted) {
+        const head = document.createElement('p');
+        head.className = 'filter-head';
+        head.textContent = RECIPE_GROUPS[section.group];
+        this.els.recipes.appendChild(head);
+      }
+      for (const recipe of section.recipes) this.els.recipes.appendChild(this.recipeCard(world, machine, recipe));
     }
   }
 
-  /**
-   * The tech tree, as the cards a level-up draft uses. Locked techs stay on the
-   * list rather than being hidden: what you are working toward is most of the
-   * reason to build another assembler.
-   */
-  private paintTechs(world: World): void {
-    this.paintQueue(world);
-    const queue = world.research.queue;
-    for (const tech of TECHS) {
-      const level = techLevel(world, tech.id);
-      const open = isAvailable(world, tech);
-      const done = isFinished(world, tech);
-      const current = world.research.current === tech.id;
-      const place = queue.indexOf(tech.id);
-
+  /** "All" and one tab per section the machine has; the choice outlives a recipe click. */
+  private paintRecipeTabs(groups: RecipeGroup[]): void {
+    const row = document.createElement('div');
+    row.className = 'recipe-tabs';
+    const tab = (group: RecipeGroup | null, label: string): void => {
       const button = document.createElement('button');
-      button.className = `offer${current ? ' on' : place >= 0 ? ' queued' : ''}`;
-      // A locked tech can still be queued: its prerequisites go in ahead of it.
-      button.disabled = done;
-
-      const cost = tech.inputs
-        .map(
-          (i) =>
-            `<span class="stack" title="${ITEMS[i.id].name}"><i class="ic" style="background-image:${itemIconVar(i.id)}"></i>${i.count}</span>`,
-        )
-        .join('');
-      const progress = `${cyclesDone(world, tech.id)} / ${cyclesNeeded(world, tech)} cycles`;
-      const state = done
-        ? 'Done'
-        : current
-          ? `Researching · ${progress}`
-          : place >= 0
-            ? `Queued ${place + 1}${ordinal(place + 1)} · click to drop`
-            : !open
-              ? `Needs ${tech.requires.map((id) => TECH_BY_ID.get(id)?.name ?? id).join(', ')}`
-              : progress;
-      const name = tech.repeatable && level > 0 ? `${tech.name} ${level + 1}` : tech.name;
-      const unlocks = tech.unlocks?.length
-        ? `<span class="tech-unlocks">Unlocks ${tech.unlocks.map((id) => MACHINES[id].name).join(', ')}</span>`
-        : '';
-
-      button.className += ' tech';
-      button.innerHTML =
-        `<b>${name}</b><span>${tech.description}</span>${unlocks}` +
-        `<span class="recipe-flow">${cost}<em>${tech.time}s · ${state}</em></span>`;
+      button.className = `recipe-tab${this.recipeGroup === group ? ' on' : ''}`;
+      button.textContent = label;
       button.addEventListener('click', () => {
         audio.play('click');
-        this.callbacks.onQueueResearch(tech.id, current || place >= 0 ? 'remove' : 'add');
+        this.recipeGroup = group;
+        this.recipeKey = '-';
       });
-      this.els.recipes.appendChild(button);
-    }
+      row.appendChild(button);
+    };
+    tab(null, 'All');
+    for (const group of groups) tab(group, RECIPE_GROUPS[group]);
+    this.els.recipes.appendChild(row);
   }
 
-  /**
-   * The order the labs will work in, above the tree. Each row can move up a
-   * place or be dropped; the front row is what every lab is on right now.
-   */
-  private paintQueue(world: World): void {
-    const research = world.research;
-    const ids = [...(research.current ? [research.current] : []), ...research.queue];
-
-    const box = document.createElement('div');
-    box.className = 'research-queue';
-    const head = document.createElement('p');
-    head.className = 'filter-head';
-    head.textContent = ids.length ? 'Research queue' : 'Research queue is empty';
-    box.appendChild(head);
-    if (!ids.length) {
-      const hint = document.createElement('p');
-      hint.className = 'queue-hint';
-      hint.textContent = 'Click techs below to line them up. Anything locked brings its prerequisites with it.';
-      box.appendChild(hint);
-    }
-
-    ids.forEach((id, index) => {
-      const tech = TECH_BY_ID.get(id);
-      if (!tech) return;
-      const row = document.createElement('div');
-      row.className = `queue-row${index === 0 && research.current ? ' on' : ''}`;
-      const level = techLevel(world, id);
-      const name = tech.repeatable && level > 0 ? `${tech.name} ${level + 1}` : tech.name;
-      const done = cyclesDone(world, id);
-      const needed = cyclesNeeded(world, tech);
-      row.innerHTML =
-        `<span class="queue-num">${index + 1}</span><b>${name}</b>` +
-        `<span class="queue-cycles">${done} / ${needed}</span>`;
-
-      const control = (label: string, title: string, op: QueueOp, enabled: boolean): void => {
-        const b = document.createElement('button');
-        b.className = 'mini-btn';
-        b.textContent = label;
-        b.title = title;
-        b.disabled = !enabled;
-        b.addEventListener('click', () => {
-          audio.play('click');
-          this.callbacks.onQueueResearch(id, op);
-        });
-        row.appendChild(b);
-      };
-      const ahead = index > 0 ? ids[index - 1] : null;
-      control('▲', 'Research this sooner', 'up', ahead !== null && !tech.requires.includes(ahead));
-      control('✕', 'Take it off the queue', 'remove', true);
-      box.appendChild(row);
+  private recipeCard(world: World, machine: Machine, recipe: Recipe): HTMLButtonElement {
+    const def = MACHINES[machine.type];
+    const button = document.createElement('button');
+    button.className = `offer recipe${machine.recipe === recipe.id ? ' on' : ''}`;
+    const stack = (id: ItemId, count: number): string =>
+      `<span class="stack" data-tip="${id}"><i class="ic" style="background-image:${itemIconVar(id)}"></i>${count}</span>`;
+    const inputs = recipe.inputs.map((i) => stack(i.id, i.count)).join('');
+    const outputs = recipe.outputs.map((o) => stack(o.id, o.count)).join('');
+    // What a craft really takes here, after research, a beacon and modules;
+    // the base time is the tooltip so a boost reads as the saving it is.
+    const seconds = Math.round(recipeSeconds(world, machine, recipe) * 10) / 10;
+    const base = Math.round(craftTime(recipe, def.speed) * 10) / 10;
+    button.innerHTML =
+      `<b>${recipe.name}</b><span class="recipe-flow">${inputs}${icon('arrow')}${outputs}` +
+      `<em title="${base === seconds ? 'Craft time' : `Base ${base}s`}">${seconds}s</em></span>`;
+    button.addEventListener('click', () => {
+      audio.play('click');
+      this.callbacks.onSetRecipe(machine.id, recipe.id);
     });
-    this.els.recipes.appendChild(box);
+    return button;
   }
 
   /**
@@ -867,6 +802,7 @@ export class InventoryScreen {
         ? `<span class="chip-icon"><i class="item" style="background-image:${itemIconVar(item)}"></i></span>`
         : '<span class="chip-icon any"></span>';
       button.innerHTML = `${icon}<b>${item ? ITEMS[item].name : 'Anything'}</b>`;
+      if (item) button.dataset.tip = item;
       button.addEventListener('click', () => this.callbacks.onSetFilter(machine.id, item));
       this.els.recipes.appendChild(button);
     };
@@ -919,18 +855,6 @@ export class InventoryScreen {
   }
 }
 
-/** Everything the tech list draws from, so it repaints when research moves. */
-function researchKey(world: World): string {
-  const current = world.research.current;
-  const levels = TECHS.map((t) => techLevel(world, t.id)).join(',');
-  return `${current}:${world.research.queue.join(',')}:${levels}:${current ? cyclesDone(world, current) : 0}`;
-}
-
-function ordinal(n: number): string {
-  if (n % 100 >= 11 && n % 100 <= 13) return 'th';
-  return n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th';
-}
-
 function refAt(target: EventTarget | null): SlotRef | null {
   if (!(target instanceof Element)) return null;
   const cell = target.closest<HTMLElement>('.islot');
@@ -972,16 +896,13 @@ function paintSlot(
     cell.classList.remove('filled');
     const ghost = filter ?? hint;
     cell.innerHTML = ghost ? `<i class="item" style="background-image:${itemIconVar(ghost)}"></i>` : '';
-    if (filter) cell.title = kept.trim();
-    else if (hint) cell.title = `${verb} ${ITEMS[hint].name}.`;
-    else cell.removeAttribute('title');
+    if (ghost) tip(cell, ghost, filter ? kept.trim() : `${verb} ${ITEMS[ghost].name}.`);
+    else tip(cell, null);
     return;
   }
 
-  const def = ITEMS[slot.id];
   cell.classList.add('filled');
-  const eats = def.food ? ` Eat with H for +${def.food} health.` : '';
-  cell.title = `${def.name} — ${slot.count}.${eats}${kept}`;
+  tip(cell, slot.id, kept.trim());
   cell.innerHTML =
     `<i class="item" style="background-image:${itemIconVar(slot.id)}"></i>` +
     `<b>${slot.count}</b>`;
@@ -1008,13 +929,26 @@ function paintSide(cell: HTMLElement, item: ItemId | null): void {
     cell.className = 'islot any';
     cell.textContent = 'Any';
     cell.title = 'Takes anything. Drop an item here to keep this side for it.';
+    tip(cell, null);
     return;
   }
 
-  const def = ITEMS[item];
   cell.className = 'islot filled';
-  cell.title = `${def.name} only. Click with an empty hand to open this side up.`;
+  cell.removeAttribute('title');
+  tip(cell, item, 'Only this goes in on this side. Click with an empty hand to open it up.');
   cell.innerHTML = `<i class="item" style="background-image:${itemIconVar(item)}"></i>`;
+}
+
+/** Point the item card at `item`, or at nothing. */
+function tip(cell: HTMLElement, item: ItemId | null, note = ''): void {
+  if (!item) {
+    delete cell.dataset.tip;
+    delete cell.dataset.tipNote;
+    return;
+  }
+  cell.dataset.tip = item;
+  if (note) cell.dataset.tipNote = note;
+  else delete cell.dataset.tipNote;
 }
 
 function must<T extends HTMLElement>(id: string): T {

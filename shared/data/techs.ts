@@ -1,4 +1,4 @@
-import type { ItemId, ItemStack, MachineId } from '../sim/types';
+import type { BeltId, ItemId, ItemStack, MachineId } from '../sim/types';
 
 /**
  * What a completed tech makes better. Every one is a multiplier the simulation
@@ -25,7 +25,20 @@ export type TechEffectKind =
    * Ore a miner brings up per ore a tile loses. Speed empties a patch sooner;
    * this is the one kind that makes a finite patch last longer.
    */
-  | 'yield';
+  | 'yield'
+  /** Every islander's max health, on top of what level-ups gave them. */
+  | 'health'
+  /** Every islander's walking speed, on top of what level-ups gave them. */
+  | 'speed'
+  /** How far an islander's hand reaches for a drop, on top of what level-ups gave them. */
+  | 'pickup'
+  /** How fast a dash recharges: the cooldown is divided by the multiplier. */
+  | 'dash'
+  /**
+   * Rows of eight added to every islander's bag. Unlike the other kinds this
+   * is a count, not a multiplier, so it starts from 0 and `amount` is rows.
+   */
+  | 'carry';
 
 export interface TechDef {
   id: string;
@@ -49,7 +62,7 @@ export interface TechDef {
    * names is there from the start, so a new tier is gated by adding its id
    * here rather than by touching the palette.
    */
-  unlocks?: MachineId[];
+  unlocks?: (MachineId | BeltId)[];
   /** XP every player on the island earns per cycle. */
   xp: number;
   /** Researchable forever, each level dearer than the last. */
@@ -77,13 +90,13 @@ export const TECHS: TechDef[] = [
   {
     id: 'beltLogistics',
     name: 'Belt Logistics',
-    description: 'Tighter bearings. Every belt runs faster, so every line carries more.',
+    description: 'Tighter bearings. Every belt runs faster, and a Mk2 belt can be laid over any of them.',
     inputs: [{ id: 'researchPack', count: 1 }],
     cycles: 30,
     time: 4,
     requires: ['automation'],
     effect: { kind: 'belt', amount: 0.25 },
-    unlocks: ['splitter', 'merger', 'tunnel', 'longInserter'],
+    unlocks: ['splitter', 'merger', 'tunnel', 'longInserter', 'beltMk2'],
     xp: 6,
   },
   {
@@ -108,6 +121,72 @@ export const TECHS: TechDef[] = [
     requires: ['automation'],
     effect: { kind: 'gather', amount: 0.25 },
     xp: 6,
+  },
+  {
+    id: 'fieldMedicine',
+    name: 'Field Medicine',
+    description: 'Bandages, broth and a proper rest. Every islander has a fifth more max health.',
+    inputs: [{ id: 'researchPack', count: 1 }],
+    cycles: 30,
+    time: 4,
+    requires: ['toolmaking'],
+    effect: { kind: 'health', amount: 0.2 },
+    xp: 6,
+  },
+  {
+    id: 'conditioning',
+    name: 'Conditioning',
+    description: 'Better boots and a steadier stride. Every islander walks a tenth faster.',
+    inputs: [{ id: 'researchPack', count: 1 }],
+    cycles: 30,
+    time: 4,
+    requires: ['toolmaking'],
+    effect: { kind: 'speed', amount: 0.1 },
+    xp: 6,
+  },
+  {
+    id: 'magnetism',
+    name: 'Magnetism',
+    description: 'Lodestone in the sash. Drops fly to you from a third farther away.',
+    inputs: [{ id: 'researchPack', count: 1 }],
+    cycles: 25,
+    time: 4,
+    requires: ['toolmaking'],
+    effect: { kind: 'pickup', amount: 0.35 },
+    xp: 6,
+  },
+  {
+    id: 'footwork',
+    name: 'Footwork',
+    description: 'Planted feet and a quicker reset. Your dash comes back a quarter faster.',
+    inputs: [{ id: 'researchPack', count: 1 }],
+    cycles: 30,
+    time: 4,
+    requires: ['conditioning'],
+    effect: { kind: 'dash', amount: 0.25 },
+    xp: 6,
+  },
+  {
+    id: 'packFrames',
+    name: 'Pack Frames',
+    description: 'Ash-wood frames and stitched dividers. Every islander carries another row of eight slots.',
+    inputs: [{ id: 'researchPack', count: 2 }],
+    cycles: 30,
+    time: 5,
+    requires: ['toolmaking'],
+    effect: { kind: 'carry', amount: 1 },
+    xp: 8,
+  },
+  {
+    id: 'loadBearing',
+    name: 'Load-Bearing Harness',
+    description: 'Steel stays take the weight off your shoulders. Another row of eight slots for every islander.',
+    inputs: [{ id: 'logicPack', count: 1 }],
+    cycles: 40,
+    time: 6,
+    requires: ['packFrames', 'metallurgy'],
+    effect: { kind: 'carry', amount: 1 },
+    xp: 12,
   },
   {
     id: 'prospecting',
@@ -191,6 +270,22 @@ export const TECHS: TechDef[] = [
     xp: 12,
   },
   {
+    id: 'longHaul',
+    name: 'Long-Haul Logistics',
+    description:
+      'Matched ports that throw a line across the island. Items go in at one and come out of the other a moment later, with no belt in between.',
+    inputs: [
+      { id: 'researchPack', count: 1 },
+      { id: 'logicPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+    ],
+    cycles: 40,
+    time: 8,
+    requires: ['roboticArms', 'electricity'],
+    unlocks: ['haul'],
+    xp: 20,
+  },
+  {
     id: 'labAutomation',
     name: 'Lab Automation',
     description: 'Labs run their cycles faster, so research keeps up with what you can feed it.',
@@ -234,7 +329,7 @@ export const TECHS: TechDef[] = [
     id: 'resonance',
     name: 'Resonance',
     description:
-      'Essence tuned into a motor. The electric machines, and an arm that moves a stack at a time.',
+      'Essence tuned into a motor. The electric machines, an arm that moves a stack at a time, and the Mk3 belt.',
     inputs: [
       { id: 'logicPack', count: 1 },
       { id: 'powerPack', count: 1 },
@@ -244,7 +339,7 @@ export const TECHS: TechDef[] = [
     time: 8,
     requires: ['roboticArms', 'labAutomation', 'angling', 'electricity'],
     effect: { kind: 'crafting', amount: 0.1 },
-    unlocks: ['minerMk3', 'furnaceMk3', 'assemblerMk3', 'stackInserter'],
+    unlocks: ['minerMk3', 'furnaceMk3', 'assemblerMk3', 'stackInserter', 'beltMk3'],
     xp: 30,
   },
   {
@@ -331,7 +426,7 @@ export const TECHS: TechDef[] = [
   {
     id: 'solarPower',
     name: 'Solar Power',
-    description: 'Panels that make power from daylight alone. Nothing to feed, and nothing at night.',
+    description: 'Panels that make power from daylight alone, and accumulators to bank the surplus for the night.',
     inputs: [
       { id: 'logicPack', count: 1 },
       { id: 'engineeringPack', count: 1 },
@@ -339,7 +434,7 @@ export const TECHS: TechDef[] = [
     cycles: 60,
     time: 8,
     requires: ['electricity'],
-    unlocks: ['solar'],
+    unlocks: ['solar', 'accumulator'],
     xp: 20,
   },
   {
@@ -387,12 +482,58 @@ export const TECHS: TechDef[] = [
     xp: 28,
     repeatable: true,
   },
+  {
+    id: 'vitality',
+    name: 'Vitality',
+    description: 'Never finishes. Each level gives every islander another tenth of max health.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+    ],
+    cycles: 50,
+    time: 8,
+    requires: ['fieldMedicine', 'labAutomation'],
+    effect: { kind: 'health', amount: 0.1 },
+    xp: 25,
+    repeatable: true,
+  },
+  {
+    id: 'endurance',
+    name: 'Endurance',
+    description: 'Never finishes. Each level makes every islander walk a few percent faster again.',
+    inputs: [
+      { id: 'logicPack', count: 1 },
+      { id: 'powerPack', count: 1 },
+    ],
+    cycles: 50,
+    time: 8,
+    requires: ['conditioning', 'labAutomation'],
+    effect: { kind: 'speed', amount: 0.04 },
+    xp: 25,
+    repeatable: true,
+  },
 ];
+
+/**
+ * How far up the tree a pack sits. A tech's tier is the highest pack it eats,
+ * and the raid budget reads the highest tier an island has finished.
+ */
+export const PACK_TIER: Partial<Record<ItemId, number>> = {
+  researchPack: 1,
+  logicPack: 2,
+  powerPack: 3,
+  engineeringPack: 3,
+  resonancePack: 4,
+};
+
+export function techTier(def: TechDef): number {
+  return def.inputs.reduce((top, input) => Math.max(top, PACK_TIER[input.id] ?? 0), 0);
+}
 
 export const TECH_BY_ID = new Map(TECHS.map((t) => [t.id, t]));
 
 /** The tech that puts each gated machine on the palette. */
-export const UNLOCKED_BY = new Map<MachineId, TechDef>(
+export const UNLOCKED_BY = new Map<MachineId | BeltId, TechDef>(
   TECHS.flatMap((t) => (t.unlocks ?? []).map((id) => [id, t] as const)),
 );
 

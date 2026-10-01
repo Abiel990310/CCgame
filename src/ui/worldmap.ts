@@ -2,11 +2,13 @@ import { MACHINES } from '@shared/data/machines';
 import { MAP_TILES, TILE } from '@shared/sim/constants';
 import { machineSize } from '@shared/sim/grid';
 import { exploredShare } from '@shared/sim/explore';
+import { MAX_PINS, PIN_HUES } from '@shared/sim/pins';
 import { minerOreLeft } from '@shared/sim/ore';
 import type { Machine, ResourceKind, World } from '@shared/sim/types';
 import type { Ledger } from '../ledger';
 import { icon } from './icons';
 import { LedgerView } from './ledger';
+import { paintResearch, researchKey, type OrderResearch } from './research';
 import './worldmap.css';
 
 /** Terrain in the order `TERRAIN_ORDER` stores it: deep, water, sand, grass, forest, rock. */
@@ -33,6 +35,12 @@ const LANDMARK_MARK: Partial<Record<ResourceKind, string>> = {
   pod: '#ff7a5a',
   shrine: '#c49cff',
 };
+/** The marker colours a pin can take, indexed by the hue a pin carries. */
+export const PIN_COLORS = ['#ef6171', '#f0b94a', '#6fd68a', '#5aa8f0', '#c49cff', '#f4f1ea'].slice(0, PIN_HUES);
+/** How near a click must come to a pin, in screen pixels, to pick it up. */
+const PIN_GRAB = 14;
+/** A press that moves less than this is a click, not the start of a pan. */
+const CLICK_SLOP = 5;
 const FOG_SHOW = 0.16;
 /** Roughly how many pixels across the painted map is, whatever the island's size. */
 const MAP_PIXELS = 768;
@@ -76,7 +84,34 @@ function patch(x: number, y: number, size: number): number {
   return a + (b - a) * sy;
 }
 
-export type MapTab = 'map' | 'ledger';
+export type MapTab = 'map' | 'ledger' | 'research';
+
+/** What the map asks of the game when the player marks it. */
+export interface PinHandlers {
+  place(x: number, y: number, hue: number): void;
+  lift(id: number): void;
+}
+
+/** A map pin: a drop with its point on (x, y), so it marks the place it stands over. */
+export function drawPin(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  const head = s * 2.1;
+  const r = s * 0.95;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - r * 0.82, y - head + r * 0.58);
+  ctx.arc(x, y - head, r, Math.PI * 0.72, Math.PI * 0.28, false);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.lineWidth = Math.max(1, s * 0.3);
+  ctx.strokeStyle = '#10141c';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y - head, r * 0.38, 0, Math.PI * 2);
+  ctx.fillStyle = '#10141c';
+  ctx.fill();
+}
 
 /**
  * Miners that have pulled up everything within reach. They never start again
@@ -106,6 +141,8 @@ export class WorldMap {
   private tab: MapTab = 'map';
   private view: HTMLElement;
   private ledgerView: LedgerView;
+  private researchView: HTMLElement;
+  private researchKey = '';
   private tabs: HTMLElement[];
   private dryCount = 0;
   private dryTimer = 0;
@@ -135,7 +172,21 @@ export class WorldMap {
   private knownCount = -1;
   private layersRefresh = 0;
 
-  constructor(parent: HTMLElement, private onClose: () => void) {
+  /** Click the map to drop a pin, and a pin to lift it, rather than to look around. */
+  private pinMode = false;
+  private pinHue = 0;
+  private lastWorld: World | null = null;
+  private pressAt: { id: number; x: number; y: number; moved: boolean } | null = null;
+  private pinButton!: HTMLElement;
+  private hueButton!: HTMLElement;
+  private hint!: HTMLElement;
+
+  constructor(
+    parent: HTMLElement,
+    private onClose: () => void,
+    private pinHandlers: PinHandlers,
+    private onOrderResearch: OrderResearch,
+  ) {
     this.root = document.createElement('div');
     this.root.className = 'worldmap hidden';
     this.root.innerHTML = `
@@ -144,6 +195,7 @@ export class WorldMap {
           <nav class="worldmap-tabs">
             <button data-tab="map" title="Island map (M)">Map</button>
             <button data-tab="ledger" title="Production (L)">Production</button>
+            <button data-tab="research" title="Research queue">Research</button>
           </nav>
           <span class="worldmap-share" data-role="share"></span>
           <button class="icon-btn worldmap-close" title="Close (M)" data-role="close">&times;</button>
@@ -155,7 +207,10 @@ export class WorldMap {
             <canvas class="worldmap-land" data-role="land"></canvas>
           </div>
           <canvas class="worldmap-marks" data-role="marks"></canvas>
+          <div class="worldmap-hint hidden" data-role="hint"></div>
           <div class="worldmap-zoom">
+            <button class="icon-btn" data-pin="mode" title="Drop a pin: click the map to mark a spot, click a pin to lift it">${icon('pin')}</button>
+            <button class="icon-btn pin-hue hidden" data-pin="hue" title="Pin colour"><i></i></button>
             <button class="icon-btn" data-zoom="in" title="Zoom in (scroll or pinch)">${icon('plus')}</button>
             <button class="icon-btn" data-zoom="out" title="Zoom out">${icon('minus')}</button>
             <button class="icon-btn" data-zoom="me" title="Centre on you">${icon('locate')}</button>
@@ -181,8 +236,15 @@ export class WorldMap {
     this.view = role('view');
     this.frame = role('frame');
     this.pan = role('pan');
+    this.hint = role('hint');
+    this.pinButton = this.root.querySelector<HTMLElement>('[data-pin="mode"]')!;
+    this.hueButton = this.root.querySelector<HTMLElement>('[data-pin="hue"]')!;
     this.bindZoom();
+    this.bindPins();
     this.ledgerView = new LedgerView(this.root.querySelector('.worldmap-inner')!, () => this.showTab('map'));
+    this.researchView = document.createElement('div');
+    this.researchView.className = 'offers recipes worldmap-research hidden';
+    this.root.querySelector('.worldmap-inner')!.appendChild(this.researchView);
     this.tabs = [...this.root.querySelectorAll<HTMLElement>('[data-tab]')];
     for (const tab of this.tabs) tab.addEventListener('click', () => this.showTab(tab.dataset.tab as MapTab));
     role('close').addEventListener('click', () => this.onClose());
@@ -203,6 +265,7 @@ export class WorldMap {
 
   setOpen(open: boolean, tab: MapTab = this.tab): void {
     this.open = open;
+    if (!open) this.setPinMode(false);
     this.root.classList.toggle('hidden', !open);
     this.paintedKey = '';
     this.detailFresh = false;
@@ -218,12 +281,26 @@ export class WorldMap {
     this.view.classList.toggle('hidden', tab !== 'map');
     this.share.classList.toggle('hidden', tab !== 'map');
     this.ledgerView.setVisible(tab === 'ledger');
+    this.researchView.classList.toggle('hidden', tab !== 'research');
+    this.researchKey = '';
     this.paintedKey = '';
     this.dryTimer = 0;
   }
 
   update(world: World, selfId: number, dt: number, ledger: Ledger): void {
     if (!this.open) return;
+    this.lastWorld = world;
+    if (this.tab === 'research') {
+      // Rebuilt only when research moves, so a click is never lost to a repaint under it.
+      const key = researchKey(world);
+      if (key === this.researchKey) return;
+      this.researchKey = key;
+      const scroll = this.researchView.scrollTop;
+      this.researchView.innerHTML = '';
+      paintResearch(world, this.researchView, this.onOrderResearch);
+      this.researchView.scrollTop = scroll;
+      return;
+    }
     if (this.tab === 'ledger') {
       this.dryTimer -= dt;
       if (this.dryTimer <= 0) {
@@ -548,6 +625,9 @@ export class WorldMap {
       ctx.stroke();
     }
 
+    // Pins stand above everything but the people, so a pin on the factory still shows.
+    for (const pin of world.pins) drawPin(ctx, pin.x * scale, pin.y * scale, 5 * dpr, PIN_COLORS[pin.hue] ?? PIN_COLORS[0]);
+
     for (const player of world.players.values()) {
       const self = player.id === selfId;
       const x = player.pos.x * scale;
@@ -593,11 +673,17 @@ export class WorldMap {
         // A pointer the browser no longer tracks; the drag still works while it stays on the map.
       }
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      // Only a lone press can be a click; a second finger makes it a pinch.
+      this.pressAt = this.pointers.size === 1 ? { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false } : null;
       frame.classList.add('dragging');
     });
     frame.addEventListener('pointermove', (e) => {
       const was = this.pointers.get(e.pointerId);
       if (!was) return;
+      const press = this.pressAt;
+      if (press && press.id === e.pointerId && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CLICK_SLOP) {
+        press.moved = true;
+      }
       const others = [...this.pointers.entries()].filter(([id]) => id !== e.pointerId).map(([, p]) => p);
       const width = frame.clientWidth * this.zoom;
       if (others.length === 0) {
@@ -615,6 +701,11 @@ export class WorldMap {
       this.applyView();
     });
     const release = (e: PointerEvent): void => {
+      const press = this.pressAt;
+      if (press && press.id === e.pointerId) {
+        this.pressAt = null;
+        if (e.type === 'pointerup' && !press.moved && this.pinMode) this.pinAt(e.clientX, e.clientY);
+      }
       this.pointers.delete(e.pointerId);
       if (this.pointers.size === 0) frame.classList.remove('dragging');
     };
@@ -632,6 +723,61 @@ export class WorldMap {
         this.zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, kind === 'in' ? 1.6 : 1 / 1.6);
       });
     }
+  }
+
+  private bindPins(): void {
+    this.pinButton.addEventListener('click', () => this.setPinMode(!this.pinMode));
+    this.hueButton.addEventListener('click', () => {
+      this.pinHue = (this.pinHue + 1) % PIN_COLORS.length;
+      this.paintHue();
+    });
+    this.paintHue();
+  }
+
+  private setPinMode(on: boolean): void {
+    this.pinMode = on;
+    this.pinButton.classList.toggle('on', on);
+    this.hueButton.classList.toggle('hidden', !on);
+    this.hint.classList.toggle('hidden', !on);
+    this.frame.classList.toggle('pinning', on);
+    this.hint.textContent = `Click the map to drop a pin, click a pin to lift it. ${this.world?.pins.length ?? 0}/${MAX_PINS} placed.`;
+  }
+
+  private get world(): World | null {
+    return this.lastWorld;
+  }
+
+  private paintHue(): void {
+    (this.hueButton.firstElementChild as HTMLElement).style.background = PIN_COLORS[this.pinHue];
+  }
+
+  /** A click at a screen point: lift the pin under it, or drop one there. */
+  private pinAt(clientX: number, clientY: number): void {
+    const world = this.lastWorld;
+    if (!world) return;
+    const rect = this.frame.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const span = MAP_TILES * TILE;
+    // Island coordinates under a screen point, the inverse of `applyView`.
+    const toWorld = (px: number, py: number): [number, number] => [
+      (this.cx + ((px - rect.left) / rect.width - 0.5) / this.zoom) * span,
+      (this.cy + ((py - rect.top) / rect.width - 0.5) / this.zoom) * span,
+    ];
+    const perPixel = span / (rect.width * this.zoom);
+    const [wx, wy] = toWorld(clientX, clientY);
+    // A pin's body stands above its point, so the grab reaches up to meet it.
+    let nearest: { id: number; d: number } | null = null;
+    for (const pin of world.pins) {
+      const d = Math.min(
+        Math.hypot(pin.x - wx, pin.y - wy),
+        Math.hypot(pin.x - wx, pin.y - perPixel * 10 - wy),
+      );
+      if (d <= PIN_GRAB * perPixel && (!nearest || d < nearest.d)) nearest = { id: pin.id, d };
+    }
+    if (nearest) this.pinHandlers.lift(nearest.id);
+    else this.pinHandlers.place(wx, wy, this.pinHue);
+    // The count in the hint is stale until the order lands; the next frame fixes the rest.
+    this.hint.textContent = `Click the map to drop a pin, click a pin to lift it. ${world.pins.length}/${MAX_PINS} placed.`;
   }
 
   /** Zoom by `factor`, keeping the point of the island under (x, y) where it is. */

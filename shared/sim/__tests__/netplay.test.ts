@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { CRAFT_BY_ID } from '../../data/crafting';
 import { applyOrder, type Order } from '../commands';
 import { spellPerk } from '../../data/spells';
-import { addItem } from '../inventory';
+import { addItem, countItem } from '../inventory';
 import { addPerk } from '../perks';
+import { researchPlan } from '../research';
 import { makeRng } from '../rng';
 import { checksum, decode, encode, restoreSnapshot, takeSnapshot, type Snapshot } from '../snapshot';
 import { step } from '../step';
+import { spawnMob } from '../systems/mobs';
 import type { PlayerInput, World } from '../types';
 import { createPlayer, spawnPoint } from '../world';
 import { at, bench, plantOre } from './bench';
@@ -82,6 +84,8 @@ describe('co-op replay', () => {
     // Food and a wound, so eating is covered too.
     addItem(player, 'fish', 3);
     player.hp = 40;
+    // The fish are cooked at the campfire, and the map is pinned and unpinned.
+    const campfire = host.buildings.find((b) => b.type === 'campfire')!;
     // Modules to fit into a tier 3 furnace built mid-run.
     addItem(player, 'speedModule', 2);
     const snap = decode<Snapshot>(encode(takeSnapshot(host)));
@@ -99,10 +103,30 @@ describe('co-op replay', () => {
       if (t === 300) pending.push({ p: player.id, c: { k: 'spell', id: 'frostNova' } });
       if (t === 61) pending.push({ p: player.id, c: { k: 'craft', id: 'satchel' } });
       if (t === 62) pending.push({ p: player.id, c: { k: 'eat' } });
+      if (t === 63) pending.push({ p: player.id, c: { k: 'pin', x: 900, y: 1200, hue: 3 } });
+      if (t === 64) pending.push({ p: friend.id, c: { k: 'pin', x: 1500, y: 800, hue: 1 } });
+      if (t === 70) pending.push({ p: friend.id, c: { k: 'unpin', id: host.pins[0].id } });
+      if (t === 80) {
+        // Beside the fire on both copies; wandering would otherwise decide it.
+        for (const world of [host, guest]) world.players.get(player.id)!.pos = { x: campfire.pos.x + 30, y: campfire.pos.y };
+        pending.push({ p: player.id, c: { k: 'cook' } });
+      }
       if (t === 120) {
         pending.push({ p: friend.id, c: { k: 'queue', tech: 'roboticArms', op: 'add' } });
         pending.push({ p: player.id, c: { k: 'queue', tech: 'angling', op: 'add' } });
         pending.push({ p: player.id, c: { k: 'queue', tech: 'angling', op: 'up' } });
+      }
+      if (t === 125) {
+        // A repeatable tech planned three times, one level dropped again, and
+        // the last one raised past nothing: places travel over the wire too.
+        for (const p of [friend.id, player.id, friend.id]) {
+          pending.push({ p, c: { k: 'queue', tech: 'endurance', op: 'add' } });
+        }
+      }
+      if (t === 126) pending.push({ p: player.id, c: { k: 'queue', tech: 'endurance', op: 'remove' } });
+      if (t === 127) {
+        const place = researchPlan(host.research).indexOf('toolmaking');
+        pending.push({ p: player.id, c: { k: 'queue', tech: 'toolmaking', op: 'up', place } });
       }
       if (t === 400) {
         pending.push({ p: friend.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty + 1, dir: 1 } });
@@ -115,6 +139,39 @@ describe('co-op replay', () => {
         pending.push({ p: player.id, c: { k: 'machine', what: 'turret', tx: ore.tx + 9, ty: ore.ty, dir: 0 } });
         // A warehouse takes four tiles, and a guest has to hold all four.
         pending.push({ p: player.id, c: { k: 'machine', what: 'warehouse', tx: ore.tx + 12, ty: ore.ty, dir: 0 } });
+        // A panel and an accumulator on one pole, so a bank charging through
+        // the day is covered: its charge is state a guest must replay.
+        pending.push({ p: player.id, c: { k: 'machine', what: 'pole', tx: ore.tx + 7, ty: ore.ty + 1, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'solar', tx: ore.tx + 8, ty: ore.ty + 1, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'accumulator', tx: ore.tx + 8, ty: ore.ty + 2, dir: 0 } });
+      }
+      if (t === 410) {
+        // Faster belts laid over standing ones: a new belt born Mk3, one upgraded
+        // in place with ore riding it, and a plain one bumped Mk2 then refused Mk2 again.
+        pending.push({ p: player.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty + 1, dir: 1, tier: 3 } });
+        pending.push({ p: player.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty, dir: 0, tier: 2 } });
+        pending.push({ p: player.id, c: { k: 'belt', tx: ore.tx + 1, ty: ore.ty, dir: 0, tier: 2 } });
+        // The gap the removal above left in the miner's line, closed again.
+        pending.push({ p: player.id, c: { k: 'belt', tx: ore.tx + 2, ty: ore.ty, dir: 0 } });
+      }
+      if (t === 420) {
+        // The chest at the end of the miner's line makes way for a long-haul
+        // pair, which a guest has to pair the same way the host does.
+        pending.push({ p: player.id, c: { k: 'remove', tx: ore.tx + 3, ty: ore.ty } });
+      }
+      if (t === 421) {
+        pending.push({ p: player.id, c: { k: 'machine', what: 'haul', tx: ore.tx + 3, ty: ore.ty, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'haul', tx: ore.tx + 3, ty: ore.ty + 4, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'belt', tx: ore.tx + 4, ty: ore.ty + 4, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'chest', tx: ore.tx + 5, ty: ore.ty + 4, dir: 0 } });
+      }
+      if (t === 700) {
+        // Taking the receiving end up mid-run turns the sender back into one
+        // waiting, and puts a new port beside it to pair again.
+        pending.push({ p: player.id, c: { k: 'remove', tx: ore.tx + 3, ty: ore.ty + 4 } });
+      }
+      if (t === 710) {
+        pending.push({ p: player.id, c: { k: 'machine', what: 'haul', tx: ore.tx + 3, ty: ore.ty + 4, dir: 0 } });
       }
       // Taken down by its far corner, which only a footprint-aware guest can find.
       if (t === 500) pending.push({ p: player.id, c: { k: 'remove', tx: ore.tx + 13, ty: ore.ty + 1 } });
@@ -137,6 +194,20 @@ describe('co-op replay', () => {
     }
 
     expect(host.machines.filter((m) => m.type === 'tunnelExit')).toHaveLength(1);
+    const beltAtTile = (world: World, dx: number, dy: number) =>
+      world.belts.find((b) => b.tx === ore.tx + dx && b.ty === ore.ty + dy)!;
+    for (const world of [host, guest]) {
+      expect(beltAtTile(world, 1, 1).tier).toBe(3);
+      expect(beltAtTile(world, 1, 0).tier).toBe(2);
+      expect(world.belts.filter((b) => b.tier === 2)).toHaveLength(1);
+      const sender = world.machines.find((m) => m.type === 'haul' && m.tx === ore.tx + 3 && m.ty === ore.ty)!;
+      const receiver = world.machines.find((m) => m.type === 'haulExit')!;
+      expect(sender.link).toBe(receiver.id);
+      expect(receiver.link).toBe(sender.id);
+    }
+    // What came through the pipe before the pair was broken and remade is in the chest.
+    const far = guest.machines.find((m) => m.type === 'chest' && m.tx === ore.tx + 5 && m.ty === ore.ty + 4)!;
+    expect(far.input.some((slot) => slot && slot.count > 0)).toBe(true);
     expect(guest.machines.find((m) => m.type === 'turret')!.wear).toBeUndefined();
     expect(guest.machines.find((m) => m.type === 'furnaceMk3')!.modules).toEqual([
       { id: 'speedModule', count: 1 },
@@ -144,13 +215,43 @@ describe('co-op replay', () => {
     ]);
     expect(host.machines.some((m) => m.type === 'warehouse')).toBe(false);
     expect(guest.grid.size).toBe(host.grid.size);
+    expect(guest.machines.find((m) => m.type === 'accumulator')!.charge).toBeGreaterThan(0);
     expect(host.nightIndex).toBeGreaterThan(0);
     expect(host.players.size).toBe(2);
     expect(player.bag).toBe(1);
+    expect(host.pins).toHaveLength(1);
+    expect(guest.pins).toEqual(host.pins);
+    expect(countItem(guest.players.get(player.id)!, 'grilledFish')).toBeGreaterThan(0);
     expect(player.spell).toBe('frostNova');
-    expect(guest.research.queue).toEqual(['beltLogistics', 'angling', 'roboticArms']);
+    // Toolmaking was raised a place, past Robotic Arms.
+    expect(guest.research.queue.slice(0, 4)).toEqual(['beltLogistics', 'angling', 'toolmaking', 'roboticArms']);
+    expect(guest.research.queue.filter((id) => id === 'endurance')).toHaveLength(2);
+    expect(guest.research.queue).toEqual(host.research.queue);
     expect(guest.players.get(player.id)!.inventory).toHaveLength(player.inventory.length);
     expect(encode(takeSnapshot(guest))).toBe(encode(takeSnapshot(host)));
+  });
+
+  it('keeps a guest in step through an enraged bulwark pulsing and a research-scaled raid', () => {
+    const { world: host, player } = bench();
+    host.peaceful = false;
+    host.nightIndex = 30;
+    host.research.levels.resonance = 1;
+    host.phase = 'night';
+    host.phaseTime = 40;
+    const bulwark = spawnMob(host, 'bulwark', { x: player.pos.x + 110, y: player.pos.y });
+    bulwark.enraged = true;
+    bulwark.pulseCd = 0;
+    const guest = restoreSnapshot(decode<Snapshot>(encode(takeSnapshot(host))));
+    expect(checksum(guest)).toBe(checksum(host));
+
+    let pulses = 0;
+    for (let t = 0; t < 30 * 20; t++) {
+      const tick = hostTick(host, [], new Map([[player.id, { move: { x: 0, y: 0 }, dash: false, interact: false, attack: false }]]));
+      pulses += host.events.filter((e) => e.kind === 'pulse').length;
+      guestTick(guest, tick);
+      if (checksum(guest) !== tick.hash) throw new Error(`guest drifted from the host at tick ${host.tick}`);
+    }
+    expect(pulses).toBeGreaterThan(0);
   });
 
   it('round-trips numbers plain JSON would change', () => {
@@ -167,6 +268,8 @@ describe('co-op replay', () => {
     const junk = [
       { k: 'machine', what: 'reactor', tx: 1, ty: 1, dir: 0 },
       { k: 'belt', tx: 1.5, ty: 1, dir: 9 },
+      { k: 'belt', tx: 1, ty: 1, dir: 0, tier: 9 },
+      { k: 'belt', tx: 1, ty: 1, dir: 0, tier: 'beltMk3' },
       { k: 'click', machine: null, ref: { area: 'bag', index: 999 }, button: 'left' },
       { k: 'click', machine: 12345, ref: { area: 'input', index: 0 }, button: 'left' },
       { k: 'building', type: 'castle', x: 0, y: 0 },
@@ -174,6 +277,9 @@ describe('co-op replay', () => {
       { k: 'spell', id: 'mend' },
       { k: 'mend', machine: 'turret' },
       { k: 'mend', machine: 999999 },
+      { k: 'pin', x: 'far', y: 3, hue: 0 },
+      { k: 'pin', x: 3, y: 3, hue: 'red' },
+      { k: 'unpin', id: 'first' },
       { k: 'nonsense' },
     ] as unknown as Order['c'][];
     const bag = player.inventory.length;

@@ -504,13 +504,15 @@ export function drawBulwark(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
   const hurt = 1 - mob.hp / mob.maxHp;
   const shell = def.color;
   const glowC = def.accent;
+  // The crystal blazes as the ward charges, the tell that goes with the ring.
+  const charge = def.pulse && mob.pulse ? 1 - mob.pulse / def.pulse.windup : 0;
 
   softShadow(ctx, x, feet, r * 1.6, 0.5);
   if (pixelSprites()) {
     const walk = moving ? Math.floor(((((gait / (Math.PI * 2)) % 1) + 1) % 1) * BOSS_WALK) : 0;
     drawPixelBulwark(ctx, x, feet, mobAct(mob, moving), walk, hurt, face.x < 0, paintFlash() > 0);
     const pulse = 0.55 + Math.sin(time * 3 + mob.seed) * 0.15;
-    crystalHalo(ctx, x, feet - r * 1.85, r, pulse * (1 - hurt * 0.5));
+    crystalHalo(ctx, x, feet - r * 1.85, r * (1 + charge * 0.6), pulse * (1 - hurt * 0.5) + charge * 0.9);
     return;
   }
   ctx.translate(x, feet);
@@ -564,7 +566,7 @@ export function drawBulwark(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
 
   // The crystal cluster on its back, lit from inside.
   const pulse = 0.55 + Math.sin(time * 3 + mob.seed) * 0.15;
-  const bright = pulse * (1 - hurt * 0.5);
+  const bright = pulse * (1 - hurt * 0.5) + charge * 0.9;
   const cy = -r * 1.3 + sway;
   for (const [cx, h, w, lean] of [
     [-0.28, 0.75, 0.2, -0.3],
@@ -591,7 +593,7 @@ export function drawBulwark(ctx: CanvasRenderingContext2D, mob: Mob, time: numbe
     ctx.fill();
     ctx.restore();
   }
-  crystalHalo(ctx, 0, cy - r * 0.5, r, bright);
+  crystalHalo(ctx, 0, cy - r * 0.5, r * (1 + charge * 0.6), bright);
 }
 
 /** The ward's light round the crystals, added over the scene so it glows. */

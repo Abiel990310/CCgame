@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { MOBS } from '../../data/mobs';
 import { damageMob } from '../systems/combat';
-import { nightBudget, spawnMob, toughness } from '../systems/mobs';
+import { TICK_DT, WAVES } from '../constants';
+import { biteScale, nightBudget, spawnMob, toughness } from '../systems/mobs';
 import { addPlayer, createWorld } from '../world';
+import { advance } from './bench';
 
 describe('the night curve', () => {
   it('grows each night by more than the night before', () => {
@@ -49,5 +51,40 @@ describe('the night curve', () => {
     world.nightIndex = 15;
     expect(second).toBeGreaterThan(1);
     expect(toughness(world, 'warden')).toBeGreaterThan(second);
+  });
+
+  it('has raiders bite harder as nights go on, up to a cap, and leaves bosses and keepers alone', () => {
+    const world = createWorld(5);
+    const brute = spawnMob(world, 'brute', { x: 0, y: 0 });
+    world.nightIndex = WAVES.hardenFrom;
+    expect(biteScale(world, brute)).toBe(1);
+    world.nightIndex = WAVES.hardenFrom + 10;
+    const later = biteScale(world, brute);
+    expect(later).toBeCloseTo(1 + WAVES.bitePerNight * 10);
+    world.nightIndex = 500;
+    expect(biteScale(world, brute)).toBe(1 + WAVES.biteCap);
+
+    const warden = spawnMob(world, 'warden', { x: 0, y: 0 });
+    expect(biteScale(world, warden)).toBe(1);
+    const keeper = spawnMob(world, 'brute', { x: 0, y: 0 });
+    keeper.post = { x: 0, y: 0 };
+    expect(biteScale(world, keeper)).toBe(1);
+  });
+
+  it("scales a spitter's shot with the bite, and leaves a boss's spit alone", () => {
+    const world = createWorld(5);
+    const player = addPlayer(world, 'p1');
+    world.nightIndex = WAVES.hardenFrom + 10;
+    for (const [type, scaled] of [['spitter', true], ['queen', false]] as const) {
+      world.projectiles.length = 0;
+      const mob = spawnMob(world, type, { x: player.pos.x + 60, y: player.pos.y });
+      mob.spitCd = 0;
+      const shot = MOBS[type].spit;
+      if (!shot) continue;
+      for (let i = 0; i < 4 && world.projectiles.length === 0; i++) advance(world, TICK_DT);
+      const fired = world.projectiles.find((p) => p.weapon === 'spit' && p.ownerId === mob.id);
+      expect(fired).toBeDefined();
+      expect(fired!.damage).toBeCloseTo(shot.damage * (scaled ? biteScale(world, mob) : 1));
+    }
   });
 });

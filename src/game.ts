@@ -1,7 +1,7 @@
 import { BUILDINGS } from '@shared/data/buildings';
 import { applyOrder, type Command } from '@shared/sim/commands';
 import { CRAFT_BY_ID } from '@shared/data/crafting';
-import { BELT_COST, MACHINES, placementCost } from '@shared/data/machines';
+import { BELTS, MACHINES, beltIdOf, isBeltId, pieceName, placementCost } from '@shared/data/machines';
 import { ITEMS, RESOURCES } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
 import { BEACON_STAGES } from '@shared/data/beacon';
@@ -40,26 +40,31 @@ import {
   setSideFilter,
   upgradeTarget,
   beltAt,
+  beltUpgradeTarget,
 } from '@shared/sim/factory';
 import { machineSize, rotate, step1, tileCenter, tileKey, toTile } from '@shared/sim/grid';
 import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
-import { setResearch } from '@shared/sim/research';
+import { setResearch, type QueueOp } from '@shared/sim/research';
 import { GOAL_BY_ID } from '@shared/data/goals';
 import { GraphicsPanel } from './ui/graphics';
 import { GoalTracker } from './ui/goals';
 import { Minimap } from './ui/minimap';
+import { installItemTip } from './ui/itemtip';
 import { WorldMap, type MapTab } from './ui/worldmap';
 import { Ledger, loadLedger, saveLedger } from './ledger';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
-import { addItem } from '@shared/sim/inventory';
+import { addItem, countItem } from '@shared/sim/inventory';
 import { craftError, nearWorkbench } from '@shared/sim/crafting';
-import { pickFood } from '@shared/sim/food';
+import { nearCampfire, pickFood } from '@shared/sim/food';
+import { MAX_PINS } from '@shared/sim/pins';
 import type {
   Belt,
+  BeltId,
   Direction,
   MachineFamily,
   ItemStack,
   Machine,
+  MachineId,
   MobTypeId,
   Player,
   PlayerInput,
@@ -201,7 +206,11 @@ export class Game {
     if (graphics) this.graphics = new GraphicsPanel(graphics, this.renderer);
     this.perf = new PerfMeter(this.renderer);
     const ui = document.getElementById('ui') ?? document.body;
-    this.inspector = new Inspector(ui, () => this.toggleCrafting());
+    this.inspector = new Inspector(
+      ui,
+      () => this.toggleCrafting(),
+      () => this.cook(),
+    );
     this.workbench = new WorkbenchScreen(ui, {
       onCraft: (id) => this.craftItem(id),
       onClose: () => this.closeCrafting(),
@@ -214,9 +223,8 @@ export class Game {
       onSetRecipe: (machineId, recipeId) => {
         if (this.act({ k: 'recipe', machine: machineId, recipe: recipeId })) this.requestSave();
       },
-      onQueueResearch: (techId, op) => {
-        if (this.act({ k: 'queue', tech: techId, op })) this.requestSave();
-      },
+      onQueueResearch: (techId, op, place) => this.orderResearch(techId, op, place),
+      onOpenResearch: () => this.toggleMap('research'),
       onSetFilter: (machineId, item) => {
         if (this.act({ k: 'filter', machine: machineId, item })) this.requestSave();
       },
@@ -239,7 +247,21 @@ export class Game {
     });
 
     this.goals = new GoalTracker(document.getElementById('ui')!);
-    this.worldMap = new WorldMap(document.getElementById('ui')!, () => this.worldMap.setOpen(false));
+    this.worldMap = new WorldMap(document.getElementById('ui')!, () => this.worldMap.setOpen(false), {
+      place: (x, y, hue) => {
+        if (this.act({ k: 'pin', x, y, hue })) {
+          audio.play('placed');
+          this.requestSave();
+        } else {
+          audio.play('denied');
+          this.hud.toast(this.world.pins.length >= MAX_PINS ? 'The map is full of pins' : 'Too close to another pin', 'warn');
+        }
+      },
+      lift: (id) => {
+        if (this.act({ k: 'unpin', id })) this.requestSave();
+      },
+    }, (techId, op, place) => this.orderResearch(techId, op, place));
+    installItemTip();
     this.minimap = new Minimap(document.getElementById('corner-right')!, this.worldMap, () => this.toggleMap());
     this.story = new StoryCards(document.getElementById('ui')!);
     document.getElementById('btn-map')!.addEventListener('click', () => this.toggleMap());
@@ -404,6 +426,10 @@ export class Game {
       y: this.showcaseFocus.y + Math.sin(t * 0.063) * 90,
     };
     this.renderer.render(this.world, this.selfId, t, null, null);
+  }
+
+  private orderResearch(techId: string, op: QueueOp, place?: number): void {
+    if (this.act({ k: 'queue', tech: techId, op, ...(place === undefined ? {} : { place }) })) this.requestSave();
   }
 
   private toggleMap(tab: MapTab = 'map'): void {
@@ -700,6 +726,24 @@ export class Game {
     if (this.act({ k: 'eat' })) this.requestSave();
   }
 
+  /** Grill the fish in the bag at the campfire, or say what is missing. */
+  private cook(): void {
+    const player = this.self;
+    if (player.downed > 0) return;
+    const fish = countItem(player, 'fish');
+    if (!nearCampfire(this.world, player)) {
+      audio.play('denied');
+      this.hud.toast('Walk up to the campfire to cook', 'warn');
+    } else if (fish <= 0) {
+      audio.play('denied');
+      this.hud.toast('No fish to cook. Fish at a shore', 'warn');
+    } else if (this.act({ k: 'cook' })) {
+      this.flush();
+      this.hud.toast(`Grilled ${fish} fish`, 'good');
+      this.requestSave();
+    }
+  }
+
   private craftItem(id: string): void {
     const error = craftError(this.world, this.self, id);
     const recipe = CRAFT_BY_ID.get(id);
@@ -860,6 +904,7 @@ export class Game {
       if (action === 'upgrade' && !blocked) this.hud.openDraft();
       if (action === 'swapSpell') this.swapSpell();
       if (action === 'eat' && !this.hud.isPauseOpen) this.eat();
+      if (action === 'cook' && !blocked) this.cook();
       if (action === 'cancel' && this.intro) {
         this.endIntro();
         continue;
@@ -899,17 +944,21 @@ export class Game {
       return { kind: 'building', type: selection.id, pos: snapped, valid };
     }
 
-    const what = selection.kind === 'belt' ? 'belt' : selection.id;
+    const what = selection.kind === 'belt' ? beltIdOf(selection.tier) : selection.id;
     const valid = factoryPlacementError(this.world, this.self, what, tx, ty) === null;
-    // An upgrade keeps the facing of the machine it replaces, so the ghost does too.
-    const replacing = what === 'belt' ? null : upgradeTarget(this.world, what, tx, ty);
+    // An upgrade keeps the facing of the piece it replaces, so the ghost does too.
+    const replacing = this.upgradeOf(what, tx, ty);
     const dir = replacing ? replacing.dir : this.buildDir;
     return { kind: 'grid', what, tx, ty, dir, valid };
   }
 
   private isUpgrade(ghost: GhostPreview | null): boolean {
-    if (ghost?.kind !== 'grid' || ghost.what === 'belt') return false;
-    return upgradeTarget(this.world, ghost.what, ghost.tx, ghost.ty) !== null;
+    return ghost?.kind === 'grid' && this.upgradeOf(ghost.what, ghost.tx, ghost.ty) !== null;
+  }
+
+  /** The belt or machine that placing `what` here would replace with a higher tier. */
+  private upgradeOf(what: MachineId | BeltId, tx: number, ty: number): Belt | Machine | null {
+    return isBeltId(what) ? beltUpgradeTarget(this.world, what, tx, ty) : upgradeTarget(this.world, what, tx, ty);
   }
 
   /**
@@ -991,7 +1040,7 @@ export class Game {
     while ((dx !== 0 || dy !== 0) && guard++ < 24) {
       const dir: Direction =
         Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 0 : 2) : dy > 0 ? 1 : 3;
-      if (ghost.what === 'belt') {
+      if (isBeltId(ghost.what)) {
         this.buildDir = dir;
         // The belt the line starts from only now learns which way it runs.
         if (drag.laid.has(tileKey(drag.tx, drag.ty)) || beltAt(this.world, drag.tx, drag.ty)) {
@@ -1041,10 +1090,12 @@ export class Game {
     const error = factoryPlacementError(this.world, this.self, what, tx, ty);
 
     if (error === null) {
-      const replacing = what === 'belt' ? null : upgradeTarget(this.world, what, tx, ty);
-      if (what === 'belt') this.act({ k: 'belt', tx, ty, dir: this.buildDir });
+      const replacing = this.upgradeOf(what, tx, ty);
+      // A belt keeps its facing through an upgrade, so there is nothing to say
+      // about it per tile: a line of them is one stroke, not forty toasts.
+      if (isBeltId(what)) this.act({ k: 'belt', tx, ty, dir: this.buildDir, tier: BELTS[what].tier });
       else this.act({ k: 'machine', what, tx, ty, dir: this.buildDir });
-      if (replacing) this.hud.toast(`Upgraded to ${MACHINES[replacing.type].name}`, 'good');
+      if (replacing && 'type' in replacing) this.hud.toast(`Upgraded to ${MACHINES[replacing.type].name}`, 'good');
       this.requestSave();
       return true;
     }
@@ -1055,7 +1106,7 @@ export class Game {
     let existing: Belt | Machine | null = null;
     if (error === 'occupied') {
       if (this.input.isTouch) existing = entityAt(this.world, tx, ty);
-      else if (what === 'belt') existing = beltAt(this.world, tx, ty);
+      else if (isBeltId(what)) existing = beltAt(this.world, tx, ty);
     }
     if (existing) {
       const dir = this.input.isTouch ? rotate(existing.dir) : this.buildDir;
@@ -1070,18 +1121,18 @@ export class Game {
     // A finger resting on a piece is about to remove it, not to be told off.
     if (error === 'occupied' && this.input.isTouch) return false;
 
-    const cost = what === 'belt' ? BELT_COST : placementCost(what);
+    const cost = isBeltId(what) ? BELTS[what].cost : placementCost(what);
     const messages: Record<NonNullable<typeof error>, string> = {
       bounds: 'Off the edge of the island',
       occupied: 'Something is already there',
       terrain: "Can't build on water",
       ore: 'A miner has to sit on an ore patch',
       shore: 'A fish trap has to sit on the shoreline',
-      locked: what === 'belt' ? '' : `Research ${UNLOCKED_BY.get(what)?.name ?? 'more'} first`,
+      locked: `Research ${UNLOCKED_BY.get(what)?.name ?? 'more'} first`,
       scenery: "Clear what's growing there first",
       camp: 'A camp building is in the way',
       cost:
-        what !== 'belt' && MACHINES[what].crafted
+        !isBeltId(what) && MACHINES[what].crafted
           ? `Craft a ${MACHINES[what].name} at a workbench first`
           : this.costMessage(cost),
     };
@@ -1287,6 +1338,7 @@ export class Game {
       hovering: this.input.hovering,
       busy: paused || this.hud.isBuildMode || this.hud.isInventoryOpen || this.workbench.isOpen,
       touch: COARSE.matches,
+      ledger: this.ledger,
     });
   }
 
@@ -1399,7 +1451,7 @@ export class Game {
       );
       // Only the first level of a tech opens anything.
       if (tech?.unlocks?.length && event.level === 1) {
-        const names = tech.unlocks.map((id) => MACHINES[id].name).join(', ');
+        const names = tech.unlocks.map(pieceName).join(', ');
         this.hud.toast(`New on the build palette: ${names}`, 'good');
       }
       this.requestSave();
@@ -1525,6 +1577,8 @@ export class Game {
         if (self) this.hitstop = Math.max(this.hitstop, 0.07);
       } else if (event.kind === 'quake') {
         if (event.hits > 0) this.hitstop = Math.max(this.hitstop, 0.12);
+      } else if (event.kind === 'pulse') {
+        if (event.hits > 0) this.hitstop = Math.max(this.hitstop, 0.1);
       } else if (event.kind === 'bossRage') {
         // The longest hold there is: the fight has turned.
         this.hitstop = Math.max(this.hitstop, 0.22);

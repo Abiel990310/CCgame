@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { applyOrder } from '../commands';
 import { oreLeftAt } from '../ore';
-import { activeTech, finishCycle, cyclesNeeded, orderResearch, researchBonuses } from '../research';
+import {
+  MAX_PLANNED,
+  activeTech,
+  finishCycle,
+  cyclesNeeded,
+  orderResearch,
+  pruneResearchQueue,
+  researchBonuses,
+  researchPlan,
+} from '../research';
 import { countIn } from '../slots';
 import { TECH_BY_ID } from '../../data/techs';
 import type { Machine, World } from '../types';
@@ -96,6 +105,100 @@ describe('the research queue', () => {
     expect(applyOrder(b.world, { p, c: { k: 'queue', tech: 'nope', op: 'add' } })).toBe(false);
     // @ts-expect-error a malformed op from another browser
     expect(applyOrder(b.world, { p, c: { k: 'queue', tech: 'angling', op: 'sideways' } })).toBe(false);
+  });
+});
+
+describe('a repeatable tech planned more than once', () => {
+  const ready = (): World => {
+    const { world } = bench();
+    for (const id of ['automation', 'prospecting', 'labAutomation', 'metallurgy']) world.research.levels[id] = 1;
+    return world;
+  };
+
+  it('takes one entry per level, and the others still only one', () => {
+    const world = ready();
+    expect(orderResearch(world, 'miningProductivity', 'add')).toBe(true);
+    expect(orderResearch(world, 'miningProductivity', 'add')).toBe(true);
+    expect(orderResearch(world, 'miningProductivity', 'add')).toBe(true);
+    expect(researchPlan(world.research)).toEqual(['miningProductivity', 'miningProductivity', 'miningProductivity']);
+
+    expect(orderResearch(world, 'toolmaking', 'add')).toBe(true);
+    expect(orderResearch(world, 'toolmaking', 'add')).toBe(false);
+  });
+
+  it('runs the levels back to back, each dearer than the last', () => {
+    const world = ready();
+    for (let i = 0; i < 3; i++) orderResearch(world, 'miningProductivity', 'add');
+    const def = TECH_BY_ID.get('miningProductivity')!;
+
+    finish(world, 'miningProductivity');
+    expect(world.research.levels.miningProductivity).toBe(1);
+    expect(activeTech(world)?.id).toBe('miningProductivity');
+    expect(world.research.queue).toEqual(['miningProductivity']);
+    expect(cyclesNeeded(world, def)).toBe(def.cycles * 2);
+
+    finish(world, 'miningProductivity');
+    finish(world, 'miningProductivity');
+    expect(world.research.levels.miningProductivity).toBe(3);
+    // The plan was three levels; it stays on the tech only because nothing else is queued.
+    expect(activeTech(world)?.id).toBe('miningProductivity');
+    expect(world.research.queue).toEqual([]);
+  });
+
+  it('drops one level at a time, from the end unless told which', () => {
+    const world = ready();
+    for (let i = 0; i < 3; i++) orderResearch(world, 'miningProductivity', 'add');
+    orderResearch(world, 'toolmaking', 'add');
+
+    expect(orderResearch(world, 'miningProductivity', 'remove')).toBe(true);
+    expect(researchPlan(world.research)).toEqual(['miningProductivity', 'miningProductivity', 'toolmaking']);
+
+    // Removing the front entry hands the labs the next level of the same tech.
+    expect(orderResearch(world, 'miningProductivity', 'remove', 0)).toBe(true);
+    expect(researchPlan(world.research)).toEqual(['miningProductivity', 'toolmaking']);
+    // A place that holds some other tech is not this tech's to drop.
+    expect(orderResearch(world, 'miningProductivity', 'remove', 1)).toBe(false);
+    expect(orderResearch(world, 'miningProductivity', 'remove', 9)).toBe(false);
+  });
+
+  it('lets a level move past another tech but not past itself', () => {
+    const world = ready();
+    orderResearch(world, 'miningProductivity', 'add');
+    orderResearch(world, 'miningProductivity', 'add');
+    orderResearch(world, 'toolmaking', 'add');
+
+    expect(orderResearch(world, 'miningProductivity', 'up', 1)).toBe(false);
+    expect(orderResearch(world, 'toolmaking', 'up', 2)).toBe(true);
+    expect(researchPlan(world.research)).toEqual(['miningProductivity', 'toolmaking', 'miningProductivity']);
+  });
+
+  it('is cut back to the cap, in a world and off a save', () => {
+    const world = ready();
+    for (let i = 0; i < MAX_PLANNED + 5; i++) orderResearch(world, 'miningProductivity', 'add');
+    expect(researchPlan(world.research)).toHaveLength(MAX_PLANNED);
+
+    world.research.queue = Array(MAX_PLANNED * 2).fill('miningProductivity');
+    pruneResearchQueue(world.research);
+    expect(researchPlan(world.research)).toHaveLength(MAX_PLANNED);
+  });
+
+  it('takes a plan off a tech that needs a prerequisite that is gone', () => {
+    const world = ready();
+    world.research.levels.labAutomation = 0;
+    world.research.queue = ['miningProductivity', 'miningProductivity'];
+    pruneResearchQueue(world.research);
+    expect(world.research.queue).toEqual([]);
+  });
+
+  it('is a command that refuses a place that is not a whole number', () => {
+    const b = bench();
+    const p = b.player.id;
+    // Automation first, then Angling at place 1.
+    orderResearch(b.world, 'angling', 'add');
+    // @ts-expect-error a malformed place from another browser
+    expect(applyOrder(b.world, { p, c: { k: 'queue', tech: 'angling', op: 'remove', place: 'x' } })).toBe(false);
+    expect(applyOrder(b.world, { p, c: { k: 'queue', tech: 'angling', op: 'remove', place: 0.5 } })).toBe(false);
+    expect(applyOrder(b.world, { p, c: { k: 'queue', tech: 'angling', op: 'remove', place: 1 } })).toBe(true);
   });
 });
 

@@ -33,7 +33,8 @@ export function drawPowerWires(ctx: CanvasRenderingContext2D, world: World, view
     if (Math.max(ax, bx) < view.minX - TILE || Math.min(ax, bx) > view.maxX + TILE) continue;
     if (Math.max(ay, by) < view.minY - TILE * 2 || Math.min(ay, by) > view.maxY + TILE) continue;
 
-    const live = (powerNetOf(world, a)?.supply ?? 0) > 0;
+    const net = powerNetOf(world, a);
+    const live = !!net && (net.supply > 0 || net.flow < 0);
     ctx.strokeStyle = live ? 'rgba(40, 34, 30, 0.85)' : 'rgba(40, 34, 30, 0.45)';
     for (const side of [-1, 1] as const) {
       const p = poleTip(a, side);
@@ -60,7 +61,7 @@ export function drawPowerCoverage(
   ghost: { tx: number; ty: number },
 ): void {
   const def = MACHINES[holding];
-  if (def.family !== 'pole' && !def.power && !def.generates) return;
+  if (def.family !== 'pole' && !def.power && !def.generates && !def.stores) return;
 
   ctx.save();
   const square = (tx: number, ty: number, r: number, alpha: number): void => {

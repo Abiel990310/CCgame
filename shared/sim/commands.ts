@@ -1,7 +1,7 @@
 import { BUILDINGS } from '../data/buildings';
 import { CRAFT_BY_ID } from '../data/crafting';
 import { ITEMS } from '../data/items';
-import { MACHINES } from '../data/machines';
+import { MACHINES, beltIdOf } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { SPELLS } from '../data/spells';
 import { TECH_BY_ID } from '../data/techs';
@@ -19,7 +19,7 @@ import {
   type SlotRef,
 } from './containers';
 import { craft } from './crafting';
-import { eat } from './food';
+import { cook, eat } from './food';
 import {
   pasteSettings,
   placeBelt,
@@ -30,12 +30,13 @@ import {
   turnAt,
   type MachineSettings,
 } from './factory';
+import { placePin, removePin } from './pins';
 import { chooseUpgrade } from './progression';
 import { isQueueOp, orderResearch, setResearch, type QueueOp } from './research';
 import { decode, encode } from './snapshot';
 import { readySpell } from './systems/spells';
 import { mendTurret } from './systems/turret';
-import type { BuildingId, Direction, ItemId, MachineId, Player, SpellId, World } from './types';
+import type { BeltTier, BuildingId, Direction, ItemId, MachineId, Player, SpellId, World } from './types';
 
 /**
  * Everything a player can do to the island outside of moving, as data.
@@ -48,7 +49,8 @@ import type { BuildingId, Direction, ItemId, MachineId, Player, SpellId, World }
  * guests will quietly drift away from the host.
  */
 export type Command =
-  | { k: 'belt'; tx: number; ty: number; dir: Direction }
+  /** `tier` is absent from a plain belt, and from every command sent before tiers. */
+  | { k: 'belt'; tx: number; ty: number; dir: Direction; tier?: BeltTier }
   | { k: 'machine'; what: MachineId; tx: number; ty: number; dir: Direction }
   | { k: 'building'; type: BuildingId; x: number; y: number }
   | { k: 'turn'; tx: number; ty: number; dir: Direction }
@@ -56,7 +58,7 @@ export type Command =
   | { k: 'removeBuilding'; x: number; y: number }
   | { k: 'recipe'; machine: number; recipe: string }
   | { k: 'research'; tech: string | null }
-  | { k: 'queue'; tech: string; op: QueueOp }
+  | { k: 'queue'; tech: string; op: QueueOp; place?: number }
   | { k: 'filter'; machine: number; item: ItemId | null }
   | { k: 'paste'; machine: number; settings: MachineSettings }
   | { k: 'click'; machine: number | null; ref: SlotRef; button: ClickButton }
@@ -71,6 +73,12 @@ export type Command =
   | { k: 'craft'; id: string }
   /** Eats one food from the bag, whichever suits the damage taken. */
   | { k: 'eat' }
+  /** Grills the fish in the bag at the campfire. */
+  | { k: 'cook' }
+  /** Marks a spot on the island map, in world coordinates. */
+  | { k: 'pin'; x: number; y: number; hue: number }
+  /** Takes a map pin down. */
+  | { k: 'unpin'; id: number }
   /** Readies a learned spell for Q. */
   | { k: 'spell'; id: SpellId }
   /** Host only: a player arrives, whole, carrying whatever they had last time. */
@@ -114,7 +122,12 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
     case 'leave':
       return world.players.delete(player.id);
     case 'belt':
-      return isTile(c.tx, c.ty) && isDir(c.dir) && placeBelt(world, player, c.tx, c.ty, c.dir) !== null;
+      return (
+        isTile(c.tx, c.ty) &&
+        isDir(c.dir) &&
+        (c.tier === undefined || c.tier === 1 || c.tier === 2 || c.tier === 3) &&
+        placeBelt(world, player, c.tx, c.ty, c.dir, beltIdOf(c.tier ?? 1)) !== null
+      );
     case 'machine':
       return (
         isTile(c.tx, c.ty) &&
@@ -138,7 +151,12 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
     case 'research':
       return (c.tech === null || TECH_BY_ID.has(c.tech)) && setResearch(world, c.tech);
     case 'queue':
-      return typeof c.tech === 'string' && isQueueOp(c.op) && orderResearch(world, c.tech, c.op);
+      return (
+        typeof c.tech === 'string' &&
+        isQueueOp(c.op) &&
+        (c.place === undefined || Number.isInteger(c.place)) &&
+        orderResearch(world, c.tech, c.op, c.place)
+      );
     case 'filter':
       return isId(c.machine) && isItemOrNull(c.item) && setFilter(world, c.machine, c.item);
     case 'paste':
@@ -168,6 +186,12 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
       return typeof c.id === 'string' && CRAFT_BY_ID.has(c.id) && craft(world, player, c.id);
     case 'eat':
       return eat(world, player);
+    case 'cook':
+      return cook(world, player) > 0;
+    case 'pin':
+      return isPoint(c.x, c.y) && placePin(world, c.x, c.y, c.hue);
+    case 'unpin':
+      return isId(c.id) && removePin(world, c.id);
     case 'spell':
       return typeof c.id === 'string' && c.id in SPELLS && readySpell(player, c.id);
     default:

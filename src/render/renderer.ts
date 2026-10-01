@@ -6,6 +6,7 @@ import { clamp } from '@shared/sim/math';
 import { TERRAIN_ORDER, terrainAt } from '@shared/sim/terrain';
 import type {
   Belt,
+  BeltId,
   BuildingId,
   Direction,
   Machine,
@@ -43,8 +44,8 @@ import { polygon } from './shapes';
 import { drawBelt, drawBeltAt, drawBeltItems, drawMachine, previewMachine, setFactoryScale, setFactoryWorld, setTurretMobs } from './factory';
 import { drawPowerCoverage, drawPowerWires } from './power';
 import { dirAngle, machineSize, stepN, tileCenter, tileKey } from '@shared/sim/grid';
-import { MACHINES, TUNNEL_REACH } from '@shared/data/machines';
-import { tunnelEnd, tunnelEntranceOf } from '@shared/sim/factory';
+import { BELTS, MACHINES, TUNNEL_REACH, isBeltId } from '@shared/data/machines';
+import { haulEnd, haulSenderWaiting, tunnelEnd, tunnelEntranceOf } from '@shared/sim/factory';
 
 /** How much coarser than the screen, in CSS pixels, the night's lights are gathered. */
 const LIGHT_DOWNSCALE = 4;
@@ -771,14 +772,20 @@ export class Renderer {
       return;
     }
 
-    if (ghost.what !== 'belt') drawPowerCoverage(ctx, world, ghost.what, ghost);
+    if (!isBeltId(ghost.what)) drawPowerCoverage(ctx, world, ghost.what, ghost);
     // An underground belt turns into an exit where it closes a tunnel, and the
     // ghost has to say which it is about to be before the click, not after.
-    const what = ghost.what === 'belt' ? 'belt' : tunnelEnd(world, ghost.what, ghost.tx, ghost.ty, ghost.dir);
-    if (what !== 'belt' && MACHINES[what].tunnel) drawTunnelSpan(ctx, world, what, ghost, tint);
+    // The same goes for a long-haul port, which closes the pair the last one
+    // placed was waiting for.
+    const waiting = isBeltId(ghost.what) ? null : haulSenderWaiting(world, ghost.what);
+    const what = isBeltId(ghost.what)
+      ? ghost.what
+      : haulEnd(tunnelEnd(world, ghost.what, ghost.tx, ghost.ty, ghost.dir), waiting);
+    if (!isBeltId(what) && MACHINES[what].tunnel) drawTunnelSpan(ctx, world, what, ghost, tint);
+    if (waiting && !isBeltId(what) && MACHINES[what].haul === 'out') drawHaulLink(ctx, waiting, ghost, tint);
 
     // A big machine's ghost covers every tile it would take, from the anchor.
-    const span = what === 'belt' ? 1 : machineSize(what);
+    const span = isBeltId(what) ? 1 : machineSize(what);
     const { x, y } = tileCenter(ghost.tx, ghost.ty);
     ctx.beginPath();
     ctx.roundRect(x - TILE / 2 + 1, y - TILE / 2 + 1, TILE * span - 2, TILE * span - 2, 5);
@@ -789,7 +796,7 @@ export class Renderer {
     // The piece itself, half there, so what lands is what was previewed —
     // facing, output port and all.
     ctx.globalAlpha = 0.62;
-    if (what === 'belt') drawBeltAt(ctx, x, y, ghost.dir, time);
+    if (isBeltId(what)) drawBeltAt(ctx, x, y, ghost.dir, time, 0, BELTS[what].tier);
     else drawMachine(ctx, previewMachine(what, ghost.tx, ghost.ty, ghost.dir), time);
     ctx.globalAlpha = 1;
 
@@ -1005,6 +1012,27 @@ export class Renderer {
  * Camp decoration is placed freely at a world position; factory pieces snap to
  * a tile and carry a facing, so the preview has to describe both cases.
  */
+/** A dashed line from the long-haul sender waiting for a partner to where this port would close the pair. */
+function drawHaulLink(
+  ctx: CanvasRenderingContext2D,
+  from: { tx: number; ty: number },
+  to: { tx: number; ty: number },
+  tint: string,
+): void {
+  const a = tileCenter(from.tx, from.ty);
+  const b = tileCenter(to.tx, to.ty);
+  ctx.save();
+  ctx.strokeStyle = tint;
+  ctx.globalAlpha = 0.8;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /**
  * Where an underground belt reaches. An entrance marks the tiles its exit may
  * stand on; an exit is joined to the entrance it closes, so the pairing is
@@ -1052,7 +1080,7 @@ export type GhostPreview =
   | { kind: 'building'; type: BuildingId; pos: Vec2; valid: boolean }
   | {
       kind: 'grid';
-      what: MachineId | 'belt';
+      what: MachineId | BeltId;
       tx: number;
       ty: number;
       dir: Direction;

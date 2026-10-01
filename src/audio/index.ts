@@ -3,6 +3,7 @@ import { TILE } from '@shared/sim/constants';
 import type { MachineFamily, MobTypeId, SimEvent, Vec2, World } from '@shared/sim/types';
 import { Ambience } from './ambience';
 import { Music } from './music';
+import { itemPitch } from './pitch';
 import { SOUNDS, type SoundDef, type SoundId } from './sounds';
 import { playLayer } from './synth';
 
@@ -59,6 +60,11 @@ export interface PlayOptions {
   pos?: Vec2;
   /** Extra level on top of the sound's own, 0..1+. */
   gain?: number;
+  /**
+   * Multiplies every layer's pitch. Two plays at different pitches are
+   * different notes, so the sound's throttle does not merge them.
+   */
+  pitch?: number;
 }
 
 /**
@@ -85,7 +91,7 @@ export class GameAudio {
   private listener: Vec2 = { x: 0, y: 0 };
   private halfWidth = 400;
   /** Last start time per sound, for throttling. */
-  private lastPlayed = new Map<SoundId, number>();
+  private lastPlayed = new Map<string, number>();
   private budget = VOICE_BUDGET;
 
   constructor() {
@@ -219,8 +225,9 @@ export class GameAudio {
     const def: SoundDef = SOUNDS[id];
     const now = ctx.currentTime;
 
+    const key = options.pitch ? `${id}@${options.pitch}` : id;
     const throttle = def.throttle ?? 0;
-    if (throttle > 0 && now - (this.lastPlayed.get(id) ?? -1) < throttle) return;
+    if (throttle > 0 && now - (this.lastPlayed.get(key) ?? -1) < throttle) return;
 
     let level = def.gain * (options.gain ?? 1);
     let pan = 0;
@@ -240,7 +247,7 @@ export class GameAudio {
     if (level < 0.002) return;
     if (this.budget <= 0) return;
     this.budget--;
-    this.lastPlayed.set(id, now);
+    this.lastPlayed.set(key, now);
 
     const bus = def.ui && !options.pos && this.dry ? this.dry : buses.sfx;
     let dest: AudioNode = bus;
@@ -252,7 +259,7 @@ export class GameAudio {
       window.setTimeout(() => panner.disconnect(), 4000);
     }
 
-    const pitch = def.vary ? 1 + (Math.random() * 2 - 1) * def.vary : 1;
+    const pitch = (options.pitch ?? 1) * (def.vary ? 1 + (Math.random() * 2 - 1) * def.vary : 1);
     for (const layer of def.layers) playLayer(ctx, dest, layer, now, pitch, level);
   }
 
@@ -261,6 +268,8 @@ export class GameAudio {
     if (!this.ctx || this.settings.muted) return;
     this.budget = VOICE_BUDGET;
 
+    const died = new Set<string>();
+    for (const event of events) if (event.kind === 'mobDied') died.add(deathKey(event.type, event.pos));
     for (const event of events) {
       switch (event.kind) {
         case 'shot':
@@ -274,6 +283,11 @@ export class GameAudio {
           break;
         case 'hit':
           this.play('hit', { pos: event.pos });
+          // A blow that kills is answered by the death sound alone.
+          if (!died.has(deathKey(event.type, event.pos))) this.play(MOB_HURT[event.type], { pos: event.pos });
+          break;
+        case 'mobBite':
+          this.play(MOB_BITE[event.type], { pos: event.pos });
           break;
         case 'mobDied':
           this.play(MOB_DEATH[event.type], { pos: event.pos });
@@ -302,6 +316,12 @@ export class GameAudio {
         case 'quake':
           this.play('quake', { pos: event.pos });
           break;
+        case 'pulseWind':
+          this.play('pulseWind', { pos: event.pos });
+          break;
+        case 'pulse':
+          this.play('pulse', { pos: event.pos });
+          break;
         case 'landmark':
           this.play('goal', { pos: event.pos });
           break;
@@ -317,6 +337,12 @@ export class GameAudio {
         case 'levelUp':
           this.play('levelUp');
           break;
+        case 'researchCycle':
+          this.play('labCycle', { pos: event.pos });
+          break;
+        case 'research':
+          this.play('techDone');
+          break;
         case 'goal':
           this.play('goal');
           break;
@@ -328,7 +354,11 @@ export class GameAudio {
           break;
         case 'produced': {
           const sound = PRODUCED_SOUND[MACHINES[event.machine].family];
-          if (sound) this.play(sound, { pos: event.pos });
+          if (!sound) break;
+          // Only the machines that make something get a note; the slot sounds
+          // are the same click whatever went through.
+          const tuned = sound !== 'slot' && sound !== 'gathered';
+          this.play(sound, { pos: event.pos, pitch: tuned ? itemPitch(event.item) : undefined });
           break;
         }
         case 'placed':
@@ -374,6 +404,37 @@ const SHOT_SOUND = {
   frost: 'shotFrost',
 } as const satisfies Record<string, SoundId>;
 
+/** Matches a killing blow to the death that follows it in the same batch of events. */
+function deathKey(type: MobTypeId, pos: { x: number; y: number }): string {
+  return `${type}|${Math.round(pos.x)}|${Math.round(pos.y)}`;
+}
+
+const MOB_BITE = {
+  slime: 'biteSlime',
+  crawler: 'biteCrawler',
+  wisp: 'biteWisp',
+  brute: 'biteBrute',
+  spitter: 'biteSpitter',
+  shellback: 'biteShellback',
+  mother: 'biteMother',
+  warden: 'biteWarden',
+  queen: 'biteQueen',
+  bulwark: 'biteBulwark',
+} as const satisfies Record<MobTypeId, SoundId>;
+
+const MOB_HURT = {
+  slime: 'hurtSlime',
+  crawler: 'hurtCrawler',
+  wisp: 'hurtWisp',
+  brute: 'hurtBrute',
+  spitter: 'hurtSpitter',
+  shellback: 'hurtShellback',
+  mother: 'hurtMother',
+  warden: 'hurtWarden',
+  queen: 'hurtQueen',
+  bulwark: 'hurtBulwark',
+} as const satisfies Record<MobTypeId, SoundId>;
+
 const MOB_DEATH = {
   slime: 'diedSlime',
   crawler: 'diedCrawler',
@@ -403,11 +464,13 @@ const PRODUCED_SOUND = {
   splitter: 'slot',
   merger: 'slot',
   tunnel: 'slot',
+  haul: 'slot',
   lab: null,
   // A trap landing a catch is the rod's sound, since it is the rod's catch.
   fishTrap: 'gathered',
   generator: null,
   solar: null,
+  accumulator: null,
   pole: null,
   beacon: null,
   turret: null,
