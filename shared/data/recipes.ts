@@ -1,9 +1,25 @@
 import { MACHINES } from './machines';
 import type { ItemStack, MachineId } from '../sim/types';
 
+/**
+ * What a recipe is for, so the machine screen can sort a long list into
+ * sections. The keys run in the order the sections are shown.
+ */
+export const RECIPE_GROUPS = {
+  metal: 'Metals',
+  food: 'Food',
+  parts: 'Parts',
+  ammo: 'Ammo',
+  modules: 'Modules',
+  packs: 'Research packs',
+} as const;
+
+export type RecipeGroup = keyof typeof RECIPE_GROUPS;
+
 export interface Recipe {
   id: string;
   name: string;
+  group: RecipeGroup;
   machine: MachineId;
   /** Seconds at machine speed 1. */
   time: number;
@@ -19,6 +35,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'ironPlate',
     name: 'Iron Plate',
+    group: 'metal',
     machine: 'furnace',
     time: 2,
     inputs: [{ id: 'ironOre', count: 1 }],
@@ -27,6 +44,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'copperPlate',
     name: 'Copper Plate',
+    group: 'metal',
     machine: 'furnace',
     time: 2,
     inputs: [{ id: 'copperOre', count: 1 }],
@@ -45,6 +63,7 @@ export const RECIPES: Recipe[] = [
     // a fish trap feeding a furnace a reason to exist on a raid island.
     id: 'grilledFish',
     name: 'Grilled Fish',
+    group: 'food',
     machine: 'furnace',
     time: 3,
     inputs: [{ id: 'fish', count: 1 }],
@@ -53,6 +72,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'gear',
     name: 'Gear',
+    group: 'parts',
     machine: 'assembler',
     time: 1.5,
     inputs: [{ id: 'ironPlate', count: 2 }],
@@ -61,6 +81,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'rounds',
     name: 'Iron Rounds',
+    group: 'ammo',
     machine: 'assembler',
     time: 2,
     inputs: [
@@ -72,6 +93,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'steelRounds',
     name: 'Steel Rounds',
+    group: 'ammo',
     machine: 'assembler',
     time: 3,
     inputs: [
@@ -83,6 +105,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'wire',
     name: 'Wire',
+    group: 'parts',
     machine: 'assembler',
     time: 1,
     inputs: [{ id: 'copperPlate', count: 1 }],
@@ -91,6 +114,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'circuit',
     name: 'Circuit',
+    group: 'parts',
     machine: 'assembler',
     time: 3,
     inputs: [
@@ -102,6 +126,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'steelPlate',
     name: 'Steel Plate',
+    group: 'metal',
     machine: 'furnace',
     time: 4,
     inputs: [
@@ -113,6 +138,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'battery',
     name: 'Battery',
+    group: 'parts',
     machine: 'assembler',
     time: 3,
     inputs: [
@@ -124,6 +150,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'motor',
     name: 'Motor',
+    group: 'parts',
     machine: 'assembler',
     time: 4,
     inputs: [
@@ -135,6 +162,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'advancedCircuit',
     name: 'Advanced Circuit',
+    group: 'parts',
     machine: 'assembler',
     time: 6,
     inputs: [
@@ -146,6 +174,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'pipe',
     name: 'Pipe',
+    group: 'parts',
     machine: 'assembler',
     time: 1,
     inputs: [{ id: 'ironPlate', count: 1 }],
@@ -154,6 +183,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'engineUnit',
     name: 'Engine Unit',
+    group: 'parts',
     machine: 'assembler',
     time: 10,
     inputs: [
@@ -165,6 +195,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'processor',
     name: 'Processor',
+    group: 'parts',
     machine: 'assembler',
     time: 16,
     inputs: [
@@ -176,6 +207,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'frame',
     name: 'Steel Frame',
+    group: 'parts',
     machine: 'assembler',
     time: 12,
     inputs: [
@@ -188,6 +220,7 @@ export const RECIPES: Recipe[] = [
     // Essence again: the beacon's light is the island's own, not a factory's.
     id: 'lens',
     name: 'Resonant Lens',
+    group: 'modules',
     machine: 'assembler',
     time: 10,
     inputs: [
@@ -199,6 +232,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'speedModule',
     name: 'Speed Module',
+    group: 'modules',
     machine: 'assembler',
     time: 20,
     inputs: [
@@ -210,6 +244,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'efficiencyModule',
     name: 'Efficiency Module',
+    group: 'modules',
     machine: 'assembler',
     time: 20,
     inputs: [
@@ -223,6 +258,7 @@ export const RECIPES: Recipe[] = [
     // factory's, the same as the beacon's light.
     id: 'outputModule',
     name: 'Output Module',
+    group: 'modules',
     machine: 'assembler',
     time: 30,
     inputs: [
@@ -234,6 +270,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'researchPack',
     name: 'Research Pack',
+    group: 'packs',
     machine: 'assembler',
     time: 5,
     inputs: [
@@ -245,6 +282,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'logicPack',
     name: 'Logic Pack',
+    group: 'packs',
     machine: 'assembler',
     time: 7,
     inputs: [
@@ -256,6 +294,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'powerPack',
     name: 'Power Pack',
+    group: 'packs',
     machine: 'assembler',
     time: 12,
     inputs: [
@@ -270,6 +309,7 @@ export const RECIPES: Recipe[] = [
     // back out onto the island rather than retiring the gathering layer.
     id: 'resonancePack',
     name: 'Resonance Pack',
+    group: 'packs',
     machine: 'assembler',
     time: 8,
     inputs: [
@@ -281,6 +321,7 @@ export const RECIPES: Recipe[] = [
   {
     id: 'engineeringPack',
     name: 'Engineering Pack',
+    group: 'packs',
     machine: 'assembler',
     time: 14,
     inputs: [
@@ -301,6 +342,18 @@ export const RECIPE_BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
 export function recipesFor(machine: MachineId): Recipe[] {
   const family = MACHINES[machine].family;
   return RECIPES.filter((r) => r.machine === family);
+}
+
+/**
+ * A machine's recipes sorted into their sections, empty sections left out. A
+ * machine whose recipes all share one section comes back as one entry, which
+ * the screen reads as "nothing to sort".
+ */
+export function recipeSections(machine: MachineId): Array<{ group: RecipeGroup; recipes: Recipe[] }> {
+  const all = recipesFor(machine);
+  return (Object.keys(RECIPE_GROUPS) as RecipeGroup[])
+    .map((group) => ({ group, recipes: all.filter((r) => r.group === group) }))
+    .filter((s) => s.recipes.length > 0);
 }
 
 /** Seconds per craft after the machine's speed multiplier. */

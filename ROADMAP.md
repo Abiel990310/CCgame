@@ -663,8 +663,10 @@ detail behind the factory entries is in
       minute beside the island's rate from the production ledger. Short
       crafts are quoted in whole ticks, since the sim drops the spill-over
       (2026-10-01).
-- [ ] The hover card's rate covers miners, furnaces and assemblers only; labs
-      (research cycles per minute) and fish traps show none.
+- [x] The hover card's rate now covers labs (research cycles per minute on
+      the current tech) and fish traps (the expected fish and essence a
+      minute from the drop table) as well as miners, furnaces and assemblers
+      (2026-10-01).
 - [ ] The ledger counts per item across the island, so the card can only put
       a machine's pace beside the island's total. A per-machine ledger would
       show which machine on a line is under-delivering.
@@ -961,9 +963,12 @@ detail behind the factory entries is in
       palette from minute one. The safe default, but a new tier should be
       given a tech on purpose; the unlock tests fail if a tier-2 or tier-3
       row is left open.
-- [ ] The machine screen lists every recipe its machine can run, and the
-      assembler is already at six. It needs grouping or a filter before the
-      steel tier doubles it again.
+- [x] The machine screen sorts a long recipe list into sections (Metals,
+      Food, Parts, Ammo, Modules, Research packs; a `group` on each recipe
+      row) with an All / per-section tab row, shown only when a machine has
+      more than one section (2026-10-01).
+- [ ] The recipe tab row resets to All each time a machine screen opens;
+      remember the last section per machine type if it proves a nuisance.
 - [ ] The camp `Chest` and the factory `Storage Chest` are different things
       with nearly the same name, in the same palette, two tabs apart.
 - [ ] Camp placement keeps scenery away with a fixed 14px clearance while

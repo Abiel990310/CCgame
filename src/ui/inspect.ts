@@ -10,7 +10,7 @@ import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
 import { bankOf, powerNetOf } from '@shared/sim/power';
 import { powerDraw } from '@shared/sim/modules';
-import { machineRates } from '@shared/sim/rates';
+import { labCyclesPerMinute, machineRates } from '@shared/sim/rates';
 import { BEACON_BOOST, BEACON_FUEL_CAP, BEACON_STAGES, BEACON_WARD_TILES } from '@shared/data/beacon';
 import { beaconStage } from '@shared/sim/beacon';
 import { countIn } from '@shared/sim/slots';
@@ -371,6 +371,9 @@ function describeMachine(world: World, machine: Machine, ledger: Ledger): Card {
     const island = ledger.rateOf(item);
     if (island.rate > 0) rows.push(['Island', `${fmtRate(island.rate)}/min`]);
   }
+
+  const cycles = labCyclesPerMinute(world, machine);
+  if (cycles !== null) rows.push(['Rate', `${fmtRate(cycles)} research cycles/min`]);
 
   let status: Card['status'];
   if (def.family === 'tunnel') {
