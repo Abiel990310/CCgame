@@ -487,6 +487,8 @@ export function damageMob(world: World, mob: Mob, amount: number, sourceId: numb
         y: mob.pos.y + Math.sin(angle) * def.radius * 0.6,
       });
       child.vel = { x: Math.cos(angle) * 160, y: Math.sin(angle) * 160 };
+      // A nest's brood holds the nest. Without a post it would walk off to raid the camp.
+      if (mob.post) child.post = { ...mob.post };
     }
   }
 

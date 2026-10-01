@@ -6,7 +6,7 @@ import { TECH_BY_ID } from '@shared/data/techs';
 import { backfillPrerequisites, newResearch, pruneResearchQueue } from '@shared/sim/research';
 import { goalMarker, restoreGoal } from '@shared/sim/goals';
 import { tileKey } from '@shared/sim/grid';
-import { clearBuriedNodes } from '@shared/sim/nodes';
+import { clearBuriedNodes, landmarksLeft } from '@shared/sim/nodes';
 import { bagSlots } from '@shared/sim/inventory';
 import { BAG_MAX } from '@shared/data/items';
 import { asStack, normalizeSlots } from '@shared/sim/slots';
@@ -74,6 +74,8 @@ interface SaveFile {
   research?: World['research'];
   /** Map pins. Absent on an island saved before they existed, which has none. */
   pins?: World['pins'];
+  /** Landmarks searched. Absent before they were counted; the loader works it out then. */
+  searched?: number;
   /** Version 3 and older only. */
   nodes?: ResourceNode[];
   buildings?: Building[];
@@ -189,6 +191,7 @@ export function saveWorld(world: World, slot: string): boolean {
     peaceful: world.peaceful,
     research: world.research,
     pins: world.pins,
+    searched: world.searched,
   };
 
   // Sections go down before the header. Neither order is atomic, but this one
@@ -239,6 +242,8 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
     // stored — they are large, and they are a pure function of the seed.
     const world = createWorld(file.seed, file.peaceful ?? false, generation);
     const pristine = world.nodes;
+    // Counted now: applying the scenery below wears these very nodes down.
+    const landmarksGrown = landmarksLeft(pristine);
 
     world.tick = file.tick;
     world.time = file.time;
@@ -256,6 +261,12 @@ export function loadWorld(slot: string, notes: LoadNotes = {}): World | null {
     // only the differences from what the seed grows.
     world.nodes = file.nodes ?? (sameGround ? applyScenery(pristine, scenery) : pristine);
     world.buildings = file.buildings ?? scenery?.buildings ?? world.buildings;
+    // Searched landmarks leave the island, so an island saved before they were
+    // counted is worked out from what the seed grew and what is still standing.
+    world.searched =
+      typeof file.searched === 'number' && file.searched >= 0
+        ? Math.floor(file.searched)
+        : Math.max(0, landmarksGrown - landmarksLeft(world.nodes));
 
     const factory = readSection<FactorySection>(slot, FACTORY_SUFFIX);
     world.belts = (file.belts ?? (factory?.belts ?? []).map(unpackBelt)).map(loadBelt);

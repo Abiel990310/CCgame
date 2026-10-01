@@ -177,6 +177,19 @@ export const GOALS: GoalDef[] = [
     xp: 30,
   },
   {
+    // Placed while the lab is busy: the first research takes a few minutes and
+    // the map is a better use of them than standing beside the lab.
+    id: 'explore',
+    title: 'Search three landmarks',
+    hint: 'Open the map (M) for the diamonds, walk to one and hold E to search it. Buried caches are unguarded; ruins and the rarer finds are not.',
+    touchHint: 'Open the map for the diamonds, walk to one and hold the button that appears beside it. Buried caches are unguarded; ruins and the rarer finds are not.',
+    have: (w) => w.searched,
+    need: 3,
+    xp: 35,
+    // Islands grown before landmarks have none to find.
+    skip: (w) => w.worldgen < 3,
+  },
+  {
     id: 'circuit',
     title: 'Make circuits',
     hint: 'Wire from copper plus a gear. Circuits open the second research pack.',

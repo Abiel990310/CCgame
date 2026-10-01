@@ -225,6 +225,7 @@ export class Inspector {
             rows: [
               ['Holds', def.landmark.cache.map((s) => ITEMS[s.item].name).join(', ')],
               ...(def.landmark.boon === 'upgrade' ? [['Also', 'A free upgrade'] as [string, string]] : []),
+              ...(def.landmark.guards ? [['Guarded by', def.landmark.guards.map((g) => `${g.count} ${MOBS[g.type].name}`).join(', ')] as [string, string]] : []),
             ],
             hint: 'Stand close and hold E to search',
           };

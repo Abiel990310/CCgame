@@ -41,6 +41,10 @@ export function drawLandmark(ctx: CanvasRenderingContext2D, node: ResourceNode, 
       blitCached(ctx, `lm:shrine:${v}`, x, y, box(24, 24, 46, 8), bake(drawShrine));
       shrineGlow(ctx, x, y - 36 * S, time, node.seed);
       break;
+    case 'vein':
+      blitCached(ctx, `lm:vein:${v}`, x, y, box(34, 34, 30, 10), bake((c) => drawVein(c, v)));
+      veinGlint(ctx, x - 6 * S, y - 14 * S, time, node.seed);
+      break;
     default:
       break;
   }
@@ -192,6 +196,80 @@ function drawShrine(ctx: CanvasRenderingContext2D): void {
   ctx.lineTo(-3, -12);
   ctx.stroke();
   ctx.strokeStyle = INK;
+}
+
+/**
+ * A dark outcrop shot through with bright seams, and beside it the nest that
+ * holds it: a ring of trampled earth and twigs with pale eggs in it. The seams
+ * say ore from across the screen, the eggs say somebody is home.
+ */
+function drawVein(ctx: CanvasRenderingContext2D, v: number): void {
+  softShadow(ctx, 3, 2, 30, 0.3, 9);
+  // The outcrop, left of centre.
+  ctx.beginPath();
+  ctx.moveTo(-26, 3);
+  ctx.lineTo(-24, -10);
+  ctx.lineTo(-15, -22 - v);
+  ctx.lineTo(-4, -17);
+  ctx.lineTo(3, -4);
+  ctx.lineTo(4, 4);
+  ctx.closePath();
+  fillInk(ctx, litFill(ctx, '#5c5a66', -26, -22, 4, 4, 0.2, -0.35), 1.2);
+  // Seams of three metals, each a short bright stroke along the rock.
+  const seams: Array<[string, number, number, number, number]> = [
+    ['#d28046', -21, -6, -12, -14],
+    ['#8fb2e0', -14, 0, -6, -9],
+    ['#e8c04c', -19, -13, -14, -18 - v * 0.5],
+  ];
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  for (const [color, x0, y0, x1, y1] of seams) {
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+  // The nest: churned earth with twigs round the rim.
+  ctx.beginPath();
+  ctx.ellipse(14, 2, 15, 6.5, 0, 0, Math.PI * 2);
+  fillInk(ctx, litFill(ctx, '#6a4c34', -1, -4, 29, 8, 0.1, -0.3), 1);
+  ctx.strokeStyle = '#8a6a44';
+  ctx.lineWidth = 1.1;
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + rand(v, i) * 0.4;
+    ctx.beginPath();
+    ctx.moveTo(14 + Math.cos(a) * 12, 2 + Math.sin(a) * 4.6);
+    ctx.lineTo(14 + Math.cos(a) * 17, 2 + Math.sin(a) * 7.3 - 2);
+    ctx.stroke();
+  }
+  // Eggs.
+  const eggs: Array<[number, number]> = [[9, 2], [15, 0], [20, 3.5], [13, 5]];
+  for (const [ex, ey] of eggs) {
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, 3, 3.8, 0, 0, Math.PI * 2);
+    fillInk(ctx, litFill(ctx, '#bfe6c4', ex - 3, ey - 4, ex + 3, ey + 4, 0.25, -0.4), 0.8);
+  }
+}
+
+/** A glint crossing the vein now and then, so it catches the eye. */
+function veinGlint(ctx: CanvasRenderingContext2D, x: number, y: number, time: number, seed: number): void {
+  const t = (time * 0.6 + rand(seed, 3) * 5) % 4;
+  if (t > 0.5) return;
+  const k = Math.sin((t / 0.5) * Math.PI);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = `rgba(255, 240, 200, ${0.9 * k})`;
+  ctx.lineWidth = 1.2;
+  const r = 6 * k;
+  ctx.beginPath();
+  ctx.moveTo(x - r, y);
+  ctx.lineTo(x + r, y);
+  ctx.moveTo(x, y - r);
+  ctx.lineTo(x, y + r);
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** The pod's distress light, blinking twice and pausing. */

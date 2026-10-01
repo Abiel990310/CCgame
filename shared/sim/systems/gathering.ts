@@ -49,6 +49,7 @@ const KNACK: Record<ResourceKind, string> = {
   ruin: '',
   pod: '',
   shrine: '',
+  vein: '',
 };
 
 /** Tiles from camp per extra half of a landmark's cache: the far ones pay for the walk. */
@@ -138,6 +139,7 @@ function searchLandmark(world: World, player: Player, node: ResourceNode): void 
     player.pendingUpgrades += 1;
     if (player.offers.length === 0) player.offers = rollOffers(world, player);
   }
+  world.searched += 1;
   world.events.push({ kind: 'landmark', pos: { ...node.pos }, landmark: node.kind, playerId: player.id });
 }
 

@@ -135,3 +135,24 @@ describe('turning a placed piece', () => {
     expect(turnAt(b.world, tx + 5, ty, 1)).toBe(false);
   });
 });
+
+describe('the exploration goal', () => {
+  it('is met by searching landmarks, and counted on the world', () => {
+    const world = createWorld(7, true);
+    const player = addPlayer(world, 'new');
+    const goal = GOALS.find((g) => g.id === 'explore')!;
+    player.goal = GOALS.indexOf(goal);
+    world.searched = goal.need - 1;
+    advance(world, 1.1);
+    expect(player.goal).toBe(GOALS.indexOf(goal));
+    world.searched = goal.need;
+    advance(world, 1.1);
+    expect(player.goal).toBe(GOALS.indexOf(goal) + 1);
+  });
+
+  it('is passed over on an island grown before landmarks', () => {
+    const goal = GOALS.find((g) => g.id === 'explore')!;
+    expect(goal.skip!(createWorld(7, true, 2))).toBe(true);
+    expect(goal.skip!(createWorld(7, true))).toBe(false);
+  });
+});
