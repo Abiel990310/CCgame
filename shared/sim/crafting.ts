@@ -1,7 +1,7 @@
 import { CRAFT_BY_ID } from '../data/crafting';
 import { ITEMS } from '../data/items';
 import { distance } from './math';
-import { addItem, bagSlots, hasAll, payAll, roomForItem } from './inventory';
+import { addItem, carrySlots, hasAll, payAll, roomForItem } from './inventory';
 import { normalizeSlots } from './slots';
 import { isUnlocked } from './research';
 import type { Building, Player, ToolKind, World } from './types';
@@ -55,7 +55,7 @@ export function craft(world: World, player: Player, id: string): boolean {
   const bag = ITEMS[def.output].bag;
   if (bag !== undefined) {
     player.bag = bag;
-    player.inventory = normalizeSlots(player.inventory, bagSlots(player));
+    player.inventory = normalizeSlots(player.inventory, carrySlots(world, player));
   } else addItem(player, def.output, def.count);
   world.events.push({ kind: 'crafted', pos: { ...player.pos }, item: def.output });
   return true;

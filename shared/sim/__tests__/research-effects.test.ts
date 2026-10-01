@@ -13,7 +13,10 @@ import { advance, at, bench, fill, put } from './bench';
 describe('research effects', () => {
   it('starts every multiplier at one', () => {
     const b = bench();
-    for (const value of Object.values(researchBonuses(b.world))) expect(value).toBe(1);
+    // Carry is rows added, not a multiplier, so it starts from none.
+    const { carry, ...multipliers } = researchBonuses(b.world);
+    expect(carry).toBe(0);
+    for (const value of Object.values(multipliers)) expect(value).toBe(1);
   });
 
   it('sums a repeatable tech on top of the one-shot one beneath it', () => {

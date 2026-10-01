@@ -1,5 +1,7 @@
 import { CYCLE, PLAYER, WAVES } from '../constants';
+import { carrySlots } from '../inventory';
 import { researchBonuses } from '../research';
+import { normalizeSlots } from '../slots';
 import { spawnPoint } from '../world';
 import type { World } from '../types';
 import { nightBudget, spawnBosses } from './mobs';
@@ -44,6 +46,12 @@ export function stepPlayerUpkeep(world: World, dt: number): void {
       player.maxHp = max;
       player.hp = Math.min(player.hp, max);
     }
+
+    // Research adds bag rows for everyone, joiners included, so the grid is
+    // reconciled here rather than at the one moment a tech finishes. It only
+    // ever grows: levels never fall, and a bag is never shrunk under its items.
+    const slots = carrySlots(world, player);
+    if (player.inventory.length < slots) player.inventory = normalizeSlots(player.inventory, slots);
 
     if (player.downed > 0) {
       player.downed -= dt;

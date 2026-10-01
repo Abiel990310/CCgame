@@ -204,7 +204,7 @@ export function stepPlayerMovement(
     player.vel.y = player.facing.y * DASH.speed;
   } else {
     if (input.dash && player.dashCd <= 0) {
-      player.dashCd = DASH.cooldown * Math.pow(0.85, perk(player, 'recovery'));
+      player.dashCd = (DASH.cooldown * Math.pow(0.85, perk(player, 'recovery'))) / researchBonuses(world).dash;
       // A bare leap first; the hook only when that finds no far side.
       let landing = findVault(world, player.pos, player.facing);
       let hook = false;

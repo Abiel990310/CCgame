@@ -818,8 +818,12 @@ detail behind the factory entries is in
       finished adds 7% to the night's budget, `WAVES.budgetPerResearchTier`.
       Nothing built counts, so an island that never opens a lab sees the
       nights it saw before.)*
-- [ ] Say in the tech tree that raids grow with the highest tier researched,
+- [x] Say in the tech tree that raids grow with the highest tier researched,
       so the opt-in is an informed one.
+      *(2026-10-01: a note heads the research list with the island's tier and
+      the raid bonus it earns, and every card names its tier and, when it
+      would raise it, the new bonus. A peaceful island is told no tech makes
+      a night harder.)*
 - [ ] Needs testing: whether 7% a tier (up to 28% at tier 4) makes the late
       nights too hard for a research-rich island. Lower the constant first.
 - [ ] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
@@ -855,8 +859,16 @@ detail behind the factory entries is in
       Done: the bar opens a Research tab on the map sheet, no lab needed.
 - [ ] The research tab on the map could take a "queue ×N" button on a
       repeatable card, instead of one click per level.
-- [ ] Research could grant the player more than health and speed: pickup
+- [x] Research could grant the player more than health and speed: pickup
       range, dash cooldown, carry slots.
+      *(2026-10-01: Magnetism (+35% pickup range), Footwork (dash recharges
+      25% faster), Pack Frames and Load-Bearing Harness (a row of eight bag
+      slots each, for every islander). Carry is the one effect that is a count
+      rather than a multiplier; the bag grows in `stepPlayerUpkeep` and on
+      load.)*
+- [ ] Repeatable tails for Magnetism and Footwork, so the player techs keep
+      compounding late game like Endurance does. Carry stays capped at two
+      rows until the bag screen is tested at 40+ slots on a phone.
 - [ ] The world sizes every item the same: 5.2 for a belt or an inserter hand,
       6 for a ground drop. A wood log and a circuit board are not the same size
       in life, and `ItemDef` could carry a scale the way it carries a colour.
