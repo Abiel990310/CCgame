@@ -57,6 +57,14 @@ const TOOLS: CraftDef[] = [
     { id: 'steelPlate', count: 8 },
     { id: 'gear', count: 2 },
   ]),
+  tool('titaniumAxe', [
+    { id: 'titaniumPlate', count: 6 },
+    { id: 'steelPlate', count: 4 },
+  ]),
+  tool('titaniumPick', [
+    { id: 'titaniumPlate', count: 8 },
+    { id: 'steelPlate', count: 4 },
+  ]),
 ];
 
 /**

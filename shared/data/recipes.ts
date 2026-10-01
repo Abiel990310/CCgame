@@ -23,6 +23,8 @@ export interface Recipe {
   machine: MachineId;
   /** Seconds at machine speed 1. */
   time: number;
+  /** The least machine tier that can run it; absent means any tier of the family. */
+  minTier?: number;
   inputs: ItemStack[];
   outputs: ItemStack[];
 }
@@ -56,6 +58,8 @@ export const RECIPES: Recipe[] = [
     group: 'metal',
     machine: 'furnace',
     time: 4,
+    // Titanium melts hotter than a stone furnace gets.
+    minTier: 2,
     inputs: [{ id: 'titaniumOre', count: 1 }],
     outputs: [{ id: 'titaniumPlate', count: 1 }],
   },

@@ -48,8 +48,8 @@ const AIM: Record<TargetRule, string> = {
 
 /** The four kinds of hand tool, in the order a new island meets them. */
 const TOOLS: { kind: ToolKind; name: string; verb: string; best: ItemId[] }[] = [
-  { kind: 'axe', name: 'Axe', verb: 'chopping', best: ['steelAxe', 'ironAxe', 'stoneAxe'] },
-  { kind: 'pick', name: 'Pickaxe', verb: 'mining', best: ['steelPick', 'ironPick', 'stonePick'] },
+  { kind: 'axe', name: 'Axe', verb: 'chopping', best: ['titaniumAxe', 'steelAxe', 'ironAxe', 'stoneAxe'] },
+  { kind: 'pick', name: 'Pickaxe', verb: 'mining', best: ['titaniumPick', 'steelPick', 'ironPick', 'stonePick'] },
   { kind: 'hand', name: 'Basket', verb: 'foraging', best: ['forageBasket'] },
   { kind: 'rod', name: 'Rod', verb: 'fishing', best: ['fishingRod'] },
 ];

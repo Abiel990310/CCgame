@@ -64,6 +64,8 @@ export type ToolItemId =
   | 'ironPick'
   | 'steelAxe'
   | 'steelPick'
+  | 'titaniumAxe'
+  | 'titaniumPick'
   | 'fishingRod'
   | 'forageBasket'
   | 'grapple'

@@ -1161,6 +1161,7 @@ export class Game {
       occupied: 'Something is already there',
       terrain: "Can't build on water",
       ore: 'A miner has to sit on an ore patch',
+      grade: 'That ore is too hard for this drill: it needs a Steel Miner',
       shore: 'A fish trap has to sit on the shoreline',
       locked: `Research ${UNLOCKED_BY.get(what)?.name ?? 'more'} first`,
       scenery: "Clear what's growing there first",

@@ -91,6 +91,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Tech added under a finished one | Granted on load | Electricity sits under Resonance; an island that finished Resonance first gets it free, so its electric machines stay buildable. Done generically for any prerequisite added later. |
 | Second island | Generation 4 builds generation 3's mainland whole, in the north-west corner of a 384-tile sea, and then stamps the Far Shore into the east, drawing everything it adds from random streams of its own | Abiel's standing ask for content that multiplies. Carrying generation 3 across (copied, never regenerated at a new size) keeps a seed's home island exactly as it was, with the same tile coordinates, so the contract in "Worldgen" holds and a later migration of old islands only has to restride their tile keys; a test compares every tile, ore amount and node. Old islands keep their own generation and size, so none of them gains a region yet (an idea in the backlog). The strait is 17+ tiles wide, past the grappling hook's 10, so the crossing is a build and not a leap. Titanium exists only on the far side, so crossing is the point. Further islands are one more `IslandSite` row in `regions.ts`; the 384 map has the whole south for them. |
 | Bridges | A span is terrain, not a machine: it rewrites a water or deep tile to byte 6 or 7 and is laid through the ordinary `machine` Command | Reusing the palette, ghost, drag-build and Command plumbing meant no new input path, and co-op replays it for free (the checksum mixes every terrain byte above 5, and snapshots send terrain whole). It must grow from walkable ground, so the sea cannot be crossed by hopping; the strait is 31+ tiles of deck, about 124 wood and 31 plates, which makes the crossing a project and not a toll. Taking one up refuses while a belt, a player or a creature is on it. Saves keep only the spans (section `.b`, rebuilt over the seed's own sea, which a lifted span also restores), so worldgen is untouched. The deck is drawn as a live overlay rather than baked into the ground, so laying or lifting one costs no repaint. |
+| Ore grade | Each ore has a grade (`ORE_GRADE`) and a recipe may name a `minTier`; a miner below the grade is refused on the ore, and a furnace below the tier cannot be set to the recipe | Titanium has to be the reason to climb the machine tiers, not just a new colour, and both gates are one data field each, so a later ore or recipe is a row. Old islands cannot meet it (no far shore), and no existing recipe or machine cost needs titanium, so nothing on a saved island moves. A recipe a furnace is too low for still shows, greyed with a tooltip, so the player learns what the next furnace is for. |
 | Engine shape | Small generic engine, content as data | The only way a small team reaches hundreds of hours. Machines are one type driven by the recipe table. |
 | Simulation | Deterministic and headless in `shared/` | Testable now; an authoritative server can run the identical code later. |
 | Stack | TypeScript, Vite, canvas, no engine | Fast iteration, tiny bundle, full control of the netcode-facing render path. |
@@ -607,8 +608,12 @@ detail behind the factory entries is in
         grown out from a shore; gated by a tech; saved as terrain deltas.
         Wood 4 + iron plate 1 a tile, unlocked by the *Causeways* tech, drag to
         lay a run, right-click to lift it. *Shipped 2026-10-01.*
-  - [ ] **The titanium tier** — miners and furnaces that can work it, the
-        plate, and what it is spent on.
+  - [x] **The titanium tier** — miners and furnaces that can work it, the
+        plate, and what it is spent on. A plain miner is refused on titanium
+        and a plain furnace cannot be set to its plate; the steel miner and
+        steel furnace (the latter burning coal, which the island has) do both.
+        Plates go into a titanium axe and pickaxe at the workbench; the tech
+        branch that follows spends them further. *Shipped 2026-10-01.*
   - [ ] **A tech branch** that opens with the crossing and leads on from titanium.
 - [x] **Mob voices** — each of the nine creatures dies to its own sound: a
       slime pops, crawlers click, a wisp rises away, a brute thuds, a spitter

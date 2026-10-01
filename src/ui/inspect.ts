@@ -42,7 +42,7 @@ const ORE_HINT: Record<OreKind, string> = {
   ironOre: 'Smelts into iron plates.',
   copperOre: 'Smelts into copper plates.',
   coal: 'Fuel for furnaces, and for steel.',
-  titaniumOre: 'Found nowhere on the mainland.',
+  titaniumOre: 'Found nowhere on the mainland. Only a Steel Miner can break it, and a Steel Furnace melts it.',
 };
 
 type Tone = 'good' | 'warn' | 'bad' | '';

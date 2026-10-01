@@ -154,6 +154,8 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   ironPick: tool('ironPick', 'Iron Pickaxe', '#c3ccd6', 'pick', 2.2),
   steelAxe: tool('steelAxe', 'Steel Axe', '#7e9bc4', 'axe', 3.2),
   steelPick: tool('steelPick', 'Steel Pickaxe', '#7e9bc4', 'pick', 3.2),
+  titaniumAxe: tool('titaniumAxe', 'Titanium Axe', '#7fc4c0', 'axe', 4.4),
+  titaniumPick: tool('titaniumPick', 'Titanium Pickaxe', '#7fc4c0', 'pick', 4.4),
   fishingRod: tool('fishingRod', 'Fishing Rod', '#b9854e', 'rod', 1.8),
   forageBasket: tool('forageBasket', 'Forage Basket', '#c9a36a', 'hand', 1.6),
   grapple: { id: 'grapple', name: 'Grappling Hook', color: '#9aa6b4', stack: 1, shape: 'hook', leap: 320 },
