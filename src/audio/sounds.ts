@@ -749,9 +749,12 @@ export const SOUNDS = {
   },
 
   // ---- The factory ----
+  // The three production sounds are played at a note per item (see
+  // `itemPitch`), so their random spread is a few cents, not the two semitones
+  // it was: wider than that and a chord of furnaces is out of tune.
   mined: {
     gain: 0.11,
-    vary: 0.14,
+    vary: 0.012,
     throttle: 0.09,
     layers: [
       NOISE(520, 220, 0.6, 0.002, 0.13, 0.9),
@@ -760,7 +763,7 @@ export const SOUNDS = {
   },
   smelted: {
     gain: 0.1,
-    vary: 0.1,
+    vary: 0.012,
     throttle: 0.1,
     layers: [
       NOISE(300, 1100, 0.5, 0.03, 0.18, 0.7, 0, 'lowpass'),
@@ -769,7 +772,7 @@ export const SOUNDS = {
   },
   assembled: {
     gain: 0.1,
-    vary: 0.12,
+    vary: 0.012,
     throttle: 0.1,
     layers: [
       TONE('square', 900, 700, 0.3, 0.001, 0.035),

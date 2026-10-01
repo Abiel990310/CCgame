@@ -3,6 +3,7 @@ import { TILE } from '@shared/sim/constants';
 import type { MachineFamily, MobTypeId, SimEvent, Vec2, World } from '@shared/sim/types';
 import { Ambience } from './ambience';
 import { Music } from './music';
+import { itemPitch } from './pitch';
 import { SOUNDS, type SoundDef, type SoundId } from './sounds';
 import { playLayer } from './synth';
 
@@ -59,6 +60,11 @@ export interface PlayOptions {
   pos?: Vec2;
   /** Extra level on top of the sound's own, 0..1+. */
   gain?: number;
+  /**
+   * Multiplies every layer's pitch. Two plays at different pitches are
+   * different notes, so the sound's throttle does not merge them.
+   */
+  pitch?: number;
 }
 
 /**
@@ -85,7 +91,7 @@ export class GameAudio {
   private listener: Vec2 = { x: 0, y: 0 };
   private halfWidth = 400;
   /** Last start time per sound, for throttling. */
-  private lastPlayed = new Map<SoundId, number>();
+  private lastPlayed = new Map<string, number>();
   private budget = VOICE_BUDGET;
 
   constructor() {
@@ -219,8 +225,9 @@ export class GameAudio {
     const def: SoundDef = SOUNDS[id];
     const now = ctx.currentTime;
 
+    const key = options.pitch ? `${id}@${options.pitch}` : id;
     const throttle = def.throttle ?? 0;
-    if (throttle > 0 && now - (this.lastPlayed.get(id) ?? -1) < throttle) return;
+    if (throttle > 0 && now - (this.lastPlayed.get(key) ?? -1) < throttle) return;
 
     let level = def.gain * (options.gain ?? 1);
     let pan = 0;
@@ -240,7 +247,7 @@ export class GameAudio {
     if (level < 0.002) return;
     if (this.budget <= 0) return;
     this.budget--;
-    this.lastPlayed.set(id, now);
+    this.lastPlayed.set(key, now);
 
     const bus = def.ui && !options.pos && this.dry ? this.dry : buses.sfx;
     let dest: AudioNode = bus;
@@ -252,7 +259,7 @@ export class GameAudio {
       window.setTimeout(() => panner.disconnect(), 4000);
     }
 
-    const pitch = def.vary ? 1 + (Math.random() * 2 - 1) * def.vary : 1;
+    const pitch = (options.pitch ?? 1) * (def.vary ? 1 + (Math.random() * 2 - 1) * def.vary : 1);
     for (const layer of def.layers) playLayer(ctx, dest, layer, now, pitch, level);
   }
 
@@ -347,7 +354,11 @@ export class GameAudio {
           break;
         case 'produced': {
           const sound = PRODUCED_SOUND[MACHINES[event.machine].family];
-          if (sound) this.play(sound, { pos: event.pos });
+          if (!sound) break;
+          // Only the machines that make something get a note; the slot sounds
+          // are the same click whatever went through.
+          const tuned = sound !== 'slot' && sound !== 'gathered';
+          this.play(sound, { pos: event.pos, pitch: tuned ? itemPitch(event.item) : undefined });
           break;
         }
         case 'placed':
