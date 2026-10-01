@@ -9,8 +9,10 @@ import { litBeacons } from '@shared/sim/beacon';
 import { CAMP, TICK_DT } from '@shared/sim/constants';
 import {
   buildingAt,
+  damagedWallAt,
   placeBuilding,
   placementError,
+  repairCost,
 } from '@shared/sim/building';
 import {
   clickSlot,
@@ -53,7 +55,7 @@ import { installItemTip } from './ui/itemtip';
 import { WorldMap, type MapTab } from './ui/worldmap';
 import { Ledger, loadLedger, saveLedger } from './ledger';
 import { EMPTY_INPUT, step } from '@shared/sim/step';
-import { addItem, countItem } from '@shared/sim/inventory';
+import { addItem, countItem, hasAll } from '@shared/sim/inventory';
 import { craftError, nearWorkbench } from '@shared/sim/crafting';
 import { nearCampfire, pickFood } from '@shared/sim/food';
 import { MAX_PINS } from '@shared/sim/pins';
@@ -189,6 +191,8 @@ export class Game {
   private workbench: WorkbenchScreen;
   /** The line being laid while the button is held: the last tile and what went down. */
   private drag: { tx: number; ty: number; laid: Set<number> } | null = null;
+  /** The shift-drag that is pasting settings along a row: its last tile and how many took. */
+  private pasteStroke: { tx: number; ty: number; pasted: number } | null = null;
   private lock = new SlotLock((slot, reason) => this.evict(slot, reason));
   /** Set while friends can join this island; the world here is the real one. */
   private host: CoopHost | null = null;
@@ -900,7 +904,15 @@ export class Game {
       if (action === 'rotate' && !blocked) this.buildDir = rotate(this.buildDir);
       if (action === 'remove' && !blocked) this.tryRemove();
       if (action === 'copy' && !blocked) this.copyFrom(this.machineUnderCursor());
-      if (action === 'paste' && !blocked) this.pasteOnto(this.machineUnderCursor());
+      if (action === 'paste' && !blocked) {
+        const machine = this.machineUnderCursor();
+        const result = this.pasteOnto(machine);
+        // The press is the first machine of a stroke that carries on while the button is held.
+        if (this.input.pasteDragging && result !== 'empty') {
+          const { tx, ty } = toTile(this.cursorWorld);
+          this.pasteStroke = { tx, ty, pasted: result === 'pasted' ? 1 : 0 };
+        }
+      }
       if (action === 'upgrade' && !blocked) this.hud.openDraft();
       if (action === 'swapSpell') this.swapSpell();
       if (action === 'eat' && !this.hud.isPauseOpen) this.eat();
@@ -939,6 +951,12 @@ export class Game {
     if (selection.kind === 'building') {
       // Camp pieces snap to the same lattice the factory uses. A wall is meant
       // to stack into a line, which free placement never quite let it do.
+      // A wall already standing and chipped is mended where it stands, which
+      // beats the red "something is in the way" the same click would earn.
+      const hurt = selection.id === 'wall' ? damagedWallAt(this.world, pos) : null;
+      if (hurt) {
+        return { kind: 'building', type: 'wall', pos: { ...hurt.pos }, valid: hasAll(this.self, repairCost(hurt)), repair: true };
+      }
       const snapped = tileCenter(tx, ty);
       const valid = placementError(this.world, this.self, selection.id, snapped) === null;
       return { kind: 'building', type: selection.id, pos: snapped, valid };
@@ -1061,6 +1079,18 @@ export class Game {
   }
 
   private placeCampBuilding(ghost: Extract<GhostPreview, { kind: 'building' }>): void {
+    if (ghost.repair) {
+      const wall = damagedWallAt(this.world, ghost.pos);
+      const cost = wall ? repairCost(wall) : [];
+      if (this.act({ k: 'repair', x: ghost.pos.x, y: ghost.pos.y })) {
+        this.hud.toast('Wall repaired', 'good');
+        this.requestSave();
+        return;
+      }
+      audio.play('denied');
+      this.hud.toast(this.costMessage(cost), 'warn');
+      return;
+    }
     const error = placementError(this.world, this.self, ghost.type, ghost.pos);
     if (error === null) {
       this.act({ k: 'building', type: ghost.type, x: ghost.pos.x, y: ghost.pos.y });
@@ -1089,7 +1119,11 @@ export class Game {
       // A belt keeps its facing through an upgrade, so there is nothing to say
       // about it per tile: a line of them is one stroke, not forty toasts.
       if (isBeltId(what)) this.act({ k: 'belt', tx, ty, dir: this.buildDir, tier: BELTS[what].tier });
-      else this.act({ k: 'machine', what, tx, ty, dir: this.buildDir });
+      else {
+        // Only a splitter reads the sides it is carried with, so only one is sent.
+        const sides = MACHINES[what].family === 'splitter' ? this.hud.splitterSides : null;
+        this.act({ k: 'machine', what, tx, ty, dir: this.buildDir, ...(sides ? { sides } : {}) });
+      }
       if (replacing && 'type' in replacing) this.hud.toast(`Upgraded to ${MACHINES[replacing.type].name}`, 'good');
       this.requestSave();
       return true;
@@ -1217,23 +1251,69 @@ export class Game {
     this.hud.toast(`Copied ${name} settings — shift-click to paste`, 'good');
   }
 
-  private pasteOnto(machine: Machine | null): void {
+  /** Put the copied settings on one machine, saying how it went. `empty` is nothing copied yet. */
+  private pasteOnto(machine: Machine | null): 'pasted' | 'same' | 'wrong' | 'none' | 'empty' {
     const copied = this.clipboard;
-    if (!machine) return;
+    if (!machine) return 'none';
     if (!copied) {
       this.hud.toast('Nothing copied yet — shift-right-click a machine first', 'warn');
-      return;
+      return 'empty';
     }
     if (MACHINES[machine.type].family !== copied.family) {
       audio.play('denied');
       this.hud.toast(`Those are ${familyName(copied.family)} settings`, 'warn');
-      return;
+      return 'wrong';
     }
     if (this.act({ k: 'paste', machine: machine.id, settings: copied })) {
       audio.play('click');
       this.hud.toast('Settings pasted', 'good');
       this.requestSave();
-    } else this.hud.toast('Already set the same way');
+      return 'pasted';
+    }
+    this.hud.toast('Already set the same way');
+    return 'same';
+  }
+
+  /**
+   * Holding shift-click and sweeping pastes onto every machine the pointer
+   * crosses, a tile at a time like a belt line, so a bank of arms or a row of
+   * furnaces is one gesture. Machines of another family are crossed in
+   * silence: a row is rarely made of one kind of thing, and a toast per tile
+   * would bury the one that says how many took.
+   */
+  private dragPaste(): void {
+    const stroke = this.pasteStroke;
+    const copied = this.clipboard;
+    if (!stroke || !copied) {
+      this.pasteStroke = null;
+      return;
+    }
+    if (!this.input.pasteDragging) {
+      if (stroke.pasted > 1) this.hud.toast(`Pasted onto ${stroke.pasted} machines`, 'good');
+      this.pasteStroke = null;
+      return;
+    }
+
+    const target = toTile(this.cursorWorld);
+    let dx = target.tx - stroke.tx;
+    let dy = target.ty - stroke.ty;
+    let guard = 0;
+    while ((dx !== 0 || dy !== 0) && guard++ < 64) {
+      const dir: Direction = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 0 : 2) : dy > 0 ? 1 : 3;
+      const next = step1(stroke.tx, stroke.ty, dir);
+      stroke.tx = next.tx;
+      stroke.ty = next.ty;
+      const machine = machineAt(this.world, next.tx, next.ty);
+      if (machine && MACHINES[machine.type].family === copied.family) {
+        if (this.act({ k: 'paste', machine: machine.id, settings: copied })) {
+          stroke.pasted++;
+          audio.play('click');
+          this.requestSave();
+        }
+      }
+      dx = target.tx - stroke.tx;
+      dy = target.ty - stroke.ty;
+    }
   }
 
   private frame(now: number): void {
@@ -1256,10 +1336,11 @@ export class Game {
     const ghost = this.ghost();
     // Hovering a machine with its next tier selected is an upgrade, not a
     // demolition, so the removal outline would be a false warning.
-    const removal = this.isUpgrade(ghost) ? null : this.removalTarget();
+    const removal = this.isUpgrade(ghost) || (ghost?.kind === 'building' && ghost.repair) ? null : this.removalTarget();
     this.input.buildMode = this.hud.isBuildMode;
     this.tryPlace(ghost);
     this.dragPlace(ghost);
+    this.dragPaste();
 
     // Placing, removing and anything else driven straight from the UI announces
     // itself outside the tick, and `step` empties the buffer before the loop

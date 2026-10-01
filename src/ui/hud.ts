@@ -1,4 +1,4 @@
-import { ITEMS } from '@shared/data/items';
+import { ITEMS, ITEM_ORDER } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
 import { SPELLS, spellCooldown, spellPerk } from '@shared/data/spells';
 import { perk } from '@shared/sim/perks';
@@ -7,6 +7,7 @@ import { activeTech, cyclesDone, cyclesNeeded, type QueueOp } from '@shared/sim/
 import { countItem, hasAll } from '@shared/sim/inventory';
 import { pickFood } from '@shared/sim/food';
 import type { ClickButton, SlotArea, SlotRef } from '@shared/sim/containers';
+import { MACHINES } from '@shared/data/machines';
 import type { ItemId, ItemStack, Machine, MachineFamily, Mob, Player, SpellId, World } from '@shared/sim/types';
 import { audio } from '../audio';
 import { itemIconVar } from '../render/items';
@@ -109,6 +110,7 @@ export class Hud {
     buildTabs: $('buildbar-tabs'),
     buildItems: $('buildbar-items'),
     buildDetail: $('buildbar-detail'),
+    buildSides: $('buildbar-sides'),
     buildClose: $<HTMLButtonElement>('buildbar-close'),
     buildTurn: $<HTMLButtonElement>('buildbar-turn'),
     stick: $('stick'),
@@ -157,6 +159,14 @@ export class Hud {
   private pouchKey = '';
   private hotbarKey = '';
   private detailKey = '';
+  /**
+   * The two sides a splitter goes down with, carried on the build selection so
+   * a row of sorters is set once. Client-side, like the hotbar: the placement
+   * order is what carries them to the island.
+   */
+  private sides: [ItemId | null, ItemId | null] = [null, null];
+  /** Which side's item list is open, if either. */
+  private sidePicking: 0 | 1 | null = null;
   /** The palette entry under the pointer, shown in the detail strip instead of the selection. */
   private hovered: PaletteEntry | null = null;
   private pouchCounts = new Map<string, number>();
@@ -430,7 +440,71 @@ export class Hud {
 
   private select(selection: BuildSelection): void {
     this.selection = selection;
+    this.sidePicking = null;
+    this.paintSides();
     this.callbacks.onSelect(selection);
+  }
+
+  /** What a splitter placed now would carry, or null when both sides are open. */
+  get splitterSides(): (ItemId | null)[] | null {
+    return this.sides.some((item) => item !== null) ? [...this.sides] : null;
+  }
+
+  private selectsSplitter(): boolean {
+    return this.selection.kind === 'machine' && MACHINES[this.selection.id].family === 'splitter';
+  }
+
+  /** The two side slots under the palette, shown only while a splitter is selected. */
+  private paintSides(): void {
+    const box = this.els.buildSides;
+    box.classList.toggle('hidden', !this.selectsSplitter());
+    if (!this.selectsSplitter()) {
+      box.innerHTML = '';
+      return;
+    }
+
+    box.innerHTML = '<span class="sides-label">Sides</span>';
+    const chipHtml = (item: ItemId | null): string =>
+      `<span class="chip-icon${item ? '' : ' any'}">${
+        item ? `<i class="item" style="background-image:${itemIconVar(item)}"></i>` : ''
+      }</span><b>${item ? ITEMS[item].name : 'Anything'}</b>`;
+
+    for (const side of [0, 1] as const) {
+      const button = document.createElement('button');
+      button.className = `side-chip${this.sidePicking === side ? ' on' : ''}`;
+      button.dataset.side = String(side);
+      const item = this.sides[side];
+      button.innerHTML = `<em>${side === 0 ? 'Left' : 'Right'}</em>${chipHtml(item)}`;
+      if (item) button.dataset.tip = item;
+      button.addEventListener('click', () => {
+        audio.play('click');
+        this.sidePicking = this.sidePicking === side ? null : side;
+        this.paintSides();
+      });
+      box.appendChild(button);
+    }
+
+    const picking = this.sidePicking;
+    if (picking === null) return;
+    const list = document.createElement('div');
+    list.className = 'side-picker';
+    const offer = (item: ItemId | null): void => {
+      const chip = document.createElement('button');
+      chip.className = `side-chip${this.sides[picking] === item ? ' on' : ''}`;
+      chip.innerHTML = chipHtml(item);
+      if (item) chip.dataset.tip = item;
+      chip.addEventListener('click', () => {
+        audio.play('click');
+        this.sides[picking] = item;
+        this.sidePicking = null;
+        this.paintSides();
+      });
+      list.appendChild(chip);
+    };
+    offer(null);
+    // A bag is sewn on at the bench and never exists as an item to filter.
+    for (const item of ITEM_ORDER) if (ITEMS[item].bag === undefined) offer(item);
+    box.appendChild(list);
   }
 
   private buildHotbar(): void {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CRAFT_BY_ID } from '../../data/crafting';
 import { applyOrder, type Order } from '../commands';
+import { CAMP } from '../constants';
 import { spellPerk } from '../../data/spells';
 import { addItem, countItem } from '../inventory';
 import { addPerk } from '../perks';
@@ -280,5 +281,63 @@ describe('co-op replay', () => {
     for (const c of junk) expect(applyOrder(world, { p: player.id, c })).toBe(false);
     expect(player.inventory.length).toBe(bag);
     expect(applyOrder(world, { p: 424242, c: { k: 'stow' } })).toBe(false);
+  });
+});
+
+describe('co-op replay of placing with settings and repairing', () => {
+  it('lays a sorted splitter and mends a wall the same on a guest', () => {
+    const { world: host, player } = bench();
+    const pos = { x: host.camp.x + 70, y: host.camp.y };
+    applyOrder(host, { p: player.id, c: { k: 'building', type: 'wall', x: pos.x, y: pos.y } });
+    host.buildings.find((b) => b.type === 'wall')!.level = 1;
+    const guest = restoreSnapshot(decode<Snapshot>(encode(takeSnapshot(host))));
+    expect(checksum(guest)).toBe(checksum(host));
+
+    const idle = new Map([[player.id, { move: { x: 0, y: 0 }, dash: false, interact: false, attack: false }]]);
+    const split = at(2, 2);
+    const arm = at(4, 2);
+    const batches: Order[][] = [
+      [
+        { p: player.id, c: { k: 'repair', x: pos.x, y: pos.y } },
+        { p: player.id, c: { k: 'machine', what: 'splitter', tx: split.tx, ty: split.ty, dir: 0, sides: ['ironPlate', 'coal'] } },
+        { p: player.id, c: { k: 'machine', what: 'inserter', tx: arm.tx, ty: arm.ty, dir: 0 } },
+      ],
+      [],
+    ];
+    for (const orders of batches) {
+      const tick = hostTick(host, orders, idle);
+      guestTick(guest, tick);
+      expect(checksum(guest)).toBe(tick.hash);
+    }
+    // The paste that follows carries the splitter's sides onto another, row style.
+    const second = at(6, 2);
+    applyOrder(host, { p: player.id, c: { k: 'machine', what: 'splitter', tx: second.tx, ty: second.ty, dir: 0 } });
+    applyOrder(guest, { p: player.id, c: { k: 'machine', what: 'splitter', tx: second.tx, ty: second.ty, dir: 0 } });
+    const [a, c] = host.machines.filter((m) => m.type === 'splitter');
+    const paste: Order = {
+      p: player.id,
+      c: { k: 'paste', machine: c.id, settings: { family: 'splitter', recipe: null, filter: null, filters: a.filters ? [...a.filters] : null } },
+    };
+    const tick = hostTick(host, [paste], idle);
+    guestTick(guest, tick);
+
+    for (const world of [host, guest]) {
+      expect(world.buildings.find((x) => x.type === 'wall')!.level).toBe(CAMP.wallHp);
+      const [first, next] = world.machines.filter((m) => m.type === 'splitter');
+      expect(first.filters).toEqual(['ironPlate', 'coal']);
+      expect(next.filters).toEqual(['ironPlate', 'coal']);
+    }
+    expect(checksum(guest)).toBe(tick.hash);
+  });
+
+  it('refuses malformed repairs and sides', () => {
+    const { world, player } = bench();
+    const junk = [
+      { k: 'repair', x: 'here', y: 1 },
+      { k: 'repair', x: 1 },
+      { k: 'machine', what: 'splitter', tx: 1, ty: 1, dir: 0, sides: [1, 2] },
+      { k: 'machine', what: 'splitter', tx: 1, ty: 1, dir: 0, sides: 'coal' },
+    ] as unknown as Order['c'][];
+    for (const c of junk) expect(applyOrder(world, { p: player.id, c })).toBe(false);
   });
 });

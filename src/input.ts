@@ -72,6 +72,8 @@ export class InputManager {
 
   pointer: Vec2 = { x: 0, y: 0 };
   pointerDown = false;
+  /** Shift-left is held down: the stroke pastes settings onto each machine it crosses. */
+  pasteDragging = false;
   /**
    * A mouse resting over the world rather than over a panel. Hover cards need
    * it: a touch has no hover, and a pointer that has moved onto the HUD should
@@ -179,6 +181,7 @@ export class InputManager {
       // the pair Factorio players already have in their hands.
       if (e.shiftKey && (e.button === 0 || e.button === 2)) {
         this.pending.push(e.button === 2 ? 'copy' : 'paste');
+        if (e.button === 0) this.pasteDragging = true;
         return;
       }
       if (e.button === 2) {
@@ -191,6 +194,7 @@ export class InputManager {
     window.addEventListener('pointerup', (e) => {
       if (e.pointerType === 'touch') return;
       this.pointerDown = false;
+      this.pasteDragging = false;
     });
 
     this.bindTouch();

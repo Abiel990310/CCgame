@@ -1357,6 +1357,69 @@ kbd {
   height: 16px;
 }
 
+.buildbar-sides {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: var(--well);
+}
+
+.buildbar-sides .sides-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--ink-dim);
+}
+
+.side-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.side-chip.on {
+  border-color: var(--gold-line);
+  background: var(--gold-soft);
+}
+
+.side-chip em {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--ink-dim);
+}
+
+.side-chip b {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Opens upward over the palette, so the strip keeps its place under it. */
+.side-picker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line-strong);
+}
+
 .buildbar-hint {
   display: flex;
   flex-wrap: wrap;

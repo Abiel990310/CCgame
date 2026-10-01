@@ -5,7 +5,7 @@ import { MACHINES, beltIdOf } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { SPELLS } from '../data/spells';
 import { TECH_BY_ID } from '../data/techs';
-import { placeBuilding, removeBuildingAt } from './building';
+import { placeBuilding, removeBuildingAt, repairWallAt } from './building';
 import {
   clickSlot,
   gatherStacks,
@@ -51,11 +51,14 @@ import type { BeltTier, BuildingId, Direction, ItemId, MachineId, Player, SpellI
 export type Command =
   /** `tier` is absent from a plain belt, and from every command sent before tiers. */
   | { k: 'belt'; tx: number; ty: number; dir: Direction; tier?: BeltTier }
-  | { k: 'machine'; what: MachineId; tx: number; ty: number; dir: Direction }
+  /** `sides` sets a new splitter's two filters as it goes down; nothing else reads it. */
+  | { k: 'machine'; what: MachineId; tx: number; ty: number; dir: Direction; sides?: (ItemId | null)[] }
   | { k: 'building'; type: BuildingId; x: number; y: number }
   | { k: 'turn'; tx: number; ty: number; dir: Direction }
   | { k: 'remove'; tx: number; ty: number }
   | { k: 'removeBuilding'; x: number; y: number }
+  /** Puts a chipped wall back to full, paying its missing share of the cost. */
+  | { k: 'repair'; x: number; y: number }
   | { k: 'recipe'; machine: number; recipe: string }
   | { k: 'research'; tech: string | null }
   | { k: 'queue'; tech: string; op: QueueOp; place?: number }
@@ -133,7 +136,8 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
         isTile(c.tx, c.ty) &&
         isDir(c.dir) &&
         Object.hasOwn(MACHINES, c.what) &&
-        placeMachine(world, player, c.what, c.tx, c.ty, c.dir) !== null
+        isSides(c.sides) &&
+        placeMachine(world, player, c.what, c.tx, c.ty, c.dir, c.sides) !== null
       );
     case 'building':
       return isPoint(c.x, c.y) && Object.hasOwn(BUILDINGS, c.type) && placeBuilding(world, player, c.type, { x: c.x, y: c.y });
@@ -146,6 +150,8 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
       const result = removeBuildingAt(world, player, { x: c.x, y: c.y });
       return result === 'campfire' ? 'campfire' : result === 'removed';
     }
+    case 'repair':
+      return isPoint(c.x, c.y) && repairWallAt(world, player, { x: c.x, y: c.y });
     case 'recipe':
       return isId(c.machine) && RECIPE_BY_ID.has(c.recipe) && setRecipe(world, c.machine, c.recipe);
     case 'research':
@@ -227,6 +233,11 @@ function isIdOrNull(id: unknown): id is number | null {
 
 function isItemOrNull(item: unknown): item is ItemId | null {
   return item === null || (typeof item === 'string' && Object.hasOwn(ITEMS, item));
+}
+
+/** A splitter's two filters, or none: a placement from before they existed carries no field. */
+function isSides(sides: unknown): boolean {
+  return sides === undefined || (Array.isArray(sides) && sides.length <= 2 && sides.every(isItemOrNull));
 }
 
 function isArea(area: unknown): area is SlotArea {

@@ -881,9 +881,13 @@ detail behind the factory entries is in
       and putting it back is a free repair. Settled by scaling the refund with
       the hit points left, rounded down: a wall on its last point gives back
       one wood and no stone.
-- [ ] Walls could take a repair action in build mode that spends the missing
+- [x] Walls could take a repair action in build mode that spends the missing
       share of their cost, so a chipped line is fixed in place rather than
-      pulled and rebuilt one wall at a time.
+      pulled and rebuilt one wall at a time. *(2026-10-01: with the wall
+      selected, a click on a chipped one mends it to full for exactly what
+      pulling it down and rebuilding would net, a `repair` command. The ghost
+      goes green with a plus while hovering one, and red when the bag falls
+      short.)*
 - [x] The removal highlight only shows in build mode, so a right-click on the
       open island is still aimed blind. Settled by making removal a build-mode
       action: outside it the cursor opens a machine, so a demolition outline on
@@ -905,9 +909,11 @@ detail behind the factory entries is in
 - [ ] Dragging now lays any piece in a line, one per tile crossed, so a row of
       inserters or furnaces is one gesture. Worth checking that nobody lays a
       row of miners by accident with a shaky click.
-- [ ] Paste one machine at a time is still a click per arm. Shift-dragging across
+- [x] Paste one machine at a time is still a click per arm. Shift-dragging across
       a row to paste onto each machine the pointer crosses would make a bank one
-      gesture.
+      gesture. *(2026-10-01: hold shift-click and sweep; the stroke walks tile
+      by tile so a fast flick still reaches every machine, passes over other
+      families in silence and toasts how many took. One `paste` command each.)*
 - [x] A chest slot kept for coal shows a dark ghost on a dark slot and is hard to
       read. The ghost wants an outline or a lighter backdrop for dark items.
       *(2026-09-26: ghosts are brightened as well as faded, and pixel items
@@ -917,9 +923,22 @@ detail behind the factory entries is in
       its product in the output, and coal in an empty fuel slot.
 - [x] Opening a chest after an assembler showed the assembler's recipe list
       under the chest (2026-09-26).
-- [ ] A splitter's sides cannot be filtered before it is placed, so every one
+- [x] A splitter's sides cannot be filtered before it is placed, so every one
       is placed, opened and then set. A filter carried on the build selection
-      would make a row of sorters one pass instead of two.
+      would make a row of sorters one pass instead of two. *(2026-10-01: a
+      Sides strip under the palette while a splitter is selected; the `machine`
+      command carries them and a splitter lands already sorting. Dragging a
+      row of them lays every one filtered. A splitter placed over one that
+      is already down never overwrites its sides.)*
+- [ ] Wall repair only works with the wall selected. Hovering a chipped wall
+      with any other camp piece selected still says "something is in the way";
+      repairing from any selection, or a sweep that mends a whole line, may be
+      worth it once the single click has been played with.
+- [ ] Camp pieces do not drag-place: a wall line is still one click per wall,
+      though belts and machines lay a row in one sweep.
+- [ ] The Sides strip is client-only and forgets on reload; a splitter selected
+      from a hotbar slot carries whatever sides were last set, which may
+      surprise. Sides could ride the hotbar binding.
 - [ ] A fast or stack inserter placed over a long inserter upgrades it, since
       all arms are one family and the long arm is tier 1, and the reach is
       lost. A long arm probably wants its own family or no upgrade path.

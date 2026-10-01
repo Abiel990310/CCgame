@@ -130,6 +130,43 @@ export function removalRefund(building: Building): ItemStack[] {
     .filter((entry) => entry.count > 0);
 }
 
+/**
+ * What putting a chipped wall right costs: its missing share of the cost, which
+ * is exactly what pulling it down and building it again would net. Anything
+ * cheaper would make repairing better than rebuilding for no reason; anything
+ * dearer would make walking away and rebuilding the smarter move.
+ */
+export function repairCost(building: Building): ItemStack[] {
+  if (building.type !== 'wall' || building.level >= CAMP.wallHp) return [];
+  const kept = new Map(removalRefund(building).map((entry) => [entry.id, entry.count]));
+  return BUILDINGS[building.type].cost
+    .map((entry) => ({ id: entry.id, count: entry.count - (kept.get(entry.id) ?? 0) }))
+    .filter((entry) => entry.count > 0);
+}
+
+/** Whether a wall under this point is chipped, and so could be repaired. */
+export function damagedWallAt(world: World, pos: Vec2): Building | null {
+  const target = buildingAt(world, pos);
+  return target && target.type === 'wall' && target.level < CAMP.wallHp ? target : null;
+}
+
+/**
+ * Mend the chipped wall under a point back to full hit points, paying its
+ * missing share of the cost from the bag. Nothing is spent when the bag falls
+ * short, and a whole wall is never charged for.
+ */
+export function repairWallAt(world: World, player: Player, pos: Vec2): boolean {
+  const wall = damagedWallAt(world, pos);
+  if (!wall) return false;
+  const cost = repairCost(wall);
+  if (!hasAll(player, cost) || !payAll(player, cost)) return false;
+
+  wall.level = CAMP.wallHp;
+  // The same puff and thud as a wall going up: it is a wall going up again.
+  world.events.push({ kind: 'built', pos: { ...wall.pos }, type: wall.type });
+  return true;
+}
+
 /** Take a camp piece back down, refunding what it has left of its cost. */
 export function removeBuildingAt(world: World, player: Player, pos: Vec2): RemovalResult {
   const target = buildingAt(world, pos);
