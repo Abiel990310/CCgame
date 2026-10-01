@@ -229,6 +229,15 @@ export interface Building {
   level: number;
 }
 
+/** A marker the players dropped on the island map; the island's, not one player's. */
+export interface Pin {
+  id: number;
+  x: number;
+  y: number;
+  /** Which of the map's marker colours, an index the client owns the names of. */
+  hue: number;
+}
+
 export interface UpgradeOffer {
   id: string;
   title: string;
@@ -489,6 +498,8 @@ export interface World {
   pickups: Pickup[];
   nodes: ResourceNode[];
   buildings: Building[];
+  /** Map pins, saved with the island and shared by everyone on it. */
+  pins: Pin[];
   camp: Vec2;
   /** Row-major, 1 where a player has been close enough to see. Parallel to `terrain`. */
   explored: Uint8Array;

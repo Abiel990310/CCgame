@@ -14,6 +14,8 @@ import { BEACON_BOOST, BEACON_FUEL_CAP, BEACON_STAGES, BEACON_WARD_TILES } from 
 import { beaconStage } from '@shared/sim/beacon';
 import { countIn } from '@shared/sim/slots';
 import { nearWorkbench } from '@shared/sim/crafting';
+import { nearCampfire } from '@shared/sim/food';
+import { countItem } from '@shared/sim/inventory';
 import { findNearestNode } from '@shared/sim/systems/gathering';
 import { turretWrecked } from '@shared/sim/systems/turret';
 import type { Machine, OreKind, Player, ToolKind, Vec2, World } from '@shared/sim/types';
@@ -79,9 +81,10 @@ export class Inspector {
   private bench = document.createElement('button');
   private cardKey = '';
   private promptKey = '';
+  private fire = document.createElement('div');
   private patch: Patch | null = null;
 
-  constructor(root: HTMLElement, onBench: () => void) {
+  constructor(root: HTMLElement, onBench: () => void, onCook: () => void) {
     this.card.id = 'tip';
     this.card.hidden = true;
     this.prompt.id = 'prompt';
@@ -90,13 +93,32 @@ export class Inspector {
     this.bench.hidden = true;
     // Tappable, since a phone has no C key to open the bench with.
     this.bench.addEventListener('click', onBench);
-    root.append(this.card, this.prompt, this.bench);
+    this.fire.className = 'bench-prompt';
+    this.fire.hidden = true;
+    this.fire.addEventListener('click', onCook);
+    root.append(this.card, this.prompt, this.bench, this.fire);
   }
 
   update(c: InspectContext): void {
     this.updatePrompt(c);
     this.updateBench(c);
+    this.updateFire(c);
     this.updateCard(c);
+  }
+
+  /** Raw fish in the bag and the campfire close by: offer to grill them. */
+  private updateFire(c: InspectContext): void {
+    const fish = countItem(c.self, 'fish');
+    const fire = c.busy || c.self.downed > 0 || fish <= 0 ? null : nearCampfire(c.world, c.self);
+    if (!fire) {
+      this.fire.hidden = true;
+      return;
+    }
+    const html = `${c.touch ? '' : '<b class="cap">G</b>'}<span>Cook ${fish} fish</span>`;
+    if (this.fire.innerHTML !== html) this.fire.innerHTML = html;
+    const at = c.camera.worldToScreen(fire.pos.x, fire.pos.y - 34);
+    this.fire.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px) translate(-50%, -100%)`;
+    this.fire.hidden = false;
   }
 
   private updateBench(c: InspectContext): void {
