@@ -459,7 +459,10 @@ detail behind the factory entries is in
       from before keep their 96 tiles. Exploration fog and an island map (M,
       or the Map button) show what you have seen.
 - [ ] A rich ore vein guarded by a nest, as a landmark kind of its own.
-- [ ] Map pins: let the player mark a spot on the island map.
+- [x] Map pins: let the player mark a spot on the island map. *The pin tool
+      on the map (M) drops a coloured pin where you click and lifts one you
+      click; up to 24 per island, shared in co-op, saved with the island and
+      shown on the corner map too.*
 - [ ] A big content pass across every system (recipes, machines, techs, goals,
       mobs, camp) aimed at tens to hundreds of hours of play over the next
       weeks. *Hold lifted 2026-09-24; planned across the week to 2026-10-01:
@@ -581,8 +584,11 @@ detail behind the factory entries is in
 - [x] **Mob voices** — each of the nine creatures dies to its own sound: a
       slime pops, crawlers click, a wisp rises away, a brute thuds, a spitter
       gurgles, a shellback cracks, the Warden crumbles and the Queen shrieks.
-- [ ] Mob voices for attacks and hurt, not only deaths, so a brute winding up
+- [x] Mob voices for attacks and hurt, not only deaths, so a brute winding up
       behind you is audible before it lands.
+      *(2026-10-01: all ten creatures have a bite voice, played as they rear
+      back so it is the warning, and a hurt voice, skipped on the blow that
+      kills so the death sound stands alone. Rows in `src/audio/sounds.ts`.)*
 - [x] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
       themselves. Movement is the verb the player does most and it is silent.
       Done: sand hisses, grass swishes, forest adds a twig crackle, rock taps.
@@ -618,8 +624,17 @@ detail behind the factory entries is in
 
 ### Changes
 
-- [ ] Recipe cards in the machine screen show the machine's base craft time,
-      ignoring research and modules; show the real time a craft takes there.
+- [x] Recipe cards in the machine screen show the real craft time, with
+      research, a burning beacon and modules applied (the base time is the
+      tooltip), and the machine's hover card shows its rate in items per
+      minute beside the island's rate from the production ledger. Short
+      crafts are quoted in whole ticks, since the sim drops the spill-over
+      (2026-10-01).
+- [ ] The hover card's rate covers miners, furnaces and assemblers only; labs
+      (research cycles per minute) and fish traps show none.
+- [ ] The ledger counts per item across the island, so the card can only put
+      a machine's pace beside the island's total. A per-machine ledger would
+      show which machine on a line is under-delivering.
 - [x] **Nights keep getting harder.** A scripted player showed nights 6 to 9
       costing less health than night 5, and night 20 barely scratched: the
       wave budget grew in a straight line while player power compounds. The
@@ -773,9 +788,18 @@ detail behind the factory entries is in
 - [ ] A busy factory still rewrites every belt and machine each save, because
       one belt item moving makes the whole section's text differ. Fine at a few
       hundred belts; if the section gets big, split it per chunk of the map.
-- [ ] Scale `waveBudget` off the highest research tier completed rather than
+- [x] Scale `waveBudget` off the highest research tier completed rather than
       the night index alone. Researching is a choice, so difficulty stays
       opt-in and building freely never punishes you.
+      *(2026-10-01: a tech's tier is the highest pack it eats (research 1,
+      logic 2, power and engineering 3, resonance 4); each tier an island has
+      finished adds 7% to the night's budget, `WAVES.budgetPerResearchTier`.
+      Nothing built counts, so an island that never opens a lab sees the
+      nights it saw before.)*
+- [ ] Say in the tech tree that raids grow with the highest tier researched,
+      so the opt-in is an informed one.
+- [ ] Needs testing: whether 7% a tier (up to 28% at tier 4) makes the late
+      nights too hard for a research-rich island. Lower the constant first.
 - [ ] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
       for belt tiers, and it touches the save format.
 - [x] An inserter will not take from or give to another inserter, so items
@@ -1097,8 +1121,14 @@ detail behind the factory entries is in
       hard throw for anyone still inside, a dash through it dodges. An
       enraged Swarm Queen calls six at a time instead of three. Both are
       rows in `shared/data/mobs.ts` (`quake`, `rageCount`).)*
-- [ ] The Crystal Bulwark has no second-phase move yet; its ward could
+- [x] The Crystal Bulwark has no second-phase move yet; its ward could
       pulse outward and shove players back once it is enraged.
+      *(2026-10-01: an enraged Bulwark's crystal blazes and a cold ring marks
+      its reach for a second, all the while it plods on at a crawl, then the
+      ward bursts: 10 damage and a hard shove to anyone inside, a dash through
+      it dodges. A `pulse` row in `shared/data/mobs.ts`.)*
+- [ ] The Bulwark's pulse could also drop its ward for a beat, so getting
+      shoved out is paid back by a window to hit the creatures it covers.
 - [x] The Stone Warden reads pale and washed out below a third of its
       health, where its cracks and core glow are brightest.
       *(2026-09-27: the core's light was an additive wash as wide as the
@@ -1127,8 +1157,13 @@ detail behind the factory entries is in
 
 ### Ideas
 
-- [ ] Cook at the campfire by hand, so grilled fish does not wait for a
-      furnace, and more meals (berry pie, stew) that heal over time or buff.
+- [x] Cook at the campfire by hand, so grilled fish does not wait for a
+      furnace. *Stand by the campfire with fish in the bag and press G (or
+      tap the Cook prompt); the whole stack is grilled at once.*
+- [ ] More meals at the campfire (berry pie, stew) that heal over time or buff.
+- [ ] Map pins: a name for each pin, and a list of them to jump the map to.
+- [ ] Map pins: drop one from the corner map or with a key, without opening
+      the full map first.
 - [ ] Eating is instant; a short eat time or cooldown would stop a stack of
       grilled fish trivialising a boss fight if it turns out to.
 - [ ] Underground belts carry items across instantly; a transit delay equal to

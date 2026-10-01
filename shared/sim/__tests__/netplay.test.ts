@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { CRAFT_BY_ID } from '../../data/crafting';
 import { applyOrder, type Order } from '../commands';
 import { spellPerk } from '../../data/spells';
-import { addItem } from '../inventory';
+import { addItem, countItem } from '../inventory';
 import { addPerk } from '../perks';
 import { makeRng } from '../rng';
 import { checksum, decode, encode, restoreSnapshot, takeSnapshot, type Snapshot } from '../snapshot';
 import { step } from '../step';
+import { spawnMob } from '../systems/mobs';
 import type { PlayerInput, World } from '../types';
 import { createPlayer, spawnPoint } from '../world';
 import { at, bench, plantOre } from './bench';
@@ -82,6 +83,8 @@ describe('co-op replay', () => {
     // Food and a wound, so eating is covered too.
     addItem(player, 'fish', 3);
     player.hp = 40;
+    // The fish are cooked at the campfire, and the map is pinned and unpinned.
+    const campfire = host.buildings.find((b) => b.type === 'campfire')!;
     // Modules to fit into a tier 3 furnace built mid-run.
     addItem(player, 'speedModule', 2);
     const snap = decode<Snapshot>(encode(takeSnapshot(host)));
@@ -99,6 +102,14 @@ describe('co-op replay', () => {
       if (t === 300) pending.push({ p: player.id, c: { k: 'spell', id: 'frostNova' } });
       if (t === 61) pending.push({ p: player.id, c: { k: 'craft', id: 'satchel' } });
       if (t === 62) pending.push({ p: player.id, c: { k: 'eat' } });
+      if (t === 63) pending.push({ p: player.id, c: { k: 'pin', x: 900, y: 1200, hue: 3 } });
+      if (t === 64) pending.push({ p: friend.id, c: { k: 'pin', x: 1500, y: 800, hue: 1 } });
+      if (t === 70) pending.push({ p: friend.id, c: { k: 'unpin', id: host.pins[0].id } });
+      if (t === 80) {
+        // Beside the fire on both copies; wandering would otherwise decide it.
+        for (const world of [host, guest]) world.players.get(player.id)!.pos = { x: campfire.pos.x + 30, y: campfire.pos.y };
+        pending.push({ p: player.id, c: { k: 'cook' } });
+      }
       if (t === 120) {
         pending.push({ p: friend.id, c: { k: 'queue', tech: 'roboticArms', op: 'add' } });
         pending.push({ p: player.id, c: { k: 'queue', tech: 'angling', op: 'add' } });
@@ -147,10 +158,36 @@ describe('co-op replay', () => {
     expect(host.nightIndex).toBeGreaterThan(0);
     expect(host.players.size).toBe(2);
     expect(player.bag).toBe(1);
+    expect(host.pins).toHaveLength(1);
+    expect(guest.pins).toEqual(host.pins);
+    expect(countItem(guest.players.get(player.id)!, 'grilledFish')).toBeGreaterThan(0);
     expect(player.spell).toBe('frostNova');
     expect(guest.research.queue).toEqual(['beltLogistics', 'angling', 'roboticArms']);
     expect(guest.players.get(player.id)!.inventory).toHaveLength(player.inventory.length);
     expect(encode(takeSnapshot(guest))).toBe(encode(takeSnapshot(host)));
+  });
+
+  it('keeps a guest in step through an enraged bulwark pulsing and a research-scaled raid', () => {
+    const { world: host, player } = bench();
+    host.peaceful = false;
+    host.nightIndex = 30;
+    host.research.levels.resonance = 1;
+    host.phase = 'night';
+    host.phaseTime = 40;
+    const bulwark = spawnMob(host, 'bulwark', { x: player.pos.x + 110, y: player.pos.y });
+    bulwark.enraged = true;
+    bulwark.pulseCd = 0;
+    const guest = restoreSnapshot(decode<Snapshot>(encode(takeSnapshot(host))));
+    expect(checksum(guest)).toBe(checksum(host));
+
+    let pulses = 0;
+    for (let t = 0; t < 30 * 20; t++) {
+      const tick = hostTick(host, [], new Map([[player.id, { move: { x: 0, y: 0 }, dash: false, interact: false, attack: false }]]));
+      pulses += host.events.filter((e) => e.kind === 'pulse').length;
+      guestTick(guest, tick);
+      if (checksum(guest) !== tick.hash) throw new Error(`guest drifted from the host at tick ${host.tick}`);
+    }
+    expect(pulses).toBeGreaterThan(0);
   });
 
   it('round-trips numbers plain JSON would change', () => {
@@ -174,6 +211,9 @@ describe('co-op replay', () => {
       { k: 'spell', id: 'mend' },
       { k: 'mend', machine: 'turret' },
       { k: 'mend', machine: 999999 },
+      { k: 'pin', x: 'far', y: 3, hue: 0 },
+      { k: 'pin', x: 3, y: 3, hue: 'red' },
+      { k: 'unpin', id: 'first' },
       { k: 'nonsense' },
     ] as unknown as Order['c'][];
     const bag = player.inventory.length;
