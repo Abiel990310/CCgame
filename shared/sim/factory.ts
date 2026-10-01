@@ -1,6 +1,7 @@
 import { BELTS, MACHINES, TUNNEL_REACH, beltIdOf, beltTier, isBeltId, placementCost } from '../data/machines';
 import { RECIPE_BY_ID, recipesFor } from '../data/recipes';
 import { buildingOnTile } from './building';
+import { bridgeError, isBridgePiece, removeBridge } from './bridge';
 import { giveOrDrop, payAll, hasAll } from './inventory';
 import { makeSlots, normalizeSlots } from './slots';
 import { normalizeModules } from './modules';
@@ -32,6 +33,10 @@ export type FactoryError =
   | 'bounds'
   | 'scenery'
   | 'camp'
+  /** A span goes over water only. */
+  | 'water'
+  /** A span has to start from ground or from another span. */
+  | 'anchor'
   | null;
 
 export function entityAt(world: World, tx: number, ty: number): Belt | Machine | null {
@@ -57,6 +62,8 @@ export function factoryPlacementError(
   ty: number,
 ): FactoryError {
   if (!inBounds(tx, ty)) return 'bounds';
+  // A span is terrain, not a thing on the grid, and has rules of its own.
+  if (!isBeltId(what) && isBridgePiece(what)) return bridgeError(world, player, what, tx, ty);
   // Checked before the upgrade shortcut, since dropping a tier onto the one
   // below it is still building that tier.
   if (!isUnlocked(world, what)) return 'locked';
@@ -358,7 +365,8 @@ export function setFilter(world: World, machineId: number, item: ItemId | null):
 export function removeAt(world: World, player: Player, tx: number, ty: number): boolean {
   const key = tileKey(tx, ty);
   const entity = world.grid.get(key);
-  if (entity === undefined) return false;
+  // Bare deck over water comes up as a span rather than as a piece of the factory.
+  if (entity === undefined) return removeBridge(world, player, tx, ty);
 
   // The grid has already resolved the tile, so the type of the piece decides
   // which list to take it out of; the lists are only scanned because they are

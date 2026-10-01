@@ -59,6 +59,8 @@ export const EXPLORED_SUFFIX = '.x';
 export const GUESTS_SUFFIX = '.g';
 /** The production ledger's graph and bests; see `ledger.ts`. */
 export const LEDGER_SUFFIX = '.l';
+/** Spans built over open water, as tile and stored byte pairs; see `save.ts`. */
+export const BRIDGE_SUFFIX = '.b';
 /** Every entry one slot occupies, the header's own key first. */
 export const SLOT_SUFFIXES = [
   '',
@@ -66,6 +68,7 @@ export const SLOT_SUFFIXES = [
   FACTORY_SUFFIX,
   ORE_SUFFIX,
   EXPLORED_SUFFIX,
+  BRIDGE_SUFFIX,
   GUESTS_SUFFIX,
   LEDGER_SUFFIX,
 ] as const;

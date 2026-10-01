@@ -1,4 +1,5 @@
 import { drawBeacon } from './beacon';
+import { OPEN_E, OPEN_N, OPEN_S, OPEN_W, drawDeckTile } from './bridges';
 import { ITEMS } from '@shared/data/items';
 import type { MachineDef } from '@shared/data/machines';
 import { BELTS, BELT_SPEED, INSERTER_SWING, MACHINES, TRAP_TIME, TURRET, beltIdOf, beltTier } from '@shared/data/machines';
@@ -194,6 +195,12 @@ export function drawMachine(
   }
   if (def.family === 'pole') {
     drawPole(ctx, def, x, y);
+    return;
+  }
+  if (def.family === 'bridge') {
+    // Only ever drawn as a ghost or an icon: placed spans are terrain, and
+    // `drawBridges` paints them. A lone span has water on every side.
+    drawDeckTile(ctx, machine.tx, machine.ty, OPEN_N | OPEN_E | OPEN_S | OPEN_W, false);
     return;
   }
   if (def.family === 'beacon') {

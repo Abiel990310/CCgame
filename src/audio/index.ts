@@ -472,6 +472,7 @@ const PRODUCED_SOUND = {
   solar: null,
   accumulator: null,
   pole: null,
+  bridge: null,
   beacon: null,
   turret: null,
 } as const satisfies Record<MachineFamily, SoundId | null>;

@@ -5,6 +5,7 @@ import { MACHINES, beltIdOf } from '../data/machines';
 import { RECIPE_BY_ID } from '../data/recipes';
 import { SPELLS } from '../data/spells';
 import { TECH_BY_ID } from '../data/techs';
+import { placeBridge, isBridgePiece } from './bridge';
 import { placeBuilding, removeBuildingAt, repairWallAt } from './building';
 import {
   clickSlot,
@@ -132,13 +133,10 @@ export function applyOrder(world: World, order: Order): boolean | 'campfire' {
         placeBelt(world, player, c.tx, c.ty, c.dir, beltIdOf(c.tier ?? 1)) !== null
       );
     case 'machine':
-      return (
-        isTile(c.tx, c.ty) &&
-        isDir(c.dir) &&
-        Object.hasOwn(MACHINES, c.what) &&
-        isSides(c.sides) &&
-        placeMachine(world, player, c.what, c.tx, c.ty, c.dir, c.sides) !== null
-      );
+      if (!(isTile(c.tx, c.ty) && isDir(c.dir) && Object.hasOwn(MACHINES, c.what) && isSides(c.sides))) return false;
+      // A span is ground laid over water, not a machine, so it never reaches the grid.
+      if (isBridgePiece(c.what)) return placeBridge(world, player, c.what, c.tx, c.ty);
+      return placeMachine(world, player, c.what, c.tx, c.ty, c.dir, c.sides) !== null;
     case 'building':
       return isPoint(c.x, c.y) && Object.hasOwn(BUILDINGS, c.type) && placeBuilding(world, player, c.type, { x: c.x, y: c.y });
     case 'turn':

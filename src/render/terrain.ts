@@ -38,6 +38,8 @@ const GROUND: Record<Terrain, { base: [number, number, number]; alt: [number, nu
   grass: { base: [112, 164, 88], alt: [140, 170, 92] },
   forest: { base: [78, 128, 72], alt: [92, 122, 66] },
   rock: { base: [140, 144, 146], alt: [124, 130, 134] },
+  // A span is drawn over the sea by `drawBridges`; the ground under it stays sea.
+  bridge: { base: [44, 120, 150], alt: [52, 134, 158] },
 };
 
 /** How far out each band of the sea reaches from the shore, in world units. */
@@ -416,7 +418,7 @@ function terrainAt(terrain: Uint8Array, tx: number, ty: number): Terrain {
 }
 
 function isWet(kind: Terrain): boolean {
-  return kind === 'water' || kind === 'deep';
+  return kind === 'water' || kind === 'deep' || kind === 'bridge';
 }
 
 /**
