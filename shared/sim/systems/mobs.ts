@@ -11,6 +11,7 @@ import { nextFloat } from '../progression';
 import { isWalkable, terrainAtIndex } from '../terrain';
 import type { Mob, MobTypeId, Player, Vec2, World } from '../types';
 import { perk } from '../perks';
+import { researchTier } from '../research';
 import { damageMob, damagePlayer, tryDodge, tryParry } from './combat';
 import { resolveMachines } from './movement';
 import { turretWrecked } from './turret';
@@ -132,6 +133,8 @@ export function stepMobs(world: World, dt: number): void {
     if (def.summons) summon(world, mob, dt * tempo);
     const quaking = def.quake !== undefined && mob.enraged === true && quake(world, mob, dt * tempo);
     if (quaking) pace = 0;
+    // The Bulwark does not stop for its pulse; it just plods on while the crystal charges.
+    if (def.pulse && mob.enraged) pace *= pulse(world, mob, dt * tempo);
     if (mob.windup) pace *= BITE.pace;
 
     mob.vel.x = damp(mob.vel.x, dir.x * speed * pace, 8, dt);
@@ -175,6 +178,37 @@ function quake(world: World, mob: Mob, dt: number): boolean {
   mob.windup = 0;
   world.events.push({ kind: 'quakeWind', pos: { ...mob.pos }, radius: q.radius, windup: q.windup / BOSS_RAGE.tempo });
   return true;
+}
+
+/**
+ * The enraged Bulwark's ward pulse. Returns how fast it keeps walking: it
+ * crawls while the crystal charges and goes on at full pace otherwise, so
+ * unlike the warden's slam it never stops to be hit.
+ */
+function pulse(world: World, mob: Mob, dt: number): number {
+  const p = MOBS[mob.type].pulse!;
+  if (mob.pulse && mob.pulse > 0) {
+    mob.pulse = Math.max(0, mob.pulse - dt);
+    if (mob.pulse > 0) return 0.3;
+    let hits = 0;
+    for (const player of world.players.values()) {
+      if (player.downed > 0 || distance(player.pos, mob.pos) > p.radius + PLAYER.radius) continue;
+      if (tryDodge(world, player, mob.pos)) continue;
+      damagePlayer(world, player, p.damage);
+      const away = normalize({ x: player.pos.x - mob.pos.x, y: player.pos.y - mob.pos.y });
+      player.vel.x = away.x * p.knock;
+      player.vel.y = away.y * p.knock;
+      hits++;
+    }
+    mob.pulseCd = p.interval;
+    world.events.push({ kind: 'pulse', pos: { ...mob.pos }, radius: p.radius, hits });
+    return 1;
+  }
+  mob.pulseCd = Math.max(0, (mob.pulseCd ?? p.interval * 0.4) - dt);
+  if (mob.pulseCd > 0 || !playerWithin(world, mob, p.radius * 0.8)) return 1;
+  mob.pulse = p.windup;
+  world.events.push({ kind: 'pulseWind', pos: { ...mob.pos }, radius: p.radius, windup: p.windup / BOSS_RAGE.tempo });
+  return 0.3;
 }
 
 /**
@@ -300,6 +334,8 @@ function attackNearby(world: World, mob: Mob, radius: number, damage: number, dt
 
   if (playerWithin(world, mob, radius)) {
     mob.windup = BITE.windup;
+    // Voiced as it rears back, not as the bite lands: the sound is the warning.
+    world.events.push({ kind: 'mobBite', pos: { ...mob.pos }, type: mob.type });
     return;
   }
 
@@ -409,12 +445,12 @@ export function stepWaves(world: World, dt: number): void {
 export function nightBudget(world: World): number {
   const players = Math.max(1, world.players.size);
   const n = world.nightIndex;
-  return Math.round(
+  const base =
     WAVES.baseBudget +
-      WAVES.budgetPerNight * n +
-      WAVES.budgetPerNightSq * n * n +
-      WAVES.budgetPerExtraPlayer * (players - 1),
-  );
+    WAVES.budgetPerNight * n +
+    WAVES.budgetPerNightSq * n * n +
+    WAVES.budgetPerExtraPlayer * (players - 1);
+  return Math.round(base * (1 + WAVES.budgetPerResearchTier * researchTier(world)));
 }
 
 /**

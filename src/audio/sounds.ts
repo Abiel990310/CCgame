@@ -204,6 +204,190 @@ export const SOUNDS = {
       NOISE(300, 80, 0.5, 0.05, 1.2, 0.6, 0, 'lowpass'),
     ],
   },
+  // ---- Creature voices: how each one bites and how each one answers a hit ----
+  // Bites play as the jaws close, hurts as the blow lands. Both are kept
+  // quiet and throttled, since a raid has dozens of them going at once; the
+  // bosses get a longer, lower voice and a longer throttle.
+  // A wet slap.
+  biteSlime: {
+    gain: 0.12,
+    vary: 0.14,
+    throttle: 0.09,
+    layers: [TONE('sine', 220, 90, 0.5, 0.002, 0.1), NOISE(700, 250, 0.45, 0.002, 0.08, 0.8, 0, 'lowpass')],
+  },
+  // Tiny mandibles: a dry double click.
+  biteCrawler: {
+    gain: 0.1,
+    vary: 0.16,
+    throttle: 0.08,
+    layers: [
+      TONE('square', 2400, 1500, 0.3, 0.001, 0.02),
+      TONE('square', 2000, 1200, 0.3, 0.001, 0.02, 0.03),
+      NOISE(4200, 2600, 0.3, 0.001, 0.04, 2.2, 0.005),
+    ],
+  },
+  // A thin electric sting.
+  biteWisp: {
+    gain: 0.09,
+    vary: 0.1,
+    throttle: 0.09,
+    layers: [TONE('sine', 2100, 900, 0.4, 0.002, 0.14), NOISE(5200, 7600, 0.25, 0.002, 0.1, 3, 0, 'highpass')],
+  },
+  // A growl breaking into a chomp.
+  biteBrute: {
+    gain: 0.2,
+    vary: 0.08,
+    throttle: 0.1,
+    layers: [
+      TONE('sawtooth', 120, 70, 0.5, 0.01, 0.22, 0, 12),
+      NOISE(900, 300, 0.45, 0.002, 0.12, 1, 0.12),
+      TONE('sine', 80, 40, 0.5, 0.002, 0.14, 0.12),
+    ],
+  },
+  // A hiss, snapped off.
+  biteSpitter: {
+    gain: 0.11,
+    vary: 0.12,
+    throttle: 0.09,
+    layers: [NOISE(3000, 1200, 0.5, 0.004, 0.14, 1.6), TONE('triangle', 520, 260, 0.3, 0.002, 0.08, 0.06)],
+  },
+  // A shell-edge clack, hard and hollow.
+  biteShellback: {
+    gain: 0.15,
+    vary: 0.08,
+    throttle: 0.1,
+    layers: [NOISE(3600, 1800, 0.6, 0.001, 0.04, 2), TONE('triangle', 300, 150, 0.5, 0.001, 0.1), TONE('triangle', 220, 120, 0.35, 0.001, 0.12, 0.05)],
+  },
+  // A heavy wet thump.
+  biteMother: {
+    gain: 0.17,
+    vary: 0.08,
+    throttle: 0.1,
+    layers: [TONE('sine', 130, 50, 0.6, 0.004, 0.2), NOISE(500, 140, 0.5, 0.004, 0.22, 0.8, 0, 'lowpass')],
+  },
+  // Stone jaws: a grinding bite with rubble in it.
+  biteWarden: {
+    gain: 0.3,
+    vary: 0.04,
+    throttle: 0.3,
+    layers: [
+      NOISE(700, 120, 0.7, 0.004, 0.35, 0.8, 0, 'lowpass'),
+      TONE('sawtooth', 70, 38, 0.5, 0.004, 0.3, 0, 8),
+      NOISE(2200, 800, 0.3, 0.002, 0.1, 1.2, 0.04),
+    ],
+  },
+  // A shriek, cut short.
+  biteQueen: {
+    gain: 0.22,
+    vary: 0.06,
+    throttle: 0.3,
+    layers: [TONE('sawtooth', 700, 380, 0.4, 0.004, 0.2, 0, 20), NOISE(2800, 1200, 0.4, 0.004, 0.18, 2)],
+  },
+  // A crystal clang over a shell's thud.
+  biteBulwark: {
+    gain: 0.3,
+    vary: 0.03,
+    throttle: 0.3,
+    layers: [
+      TONE('sine', 1800, 1500, 0.3, 0.001, 0.35),
+      TONE('sine', 2700, 2300, 0.18, 0.001, 0.28),
+      TONE('sine', 70, 34, 0.6, 0.004, 0.3),
+      NOISE(500, 90, 0.5, 0.004, 0.3, 0.7, 0, 'lowpass'),
+    ],
+  },
+  // A squeak and a squelch.
+  hurtSlime: {
+    gain: 0.08,
+    vary: 0.16,
+    throttle: 0.08,
+    layers: [TONE('sine', 520, 340, 0.4, 0.002, 0.09), TONE('sine', 330, 600, 0.25, 0.004, 0.08, 0.04)],
+  },
+  // A tiny chirp.
+  hurtCrawler: {
+    gain: 0.07,
+    vary: 0.2,
+    throttle: 0.07,
+    layers: [TONE('square', 1500, 2300, 0.2, 0.001, 0.05), TONE('triangle', 2200, 1600, 0.18, 0.001, 0.06, 0.03)],
+  },
+  // A flicker, a bell struck badly.
+  hurtWisp: {
+    gain: 0.07,
+    vary: 0.12,
+    throttle: 0.08,
+    layers: [TONE('sine', 1500, 1100, 0.3, 0.002, 0.14), TONE('sine', 2250, 1650, 0.15, 0.002, 0.12)],
+  },
+  // A grunt.
+  hurtBrute: {
+    gain: 0.13,
+    vary: 0.1,
+    throttle: 0.09,
+    layers: [TONE('sawtooth', 150, 95, 0.4, 0.006, 0.14, 0, 10), NOISE(600, 250, 0.3, 0.004, 0.1, 0.8, 0, 'lowpass')],
+  },
+  // A wet rasp.
+  hurtSpitter: {
+    gain: 0.08,
+    vary: 0.14,
+    throttle: 0.08,
+    layers: [NOISE(2200, 1000, 0.4, 0.003, 0.1, 1.4), TONE('triangle', 420, 280, 0.25, 0.003, 0.08)],
+  },
+  // A glancing blow off a shell: a tick, not a thwack.
+  hurtShellback: {
+    gain: 0.1,
+    vary: 0.1,
+    throttle: 0.08,
+    layers: [NOISE(4200, 2600, 0.5, 0.001, 0.03, 2.4), TONE('triangle', 520, 340, 0.3, 0.001, 0.06)],
+  },
+  // A deep, wobbling squelch.
+  hurtMother: {
+    gain: 0.11,
+    vary: 0.1,
+    throttle: 0.09,
+    layers: [TONE('sine', 240, 130, 0.5, 0.004, 0.14, 0, 14), NOISE(450, 180, 0.3, 0.004, 0.12, 0.8, 0, 'lowpass')],
+  },
+  // Stone cracking under the blow.
+  hurtWarden: {
+    gain: 0.18,
+    vary: 0.05,
+    throttle: 0.25,
+    layers: [NOISE(1600, 400, 0.6, 0.002, 0.14, 1.3), TONE('sawtooth', 95, 55, 0.35, 0.004, 0.22, 0, 6)],
+  },
+  // A furious screech.
+  hurtQueen: {
+    gain: 0.15,
+    vary: 0.06,
+    throttle: 0.25,
+    layers: [TONE('sawtooth', 520, 880, 0.35, 0.003, 0.16, 0, 18), TONE('square', 780, 520, 0.15, 0.003, 0.14)],
+  },
+  // A chime struck by the blow.
+  hurtBulwark: {
+    gain: 0.16,
+    vary: 0.05,
+    throttle: 0.25,
+    layers: [TONE('sine', 1320, 1260, 0.3, 0.001, 0.4), TONE('sine', 1980, 1900, 0.18, 0.001, 0.3), NOISE(2400, 900, 0.3, 0.001, 0.08, 1.4)],
+  },
+  // The Bulwark's crystal charging: a rising shimmer over a low hum.
+  pulseWind: {
+    gain: 0.28,
+    vary: 0.03,
+    throttle: 0.5,
+    layers: [
+      TONE('sine', 900, 2400, 0.3, 0.2, 0.9),
+      TONE('sine', 1350, 3200, 0.18, 0.25, 0.85),
+      TONE('triangle', 60, 110, 0.35, 0.2, 0.9, 0, 6),
+    ],
+  },
+  // ...and the ward bursting: a bright crack, then a deep swell going out.
+  pulse: {
+    gain: 0.42,
+    vary: 0.03,
+    throttle: 0.3,
+    layers: [
+      NOISE(5000, 1500, 0.5, 0.001, 0.25, 1.4, 0, 'highpass'),
+      TONE('sine', 1600, 500, 0.35, 0.001, 0.5),
+      TONE('sine', 110, 36, 0.8, 0.004, 0.7),
+      NOISE(800, 120, 0.5, 0.01, 0.6, 0.8, 0.03, 'lowpass'),
+    ],
+  },
   hit: {
     gain: 0.12,
     vary: 0.16,

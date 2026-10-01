@@ -7,6 +7,7 @@ import { addPerk } from '../perks';
 import { makeRng } from '../rng';
 import { checksum, decode, encode, restoreSnapshot, takeSnapshot, type Snapshot } from '../snapshot';
 import { step } from '../step';
+import { spawnMob } from '../systems/mobs';
 import type { PlayerInput, World } from '../types';
 import { createPlayer, spawnPoint } from '../world';
 import { at, bench, plantOre } from './bench';
@@ -145,6 +146,29 @@ describe('co-op replay', () => {
     expect(guest.research.queue).toEqual(['beltLogistics', 'angling', 'roboticArms']);
     expect(guest.players.get(player.id)!.inventory).toHaveLength(player.inventory.length);
     expect(encode(takeSnapshot(guest))).toBe(encode(takeSnapshot(host)));
+  });
+
+  it('keeps a guest in step through an enraged bulwark pulsing and a research-scaled raid', () => {
+    const { world: host, player } = bench();
+    host.peaceful = false;
+    host.nightIndex = 30;
+    host.research.levels.resonance = 1;
+    host.phase = 'night';
+    host.phaseTime = 40;
+    const bulwark = spawnMob(host, 'bulwark', { x: player.pos.x + 110, y: player.pos.y });
+    bulwark.enraged = true;
+    bulwark.pulseCd = 0;
+    const guest = restoreSnapshot(decode<Snapshot>(encode(takeSnapshot(host))));
+    expect(checksum(guest)).toBe(checksum(host));
+
+    let pulses = 0;
+    for (let t = 0; t < 30 * 20; t++) {
+      const tick = hostTick(host, [], new Map([[player.id, { move: { x: 0, y: 0 }, dash: false, interact: false, attack: false }]]));
+      pulses += host.events.filter((e) => e.kind === 'pulse').length;
+      guestTick(guest, tick);
+      if (checksum(guest) !== tick.hash) throw new Error(`guest drifted from the host at tick ${host.tick}`);
+    }
+    expect(pulses).toBeGreaterThan(0);
   });
 
   it('round-trips numbers plain JSON would change', () => {
