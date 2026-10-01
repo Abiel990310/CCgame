@@ -1282,6 +1282,7 @@ export class Game {
       hovering: this.input.hovering,
       busy: paused || this.hud.isBuildMode || this.hud.isInventoryOpen || this.workbench.isOpen,
       touch: COARSE.matches,
+      ledger: this.ledger,
     });
   }
 

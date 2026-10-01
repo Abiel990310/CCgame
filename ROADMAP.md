@@ -616,8 +616,17 @@ detail behind the factory entries is in
 
 ### Changes
 
-- [ ] Recipe cards in the machine screen show the machine's base craft time,
-      ignoring research and modules; show the real time a craft takes there.
+- [x] Recipe cards in the machine screen show the real craft time, with
+      research, a burning beacon and modules applied (the base time is the
+      tooltip), and the machine's hover card shows its rate in items per
+      minute beside the island's rate from the production ledger. Short
+      crafts are quoted in whole ticks, since the sim drops the spill-over
+      (2026-10-01).
+- [ ] The hover card's rate covers miners, furnaces and assemblers only; labs
+      (research cycles per minute) and fish traps show none.
+- [ ] The ledger counts per item across the island, so the card can only put
+      a machine's pace beside the island's total. A per-machine ledger would
+      show which machine on a line is under-delivering.
 - [x] **Nights keep getting harder.** A scripted player showed nights 6 to 9
       costing less health than night 5, and night 20 barely scratched: the
       wave budget grew in a straight line while player power compounds. The
