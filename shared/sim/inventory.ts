@@ -1,3 +1,4 @@
+import { researchBonuses } from './research';
 import { addToSlots, countIn, makeSlots, roomFor, takeFromSlots } from './slots';
 import type { ItemId, ItemStack, Player, Slot, World } from './types';
 
@@ -9,6 +10,14 @@ export const BAG_ROW = 8;
 /** How big this player's bag is, with every bag they have sewn on. */
 export function bagSlots(player: Pick<Player, 'bag'>): number {
   return INVENTORY_SLOTS + BAG_ROW * (player.bag ?? 0);
+}
+
+/**
+ * Slots this player's bag holds on this island: the base grid, every bag they
+ * have sewn on, and the rows research has added for everyone.
+ */
+export function carrySlots(world: World, player: Pick<Player, 'bag'>): number {
+  return bagSlots(player) + BAG_ROW * Math.round(researchBonuses(world).carry);
 }
 
 export function newInventory(): Slot[] {

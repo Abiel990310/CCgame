@@ -1,11 +1,13 @@
 import { pieceName } from '@shared/data/machines';
-import { TECHS, TECH_BY_ID, techCycles, type TechDef } from '@shared/data/techs';
+import { TECHS, TECH_BY_ID, techCycles, techTier, type TechDef } from '@shared/data/techs';
+import { WAVES } from '@shared/sim/constants';
 import {
   cyclesDone,
   cyclesNeeded,
   isAvailable,
   isFinished,
   researchPlan,
+  researchTier,
   techLevel,
   type QueueOp,
 } from '@shared/sim/research';
@@ -19,7 +21,7 @@ export type OrderResearch = (techId: string, op: QueueOp, place?: number) => voi
 export function researchKey(world: World): string {
   const current = world.research.current;
   const levels = TECHS.map((t) => techLevel(world, t.id)).join(',');
-  return `${current}:${world.research.queue.join(',')}:${levels}:${current ? cyclesDone(world, current) : 0}`;
+  return `${current}:${world.research.queue.join(',')}:${levels}:${current ? cyclesDone(world, current) : 0}:${researchTier(world)}`;
 }
 
 /**
@@ -28,8 +30,31 @@ export function researchKey(world: World): string {
  * so the two can never disagree about what is planned.
  */
 export function paintResearch(world: World, parent: HTMLElement, order: OrderResearch): void {
+  paintRaidNote(world, parent);
   paintQueue(world, parent, order);
   paintTechs(world, parent, order);
+}
+
+const percentOf = (tier: number): string => `${Math.round(WAVES.budgetPerResearchTier * tier * 100)}%`;
+
+/**
+ * Researching is opt-in difficulty: the night's raid is sized by the highest
+ * tier of pack an island has finished a tech with. Said up here, and again on
+ * each card that would raise it, so nobody finds out by surviving the night.
+ */
+function paintRaidNote(world: World, parent: HTMLElement): void {
+  const note = document.createElement('p');
+  note.className = 'raid-note';
+  const tier = researchTier(world);
+  note.innerHTML = world.peaceful
+    ? '<b>Peaceful island.</b> No raids come, so no tech makes a night harder.'
+    : `<b>Raids grow with the highest tier you research.</b> Each tier adds ${percentOf(1)} to a night's raid, ` +
+      `on top of what the nights themselves bring. ` +
+      (tier > 0
+        ? `You are at tier ${tier}: raids are ${percentOf(tier)} bigger.`
+        : 'You have researched nothing yet, so raids are as big as the night count makes them.') +
+      ' A tech\'s tier is the best pack it eats, and what you build never counts.';
+  parent.appendChild(note);
 }
 
 /** The level an entry of the plan will bring a tech to, counting the same tech planned ahead of it. */
@@ -81,12 +106,18 @@ function paintTechs(world: World, parent: HTMLElement, order: OrderResearch): vo
               : tech.repeatable
                 ? `${progress} · click to queue`
                 : progress;
+    const tier = techTier(tech);
+    const raises = !world.peaceful && !done && tier > researchTier(world);
+    const tierTag =
+      `<span class="tech-tier${raises ? ' raises' : ''}">Tier ${tier}` +
+      (raises ? ` · raises raids to +${percentOf(tier)}` : '') +
+      `</span>`;
     const unlocks = tech.unlocks?.length
       ? `<span class="tech-unlocks">Unlocks ${tech.unlocks.map(pieceName).join(', ')}</span>`
       : '';
 
     button.innerHTML =
-      `<b>${techName(tech, level)}</b><span>${tech.description}</span>${unlocks}` +
+      `<b>${techName(tech, level)}</b><span>${tech.description}</span>${unlocks}${tierTag}` +
       `<span class="recipe-flow">${cost}<em>${tech.time}s · ${state}</em></span>`;
     button.addEventListener('click', () => {
       audio.play('click');

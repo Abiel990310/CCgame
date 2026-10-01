@@ -262,6 +262,9 @@ const NONE: ResearchBonuses = {
   yield: 1,
   health: 1,
   speed: 1,
+  pickup: 1,
+  dash: 1,
+  carry: 0,
 };
 
 /**

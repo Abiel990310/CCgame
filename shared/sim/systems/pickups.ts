@@ -2,6 +2,7 @@ import { PLAYER } from '../constants';
 import { damp, distance } from '../math';
 import { addItem } from '../inventory';
 import { grantXp } from '../progression';
+import { researchBonuses } from '../research';
 import type { World } from '../types';
 
 /**
@@ -9,6 +10,7 @@ import type { World } from '../types';
  * feel like it dropped something rather than silently crediting you.
  */
 export function stepPickups(world: World, dt: number): void {
+  const reach = researchBonuses(world).pickup;
   for (let i = world.pickups.length - 1; i >= 0; i--) {
     const pickup = world.pickups[i];
     pickup.settle = Math.max(0, pickup.settle - dt);
@@ -23,7 +25,7 @@ export function stepPickups(world: World, dt: number): void {
     let claimed = false;
     for (const player of world.players.values()) {
       if (player.downed > 0) continue;
-      const radius = PLAYER.pickupRadius * player.stats.pickupRadius;
+      const radius = PLAYER.pickupRadius * player.stats.pickupRadius * reach;
       const dist = distance(player.pos, pickup.pos);
       if (dist > radius) continue;
 

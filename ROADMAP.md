@@ -618,8 +618,12 @@ detail behind the factory entries is in
 - [x] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
       themselves. Movement is the verb the player does most and it is silent.
       Done: sand hisses, grass swishes, forest adds a twig crackle, rock taps.
-- [ ] **A pitch per item on production sounds**, so a bank of furnaces reads as
+- [x] **A pitch per item on production sounds**, so a bank of furnaces reads as
       a chord and a stalled one is audible as a gap.
+      *(2026-10-01: miners, furnaces and assemblers play at a note per item
+      from a pentatonic, picked by the item's row in `ITEMS`, so neighbouring
+      items never share one. The random spread is a few cents now. Same item
+      from many machines is one unison note; `src/audio/pitch.ts`.)*
 - [x] **Muffle the world behind an open modal** — a lowpass on the master bus
       while the pause or inventory screen is up, so the interface sits in front
       of the island rather than inside it. Done for pause, level-up, bag and map;
@@ -829,12 +833,17 @@ detail behind the factory entries is in
       finished adds 7% to the night's budget, `WAVES.budgetPerResearchTier`.
       Nothing built counts, so an island that never opens a lab sees the
       nights it saw before.)*
-- [ ] Say in the tech tree that raids grow with the highest tier researched,
+- [x] Say in the tech tree that raids grow with the highest tier researched,
       so the opt-in is an informed one.
+      *(2026-10-01: a note heads the research list with the island's tier and
+      the raid bonus it earns, and every card names its tier and, when it
+      would raise it, the new bonus. A peaceful island is told no tech makes
+      a night harder.)*
 - [ ] Needs testing: whether 7% a tier (up to 28% at tier 4) makes the late
       nights too hard for a research-rich island. Lower the constant first.
-- [ ] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
-      for belt tiers, and it touches the save format.
+- [x] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
+      for belt tiers, and it touches the save format. *Done with belt tiers
+      (PR #163): a belt carries its `tier`, and its speed comes from `BELTS`.*
 - [x] An inserter will not take from or give to another inserter, so items
       cannot cross a gap without a belt tile between them. Deliberate — it is
       what stops two facing arms passing one item back and forth forever. The
@@ -866,8 +875,16 @@ detail behind the factory entries is in
       Done: the bar opens a Research tab on the map sheet, no lab needed.
 - [ ] The research tab on the map could take a "queue ×N" button on a
       repeatable card, instead of one click per level.
-- [ ] Research could grant the player more than health and speed: pickup
+- [x] Research could grant the player more than health and speed: pickup
       range, dash cooldown, carry slots.
+      *(2026-10-01: Magnetism (+35% pickup range), Footwork (dash recharges
+      25% faster), Pack Frames and Load-Bearing Harness (a row of eight bag
+      slots each, for every islander). Carry is the one effect that is a count
+      rather than a multiplier; the bag grows in `stepPlayerUpkeep` and on
+      load.)*
+- [ ] Repeatable tails for Magnetism and Footwork, so the player techs keep
+      compounding late game like Endurance does. Carry stays capped at two
+      rows until the bag screen is tested at 40+ slots on a phone.
 - [ ] The world sizes every item the same: 5.2 for a belt or an inserter hand,
       6 for a ground drop. A wood log and a circuit board are not the same size
       in life, and `ItemDef` could carry a scale the way it carries a colour.
@@ -1215,7 +1232,8 @@ detail behind the factory entries is in
 - [ ] **Further islands.** The 384-tile map has the whole south empty: another
       `IslandSite` in `shared/sim/regions.ts` with its own ore and landmarks,
       reached by a longer bridge.
-
+- [ ] Tune the production notes to the music bed's key, so the factory and
+      the score stay in harmony.
 - [ ] A Mk3 belt moves at 6.4 tiles a second but a full lane delivers about 15
       items a second, not 25: machines and belts put an item on at offset 0
       once a tick, so spacing rounds up to whole ticks. Placing it at the
@@ -1477,6 +1495,9 @@ detail behind the factory entries is in
 
 ### Needs testing
 
+- [ ] Production chord by ear: whether a big smelting floor reads as pleasant
+      or busy, and whether the eight-note range wants narrowing. Verified only
+      by reading oscillator frequencies in headless Chromium, not by listening.
 - [ ] Module balance over a long island: whether output modules on miners are
       worth their processors, and whether speed modules overload a typical
       steam network too easily.
