@@ -43,7 +43,7 @@ import {
 } from '@shared/sim/factory';
 import { rotate, step1, tileCenter, tileKey, toTile } from '@shared/sim/grid';
 import { TECH_BY_ID, UNLOCKED_BY } from '@shared/data/techs';
-import { setResearch } from '@shared/sim/research';
+import { setResearch, type QueueOp } from '@shared/sim/research';
 import { GOAL_BY_ID } from '@shared/data/goals';
 import { GraphicsPanel } from './ui/graphics';
 import { GoalTracker } from './ui/goals';
@@ -214,9 +214,8 @@ export class Game {
       onSetRecipe: (machineId, recipeId) => {
         if (this.act({ k: 'recipe', machine: machineId, recipe: recipeId })) this.requestSave();
       },
-      onQueueResearch: (techId, op) => {
-        if (this.act({ k: 'queue', tech: techId, op })) this.requestSave();
-      },
+      onQueueResearch: (techId, op, place) => this.orderResearch(techId, op, place),
+      onOpenResearch: () => this.toggleMap('research'),
       onSetFilter: (machineId, item) => {
         if (this.act({ k: 'filter', machine: machineId, item })) this.requestSave();
       },
@@ -239,7 +238,11 @@ export class Game {
     });
 
     this.goals = new GoalTracker(document.getElementById('ui')!);
-    this.worldMap = new WorldMap(document.getElementById('ui')!, () => this.worldMap.setOpen(false));
+    this.worldMap = new WorldMap(
+      document.getElementById('ui')!,
+      () => this.worldMap.setOpen(false),
+      (techId, op, place) => this.orderResearch(techId, op, place),
+    );
     this.minimap = new Minimap(document.getElementById('corner-right')!, this.worldMap, () => this.toggleMap());
     this.story = new StoryCards(document.getElementById('ui')!);
     document.getElementById('btn-map')!.addEventListener('click', () => this.toggleMap());
@@ -404,6 +407,10 @@ export class Game {
       y: this.showcaseFocus.y + Math.sin(t * 0.063) * 90,
     };
     this.renderer.render(this.world, this.selfId, t, null, null);
+  }
+
+  private orderResearch(techId: string, op: QueueOp, place?: number): void {
+    if (this.act({ k: 'queue', tech: techId, op, ...(place === undefined ? {} : { place }) })) this.requestSave();
   }
 
   private toggleMap(tab: MapTab = 'map'): void {

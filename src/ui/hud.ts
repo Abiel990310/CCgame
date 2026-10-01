@@ -61,7 +61,9 @@ export interface HudCallbacks {
   onTogglePause: () => void;
   onQuitToMenu: () => void;
   onSetRecipe: (machineId: number, recipeId: string) => void;
-  onQueueResearch: (techId: string, op: QueueOp) => void;
+  onQueueResearch: (techId: string, op: QueueOp, place?: number) => void;
+  /** The research bar was clicked: show the queue, with no lab in reach. */
+  onOpenResearch: () => void;
   onSetFilter: (machineId: number, item: ItemId | null) => void;
   onSlotAction: (ref: SlotRef, button: ClickButton, quick: boolean) => void;
   onCopySettings: (machineId: number) => void;
@@ -179,6 +181,20 @@ export class Hud {
     }
 
     this.els.vitals.addEventListener('click', () => this.openDraft());
+    // The bar sits inside the vitals panel, whose click opens the level-up
+    // draft; it has its own job.
+    const openResearch = (event: Event): void => {
+      event.stopPropagation();
+      audio.play('click');
+      this.callbacks.onOpenResearch();
+    };
+    this.els.research.addEventListener('click', openResearch);
+    this.els.research.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openResearch(event);
+      }
+    });
     this.els.levelupLater.addEventListener('click', () => {
       audio.play('close');
       this.closeDraft();
@@ -217,7 +233,7 @@ export class Hud {
       },
       onMend: (machineId) => this.callbacks.onMend(machineId),
       onSetRecipe: (machineId, recipeId) => this.callbacks.onSetRecipe(machineId, recipeId),
-      onQueueResearch: (techId, op) => this.callbacks.onQueueResearch(techId, op),
+      onQueueResearch: (techId, op, place) => this.callbacks.onQueueResearch(techId, op, place),
       onSetFilter: (machineId, item) => this.callbacks.onSetFilter(machineId, item),
       onCopySettings: (machineId) => this.callbacks.onCopySettings(machineId),
       onPasteSettings: (machineId) => this.callbacks.onPasteSettings(machineId),

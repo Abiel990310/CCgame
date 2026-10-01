@@ -5,6 +5,7 @@ import { DASH, MAP_SIZE, PLAYER, TILE, VAULT } from '../constants';
 import { clamp, damp, length, normalize } from '../math';
 import { tileKey } from '../grid';
 import { perk } from '../perks';
+import { researchBonuses } from '../research';
 import { isWalkable, terrainAtIndex } from '../terrain';
 import type { Player, PlayerInput, Vec2, World } from '../types';
 
@@ -224,7 +225,7 @@ export function stepPlayerMovement(
       player.invuln = Math.max(player.invuln, DASH.duration + 0.1);
     }
     const daytime = world.phase === 'day' ? 1 + 0.12 * perk(player, 'pathfinder') : 1;
-    const speed = PLAYER.speed * player.stats.moveSpeed * daytime;
+    const speed = PLAYER.speed * player.stats.moveSpeed * researchBonuses(world).speed * daytime;
     const target = { x: dir.x * speed, y: dir.y * speed };
     player.vel.x = damp(player.vel.x, target.x, PLAYER.accel, dt);
     player.vel.y = damp(player.vel.y, target.y, PLAYER.accel, dt);

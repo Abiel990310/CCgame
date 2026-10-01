@@ -437,3 +437,10 @@
     display: none;
   }
 }
+
+/* The research tab shares the map's sheet and height too; the queue and tree scroll inside it. */
+.worldmap-research {
+  aspect-ratio: 1;
+  overflow-y: auto;
+  align-content: start;
+}

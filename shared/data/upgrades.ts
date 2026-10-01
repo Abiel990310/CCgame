@@ -123,7 +123,7 @@ const PERKS: UpgradeDef[] = [
   perkUpgrade('campGuard', 'Camp Guard', 'attack', '+25% damage near the campfire.', 2),
   perkUpgrade('glassCannon', 'Glass Cannon', 'attack', '+40% damage, but 25 less max health.', 1, {
     weight: 0.4,
-    requires: (p) => p.maxHp > 60,
+    requires: (p) => p.stats.maxHp > 60,
     apply: (p) => {
       p.stats.damage *= 1.4;
       p.stats.maxHp -= 25;

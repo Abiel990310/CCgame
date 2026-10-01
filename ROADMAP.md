@@ -799,10 +799,16 @@ detail behind the factory entries is in
       old guess only fills in when the queue runs empty.
 - [ ] A miner's "ore left within reach" counts tile ore, not what yield
       research will actually bring up from it; it could show both.
-- [ ] A repeatable tech can only sit in the research queue once. Queueing
+- [x] A repeatable tech can only sit in the research queue once. Queueing
       "Mining Productivity ×3" would let a player plan several levels ahead.
-- [ ] The research queue lives in the lab screen only. The HUD research bar
+      Done: one entry per level, up to 24 planned, each row its own place.
+- [x] The research queue lives in the lab screen only. The HUD research bar
       could open it, since that bar is where players look for research.
+      Done: the bar opens a Research tab on the map sheet, no lab needed.
+- [ ] The research tab on the map could take a "queue ×N" button on a
+      repeatable card, instead of one click per level.
+- [ ] Research could grant the player more than health and speed: pickup
+      range, dash cooldown, carry slots.
 - [ ] The world sizes every item the same: 5.2 for a belt or an inserter hand,
       6 for a ground drop. A wood log and a circuit board are not the same size
       in life, and `ItemDef` could carry a scale the way it carries a colour.
@@ -1135,7 +1141,8 @@ detail behind the factory entries is in
       minute over time).
 - [ ] A fourth pack tier whose ingredients need three lines into one
       Mk2 assembler, so the jump from Mk1 assemblers is forced by a recipe.
-- [ ] Research effects on the player: max health, move speed.
+- [x] Research effects on the player: max health, move speed. Done: Field
+      Medicine and Conditioning, then repeatable Vitality and Endurance.
 - [ ] The test bench fills the bag nearly full, so a test that refunds items
       can find no room; give the bench a bigger bag or fewer stacks.
 

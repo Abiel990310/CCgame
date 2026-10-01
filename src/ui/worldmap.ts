@@ -6,6 +6,7 @@ import type { Machine, ResourceKind, World } from '@shared/sim/types';
 import type { Ledger } from '../ledger';
 import { icon } from './icons';
 import { LedgerView } from './ledger';
+import { paintResearch, researchKey, type OrderResearch } from './research';
 import './worldmap.css';
 
 /** Terrain in the order `TERRAIN_ORDER` stores it: deep, water, sand, grass, forest, rock. */
@@ -75,7 +76,7 @@ function patch(x: number, y: number, size: number): number {
   return a + (b - a) * sy;
 }
 
-export type MapTab = 'map' | 'ledger';
+export type MapTab = 'map' | 'ledger' | 'research';
 
 /**
  * Miners that have pulled up everything within reach. They never start again
@@ -105,6 +106,8 @@ export class WorldMap {
   private tab: MapTab = 'map';
   private view: HTMLElement;
   private ledgerView: LedgerView;
+  private researchView: HTMLElement;
+  private researchKey = '';
   private tabs: HTMLElement[];
   private dryCount = 0;
   private dryTimer = 0;
@@ -134,7 +137,11 @@ export class WorldMap {
   private knownCount = -1;
   private layersRefresh = 0;
 
-  constructor(parent: HTMLElement, private onClose: () => void) {
+  constructor(
+    parent: HTMLElement,
+    private onClose: () => void,
+    private onOrderResearch: OrderResearch,
+  ) {
     this.root = document.createElement('div');
     this.root.className = 'worldmap hidden';
     this.root.innerHTML = `
@@ -143,6 +150,7 @@ export class WorldMap {
           <nav class="worldmap-tabs">
             <button data-tab="map" title="Island map (M)">Map</button>
             <button data-tab="ledger" title="Production (L)">Production</button>
+            <button data-tab="research" title="Research queue">Research</button>
           </nav>
           <span class="worldmap-share" data-role="share"></span>
           <button class="icon-btn worldmap-close" title="Close (M)" data-role="close">&times;</button>
@@ -182,6 +190,9 @@ export class WorldMap {
     this.pan = role('pan');
     this.bindZoom();
     this.ledgerView = new LedgerView(this.root.querySelector('.worldmap-inner')!, () => this.showTab('map'));
+    this.researchView = document.createElement('div');
+    this.researchView.className = 'offers recipes worldmap-research hidden';
+    this.root.querySelector('.worldmap-inner')!.appendChild(this.researchView);
     this.tabs = [...this.root.querySelectorAll<HTMLElement>('[data-tab]')];
     for (const tab of this.tabs) tab.addEventListener('click', () => this.showTab(tab.dataset.tab as MapTab));
     role('close').addEventListener('click', () => this.onClose());
@@ -217,12 +228,25 @@ export class WorldMap {
     this.view.classList.toggle('hidden', tab !== 'map');
     this.share.classList.toggle('hidden', tab !== 'map');
     this.ledgerView.setVisible(tab === 'ledger');
+    this.researchView.classList.toggle('hidden', tab !== 'research');
+    this.researchKey = '';
     this.paintedKey = '';
     this.dryTimer = 0;
   }
 
   update(world: World, selfId: number, dt: number, ledger: Ledger): void {
     if (!this.open) return;
+    if (this.tab === 'research') {
+      // Rebuilt only when research moves, so a click is never lost to a repaint under it.
+      const key = researchKey(world);
+      if (key === this.researchKey) return;
+      this.researchKey = key;
+      const scroll = this.researchView.scrollTop;
+      this.researchView.innerHTML = '';
+      paintResearch(world, this.researchView, this.onOrderResearch);
+      this.researchView.scrollTop = scroll;
+      return;
+    }
     if (this.tab === 'ledger') {
       this.dryTimer -= dt;
       if (this.dryTimer <= 0) {
