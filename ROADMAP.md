@@ -1140,7 +1140,11 @@ detail behind the factory entries is in
 - [x] Splitters and mergers draw no status light, so one jammed on a full line
       looks the same as one working. A small light on a stalled one would help.
       Done: a jammed one blinks red like any blocked machine; working, no light.
-- [ ] Power: an accumulator that stores daytime solar surplus for the night.
+- [x] Power: an accumulator that stores daytime solar surplus for the night.
+      Done: unlocked by Solar Power; banks 9,000 kJ and moves 300 kW in or out.
+      Panels carry the load first, the bank covers the rest, and only what is
+      left burns coal. Only a solar surplus charges it, never an engine. Its
+      hover card shows charge, flow and how long the bank lasts.
 - [ ] Power: a production-stats panel per network (supply, demand, coal per
       minute over time).
 - [ ] A fourth pack tier whose ingredients need three lines into one
@@ -1347,6 +1351,11 @@ detail behind the factory entries is in
 
 - [ ] Footsteps on factory floor: a hollow metal clank when crossing belts and
       machines, and a splash when wading the shallows, so the base sounds built.
+- [ ] A second accumulator tier, or a research that raises bank capacity, so
+      a late factory's night does not need a field of the first one.
+- [ ] Power: a bank's charge on the Production tab, next to supply and demand.
+- [ ] Engines could top a bank up from spare capacity when coal is plentiful,
+      as a switch on the accumulator, for bases with no solar field.
 - [ ] Step volume and rate from the stride length, so a sprint or dash lands
       harder than a stroll instead of only coming faster.
 

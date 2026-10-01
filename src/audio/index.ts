@@ -408,6 +408,7 @@ const PRODUCED_SOUND = {
   fishTrap: 'gathered',
   generator: null,
   solar: null,
+  accumulator: null,
   pole: null,
   beacon: null,
   turret: null,

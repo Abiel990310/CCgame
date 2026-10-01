@@ -212,6 +212,21 @@ function deck(g: Body, def: MachineDef): void {
       for (let i = 0; i < 12; i++) g.p(-9 + Math.floor(i / 2) - (i % 2), TOP + 3 + i, glint);
       break;
     }
+    case 'accumulator': {
+      // Three empty cells under a row of terminal caps; the live pass fills
+      // them to the charge held.
+      const frame = ramp(shift(color, -46));
+      g.fill(-12, TOP + 2, 12, LIP - 2, frame[1]);
+      const cell = ramp(shift(color, -66));
+      const cap = ramp(shift(color, 26));
+      for (let i = 0; i < 3; i++) {
+        const x0 = -11 + i * 8;
+        g.fill(x0, TOP + 4, x0 + 5, LIP - 3, cell[1]);
+        g.fill(x0, TOP + 4, x0, LIP - 3, cell[2]);
+        g.fill(x0 + 2, TOP + 1, x0 + 3, TOP + 3, cap[0]);
+      }
+      break;
+    }
     case 'fishTrap': {
       // Open water let into the deck, for the float to sit on.
       const rim = ramp(shift(def.accent, -70));

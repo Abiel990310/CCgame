@@ -90,6 +90,7 @@ export type CraftedMachineId =
   | 'tunnel'
   | 'generator'
   | 'solar'
+  | 'accumulator'
   | 'beacon'
   | 'turret';
 
@@ -347,6 +348,7 @@ export type MachineFamily =
   | 'fishTrap'
   | 'generator'
   | 'solar'
+  | 'accumulator'
   | 'pole'
   | 'beacon'
   | 'turret';
@@ -421,6 +423,11 @@ export interface Machine {
    * for power, so its network cannot mistake it for an idle one.
    */
   unpowered?: boolean;
+  /**
+   * Accumulators only: kJ stored. Absent while empty, so a bank that has never
+   * charged costs a save nothing.
+   */
+  charge?: number;
   /**
    * Turrets only: the damage creatures have done to it. At `TURRET.armour` it
    * is wrecked and silent until the camp patches it at dawn. Absent when

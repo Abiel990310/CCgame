@@ -331,7 +331,7 @@ export const TECHS: TechDef[] = [
   {
     id: 'solarPower',
     name: 'Solar Power',
-    description: 'Panels that make power from daylight alone. Nothing to feed, and nothing at night.',
+    description: 'Panels that make power from daylight alone, and accumulators to bank the surplus for the night.',
     inputs: [
       { id: 'logicPack', count: 1 },
       { id: 'engineeringPack', count: 1 },
@@ -339,7 +339,7 @@ export const TECHS: TechDef[] = [
     cycles: 60,
     time: 8,
     requires: ['electricity'],
-    unlocks: ['solar'],
+    unlocks: ['solar', 'accumulator'],
     xp: 20,
   },
   {
