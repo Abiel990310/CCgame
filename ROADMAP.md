@@ -581,8 +581,11 @@ detail behind the factory entries is in
 - [x] **Mob voices** — each of the nine creatures dies to its own sound: a
       slime pops, crawlers click, a wisp rises away, a brute thuds, a spitter
       gurgles, a shellback cracks, the Warden crumbles and the Queen shrieks.
-- [ ] Mob voices for attacks and hurt, not only deaths, so a brute winding up
+- [x] Mob voices for attacks and hurt, not only deaths, so a brute winding up
       behind you is audible before it lands.
+      *(2026-10-01: all ten creatures have a bite voice, played as they rear
+      back so it is the warning, and a hurt voice, skipped on the blow that
+      kills so the death sound stands alone. Rows in `src/audio/sounds.ts`.)*
 - [x] **Footsteps keyed to terrain** — sand, grass and rock each sounding like
       themselves. Movement is the verb the player does most and it is silent.
       Done: sand hisses, grass swishes, forest adds a twig crackle, rock taps.
@@ -773,9 +776,18 @@ detail behind the factory entries is in
 - [ ] A busy factory still rewrites every belt and machine each save, because
       one belt item moving makes the whole section's text differ. Fine at a few
       hundred belts; if the section gets big, split it per chunk of the map.
-- [ ] Scale `waveBudget` off the highest research tier completed rather than
+- [x] Scale `waveBudget` off the highest research tier completed rather than
       the night index alone. Researching is a choice, so difficulty stays
       opt-in and building freely never punishes you.
+      *(2026-10-01: a tech's tier is the highest pack it eats (research 1,
+      logic 2, power and engineering 3, resonance 4); each tier an island has
+      finished adds 7% to the night's budget, `WAVES.budgetPerResearchTier`.
+      Nothing built counts, so an island that never opens a lab sees the
+      nights it saw before.)*
+- [ ] Say in the tech tree that raids grow with the highest tier researched,
+      so the opt-in is an informed one.
+- [ ] Needs testing: whether 7% a tier (up to 28% at tier 4) makes the late
+      nights too hard for a research-rich island. Lower the constant first.
 - [ ] Move `BELT_SPEED` from a module constant onto the `Belt` record. Needed
       for belt tiers, and it touches the save format.
 - [x] An inserter will not take from or give to another inserter, so items
@@ -1097,8 +1109,14 @@ detail behind the factory entries is in
       hard throw for anyone still inside, a dash through it dodges. An
       enraged Swarm Queen calls six at a time instead of three. Both are
       rows in `shared/data/mobs.ts` (`quake`, `rageCount`).)*
-- [ ] The Crystal Bulwark has no second-phase move yet; its ward could
+- [x] The Crystal Bulwark has no second-phase move yet; its ward could
       pulse outward and shove players back once it is enraged.
+      *(2026-10-01: an enraged Bulwark's crystal blazes and a cold ring marks
+      its reach for a second, all the while it plods on at a crawl, then the
+      ward bursts: 10 damage and a hard shove to anyone inside, a dash through
+      it dodges. A `pulse` row in `shared/data/mobs.ts`.)*
+- [ ] The Bulwark's pulse could also drop its ward for a beat, so getting
+      shoved out is paid back by a window to hit the creatures it covers.
 - [x] The Stone Warden reads pale and washed out below a third of its
       health, where its cracks and core glow are brightest.
       *(2026-09-27: the core's light was an additive wash as wide as the

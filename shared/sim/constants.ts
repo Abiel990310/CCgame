@@ -175,6 +175,13 @@ export const WAVES = {
    * night 5 and night 20 a stroll.
    */
   budgetPerNightSq: 0.3,
+  /**
+   * Each research tier finished (see `researchTier`) adds this share to the
+   * night's budget. Research is opt-in, so difficulty is too: a player who
+   * builds a huge factory and never researches meets only what the night
+   * count earns, and one who climbs the tree meets a raid that has noticed.
+   */
+  budgetPerResearchTier: 0.07,
   /** Creatures toughen from this night on, so late nights are fewer, bigger fights rather than only more of them. */
   hardenFrom: 6,
   /** Extra health per night past `hardenFrom`, as a share of the creature's base. */
