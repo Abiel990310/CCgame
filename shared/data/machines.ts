@@ -554,7 +554,7 @@ export const MACHINES: Record<MachineId, MachineDef> = {
     accent: '#9fe3ff',
     // One slot per kind of pack, so a full belt of one can never crowd out
     // the others the way a shared grid would.
-    inputSlots: 4,
+    inputSlots: 6,
     outputSlots: 0,
     slotSize: 50,
     speed: 1,

@@ -48,6 +48,7 @@ export type ItemId =
   | 'powerPack'
   | 'resonancePack'
   | 'engineeringPack'
+  | 'frontierPack'
   // Fitted into a tier 3 machine's module slots
   | 'speedModule'
   | 'outputModule'

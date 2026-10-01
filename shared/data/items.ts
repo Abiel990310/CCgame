@@ -140,6 +140,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     stack: 999,
     shape: 'flask',
   },
+  frontierPack: { id: 'frontierPack', name: 'Frontier Pack', color: '#4fb8b0', stack: 999, shape: 'flask' },
   engineeringPack: {
     id: 'engineeringPack',
     name: 'Engineering Pack',

@@ -324,6 +324,20 @@ export const RECIPES: Recipe[] = [
     outputs: [{ id: 'resonancePack', count: 1 }],
   },
   {
+    // Titanium plate is the one input that only the far side gives, so the
+    // techs that eat this pack are the branch the crossing leads to.
+    id: 'frontierPack',
+    name: 'Frontier Pack',
+    group: 'packs',
+    machine: 'assembler',
+    time: 9,
+    inputs: [
+      { id: 'titaniumPlate', count: 1 },
+      { id: 'circuit', count: 1 },
+    ],
+    outputs: [{ id: 'frontierPack', count: 1 }],
+  },
+  {
     id: 'engineeringPack',
     name: 'Engineering Pack',
     group: 'packs',
