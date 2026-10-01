@@ -1,3 +1,4 @@
+import { drawOnDevicePixel } from './paint';
 import { ITEMS, type ItemShape } from '@shared/data/items';
 import type { ItemId } from '@shared/sim/types';
 import { rgba, shift } from './palette';
@@ -721,9 +722,7 @@ export function drawItemSprite(
     ctx.drawImage(sprite, x - box / 2, y - box / 2, box, box);
     return;
   }
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(sprite, Math.round(m.a * x + m.e - px / 2), Math.round(m.d * y + m.f - px / 2));
-  ctx.setTransform(m.a, m.b, m.c, m.d, m.e, m.f);
+  drawOnDevicePixel(ctx, sprite, m, Math.round(m.a * x + m.e - px / 2), Math.round(m.d * y + m.f - px / 2));
 }
 
 /**
