@@ -1009,6 +1009,17 @@ detail behind the factory entries is in
       dying raid 34 → 21 ms. The world is pixel-identical to before at 1x
       and 2x (the GPU renderer's frame differs from main by exactly the
       run-to-run noise between two runs of main).
+- [ ] A big base seen at the furthest zoom-out is the heaviest frame left:
+      a 1,300-tile factory with three items on every belt costs about 20 ms
+      on a desktop Canvas and 40 ms on an emulated phone (both renderers),
+      four times the normal zoom, and 60% of it is belt items, one tiny
+      sprite each (about 3,600 a frame). Profiled: raster of those sprites,
+      not the simulation (6% of a raid frame) and not script. Levers if it
+      is felt on real hardware: draw a belt tile's items as one cached
+      sprite per item pattern while zoomed out; a Pixi particle container
+      for belt items on the GPU renderer; or thin the items at the last
+      zoom step. Headless numbers are pessimistic for Canvas, so check the
+      F3 meter on a real machine first.
 - [ ] On the GPU renderer, the first seconds after a big factory comes into
       view were ~100 ms frames headless, nearly all in vertex buffer uploads
       (`bufferSubData`) inside software WebGL; steady state is ~5 ms. Needs a
