@@ -34,6 +34,8 @@ export interface Snapshot {
   buildings: World['buildings'];
   /** Absent in a snapshot from a build before pins. */
   pins?: World['pins'];
+  /** Absent in a snapshot from a build before landmarks were counted. */
+  searched?: number;
   camp: World['camp'];
   ore: number[];
   oreLeft: number[];
@@ -65,6 +67,7 @@ export function takeSnapshot(world: World): Snapshot {
     nodes: world.nodes,
     buildings: world.buildings,
     pins: world.pins,
+    searched: world.searched,
     camp: world.camp,
     ore: Array.from(world.ore),
     oreLeft: Array.from(world.oreLeft),
@@ -99,6 +102,7 @@ export function restoreSnapshot(snap: Snapshot): World {
   world.nodes = snap.nodes;
   world.buildings = snap.buildings;
   world.pins = snap.pins ?? [];
+  world.searched = snap.searched ?? 0;
   world.camp = snap.camp;
   world.ore = Uint8Array.from(snap.ore);
   world.oreLeft = Uint16Array.from(snap.oreLeft);

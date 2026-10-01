@@ -57,13 +57,13 @@ export function createPlayer(id: number, name: string, pos: Vec2): Player {
  * stop applying an older island's scenery and ore deltas to ground they no
  * longer describe.
  */
-export const WORLDGEN = 3;
+export const WORLDGEN = 4;
 
 /**
  * How many tiles across each generation's island is. Generation 1 is the
  * first small island; an island keeps its generation, so it keeps its size.
  */
-export const WORLDGEN_TILES: Record<number, number> = { 1: 96, 2: 256, 3: 256 };
+export const WORLDGEN_TILES: Record<number, number> = { 1: 96, 2: 256, 3: 256, 4: 256 };
 
 export function createWorld(seed = 12345, peaceful = false, worldgen = WORLDGEN): World {
   setMapTiles(WORLDGEN_TILES[worldgen] ?? WORLDGEN_TILES[WORLDGEN]);
@@ -89,6 +89,7 @@ export function createWorld(seed = 12345, peaceful = false, worldgen = WORLDGEN)
     nodes: [],
     buildings: [],
     pins: [],
+    searched: 0,
     camp,
     ore: ore.kind,
     oreLeft: ore.left,
@@ -109,7 +110,7 @@ export function createWorld(seed = 12345, peaceful = false, worldgen = WORLDGEN)
   world.buildings.push({ id: world.nextId++, type: 'campfire', pos: { ...camp }, level: 1 });
   populateNodes(world);
   // Generation 3 is generation 2's mainland with landmarks scattered over it.
-  if (worldgen >= 3) placeLandmarks(world);
+  if (worldgen >= 3) placeLandmarks(world, worldgen);
   // The home clearing is known from the start, so the map is never blank.
   reveal(world, camp.x, camp.y, EXPLORE_RADIUS + 4);
   return world;
@@ -167,11 +168,14 @@ function populateNodes(world: World): void {
  * How many of each landmark a mainland gets, and the nearest to camp each may
  * stand, in tiles: the better the find, the farther the walk.
  */
-const LANDMARKS: Array<{ kind: LandmarkKind; count: number; minTiles: number }> = [
-  { kind: 'shrine', count: 4, minTiles: 80 },
-  { kind: 'pod', count: 6, minTiles: 60 },
-  { kind: 'ruin', count: 10, minTiles: 35 },
-  { kind: 'cache', count: 14, minTiles: 18 },
+const LANDMARKS: Array<{ kind: LandmarkKind; count: number; minTiles: number; since: number }> = [
+  { kind: 'shrine', count: 4, minTiles: 80, since: 3 },
+  { kind: 'pod', count: 6, minTiles: 60, since: 3 },
+  { kind: 'ruin', count: 10, minTiles: 35, since: 3 },
+  { kind: 'cache', count: 14, minTiles: 18, since: 3 },
+  // Last, and on a generation of its own: it draws from the same stream, so
+  // anything placed before it lands exactly where generation 3 put it.
+  { kind: 'vein', count: 6, minTiles: 45, since: 4 },
 ];
 /** No two landmarks closer than this, in tiles, so each is its own destination. */
 const LANDMARK_SPACING = 14;
@@ -181,10 +185,11 @@ const LANDMARK_SPACING = 14;
  * of the island is exactly generation 2's. Each clears the scenery around it,
  * so it stands in a little clearing and reads from a distance.
  */
-function placeLandmarks(world: World): void {
+function placeLandmarks(world: World, worldgen: number): void {
   const rng = makeRng(world.seed ^ 0x1a2d3a4f);
   const placed: Vec2[] = [];
-  for (const { kind, count, minTiles } of LANDMARKS) {
+  for (const { kind, count, minTiles, since } of LANDMARKS) {
+    if (worldgen < since) continue;
     let left = count;
     for (let attempt = 0; attempt < count * 80 && left > 0; attempt++) {
       const tx = Math.floor(rng() * MAP_TILES);

@@ -13,6 +13,13 @@ export function nodeOnTile(world: World, tx: number, ty: number): ResourceNode |
   return null;
 }
 
+/** Landmarks still standing unsearched, which is what the island map counts against `searched`. */
+export function landmarksLeft(nodes: readonly ResourceNode[]): number {
+  let n = 0;
+  for (const node of nodes) if (node.charges > 0 && RESOURCES[node.kind].landmark) n++;
+  return n;
+}
+
 /** True once the player has built where this node grew, so it has nowhere to return to. */
 export function nodeSpotTaken(world: World, node: ResourceNode): boolean {
   const tx = Math.floor(node.pos.x / TILE);

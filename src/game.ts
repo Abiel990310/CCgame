@@ -6,6 +6,7 @@ import { ITEMS, RESOURCES } from '@shared/data/items';
 import { MOBS } from '@shared/data/mobs';
 import { BEACON_STAGES } from '@shared/data/beacon';
 import { litBeacons } from '@shared/sim/beacon';
+import { landmarksLeft } from '@shared/sim/nodes';
 import { CAMP, TICK_DT } from '@shared/sim/constants';
 import {
   buildingAt,
@@ -1476,10 +1477,11 @@ export class Game {
     for (const event of this.world.events) {
       if (event.kind === 'landmark' && event.playerId === this.selfId) {
         const found = RESOURCES[event.landmark].name;
+        const tally = `${this.world.searched} of ${this.world.searched + landmarksLeft(this.world.nodes)}`;
         this.hud.toast(
           RESOURCES[event.landmark].landmark?.boon === 'upgrade'
-            ? `${found} searched. It grants you an upgrade.`
-            : `${found} searched`,
+            ? `${found} searched (${tally}). It grants you an upgrade.`
+            : `${found} searched (${tally})`,
           'good',
         );
         continue;

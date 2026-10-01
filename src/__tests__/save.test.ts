@@ -573,3 +573,37 @@ describe('map pins in a save', () => {
     expect(loadWorld(SLOT)?.pins).toEqual([]);
   });
 });
+
+describe('the landmark count in a save', () => {
+  it('comes back with the island', () => {
+    const world = island();
+    world.searched = 7;
+    saveWorld(world, SLOT);
+    expect(loadWorld(SLOT)?.searched).toBe(7);
+  });
+
+  it('is worked out from what is missing on an island saved before it was counted', () => {
+    const world = createWorld(4242, true, 3);
+    addPlayer(world, 'You');
+    rememberNewIsland(world);
+    const gone = world.nodes.filter((n) => n.kind === 'ruin').slice(0, 3);
+    world.nodes = world.nodes.filter((n) => !gone.includes(n));
+    saveWorld(world, SLOT);
+    const header = JSON.parse(store.get(slotKey(SLOT))!);
+    delete header.searched;
+    store.set(slotKey(SLOT), JSON.stringify(header));
+    const back = loadWorld(SLOT)!;
+    expect(back.worldgen).toBe(3);
+    expect(back.searched).toBe(3);
+  });
+
+  it('is none on an island grown before landmarks existed', () => {
+    const world = createWorld(4242, true, 2);
+    addPlayer(world, 'You');
+    saveWorld(world, SLOT);
+    const header = JSON.parse(store.get(slotKey(SLOT))!);
+    delete header.searched;
+    store.set(slotKey(SLOT), JSON.stringify(header));
+    expect(loadWorld(SLOT)?.searched).toBe(0);
+  });
+});

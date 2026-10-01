@@ -104,6 +104,7 @@ Decisions that shape the architecture. Revisit deliberately, not by accident.
 | Colour grade | Three DOM layers the compositor blends over the stage (grey at `saturation`, a tint at `soft-light`, a vignette), in `src/render/grade.ts`; only the vignette without a graphics card | 2026-09-26, from comparing with Cinderhollow: every screen shared one flat palette, so noon, dusk and a raid looked alike. Grading the frame gives the day a mood without repainting any art, and costs the same under Canvas and Pixi. In software each blended layer cost about 10 fps at night, so a browser drawing WebGL on the CPU gets the vignette alone; `?grade=full` or `?grade=lite` overrides the guess. |
 | Belt tiers | A `BELTS` table of speed and cost per tier; a `Belt` carries only an optional `tier`, and the belt system reads its speed off the belt it moves | Answers the open question: yes. Same shape as machine tiers (one row each, upgrade in place by laying the next tier over it), so a fourth tier is a row. Items move first and change belts afterwards, carrying the distance they overshot a tile edge, or a Mk3 line crawled at tile-per-tick speed and a line's speed depended on the order its belts were laid. The tier is packed into the facing slot of the save row (facing + 4 per tier above the first), so old rows are Mk1 with no migration. |
 | Long-haul transport | A pair of ports bound by id (`Machine.link`), items in flight stored on the sender (`transit`), delay = 1 s + distance / 10 tiles per second, 6 items a second, 96 in flight | One palette item, like the underground belt: the second placed becomes the receiving end and links to the newest unpaired sender, so pairing is a `machine` Command and co-op needs nothing new. Both halves of the trip live on the sender so the pair stays in step whatever the tick order. The capacity is what back-pressures a blocked receiver, and what bounds the longest haul that keeps up with the rate. |
+| Landmark kinds | Each kind in `LANDMARKS` (`shared/sim/world.ts`) carries the generation it first appears in, and is placed after the older kinds on the same random stream | 2026-10-01, the ore vein. Drawing from the one stream after everything older keeps generation 3's landmarks exactly where they were, so the gate is a `since` number rather than a second generator; `WORLDGEN` 4 is only for the new kind, and the generation 3 fingerprints moved to the frozen list. |
 | Repository | Public | Client code is downloadable by every visitor anyway; private would block free hosting and protect nothing. |
 | Server repo (future) | Private, separate | Infrastructure and configuration are worth keeping private — though validation, not secrecy, is what protects a server. |
 
@@ -401,9 +402,13 @@ detail behind the factory entries is in
 - [x] A count of landmarks found and left on the island map: beside the
       explored share it reads "3 to search · 30 undiscovered", and on a phone
       it takes its own line under the tabs.
-- [ ] Searched landmarks leave the island, so the map cannot say how many
-      you have searched. A count kept on the world (or per player) would let
-      it read "5 of 34 searched" and could feed an exploration goal.
+- [x] Searched landmarks leave the island, so the map cannot say how many
+      you have searched. *The world now keeps a count (`world.searched`, saved
+      and sent in co-op snapshots), and an island saved before it works it out
+      from what the seed grew minus what still stands. The map reads "5 of 40
+      searched · 3 to search · 32 undiscovered", the search toast says it too,
+      and a goal after the first research asks for three searches (passed over
+      on islands grown before landmarks).*
 - [x] A late-game megaproject: the **Skyward Beacon**. Research it (logic,
       power and engineering packs, after Solar Power and High-Pressure
       Steam), craft it, and raise it in five stages: foundation, spire,
@@ -460,7 +465,11 @@ detail behind the factory entries is in
       area) with lakes, highlands and richer ore towards the coast; islands
       from before keep their 96 tiles. Exploration fog and an island map (M,
       or the Map button) show what you have seen.
-- [ ] A rich ore vein guarded by a nest, as a landmark kind of its own.
+- [x] A rich ore vein guarded by a nest, as a landmark kind of its own. *The
+      Rich Ore Vein spills iron ore, copper ore, coal and gold, and its nest
+      is a Mother Slime and three crawlers; when she falls her brood holds the
+      nest instead of marching on camp. Six per island from `WORLDGEN` 4, so
+      islands grown at 3 and older do not get them and nothing on them moved.*
 - [x] Map pins: let the player mark a spot on the island map. *The pin tool
       on the map (M) drops a coloured pin where you click and lifts one you
       click; up to 24 per island, shared in co-op, saved with the island and
@@ -1195,6 +1204,14 @@ detail behind the factory entries is in
 - [ ] A face for the voice that answers the beacon, shown on the ending cards.
 
 ### Ideas
+
+- [ ] The landmark count is the island's, so in co-op one friend's searches
+      count for everyone's exploration goal. A per-player tally would make it
+      a personal goal; the world count would stay for the map.
+- [ ] More landmark kinds on `WORLDGEN` 4 or later: a vein per ore (a coal
+      seam, a copper lode), a nest that holds a rarer drop, a ruin that
+      leaves a machine blueprint. Each is a `RESOURCES` row with a `since` in
+      `LANDMARKS`.
 
 - [ ] A Mk3 belt moves at 6.4 tiles a second but a full lane delivers about 15
       items a second, not 25: machines and belts put an item on at offset 0

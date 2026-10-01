@@ -307,6 +307,32 @@ export const RESOURCES: Record<ResourceKind, ResourceDef> = {
       ],
     },
   },
+  vein: {
+    kind: 'vein',
+    name: 'Rich Ore Vein',
+    tool: 'hand',
+    radius: 20,
+    charges: 1,
+    drops: [],
+    xp: 30,
+    landmark: {
+      work: 4,
+      // Raw ore, enough to feed a furnace line for a while: the reason to
+      // fight a nest rather than a reason to skip the mining.
+      cache: [
+        { item: 'ironOre', count: 60 },
+        { item: 'copperOre', count: 40 },
+        { item: 'coal', count: 40 },
+        { item: 'gold', count: 8 },
+      ],
+      // A nest: a mother slime that bursts into a brood when she falls, and
+      // crawlers to keep the walker busy while she does.
+      guards: [
+        { type: 'mother', count: 1 },
+        { type: 'crawler', count: 3 },
+      ],
+    },
+  },
   shrine: {
     kind: 'shrine',
     name: 'Essence Shrine',

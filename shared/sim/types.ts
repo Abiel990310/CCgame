@@ -5,7 +5,7 @@ export type Terrain = 'deep' | 'water' | 'sand' | 'grass' | 'forest' | 'rock';
 export type ResourceKind = 'tree' | 'rock' | 'bush' | 'fish' | LandmarkKind;
 
 /** Places worth travelling to: searched once, never regrown. */
-export type LandmarkKind = 'cache' | 'ruin' | 'pod' | 'shrine';
+export type LandmarkKind = 'cache' | 'ruin' | 'pod' | 'shrine' | 'vein';
 
 export type ItemId =
   // Hand-gathered
@@ -541,6 +541,11 @@ export interface World {
   buildings: Building[];
   /** Map pins, saved with the island and shared by everyone on it. */
   pins: Pin[];
+  /**
+   * Landmarks searched so far. A searched one leaves the island, so this is
+   * the only record that it was ever there: the map reads it as "5 of 34".
+   */
+  searched: number;
   camp: Vec2;
   /** Row-major, 1 where a player has been close enough to see. Parallel to `terrain`. */
   explored: Uint8Array;

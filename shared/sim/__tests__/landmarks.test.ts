@@ -8,8 +8,11 @@ import type { LandmarkKind, Player, ResourceNode, World } from '../types';
 import { addPlayer, createWorld } from '../world';
 import { EMPTY_INPUT } from '../step';
 import { stepCycle } from '../systems/cycle';
+import { damageMob } from '../systems/combat';
+import { landmarksLeft } from '../nodes';
+import { decode, encode, restoreSnapshot, takeSnapshot, type Snapshot } from '../snapshot';
 
-const KINDS: LandmarkKind[] = ['cache', 'ruin', 'pod', 'shrine'];
+const KINDS: LandmarkKind[] = ['cache', 'ruin', 'pod', 'shrine', 'vein'];
 const landmarks = (world: World): ResourceNode[] =>
   world.nodes.filter((n) => (KINDS as string[]).includes(n.kind));
 
@@ -47,6 +50,71 @@ describe('landmarks', () => {
 
   it('leaves an island grown by an older generation without any', () => {
     expect(landmarks(createWorld(4242, false, 2)).length).toBe(0);
+  });
+
+  it('grows ore veins only on generation 4, leaving generation 3 exactly as it was', () => {
+    const three = landmarks(createWorld(4242, false, 3));
+    const four = landmarks(createWorld(4242, false, 4));
+    expect(three.some((n) => n.kind === 'vein')).toBe(false);
+    expect(four.filter((n) => n.kind === 'vein').length).toBeGreaterThan(0);
+    // Everything generation 3 placed is still where it was, by id and place.
+    const by = new Map(four.map((n) => [n.id, n]));
+    for (const n of three) expect(by.get(n.id)?.pos).toEqual(n.pos);
+  });
+
+  describe('counting', () => {
+    it('starts at none searched and counts each search', () => {
+      const world = createWorld(4242, true);
+      expect(world.searched).toBe(0);
+      const player = addPlayer(world, 'Scout');
+      const [a, b] = landmarks(world).filter((n) => n.kind === 'cache');
+      search(world, player, a);
+      expect(world.searched).toBe(1);
+      search(world, player, b);
+      expect(world.searched).toBe(2);
+    });
+
+    it('rides in a snapshot so a guest reads the same tally', () => {
+      const world = createWorld(4242, true);
+      world.searched = 5;
+      expect(restoreSnapshot(decode<Snapshot>(encode(takeSnapshot(world)))).searched).toBe(5);
+      const old = takeSnapshot(world) as Partial<Snapshot>;
+      delete old.searched;
+      expect(restoreSnapshot(old as Snapshot).searched).toBe(0);
+    });
+
+    it('lets landmarksLeft and searched add up to what the island grew', () => {
+      const world = createWorld(4242, true);
+      const total = landmarksLeft(world.nodes);
+      const player = addPlayer(world, 'Scout');
+      search(world, player, landmarks(world).find((n) => n.kind === 'cache')!);
+      expect(world.searched + landmarksLeft(world.nodes)).toBe(total);
+    });
+  });
+
+  describe('the ore vein', () => {
+    it('spills raw ore and is guarded by a nest that holds its ground', () => {
+      const def = RESOURCES.vein.landmark!;
+      expect(def.cache.map((s) => s.item)).toEqual(expect.arrayContaining(['ironOre', 'copperOre', 'coal']));
+      expect(def.guards!.some((g) => g.type === 'mother')).toBe(true);
+
+      const world = createWorld(4242);
+      world.mobs.length = 0;
+      const player = addPlayer(world, 'Scout');
+      player.hp = player.maxHp = 1e6;
+      const vein = landmarks(world).find((n) => n.kind === 'vein')!;
+      player.pos = { x: vein.pos.x + 150, y: vein.pos.y };
+      const idle = new Map([[player.id, EMPTY_INPUT]]);
+      for (let t = 0; t < 30; t++) step(world, idle);
+      const mother = world.mobs.find((m) => m.type === 'mother')!;
+      expect(mother.post).toBeDefined();
+
+      // When she falls her brood keeps the nest rather than marching on camp.
+      damageMob(world, mother, 1e6, player.id);
+      const brood = world.mobs.filter((m) => m.type === 'slime');
+      expect(brood.length).toBeGreaterThan(0);
+      for (const slime of brood) expect(slime.post).toEqual(mother.post);
+    });
   });
 
   it('spills its whole cache when searched, then is gone for good', () => {

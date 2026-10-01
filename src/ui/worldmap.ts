@@ -33,6 +33,7 @@ const LANDMARK_MARK: Partial<Record<ResourceKind, string>> = {
   ruin: '#c8c2b4',
   pod: '#ff7a5a',
   shrine: '#c49cff',
+  vein: '#5fd6c0',
 };
 /** The marker colours a pin can take, indexed by the hue a pin carries. */
 export const PIN_COLORS = ['#ef6171', '#f0b94a', '#6fd68a', '#5aa8f0', '#c49cff', '#f4f1ea'].slice(0, PIN_HUES);
@@ -885,7 +886,8 @@ function mapSprites(r: number): { size: number; trees: HTMLCanvasElement[]; rock
 /**
  * Landmarks left to search, split by whether the map has shown them yet. A
  * searched one is gone from the island, so what remains is what is still
- * worth the walk. Islands grown before landmarks have none, and say nothing.
+ * worth the walk, and `world.searched` is the only record of the rest.
+ * Islands grown before landmarks have none, and say nothing.
  */
 function landmarkTally(world: World): string {
   let spotted = 0;
@@ -897,10 +899,11 @@ function landmarkTally(world: World): string {
     if (world.explored[ty * MAP_TILES + tx] === 1) spotted++;
     else hidden++;
   }
-  if (spotted + hidden === 0) return '';
+  if (spotted + hidden + world.searched === 0) return '';
   const parts = [
+    `${world.searched} of ${world.searched + spotted + hidden} searched`,
     spotted > 0 ? `${spotted} to search` : '',
     hidden > 0 ? `${hidden} undiscovered` : '',
   ].filter(Boolean);
-  return `<span class="worldmap-finds" title="Landmarks on the island not yet searched"><i></i>${parts.join(' · ')}</span>`;
+  return `<span class="worldmap-finds" title="Landmarks searched out of all that this island grew, and where the rest stand"><i></i>${parts.join(' · ')}</span>`;
 }
