@@ -1087,8 +1087,11 @@ detail behind the factory entries is in
       rows in `shared/data/mobs.ts` (`quake`, `rageCount`).)*
 - [ ] The Crystal Bulwark has no second-phase move yet; its ward could
       pulse outward and shove players back once it is enraged.
-- [ ] The Stone Warden reads pale and washed out below a third of its
+- [x] The Stone Warden reads pale and washed out below a third of its
       health, where its cracks and core glow are brightest.
+      *(2026-09-27: the core's light was an additive wash as wide as the
+      torso, and brighter the more it was hurt. It is now a tight orange
+      glow on the core, so the stone keeps its colour and the cracks read.)*
 - [ ] 7. **Movement verbs.** Jump, roll, wall-jump, hook, air dash; ours is
       walk and one dash.
       *2026-09-26: the dash is a forward roll with a counter, and
