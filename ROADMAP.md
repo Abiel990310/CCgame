@@ -675,8 +675,12 @@ detail behind the factory entries is in
 - [ ] Needs testing: nights 26 and on with a Bulwark in the raid. A shielded
       mother slime or brute pack may make those nights a wall; if so, shrink
       the ward's radius before its strength.
-- [ ] Mob damage does not scale with nights, only health. If late nights
-      read as sponge fights, trade some of the health for bite.
+- [x] **Late raiders bite harder, not only tougher.** Past night 6, health
+      rises 6% a night (was 8%) and bite 3% a night, capped at +60%: a brute's
+      14 is 22.4 from night 26. Bosses and landmark keepers keep their tuned
+      damage. *Shipped 2026-10-01; measured in a browser, 14 then 22.4.*
+- [ ] Spit and quake damage from late creatures still do not scale; only the
+      melee bite does.
 - [x] Belts, machine bodies and belt items are baked sprites copied to whole
       pixels (belts at 16 tread phases per facing). A dense factory, 300
       machines and 600 belts on a 2x screen, went from 17 to 29 fps headless.
