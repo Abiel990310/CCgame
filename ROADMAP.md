@@ -592,8 +592,10 @@ detail behind the factory entries is in
       while the pause or inventory screen is up, so the interface sits in front
       of the island rather than inside it. Done for pause, level-up, bag and map;
       music and interface clicks stay clear.
-- [ ] **A sound for a finished research cycle**, and a different one for a
+- [x] **A sound for a finished research cycle**, and a different one for a
       finished tech. A lab is the one machine whose output is invisible.
+      *A quiet two-note blip per cycle (throttled, so a lab bank is a patter
+      not a roar) and a rising four-note chord when a tech completes.*
 - [x] **Bag upgrades** — three bags at the workbench, sewn on in order, each a
       row of 8 more slots: a Woven Satchel (fibre and wood, 32), an Iron-Frame
       Pack (iron plate, 40) and a Steel Rucksack (steel and gears, 48). Sewn on
@@ -951,6 +953,16 @@ detail behind the factory entries is in
       Checked in passing, nothing else to fix: a 2.5-minute soak of gliding
       and raids keeps a flat heap on both renderers, and the simulation
       runs 6,400 machines and 13,000 belts in under 1 ms a tick.
+- [x] Every cached sprite on the Canvas renderer (belt items, machine parts,
+      pixel pieces, item icons) was drawn by stepping out to the identity
+      transform, drawing, and stepping back, three transform calls a sprite
+      and thousands of sprites a frame. They are now drawn in place, sized
+      back through the scale the context already holds, so each texel still
+      lands on one device pixel. Canvas desktop: late factory 5.7 → 5.2 ms,
+      night raid over it 7.4 → 5.8 ms; emulated phone: factory 25 → 21 ms,
+      dying raid 34 → 21 ms. The world is pixel-identical to before at 1x
+      and 2x (the GPU renderer's frame differs from main by exactly the
+      run-to-run noise between two runs of main).
 - [ ] On the GPU renderer, the first seconds after a big factory comes into
       view were ~100 ms frames headless, nearly all in vertex buffer uploads
       (`bufferSubData`) inside software WebGL; steady state is ~5 ms. Needs a

@@ -1,3 +1,4 @@
+import { TICK_DT } from '../constants';
 import { describe, expect, it } from 'vitest';
 import { MACHINES } from '../../data/machines';
 import { RECIPES } from '../../data/recipes';
@@ -116,6 +117,30 @@ describe('a lab', () => {
     // Four cycles paid for, and the fifth already swallowed.
     expect(countIn(lab.input, 'researchPack')).toBe(5);
     expect(xpOf(b.world)).toBeGreaterThan(before);
+  });
+
+  it('announces a finished cycle quietly, and a finished tech once and loudly', () => {
+    const b = labBench();
+    const lab = put(b, 'lab', at(14, 2).tx, at(14, 2).ty, 0) as Machine;
+    fill(lab.input, 'researchPack', 20, MACHINES.lab.slotSize);
+    setResearch(b.world, 'automation');
+    const tech = TECH_BY_ID.get('automation')!;
+    const needed = cyclesNeeded(b.world, tech);
+    expect(needed).toBeGreaterThan(1);
+
+    // Tick by tick, since the event buffer only holds the last tick's.
+    let cycles = 0;
+    let techs = 0;
+    for (let i = 0; i < ((tech.time * needed) / TICK_DT) * 1.5 && techs === 0; i++) {
+      advance(b.world, TICK_DT);
+      for (const e of b.world.events) {
+        if (e.kind === 'researchCycle') cycles++;
+        if (e.kind === 'research') techs++;
+      }
+    }
+    // Every cycle but the last is a quiet one; the last is the tech itself.
+    expect(cycles).toBe(needed - 1);
+    expect(techs).toBe(1);
   });
 
   it('stalls with nothing to research, and idles without packs', () => {
