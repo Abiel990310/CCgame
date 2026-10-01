@@ -124,6 +124,11 @@ describe('co-op replay', () => {
         pending.push({ p: player.id, c: { k: 'machine', what: 'tunnel', tx: ore.tx + 4, ty: ore.ty + 3, dir: 0 } });
         pending.push({ p: player.id, c: { k: 'machine', what: 'furnaceMk3', tx: ore.tx + 6, ty: ore.ty, dir: 0 } });
         pending.push({ p: player.id, c: { k: 'machine', what: 'turret', tx: ore.tx + 9, ty: ore.ty, dir: 0 } });
+        // A panel and an accumulator on one pole, so a bank charging through
+        // the day is covered: its charge is state a guest must replay.
+        pending.push({ p: player.id, c: { k: 'machine', what: 'pole', tx: ore.tx + 7, ty: ore.ty + 1, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'solar', tx: ore.tx + 8, ty: ore.ty + 1, dir: 0 } });
+        pending.push({ p: player.id, c: { k: 'machine', what: 'accumulator', tx: ore.tx + 8, ty: ore.ty + 2, dir: 0 } });
       }
       if (t === 402) {
         // Bitten the same on both copies, so the mend below is what is replayed.
@@ -149,6 +154,7 @@ describe('co-op replay', () => {
       { id: 'speedModule', count: 1 },
       { id: 'speedModule', count: 1 },
     ]);
+    expect(guest.machines.find((m) => m.type === 'accumulator')!.charge).toBeGreaterThan(0);
     expect(host.nightIndex).toBeGreaterThan(0);
     expect(host.players.size).toBe(2);
     expect(player.bag).toBe(1);

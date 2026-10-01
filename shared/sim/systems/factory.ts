@@ -281,6 +281,7 @@ export function stepMachines(world: World, dt: number): void {
         break;
       case 'generator':
       case 'solar':
+      case 'accumulator':
         // `stepPower` runs generators on a network; one no pole reaches is idle.
         if (!powerNetOf(world, machine)) machine.stalled = true;
         break;

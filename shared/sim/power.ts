@@ -16,7 +16,10 @@ export interface PowerNet {
   demand: number;
   /** Share of the demand met, 0 to 1: every machine on it runs at this speed. */
   satisfaction: number;
+  /** kW the accumulators on it are putting in (positive) or giving out (negative) this tick. */
+  flow: number;
   generators: Machine[];
+  accumulators: Machine[];
   consumers: Machine[];
   poles: Machine[];
 }
@@ -46,7 +49,7 @@ function layoutKey(world: World): number {
   let h = 0x811c9dc5;
   for (const m of world.machines) {
     const def = MACHINES[m.type];
-    if (!def.power && !def.generates && def.family !== 'pole') continue;
+    if (!def.power && !def.generates && !def.stores && def.family !== 'pole') continue;
     h = Math.imul(h ^ m.id, 0x01000193);
     h = Math.imul(h ^ (m.tx * 4099 + m.ty), 0x01000193);
     h = Math.imul(h ^ (def.power ?? 0) ^ ((def.generates ?? 0) << 12), 0x01000193);
@@ -94,7 +97,7 @@ function buildLayout(world: World, key: number): Layout {
     const root = find(i);
     let net = byRoot.get(root);
     if (!net) {
-      net = { supply: 0, demand: 0, satisfaction: 0, generators: [], consumers: [], poles: [] };
+      net = { supply: 0, demand: 0, satisfaction: 0, flow: 0, generators: [], accumulators: [], consumers: [], poles: [] };
       byRoot.set(root, net);
       nets.push(net);
     }
@@ -110,6 +113,7 @@ function buildLayout(world: World, key: number): Layout {
         if (!m || !('type' in m) || netOf.has(m.id)) continue;
         const def = MACHINES[m.type];
         if (def.generates) net.generators.push(m);
+        else if (def.stores) net.accumulators.push(m);
         else if (def.power) net.consumers.push(m);
         else continue;
         netOf.set(m.id, net);
@@ -121,6 +125,7 @@ function buildLayout(world: World, key: number): Layout {
   const order = new Map(world.machines.map((m, i) => [m.id, i]));
   for (const net of nets) {
     net.generators.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
+    net.accumulators.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
     net.consumers.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
   }
   return { key, nets, netOf, wires };
@@ -172,17 +177,35 @@ export function stepPower(world: World, dt: number): void {
       if (!m.stalled || m.unpowered) net.demand += powerDraw(m);
     }
 
+    // Daylight panels have no fuel to save, so they carry the load first; the
+    // accumulators cover what they cannot, and only the rest burns coal.
     net.supply = 0;
+    let free = 0;
+    let fuelled = 0;
     for (const g of net.generators) {
       const def = MACHINES[g.type];
       // A generator with no firebox runs on daylight instead.
       const running = def.fuelSlots > 0 ? hasFuel(g) : daylight;
       g.stalled = !running;
-      if (running) net.supply += (def.generates ?? 0) * bonus.power;
+      if (!running) continue;
+      const kw = (def.generates ?? 0) * bonus.power;
+      net.supply += kw;
+      if (def.fuelSlots > 0) fuelled += kw;
+      else free += kw;
     }
 
-    net.satisfaction = net.demand === 0 ? 1 : Math.min(1, net.supply / net.demand);
-    const load = net.supply === 0 ? 0 : Math.min(1, net.demand / net.supply);
+    // Only a daylight surplus charges a bank: an engine never burns coal to
+    // fill one, which is what keeps a coal base from paying for power it
+    // never uses.
+    const surplus = Math.max(0, free - net.demand);
+    const shortfall = Math.max(0, net.demand - free);
+    const stored = flowAccumulators(net.accumulators, surplus, shortfall, dt);
+    net.flow = stored;
+
+    const given = Math.max(0, -stored);
+    net.satisfaction = net.demand === 0 ? 1 : Math.min(1, (net.supply + given) / net.demand);
+    const rest = Math.max(0, shortfall - given);
+    const load = fuelled === 0 ? 0 : Math.min(1, rest / fuelled);
     if (load === 0) continue;
 
     // Every engine shares the load evenly, so a bank drains its coal together
@@ -192,6 +215,46 @@ export function stepPower(world: World, dt: number): void {
       g.heat = (g.heat ?? 0) - dt * load;
     }
   }
+}
+
+/** What a network's accumulators hold between them, and could hold, in kJ. */
+export function bankOf(net: PowerNet): { charge: number; capacity: number } {
+  let charge = 0;
+  let capacity = 0;
+  for (const m of net.accumulators) {
+    charge += m.charge ?? 0;
+    capacity += MACHINES[m.type].stores!.capacity;
+  }
+  return { charge, capacity };
+}
+
+/**
+ * Move `surplus` kW into the banks, or `shortfall` kW out of them, whichever
+ * the network asks for, sharing it by what each can take or give so a row of
+ * accumulators fills and drains together. Returns the net kW stored: positive
+ * charging, negative discharging.
+ */
+function flowAccumulators(banks: Machine[], surplus: number, shortfall: number, dt: number): number {
+  if (banks.length === 0 || (surplus === 0 && shortfall === 0)) return 0;
+  const charging = surplus > 0;
+  const room = banks.map((m) => {
+    const { capacity, rate } = MACHINES[m.type].stores!;
+    const charge = m.charge ?? 0;
+    return Math.max(0, Math.min(rate, (charging ? capacity - charge : charge) / dt));
+  });
+  const total = room.reduce((a, b) => a + b, 0);
+  if (total === 0) return 0;
+  const moved = Math.min(charging ? surplus : shortfall, total);
+  banks.forEach((m, i) => {
+    const kj = (room[i] / total) * moved * dt;
+    const next = (m.charge ?? 0) + (charging ? kj : -kj);
+    // Float drift must never leave a bank a hair outside its bounds.
+    const capacity = MACHINES[m.type].stores!.capacity;
+    const clamped = Math.min(capacity, Math.max(0, next));
+    if (clamped > 0) m.charge = clamped;
+    else delete m.charge;
+  });
+  return charging ? moved : -moved;
 }
 
 /**

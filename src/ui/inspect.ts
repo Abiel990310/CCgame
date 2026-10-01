@@ -8,7 +8,7 @@ import { beltAt, machineAt, tunnelEntranceOf, tunnelExitOf } from '@shared/sim/f
 import { buildingAt } from '@shared/sim/building';
 import { tileKey, toTile } from '@shared/sim/grid';
 import { oreAt } from '@shared/sim/ore';
-import { powerNetOf } from '@shared/sim/power';
+import { bankOf, powerNetOf } from '@shared/sim/power';
 import { powerDraw } from '@shared/sim/modules';
 import { machineRates } from '@shared/sim/rates';
 import { BEACON_BOOST, BEACON_FUEL_CAP, BEACON_STAGES, BEACON_WARD_TILES } from '@shared/data/beacon';
@@ -329,6 +329,7 @@ export class Inspector {
 
 function describeMachine(world: World, machine: Machine, ledger: Ledger): Card {
   const def = MACHINES[machine.type];
+  if (def.stores) return describeAccumulator(world, machine);
   if (def.family === 'pole' || def.generates) return describePower(world, machine);
   if (def.family === 'beacon') return describeBeacon(machine);
   if (def.family === 'turret') {
@@ -436,6 +437,48 @@ function describeBeacon(machine: Machine): Card {
 }
 
 /**
+ * An accumulator is a charge: how much it holds, whether the network is filling
+ * it or draining it, and for a drain how long that lasts at the present load.
+ */
+function describeAccumulator(world: World, machine: Machine): Card {
+  const def = MACHINES[machine.type];
+  const net = powerNetOf(world, machine);
+  const held = machine.charge ?? 0;
+  const { capacity } = def.stores!;
+  const rows: Array<[string, string]> = [['Charge', `${Math.round(held)} / ${capacity} kJ`]];
+  let status: Card['status'];
+
+  if (!net) {
+    status = { text: 'No pole in reach', tone: 'warn' };
+  } else {
+    const bank = bankOf(net);
+    if (net.accumulators.length > 1) rows.push(['Bank', `${Math.round(bank.charge)} / ${bank.capacity} kJ`]);
+    if (net.flow > 0) {
+      status = { text: 'Charging', tone: 'good' };
+      rows.push(['Taking in', `${Math.round(net.flow)} kW`]);
+    } else if (net.flow < 0) {
+      status = { text: 'Powering the base', tone: 'warn' };
+      rows.push(['Giving out', `${Math.round(-net.flow)} kW`]);
+      rows.push(['Lasts', `about ${Math.max(1, Math.round(bank.charge / -net.flow))} s`]);
+    } else if (held >= capacity - 0.5) {
+      status = { text: 'Full', tone: 'good' };
+    } else if (held <= 0.5) {
+      status = { text: 'Empty: needs a daytime surplus', tone: 'warn' };
+    } else {
+      status = { text: 'Holding', tone: '' };
+    }
+  }
+  return {
+    title: def.name,
+    icon: pieceIconVar(`machine:${machine.type}`),
+    status,
+    rows,
+    // Low is only worth a warning when nothing is filling it back up.
+    meter: { value: held / capacity, tone: held / capacity < 0.15 && !(net && net.flow > 0) ? 'warn' : 'good' },
+  };
+}
+
+/**
  * A pole or an engine is its network: what it can give, what is asked of it,
  * and whether the one is enough for the other.
  */
@@ -451,16 +494,24 @@ function describePower(world: World, machine: Machine): Card {
       ? { text: 'No pole in reach', tone: 'warn' }
       : { text: 'No engine on this line', tone: 'warn' };
   } else {
-    const used = Math.min(net.demand, net.supply);
+    // An accumulator giving out counts as supply, or a base running on its
+    // bank at night would read as unpowered.
+    const given = Math.max(0, -net.flow);
+    const used = Math.min(net.demand, net.supply + given);
     rows.push(['Supply', `${Math.round(net.supply)} kW`], ['Demand', `${Math.round(net.demand)} kW`]);
     if (def.generates && outOfFuel(machine)) status = { text: 'Out of fuel', tone: 'bad' };
     else if (def.generates && def.fuelSlots === 0 && machine.stalled) status = { text: 'Dark until morning', tone: 'warn' };
+    else if (net.supply === 0 && given > 0) status = { text: 'Running on the accumulators', tone: 'warn' };
     else if (net.supply === 0) status = { text: 'No engine running', tone: 'bad' };
     else if (net.satisfaction < 1) status = { text: `Overloaded: ${Math.round(net.satisfaction * 100)}% speed`, tone: 'bad' };
     else if (net.demand === 0) status = { text: 'Idle', tone: 'warn' };
     else status = { text: 'Powered', tone: 'good' };
-    if (net.supply > 0) meter = { value: used / net.supply, tone: net.satisfaction < 1 ? 'bad' : 'good' };
+    if (net.supply + given > 0) meter = { value: used / (net.supply + given), tone: net.satisfaction < 1 ? 'bad' : 'good' };
     if (def.family === 'pole') rows.push(['Poles', String(net.poles.length)], ['Machines', String(net.consumers.length)]);
+    if (net.accumulators.length > 0) {
+      const bank = bankOf(net);
+      rows.push(['Banked', `${Math.round(bank.charge)} / ${bank.capacity} kJ`]);
+    }
   }
   return {
     title: def.name,
