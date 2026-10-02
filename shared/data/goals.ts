@@ -1,5 +1,7 @@
 import { BEACON_LIT } from './beacon';
 import { MACHINES } from './machines';
+import { FAR_SHORE } from '../sim/regions';
+import { TILE } from '../sim/constants';
 import type { ItemId, MachineFamily, Player, World } from '../sim/types';
 
 /**
@@ -241,6 +243,34 @@ export const GOALS: GoalDef[] = [
     have: (w) => w.machines.filter((m) => MACHINES[m.type].power && !m.unpowered && !m.stalled).length,
     need: 1,
     xp: 80,
+  },
+  {
+    id: 'farShore',
+    title: 'Cross to the Far Shore',
+    hint: 'Research Causeways, lay a bridge out from the east coast and walk the deck across to the second island.',
+    touchHint: 'Research Causeways, then drag a bridge out from the east coast and walk across.',
+    have: (_w, p) => (Math.hypot(p.pos.x / TILE - FAR_SHORE.cx, p.pos.y / TILE - FAR_SHORE.cy) <= FAR_SHORE.radius ? 1 : 0),
+    need: 1,
+    xp: 100,
+    skip: (w) => w.worldgen < 4,
+  },
+  {
+    id: 'titaniumPlate',
+    title: 'Smelt titanium',
+    hint: 'Titanium ore only grows on the Far Shore. A steel miner digs it and a steel furnace, burning coal, smelts the plate.',
+    have: (w, p) => itemsAnywhere(w, p, 'titaniumPlate'),
+    need: 10,
+    xp: 110,
+    skip: (w) => w.worldgen < 4,
+  },
+  {
+    id: 'frontierPack',
+    title: 'Make frontier packs',
+    hint: 'A titanium plate and a circuit make the pack that feeds the techs behind Causeways.',
+    have: (w, p) => itemsAnywhere(w, p, 'frontierPack'),
+    need: 5,
+    xp: 120,
+    skip: (w) => w.worldgen < 4,
   },
   {
     id: 'engineeringPack',

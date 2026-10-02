@@ -3,6 +3,8 @@ import { CRAFT_BY_ID } from '../../data/crafting';
 import { GOALS } from '../../data/goals';
 import { applyOrder } from '../commands';
 import { catchUpGoals, restoreGoal } from '../goals';
+import { FAR_SHORE } from '../regions';
+import { TILE } from '../constants';
 import { beltAt, placeBelt, turnAt } from '../factory';
 import { addItem, removeItem } from '../inventory';
 import type { World } from '../types';
@@ -82,6 +84,49 @@ describe('goals', () => {
     catchUpGoals(b.world, b.player);
     expect(GOALS[b.player.goal].id).toBe('belt');
     expect(goalEvents(b.world)).toEqual([]);
+  });
+});
+
+describe('the Far Shore goals', () => {
+  const ids = (world: World, from: string): string[] => {
+    const player = addPlayer(world, 'p');
+    player.goal = GOALS.findIndex((g) => g.id === from);
+    return [...GOALS.slice(player.goal)].filter((g) => !g.skip?.(world)).map((g) => g.id);
+  };
+
+  it('sit between powering a machine and the engineering packs', () => {
+    const order = GOALS.map((g) => g.id);
+    const far = order.indexOf('farShore');
+    expect(order.slice(far - 1, far + 4)).toEqual(['powered', 'farShore', 'titaniumPlate', 'frontierPack', 'engineeringPack']);
+  });
+
+  it('are passed over on an island made before the second island existed', () => {
+    const old = createWorld(7, true, 3);
+    const rest = ids(old, 'powered');
+    expect(rest).toContain('engineeringPack');
+    expect(rest).not.toContain('farShore');
+    expect(rest).not.toContain('titaniumPlate');
+    expect(rest).not.toContain('frontierPack');
+  });
+
+  it('are met in order: standing on the far island, then plates, then packs', () => {
+    const world = createWorld(7, true);
+    const player = addPlayer(world, 'p');
+    player.goal = GOALS.findIndex((g) => g.id === 'farShore');
+    advance(world, 1.1);
+    expect(player.goal).toBe(GOALS.findIndex((g) => g.id === 'farShore'));
+
+    player.pos = { x: FAR_SHORE.cx * TILE, y: FAR_SHORE.cy * TILE };
+    advance(world, 1.1);
+    expect(GOALS[player.goal].id).toBe('titaniumPlate');
+
+    addItem(player, 'titaniumPlate', 10);
+    advance(world, 1.1);
+    expect(GOALS[player.goal].id).toBe('frontierPack');
+
+    addItem(player, 'frontierPack', 5);
+    advance(world, 1.1);
+    expect(GOALS[player.goal].id).toBe('engineeringPack');
   });
 });
 
