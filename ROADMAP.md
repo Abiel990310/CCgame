@@ -620,6 +620,12 @@ detail behind the factory entries is in
         Causeways: Titanium Alloys (weapon damage), then Heat Shielding (fuel),
         Core Sampling (ore yield), Precision Optics (lab speed) and the
         repeatable Frontier Drilling. *Shipped 2026-10-01.*
+- [x] **Far Shore goals** — three rows after "Power an electric machine":
+      cross to the Far Shore (stand on the island), smelt ten titanium
+      plates, make five frontier packs. Passed over on islands made before
+      worldgen 4, which have no second island. *Shipped 2026-10-02.*
+  - [ ] The tracker's "Goal N of M" counts rows an island skips, so an old
+        island reads one count higher than it can reach.
 - [x] **Mob voices** — each of the nine creatures dies to its own sound: a
       slime pops, crawlers click, a wisp rises away, a brute thuds, a spitter
       gurgles, a shellback cracks, the Warden crumbles and the Queen shrieks.
